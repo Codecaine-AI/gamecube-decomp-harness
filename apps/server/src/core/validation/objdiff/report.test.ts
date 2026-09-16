@@ -166,6 +166,55 @@ describe("buildRegressionReport rename pairing", () => {
     expect(report.newMatches).toEqual([]);
   });
 
+  test("several units consolidated into one pair their sections by address range", () => {
+    const destination = "main/sysdolphin/baselib/card";
+    const report = buildRegressionReport(movedUnitChanges([
+      {
+        name: "main/sysdolphin/baselib/hsd_3A94",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        sections: [{ name: ".text", from: { fuzzy_match_percent: 100, size: "128" }, metadata: { virtual_address: "2151323000" } }],
+        functions: [fnRow({ name: "hsd_3A94_fn", from: 100, fromSize: 128, address: "2151323000" })],
+      },
+      {
+        name: "main/sysdolphin/baselib/hsd_3B27",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        sections: [{ name: ".text", from: { fuzzy_match_percent: 100, size: "812" }, metadata: { virtual_address: "2151360500" } }],
+        functions: [fnRow({ name: "hsd_3B27_fn", from: 100, fromSize: 64, address: "2151360500" })],
+      },
+      {
+        name: "main/sysdolphin/baselib/hsd_3B2E",
+        from: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        sections: [
+          { name: ".text", from: { fuzzy_match_percent: 100, size: "1344" }, metadata: { virtual_address: "2151362052" } },
+          { name: ".data", from: { fuzzy_match_percent: 100, size: "112" }, metadata: { virtual_address: "2151877584" } },
+        ],
+        functions: [fnRow({ name: "hsd_3B2E_fn", from: 100, fromSize: 64, address: "2151362052" })],
+      },
+      {
+        name: destination,
+        to: { fuzzy_match_percent: 100, matched_code_percent: 100 },
+        sections: [
+          { name: ".text", to: { fuzzy_match_percent: 100, size: "40616" }, metadata: { virtual_address: "2151322780" } },
+          { name: ".data", to: { fuzzy_match_percent: 100, size: "256" }, metadata: { virtual_address: "2151877440" } },
+        ],
+        functions: [
+          fnRow({ name: "hsd_3A94_fn", to: 100, toSize: 128, address: "2151323000" }),
+          fnRow({ name: "hsd_3B27_fn", to: 100, toSize: 64, address: "2151360500" }),
+          fnRow({ name: "hsd_3B2E_fn", to: 100, toSize: 64, address: "2151362052" }),
+        ],
+      },
+    ]), "test", 0);
+
+    expect(report.regressions).toEqual([]);
+    expect(report.brokenMatches).toEqual([]);
+    expect(report.fuzzyRegressions).toEqual([]);
+    expect(report.movedUnits).toEqual([
+      { from: "main/sysdolphin/baselib/hsd_3A94", to: destination },
+      { from: "main/sysdolphin/baselib/hsd_3B27", to: destination },
+      { from: "main/sysdolphin/baselib/hsd_3B2E", to: destination },
+    ]);
+  });
+
   test("pure rename at 100% pairs by address and is not counted as a regression", () => {
     const report = build([
       fnRow({ name: "fn_8002F488", from: 100, fromSize: 76, address: "2147677320" }),

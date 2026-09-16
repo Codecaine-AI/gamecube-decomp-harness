@@ -190,7 +190,8 @@ async function preferredConfigureCommand(repoRoot: string, toolPlatform: ToolPla
   if (isHostToolPlatform(toolPlatform) && (await pathCommandExists("wibo"))) {
     return ["/bin/sh", "-c", configureCommandWithWrapper(base, "wibo")];
   }
-  return base.split(" ");
+  // The base command may carry shell substitutions (Melee flag probe); run it through sh.
+  return ["/bin/sh", "-c", base];
 }
 
 function asObject(value: unknown): Record<string, unknown> {

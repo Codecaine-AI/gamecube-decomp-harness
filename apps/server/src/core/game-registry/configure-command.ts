@@ -1,6 +1,15 @@
+/**
+ * Melee revisions before doldecomp/melee#3471 (2026-09-13) opt into prototype
+ * checking with `--require-protos`; later revisions require prototypes by
+ * default and reject the flag. The command runs through `/bin/sh -c`, so probe
+ * the checkout's own `configure.py --help` and pass the flag only when it exists.
+ */
+export const MELEE_REQUIRE_PROTOS_PROBE =
+  "$(python3 configure.py --help 2>/dev/null | grep -q '[[:space:]]--require-protos' && printf %s --require-protos)";
+
 export function baseConfigureCommand(game?: { kind?: string } | null): string {
   return !game?.kind || game.kind === "doldecomp-melee"
-    ? "python3 configure.py --require-protos"
+    ? `python3 configure.py ${MELEE_REQUIRE_PROTOS_PROBE}`
     : "python3 configure.py";
 }
 

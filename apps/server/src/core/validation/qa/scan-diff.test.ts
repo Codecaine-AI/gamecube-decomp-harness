@@ -128,16 +128,16 @@ describe("runQaScanDiff game resolution", () => {
     expect(invocation.env?.ORCH_GAME_DIR).toBe(resolve(orchestratorRoot, "games/sms"));
     expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBe(qaScanGlobalStandardsDir(orchestratorRoot));
     expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBe(
-      resolve(orchestratorRoot, "games/melee/knowledge/sources/injectable/decomp_standards/standards"),
+      resolve(orchestratorRoot, "knowledge/global/sources/injectable/decomp_standards/standards"),
     );
     expect(invocation.command).toContain("--diff-file");
     expect(invocation.command).toContain("--surface");
   });
 
-  test("does not set the global standards dir for melee itself", async () => {
+  test("sets the global standards dir for melee too (its game tree is an empty shell)", async () => {
     const invocation = await invoke({ gameId: "melee" });
     expect(invocation.toolError).toBeNull();
     expect(invocation.env?.ORCH_GAME_DIR).toBe(resolve(orchestratorRoot, "games/melee"));
-    expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBeUndefined();
+    expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBe(qaScanGlobalStandardsDir(orchestratorRoot));
   });
 });

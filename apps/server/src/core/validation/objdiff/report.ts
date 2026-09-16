@@ -169,15 +169,27 @@ function resolveCrossUnitMoves(report: ObjdiffReportChanges): { report: ObjdiffR
       const sourceRows = asArray<ReportRow>(sourceUnit[kind]).filter((row) => row.from != null && row.to == null);
       for (const sourceRow of sourceRows) {
         const matches = targets.filter(({ unit, row }) => {
-          if (unit.name === sourceUnit.name || usedTargets.has(row)) return false;
+          if (unit.name === sourceUnit.name) return false;
           if (kind === "sections") {
-            return sourceRow.name === row.name && rowAddress(sourceRow) !== null && rowAddress(sourceRow) === rowAddress(row);
+            const sourceAddress = rowAddress(sourceRow);
+            const targetAddress = rowAddress(row);
+            if (sourceRow.name !== row.name || sourceAddress === null || targetAddress === null) return false;
+            if (sourceAddress === targetAddress) return !usedTargets.has(row);
+            const sourceValue = Number(sourceAddress);
+            const targetValue = Number(targetAddress);
+            const targetSize = toNumber(row.to?.size);
+            return Number.isFinite(sourceValue)
+              && Number.isFinite(targetValue)
+              && targetSize > 0
+              && sourceValue >= targetValue
+              && sourceValue < targetValue + targetSize;
           }
+          if (usedTargets.has(row)) return false;
           return sameItem(sourceRow, row, includeName);
         });
         if (matches.length !== 1) continue;
         const target = matches[0]!;
-        usedTargets.add(target.row);
+        if (kind === "functions" || rowAddress(sourceRow) === rowAddress(target.row)) usedTargets.add(target.row);
         if (target.row.from == null) target.row.from = sourceRow.from;
         target.row.movedAcrossUnits = true;
         const sourceList = sourceUnit[kind] as ReportRow[];

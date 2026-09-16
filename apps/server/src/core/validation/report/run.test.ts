@@ -57,8 +57,8 @@ printf '%s\\n' '{"measures":{}}' > build/GMSJ01/report.json
       const result = await forceReportRun(repoRoot, options);
 
       expect(options.kind).toBe("doldecomp-sms");
-      expect(result.steps[0]?.command).toEqual(["python3", "configure.py"]);
-      expect(result.steps[0]?.command).not.toContain("--require-protos");
+      expect(result.steps[0]?.command).toEqual(["/bin/sh", "-c", "python3 configure.py"]);
+      expect(result.steps[0]?.command.join(" ")).not.toContain("--require-protos");
     } finally {
       if (originalPath === undefined) delete Bun.env.PATH;
       else Bun.env.PATH = originalPath;
@@ -416,8 +416,11 @@ exit 1
         incompleteUnits: 3,
       });
       expect(boardMeasuresFromReportSummary(result.summary).unmatched_targets).toBe(10);
+      // The Melee command probes `configure.py --help` for --require-protos
+      // support first; the fake python3 advertises nothing, so no flag follows.
       expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
-        "python3 configure.py --require-protos",
+        "python3 configure.py --help",
+        "python3 configure.py",
         "ninja -k 0 build/GALE01/report.json",
         "ninja changes_all",
       ]);
@@ -467,7 +470,10 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
     try {
       await forceReportRun(repoRoot);
 
-      expect(readFileSync(logPath, "utf8").trim().split("\n")[0]).toBe("python3 configure.py --require-protos --wrapper build/tools/wibo");
+      expect(readFileSync(logPath, "utf8").trim().split("\n").slice(0, 2)).toEqual([
+        "python3 configure.py --help",
+        "python3 configure.py --wrapper build/tools/wibo",
+      ]);
       expect(readFileSync(resolve(repoRoot, "build", "tools", "wibo"), "utf8")).toBe("wibo\n");
     } finally {
       if (originalPath === undefined) delete Bun.env.PATH;
@@ -519,7 +525,10 @@ printf '{"ok":true}\\n' > build/GALE01/report_changes.json
     try {
       await forceReportRun(repoRoot);
 
-      expect(readFileSync(logPath, "utf8").trim()).toBe("python3 configure.py --require-protos --wrapper build/tools/wibo");
+      expect(readFileSync(logPath, "utf8").trim().split("\n")).toEqual([
+        "python3 configure.py --help",
+        "python3 configure.py --wrapper build/tools/wibo",
+      ]);
       expect(readFileSync(resolve(repoRoot, "build/tools/wibo"), "utf8")).toBe("linux wrapper\n");
     } finally {
       if (originalPath === undefined) delete Bun.env.PATH;

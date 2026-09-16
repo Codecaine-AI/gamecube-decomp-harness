@@ -1,3 +1,4 @@
+import { MELEE_REQUIRE_PROTOS_PROBE } from "@server/core/game-registry/configure-command.js";
 import { beforeAll as beforeBuildTests, afterAll as afterBuildTests } from "bun:test";
 // These fixtures exercise local tool behavior. Production defaults to Daytona.
 let previousBuildMode: string | undefined;
@@ -82,7 +83,7 @@ afterEach(() => {
 describe("production baseline tracing", () => {
   test.each([
     ["doldecomp-sms", "python3 configure.py --wrapper build/tools/wibo"],
-    ["doldecomp-melee", "python3 configure.py --require-protos --wrapper build/tools/wibo"],
+    ["doldecomp-melee", `python3 configure.py ${MELEE_REQUIRE_PROTOS_PROBE} --wrapper build/tools/wibo`],
   ])("uses the configure command for %s", async (kind, expectedConfigureCommand) => {
     const repoRoot = tempDir("pr-baseline-configure-repo-");
     const stateDir = tempDir("pr-baseline-configure-state-");

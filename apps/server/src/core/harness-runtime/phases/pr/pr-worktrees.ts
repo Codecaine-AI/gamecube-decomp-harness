@@ -200,7 +200,8 @@ function preferredConfigureCommand(paths: PrWorktreeGameContext, worktreeDir: st
   if (isHostToolPlatform(toolPlatform) && pathCommandExists("wibo")) {
     return ["/bin/sh", "-c", configureCommandWithWrapper(baseCommand, "wibo")];
   }
-  return baseCommand.split(" ");
+  // The base command may carry shell substitutions (Melee flag probe); run it through sh.
+  return ["/bin/sh", "-c", baseCommand];
 }
 
 function sourcePathFromUnit(name: string): string {

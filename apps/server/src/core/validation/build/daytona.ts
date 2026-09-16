@@ -12,6 +12,7 @@ import { DaytonaSandboxProvider, type SandboxHandle, type SandboxProvider } from
 import { ensureSandboxToolpack } from "@server/core/job-queue/provisioning.js";
 import { runCommand } from "@server/infrastructure/shell/run-command.js";
 import type { BuildTask } from "./execution.js";
+import { GLOBAL_STANDARDS_SLICES_RELATIVE_PATH } from "../qa/scan-diff.js";
 
 const REMOTE_ORCHESTRATOR = "/opt/build-orchestrator";
 const REMOTE_RUNNER = `${REMOTE_ORCHESTRATOR}/apps/server/src/core/knowledge/build-worker.mjs`;
@@ -158,11 +159,19 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
       await exec(["mkdir", "-p", `${REMOTE_ORCHESTRATOR}/toolpacks`]);
       await exec(["cp", "-a", "/opt/toolpacks/gamecube-decomp", `${REMOTE_ORCHESTRATOR}/toolpacks/gamecube-decomp`]);
       await sandbox.writeFile(`${REMOTE_ORCHESTRATOR}/package.json`, JSON.stringify({ name: "harness-build-runner", private: true }));
+      // Global standards live in the platform-level knowledge root; the scan
+      // composes them with the game's own tree (Melee's is an empty shell).
+      // Banned-pattern data is still Melee review-corpus data, so its game dir
+      // is uploaded alongside the scanned game's.
+      await uploadTree(sandbox, resolve(game.orchestratorRoot, GLOBAL_STANDARDS_SLICES_RELATIVE_PATH), `${REMOTE_ORCHESTRATOR}/${GLOBAL_STANDARDS_SLICES_RELATIVE_PATH}`, game.orchestratorRoot);
       for (const gameId of new Set([game.gameId, "melee"])) {
         const dir = resolve(game.orchestratorRoot, "games", gameId);
         await exec(["mkdir", "-p", `${REMOTE_ORCHESTRATOR}/games/${gameId}`]);
         await sandbox.uploadFile(resolve(dir, "game.json"), `${REMOTE_ORCHESTRATOR}/games/${gameId}/game.json`);
-        for (const part of ["config", "knowledge/sources/injectable/decomp_standards/standards", "knowledge/sources/injectable/banned_patterns/data"]) await uploadTree(sandbox, resolve(dir, part), `${REMOTE_ORCHESTRATOR}/games/${gameId}/${part}`, game.orchestratorRoot);
+        const parts = gameId === game.gameId
+          ? ["config", "knowledge/sources/injectable/decomp_standards/standards", "knowledge/sources/injectable/banned_patterns/data"]
+          : ["knowledge/sources/injectable/banned_patterns/data"];
+        for (const part of parts) await uploadTree(sandbox, resolve(dir, part), `${REMOTE_ORCHESTRATOR}/games/${gameId}/${part}`, game.orchestratorRoot);
       }
       const diffFile = task.input.diffFile;
       if (typeof diffFile === "string") {

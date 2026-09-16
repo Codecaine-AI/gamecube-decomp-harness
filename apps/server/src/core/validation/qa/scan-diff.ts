@@ -23,13 +23,14 @@ import { resolveRegisteredTool } from "@server/core/tools/resolver";
 
 /**
  * Environment variable the Python engine reads to compose the global
- * (Melee-hosted) standards set with the game-specific set named by
- * ORCH_GAME_DIR. Only set when the scanned game is not Melee itself.
+ * (platform-level `knowledge/global`) standards set with the game-specific
+ * set named by ORCH_GAME_DIR. Set for every game; Melee's own tree is an
+ * empty shell that inherits the global set.
  */
 export const REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV = "REVIEW_LINT_GLOBAL_STANDARDS_DIR";
 
-/** Game whose standards tree doubles as the global (shared) standards set. */
-const GLOBAL_STANDARDS_GAME_ID = "melee";
+/** Global standards slices, relative to the orchestrator root. */
+export const GLOBAL_STANDARDS_SLICES_RELATIVE_PATH = "knowledge/global/sources/injectable/decomp_standards/standards";
 
 /** Tool error returned when a scan is requested without a game descriptor. */
 export const QA_SCAN_REQUIRES_GAME_ERROR = "qa scan requires a game";
@@ -161,21 +162,17 @@ export function qaScanDiffScriptPath(orchestratorRoot: string): string {
   return resolve(orchestratorRoot, "toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py");
 }
 
-/** The global (game-agnostic) standards tree, hosted under the Melee game dir. */
+/** The global (game-agnostic) standards tree under the orchestrator's `knowledge/global` root. */
 export function qaScanGlobalStandardsDir(orchestratorRoot: string): string {
-  return resolve(orchestratorRoot, "games", GLOBAL_STANDARDS_GAME_ID, "knowledge/sources/injectable/decomp_standards/standards");
+  return resolve(orchestratorRoot, GLOBAL_STANDARDS_SLICES_RELATIVE_PATH);
 }
 
 /**
  * Scan environment: the resolved tool env (ORCH_GAME_DIR etc.) plus the global
- * standards dir when the game is not the one hosting the global set.
+ * standards dir, pinned to this orchestrator root for every game.
  */
 export function qaScanEnv(params: { orchestratorRoot: string; gameId: string; toolEnv: Record<string, string> }): Record<string, string> {
-  const env = { ...params.toolEnv };
-  if (params.gameId !== GLOBAL_STANDARDS_GAME_ID) {
-    env[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV] = qaScanGlobalStandardsDir(params.orchestratorRoot);
-  }
-  return env;
+  return { ...params.toolEnv, [REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]: qaScanGlobalStandardsDir(params.orchestratorRoot) };
 }
 
 export function qaGatePassed(invocation: QaScanInvocation): boolean {
