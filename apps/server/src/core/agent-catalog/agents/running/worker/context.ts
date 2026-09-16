@@ -9,6 +9,7 @@ import type {
 import {
   fileGraphCard,
   globalStandardsPromptXml,
+  hasGameScopedStandards,
   graphDbExists,
   openKnowledgeGraph,
   resourceGraphDbPath,
@@ -588,7 +589,9 @@ function workerTargetKnowledgeXml(
 
 function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget, game?: RunGameMetadata): string {
   const mode = WORKER_CONTEXT_BUDGETS[contextBudget].standards;
-  if (mode === "full" || (game?.gameId && game.gameId !== "melee")) return globalStandardsPromptXml({ gameId: game?.gameId });
+  // Games with their own standards always get the full composed XML; a
+  // global-only set can be summarized under tighter budgets.
+  if (mode === "full" || (game?.gameId && hasGameScopedStandards({ gameId: game.gameId }))) return globalStandardsPromptXml({ gameId: game?.gameId });
   const rules =
     mode === "summary"
       ? [

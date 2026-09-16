@@ -27,6 +27,7 @@ export function StandardDetail({
     title?: string;
   }> = [
     { label: "Status", value: record.status, tone: statusTone(record.status) },
+    { label: "Scope", value: record.scope, title: record.scope === "global" ? "Composed from the global standards root" : undefined },
     {
       label: "Family",
       value: record.family ? familyLabel(record.family) : undefined,

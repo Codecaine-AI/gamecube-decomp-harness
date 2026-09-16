@@ -410,6 +410,26 @@ def test_define_alias_allows_sanctioned_and_benign_function_macros():
     assert _qa_rules.check_define_alias(hunk) == []
 
 
+def test_define_alias_yields_include_rename_shape_to_header_override_macro():
+    """`#define A B` / `#include` / `#undef A` is reported once, by
+    source_fidelity's header_override_macro (no-symbol-forgery)."""
+
+    src = (
+        "#define TRiccoHookManager TRiccoHookManager_header\n"
+        "#include <Enemy/RiccoHook.hpp>\n"
+        "#undef TRiccoHookManager\n"
+        "#define plain_alias other_name\n"
+    )
+    hunk = _hardened_hunk(src)
+    alias_findings = _qa_rules.check_define_alias(hunk)
+    assert [f["detail"]["macro"] for f in alias_findings] == ["plain_alias"]
+    override = _qa_rules.check_header_override_macro(hunk)
+    assert [f["detail"]["macro"] for f in override] == ["TRiccoHookManager"]
+    # Without the include between define and undef, define_alias still owns it.
+    hunk = _hardened_hunk("#define A B\n#undef A\n")
+    assert [f["detail"]["macro"] for f in _qa_rules.check_define_alias(hunk)] == ["A"]
+
+
 # ---------------------------------------------------------------------------
 # bare_local_prototype.
 # ---------------------------------------------------------------------------
@@ -534,6 +554,54 @@ def test_volatile_local_tactic_flags_cast_forms():
     assert findings[1]["detail"]["cast"] == "(volatile f32&)"
     assert "volatile cast" in findings[0]["message"]
     assert "ordinary storage" in findings[0]["message"]
+
+
+def test_marked_pragmas_downgrade_to_warning_but_force_active_stays_error():
+    """A TODO/fabricated marker on the pragma line or within 2 lines above
+    turns codegen_pragma/novel_pragma into warnings; force_active never."""
+
+    hunk = _hardened_hunk(
+        "/// @todo Find a solution without the pragma\n"
+        "#pragma push\n"
+        "#pragma global_optimizer off\n"
+        "#pragma dont_inline on // TODO: temporary matching scope\n"
+        "// fabricated: see objdiff\n"
+        "#pragma inline_depth(2)\n"
+        "// fakematch\n"
+        "#pragma force_active on\n"
+        "\n"
+        "\n"
+        "\n"
+        "#pragma auto_inline off\n"
+    )
+    rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "codegen_pragma")
+    codegen = _qa_rules.run_rules_on_hunk([rule], hunk)
+    assert [(f["detail"]["directive"], f["severity"]) for f in codegen] == [
+        ("global_optimizer", "warning"),  # marker 2 lines above
+        ("dont_inline", "warning"),  # marker on the line
+        ("force_active", "error"),  # always rejected
+        ("auto_inline", "error"),  # marker too far above
+    ]
+    assert codegen[0]["detail"]["marker"] is True
+    assert codegen[2]["detail"]["marker"] is False
+    novel_rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "novel_pragma")
+    novel = _qa_rules.run_rules_on_hunk([novel_rule], hunk)
+    assert [(f["detail"]["directive"], f["severity"]) for f in novel] == [("inline_depth", "warning")]
+
+
+def test_pragma_marker_reads_context_lines_from_post_image():
+    """Context (unchanged) lines carrying the marker count via post_lines."""
+
+    hunk = {
+        "file": "src/melee/gm/x.c",
+        "added": [(12, "#pragma dont_inline on")],
+        "removed": [],
+        "post_lines": [(10, "// TODO: fakematch", False), (11, "", False), (12, "#pragma dont_inline on", True)],
+    }
+    rule = next(r for r in _qa_rules.RULES if r["rule_id"] == "codegen_pragma")
+    assert [f["severity"] for f in _qa_rules.run_rules_on_hunk([rule], hunk)] == ["warning"]
+    hunk["post_lines"] = [(12, "#pragma dont_inline on", True)]
+    assert [f["severity"] for f in _qa_rules.run_rules_on_hunk([rule], hunk)] == ["error"]
 
 
 def test_force_active_is_codegen_pragma_and_inline_depth_is_novel():
@@ -1086,8 +1154,25 @@ def test_explicit_standards_dir_override_alone_does_not_pull_global(tmp_path: Pa
     assert view["slices"] == [["game_only", "game"]]
 
 
-def test_global_dir_is_dropped_when_it_is_the_game_dir():
+def test_default_game_composes_its_shell_with_the_global_root():
+    # Melee (the default game) ships one rule-free record slice
+    # (melee_conventions); every rule slice comes from the platform-level
+    # knowledge/global tree.
     view = _fresh_qa_rules({})
+    assert [scope for scope, _ in view["dirs"]] == ["game", "global"]
+    assert view["dirs"][1][1] == str(_qa_rules.DEFAULT_GLOBAL_STANDARDS_DIR)
+    assert "knowledge/global/sources/injectable/decomp_standards/standards" in view["dirs"][1][1]
+    game_slices = [family for family, scope in view["slices"] if scope == "game"]
+    assert game_slices == ["melee_conventions"]
+    assert view["slices"][0] == ["melee_conventions", "game"]
+    assert all(scope == "global" for _, scope in view["slices"][1:])
+    # Rules are unchanged by the record-only game slice.
+    assert [rule_id for rule_id, _ in view["rules"]] == _qa_rules.CANONICAL_RULE_ORDER
+
+
+def test_global_dir_is_dropped_when_it_is_the_game_dir():
+    global_root = str(_qa_rules.DEFAULT_GLOBAL_STANDARDS_DIR)
+    view = _fresh_qa_rules({"REVIEW_LINT_STANDARDS_DIR": global_root, "REVIEW_LINT_GLOBAL_STANDARDS_DIR": global_root})
     assert [scope for scope, _ in view["dirs"]] == ["game"]
     assert all(scope == "game" for _, scope in view["slices"])
 
@@ -1170,7 +1255,7 @@ def test_load_banned_pattern_rules_env_override(tmp_path: Path, monkeypatch):
         "comment_url": "https://github.com/doldecomp/melee/pull/2658#discussion_r1",
         "file": "src/melee/ty/tydisplay.c",
         "excerpt": "OSReport(strbase + 0xC8);",
-        "standard_id": "global_standard:no-string-literal-symbol-regression",
+        "standard_id": "global_standard:literals-and-data-ownership",
         "detector": {"type": "regex", "pattern": r"OSReport\(\w+ \+ 0x[0-9A-Fa-f]+\)"},
         "created": "2026-06-11",
     }

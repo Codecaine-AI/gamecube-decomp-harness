@@ -499,6 +499,9 @@ def collect_findings(
     # the extern_in_c repair path), in canonical slice order.
     for hook in _qa_rules.post_scan_hooks():
         findings = hook(findings, repo, mode, file_diffs, merge_base)
+    # Hook-emitted findings never passed through run_rules_on_hunk; resolve
+    # their rule-level surfaces map here (drops "skip" on this surface).
+    findings = _qa_rules.apply_surface_to_findings(findings, surface)
     findings = downgrade_moved_line_findings(findings, repo, mode, file_diffs, merge_base)
     findings = suppress_address_named_static_data(
         findings, address_named_static_data_allowlist or []

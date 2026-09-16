@@ -343,34 +343,147 @@ def check_unused_locals_fallback(findings, repo, mode, file_diffs, merge_base):
 
 
 def declarations(text):
+    """Return [(name, shape, line_index)] for every declaration-like line of text."""
     result = []
-    for line in clean(text).splitlines():
+    for index, line in enumerate(clean(text).split('\n')):
         match = MAP_NAME.match(line)
         if match:
-            result.append((match['name'], 'symbol:'+match['location']))
+            result.append((match['name'], 'symbol:'+match['location'], index))
             continue
         match = TYPE_NAME.match(line) or DECL.match(line)
         if match and not re.match(r'^\s*(?:return|delete|throw|case|goto)\b', line):
             # Compare declaration prefixes and suffixes without their identifier.
-            result.append((match['name'], re.sub(r'\s+', '', line[:match.start('name')]+line[match.end('name'):]).split('=')[0]))
+            result.append((match['name'], re.sub(r'\s+', '', line[:match.start('name')]+line[match.end('name'):]).split('=')[0], index))
         # Parameters have no terminal semicolon, so parse them in their own
         # declaration context. This is a conservative candidate check, not C++ AST proof.
         if '(' in line and ')' in line and DECL.match(line):
             params = line.split('(', 1)[1].split(')', 1)[0]
-            for index, parameter in enumerate(params.split(',')):
+            for position, parameter in enumerate(params.split(',')):
                 param = DECL.match(parameter.strip() + ';')
                 if param:
-                    result.append((param['name'], 'parameter:'+str(index)+':'+re.sub(r'\s+', '', parameter.strip()[:param.start('name')])))
+                    result.append((param['name'], 'parameter:'+str(position)+':'+re.sub(r'\s+', '', parameter.strip()[:param.start('name')]), index))
     return result
 
 
+# --- rename candidates ------------------------------------------------------
+# sms-name-review is about renaming EXISTING symbols: members, functions,
+# types, file-scope statics/globals, parameters and symbol-map names. A
+# removed and an added declaration that merely share a shape (`f32 y = ...;`
+# vs `f32 z = ...;`) inside a function body are ordinary locals, not renames.
+SYMBOLS_REL_PATH = 'config/GMSJ01/symbols.txt'
+_SYMBOL_NAMES = {}  # symbols.txt path -> (exact names, static-local base names)
+
+
+def symbols_file():
+    game_dir = os.environ.get('ORCH_GAME_DIR')
+    roots = [Path(game_dir) / 'workspace/checkout'] if game_dir else []
+    roots.append(Path(__file__).resolve().parents[5] / 'games/sms/workspace/checkout')
+    for root in roots:
+        path = root / SYMBOLS_REL_PATH
+        if path.is_file():
+            return path
+    return None
+
+
+def map_symbol_names():
+    """(exact symbol names, base names of `name$NNN` function-scope statics) from symbols.txt."""
+    path = symbols_file()
+    if path is None:
+        return set(), set()
+    key = str(path)
+    if key not in _SYMBOL_NAMES:
+        exact, statics = set(), set()
+        try:
+            for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
+                match = re.match(r'^([A-Za-z_][\w$@.]*)\s*=', line)
+                if not match:
+                    continue
+                name = match.group(1)
+                exact.add(name)
+                if '$' in name:
+                    statics.add(name.split('$', 1)[0])
+        except OSError:
+            pass
+        _SYMBOL_NAMES[key] = (exact, statics)
+    return _SYMBOL_NAMES[key]
+
+
+def in_symbol_map(name, declaration):
+    """True when a function-body declaration names a symbol-map entry.
+
+    Only `static` locals (mapped as `name$NNN`) and in-body `extern`
+    declarations can be map symbols; a plain local that merely shares a
+    global's spelling is still a local.
+    """
+    exact, statics = map_symbol_names()
+    base = name.rsplit('::', 1)[-1].lstrip('~')
+    if re.match(r'^\s*static\b', declaration):
+        return base in statics or name in exact or base in exact
+    return bool(re.match(r'^\s*extern\b', declaration)) and (name in exact or base in exact)
+
+
+def post_line_index(post_text, number, text):
+    """0-based index of the added line in the post file, or None when it cannot be located."""
+    lines = post_text.split('\n')
+    if 0 < number <= len(lines) and lines[number - 1] == text:
+        return number - 1
+    stripped = text.strip()
+    matches = [i for i, line in enumerate(lines) if line.strip() == stripped] if stripped else []
+    return matches[0] if len(matches) == 1 else None
+
+
+def declared_in_function(post_text, number, text, cache):
+    """True when the added declaration line sits inside a function body.
+
+    Uses the post-change file when available (function_spans plus the
+    inside_function helper); falls back to the added line's indentation.
+    """
+    if isinstance(post_text, str):
+        if 'cleaned' not in cache:
+            cache['cleaned'] = clean(post_text)
+            cache['lines'] = cache['cleaned'].split('\n')
+            cache['spans'] = function_spans(cache['cleaned'])
+        index = post_line_index(post_text, number, text)
+        if index is not None:
+            offset = sum(len(line) + 1 for line in cache['lines'][:index])
+            return inside_function(cache['cleaned'], offset) or any(open_index < offset <= close_index for open_index, close_index in cache['spans'])
+    return bool(re.match(r'^[ \t]+\S', text))
+
+
 def check_name_changes(hunk):
-    old = declarations('\n'.join(hunk.get('removed', [])))
-    new = declarations('\n'.join(text for _, text in hunk.get('added', [])))
-    old_names, new_names = {n for n, _ in old}, {n for n, _ in new}
-    candidates = [(a,b) for a,shape in old if a not in new_names for b,new_shape in new if b not in old_names and shape == new_shape]
-    aliases = [partial(line, text, 'New identifier macro alias requires maintainer review; aliases cannot bypass the naming rule.', requires_human_review=True) for line,text in hunk.get('added', []) if re.match(r'^\s*#\s*define\s+[A-Za-z_]\w*\s+[A-Za-z_]\w*\s*$', clean(text))]
-    return aliases + [partial(hunk['added'][0][0], hunk['added'][0][1], f'Declaration rename candidate {a} -> {b} requires maintainer review. Preserve the current name in autonomous output; propose the change separately for human integration.', old_name=a, new_name=b, requires_human_review=True) for a,b in sorted(set(candidates))]
+    added = hunk.get('added', [])
+    removed = hunk.get('removed', [])
+    old = declarations('\n'.join(removed))
+    new = declarations('\n'.join(text for _, text in added))
+    old_names, new_names = {n for n, _, _ in old}, {n for n, _, _ in new}
+    post_text = hunk.get('post_file_text')
+    cleaned_post = clean(post_text) if isinstance(post_text, str) else None
+    cache = {}
+    findings = []
+    # The include-shim shape (`#define X Y` around an include, target declared
+    # in the hunk or `#undef X` in the hunk) belongs to the global define_alias
+    # and header_override_macro rules; only a bare alias is reported here.
+    undefined = {m.group(1) for _, text in added for m in [re.match(r'^\s*#\s*undef\s+([A-Za-z_]\w*)\s*$', clean(text))] if m}
+    for line, text in added:
+        alias = re.match(r'^\s*#\s*define\s+(?P<alias>[A-Za-z_]\w*)\s+(?P<target>[A-Za-z_]\w*)\s*$', clean(text))
+        if alias and alias['target'] not in new_names and alias['alias'] not in undefined:
+            findings.append(partial(line, text, 'New identifier macro alias requires maintainer review; aliases cannot bypass the naming rule.', requires_human_review=True))
+    seen = set()
+    for old_name, shape, old_index in old:
+        if old_name in new_names:
+            continue
+        base = old_name.rsplit('::', 1)[-1].lstrip('~')
+        if cleaned_post is not None and re.search(r'(?<![\w$])' + re.escape(base) + r'(?![\w$])', cleaned_post):
+            continue  # the old name survives in the post-change file; nothing was renamed away
+        for new_name, new_shape, new_index in new:
+            if new_name in old_names or new_shape != shape or (old_name, new_name) in seen:
+                continue
+            line, text = added[new_index]
+            if declared_in_function(post_text, line, text, cache) and not in_symbol_map(old_name, removed[old_index]):
+                continue  # purely local variable; not a symbol rename
+            seen.add((old_name, new_name))
+            findings.append(partial(line, text, f'Declaration rename candidate {old_name} -> {new_name} requires maintainer review. Preserve the current name in autonomous output; propose the change separately for human integration.', old_name=old_name, new_name=new_name, requires_human_review=True))
+    return findings
 
 
 def no_hunk_check(hunk):
@@ -382,6 +495,8 @@ def check_maps(findings, repo, mode, file_diffs, merge_base):
 
     Patch-only scans cannot prove compiled map parity. SIZE warnings are retained
     as informational evidence, matching upstream policy, never a fabricated match.
+    The rule's ``surfaces`` map skips it on ``--surface worker`` (the engine drops
+    the findings after this hook runs); ``pr_gate`` keeps every finding.
     """
     paths = sorted({r['file'] for r in file_diffs if r['file'].startswith('src/') and r['file'].endswith('.cpp') and not any(fnmatch(r['file'], p) for p in VENDOR_PATHS)})
     if not paths:
@@ -424,10 +539,50 @@ def check_maps(findings, repo, mode, file_diffs, merge_base):
     return findings
 
 
+# --- global double-fire suppression ----------------------------------------
+# SMS owns three policies that a global rule also detects on the same line:
+# pragma marking (sms-fabricated-marker vs codegen_pragma/novel_pragma), the
+# PCH guard predefine (sms-pch-string-convention vs header_override_macro) and
+# discarded constructor statements (sms-temporary-tactics vs
+# discarded_expression). One construct yields one finding, under the record
+# that states the SMS policy; the global finding on that line is dropped.
+# The closing `#pragma dont_inline off` of a span is accepted by
+# sms_fabricated_marker without a finding, so its global finding is dropped too.
+GLOBAL_OVERLAP = {
+    'sms_fabricated_marker': ({'codegen_pragma', 'novel_pragma'}, lambda detail: 'pragma' in detail),
+    'sms_pch_string_convention': ({'header_override_macro'}, lambda detail: 'guard' in detail),
+    'sms_dummy_stack_padding': ({'discarded_expression'}, lambda detail: detail.get('kind') == 'discarded_constructor'),
+}
+PRAGMA_OFF = re.compile(r'^\s*#\s*pragma\s+dont_inline\s+off\b')
+
+
+def suppress_global_overlaps(findings, repo, mode, file_diffs, merge_base):
+    """Post-scan: drop global findings that duplicate an SMS-owned finding on the same line."""
+    owned = {}
+    for found in findings:
+        overlap = GLOBAL_OVERLAP.get(found.get('rule_id'))
+        if overlap and overlap[1](found.get('detail') or {}):
+            owned.setdefault((found.get('file'), found.get('line')), set()).update(overlap[0])
+    for record in file_diffs:
+        path = record['file']
+        if not fnmatch(path, 'src/*.c*') or any(fnmatch(path, p) for p in VENDOR_PATHS):
+            continue
+        for hunk in record['hunks']:
+            for number, text in hunk.get('added', []):
+                if PRAGMA_OFF.match(clean(text)):
+                    owned.setdefault((path, number), set()).update(GLOBAL_OVERLAP['sms_fabricated_marker'][0])
+    return [found for found in findings if found.get('rule_id') not in owned.get((found.get('file'), found.get('line')), ())]
+
+
 RULES = [
     {'rule_id':'sms_vendor_edit','standard_id':'global_standard:sms-game-code-only','severity':'error','applies_to':['src/**','include/**'],'check':check_vendor_edit,'message':'Autonomous SMS changes must stay in game code.'},
     {'rule_id':'sms_dummy_stack_padding','standard_id':'global_standard:sms-temporary-tactics','severity':'error','applies_to':['src/*.cpp','src/*.c','include/**'],'check':check_dummy_padding,'message':'Dummy stack padding may not be committed.'},
-    {'rule_id':'sms_name_change_requires_review','standard_id':'global_standard:sms-name-review','severity':'error','applies_to':['src/**','include/**','config/GMSJ01/symbols.txt'],'check':check_name_changes,'message':'Name changes require maintainer review.'},
-    {'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':'error','applies_to':['src/*.cpp'],'check':no_hunk_check,'message':'Changed C++ units require built symbol-map validation.'},
+    # Worker attempts get a review warning on a genuine rename candidate; the
+    # PR gate rejects it until a maintainer integrates the name separately.
+    {'rule_id':'sms_name_change_requires_review','standard_id':'global_standard:sms-name-review','severity':'warning','applies_to':['src/**','include/**','config/GMSJ01/symbols.txt'],'surfaces':{'worker':'warning','pr_gate':'error'},'check':check_name_changes,'message':'Name changes require maintainer review.'},
+    # Worker gate scans a patch (diff mode) where map parity cannot be proven;
+    # the runner's micro gates cover undefined symbols and section parity there,
+    # so the rule emits nothing on the worker surface. pr_gate keeps fail-closed.
+    {'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':'error','applies_to':['src/*.cpp'],'surfaces':{'worker':'skip'},'check':no_hunk_check,'message':'Changed C++ units require built symbol-map validation.'},
 ]
-POST_SCAN_HOOKS = [check_unused_locals_fallback, check_maps]
+POST_SCAN_HOOKS = [check_unused_locals_fallback, check_maps, suppress_global_overlaps]

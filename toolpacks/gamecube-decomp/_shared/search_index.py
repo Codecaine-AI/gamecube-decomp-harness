@@ -19,10 +19,26 @@ def env_path(name: str) -> Path | None:
 
 
 def package_root_for_tool(tool_root: Path) -> Path:
+    """Harness package root: the nearest ancestor with package.json + apps/.
+
+    Sandbox images install the toolpack at ``/opt/toolpacks/<id>`` with no
+    package markers; they set ``ORCH_PACKAGE_ROOT`` (``/opt``) so defaults such as
+    ``<root>/knowledge/global`` and ``<root>/games/<id>`` resolve there. Job-time
+    uploads under ``/opt/build-orchestrator`` carry markers and win the walk.
+    """
+
     for parent in [tool_root, *tool_root.parents]:
         if (parent / "package.json").exists() and (parent / "apps").is_dir():
             return parent
-    return tool_root.parents[5]
+    override = os.environ.get("ORCH_PACKAGE_ROOT")
+    if override:
+        return Path(override).expanduser()
+    parents = tool_root.parents
+    if len(parents) <= 5:
+        raise RuntimeError(
+            f"cannot locate the harness package root from {tool_root}; set ORCH_PACKAGE_ROOT"
+        )
+    return parents[5]
 
 
 def project_dir_for_tool(tool_root: Path) -> Path:
@@ -40,6 +56,20 @@ def project_knowledge_root(tool_root: Path) -> Path:
         path = Path(override).expanduser()
         return path if path.is_absolute() else package_root_for_tool(tool_root) / path
     return project_dir_for_tool(tool_root) / "knowledge"
+
+
+def global_knowledge_root(tool_root: Path) -> Path:
+    """Platform-level knowledge shared by every game (mirrors a game's knowledge tree).
+
+    ``ORCH_GLOBAL_KNOWLEDGE_ROOT`` overrides it; the default is
+    ``<package root>/knowledge/global``.
+    """
+
+    override = os.environ.get("ORCH_GLOBAL_KNOWLEDGE_ROOT")
+    if override:
+        path = Path(override).expanduser()
+        return path if path.is_absolute() else package_root_for_tool(tool_root) / path
+    return package_root_for_tool(tool_root) / "knowledge" / "global"
 
 
 def tools_resource_root(tool_root: Path) -> Path:

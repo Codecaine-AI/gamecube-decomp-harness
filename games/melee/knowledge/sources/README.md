@@ -8,7 +8,7 @@ descriptor, maintained corpus, and any source-specific API or refresh command.
 
 | Section | Sources | Purpose |
 | --- | --- | --- |
-| `injectable` | `decomp_standards` | Compact standards selected for worker and review context. |
+| `injectable` | `decomp_standards` | Melee game-scoped standards shell (empty). Global records live in `knowledge/global/sources/injectable/decomp_standards/` and compose with this tree. |
 | `rag_search` | `smashwiki`, `discord_raw` | Direct wiki lookup plus raw librarian input. Workers do not search `discord_raw`. |
 | `code_context` | `code_graph`, `past_prs`, `opseq_similarity`, `ghidra_xrefs` | Evidence attached to files, functions, PRs, analogs, and binary xrefs. |
 

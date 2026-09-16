@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
-import { gameKnowledgeRoot, packageRoot, sourceRoot, sourceStorageRoot } from "./paths.js";
-import { readOrderedSliceRecords, standardsSlicesRoot } from "./standards-files.js";
+import { gameKnowledgeRoot, globalSourceRoot, globalSourceStorageRoot, packageRoot } from "./paths.js";
+import {
+  readComposedSliceRecords,
+  standardsRoots as composeStandardsRoots,
+  standardsSlicesRoot,
+  type StandardsRoot,
+  type StandardsScope,
+} from "./standards-files.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -13,8 +19,8 @@ function packageRelativePath(path: string): string {
   return relativePath && !relativePath.startsWith("..") ? relativePath : path;
 }
 
-function sourceScriptCommand(sourceId: string, ...parts: string[]): string {
-  return `python3 ${packageRelativePath(resolve(sourceRoot(sourceId), ...parts))}`;
+function globalSourceScriptCommand(sourceId: string, ...parts: string[]): string {
+  return `python3 ${packageRelativePath(resolve(globalSourceRoot(sourceId), ...parts))}`;
 }
 
 export interface StandardExampleSelector {
@@ -28,8 +34,12 @@ export interface StandardsSelection {
   knowledgeRoot?: string;
 }
 
+/**
+ * Storage root of the selected standards source. With no game selected this is
+ * the global source itself (`knowledge/global/sources/injectable/decomp_standards`).
+ */
 function selectedStandardsRoot(selection: StandardsSelection = {}): string {
-  if (!selection.gameId && !selection.knowledgeRoot) return sourceStorageRoot("decomp_standards");
+  if (!selection.gameId && !selection.knowledgeRoot) return globalSourceStorageRoot("decomp_standards");
   const root = selection.knowledgeRoot ?? gameKnowledgeRoot(selection.gameId);
   const registryPath = resolve(root, "sources/registry.json");
   const registry = existsSync(registryPath) ? JSON.parse(readFileSync(registryPath, "utf8")) : {};
@@ -38,9 +48,36 @@ function selectedStandardsRoot(selection: StandardsSelection = {}): string {
   return resolve(root, "sources", entry?.path ?? "decomp_standards");
 }
 
+/**
+ * Ordered standards slices roots for a selection: the selected game's root
+ * first, then the global root (`REVIEW_LINT_GLOBAL_STANDARDS_DIR`, default
+ * `<globalKnowledgeRoot>/sources/injectable/decomp_standards/standards`) when
+ * it differs. Every game composes the same way; Melee's own root is an empty
+ * shell so it yields the global set. No selection yields the global root alone.
+ */
+export function standardsRoots(selection: StandardsSelection = {}): StandardsRoot[] {
+  return composeStandardsRoots(standardsSlicesRoot(selectedStandardsRoot(selection)));
+}
+
+/**
+ * Whether the selection contributes game-scoped standards on top of the global
+ * set. Games without their own records (Melee, or no selection) render the
+ * global-host prompt wording and may use summarized standards budgets.
+ */
+export function hasGameScopedStandards(selection: StandardsSelection = {}): boolean {
+  return loadScopedStandards(selection).some((item) => item.scope === "game");
+}
+
+interface ScopedStandard {
+  record: JsonRecord;
+  scope: StandardsScope;
+}
+
 export function globalStandardsContext(selection: StandardsSelection = {}): Record<string, unknown> {
-  const records = loadGlobalStandards(selection);
+  const scoped = loadScopedStandards(selection);
+  const records = scoped.map((item) => item.record);
   const examples = examplesByStandardId(loadStandardExamples(selection));
+  const roots = standardsRoots(selection);
   return {
     source: "decomp_standards",
     status: records.length ? "ready" : "missing_records",
@@ -51,11 +88,13 @@ export function globalStandardsContext(selection: StandardsSelection = {}): Reco
     trust_rule: FINAL_AUTHORITY,
     mutation_policy: "proposal_only_until_validated",
     source_path: selectedStandardsRoot(selection),
+    global_source_path: roots.find((item) => item.scope === "global")?.root,
     search_command: !selection.gameId && !selection.knowledgeRoot
-      ? `${sourceScriptCommand("decomp_standards", "api/search.py")} --query <query> --limit 10 --json`
+      ? `${globalSourceScriptCommand("decomp_standards", "api/search.py")} --query <query> --limit 10 --json`
       : undefined,
-    standards: records.map((record) => ({
+    standards: scoped.map(({ record, scope }) => ({
       id: record.id,
+      scope,
       status: record.status,
       family: record.family,
       disposition: record.disposition,
@@ -79,8 +118,8 @@ export function globalStandardsContext(selection: StandardsSelection = {}): Reco
 }
 
 export function loadStandardExamples(selection: StandardsSelection = {}): JsonRecord[] {
-  return readOrderedSliceRecords<JsonRecord>(
-    standardsSlicesRoot(selectedStandardsRoot(selection)),
+  return readComposedSliceRecords<JsonRecord>(
+    standardsRoots(selection),
     "examples.jsonl",
     "examples",
   ).map((item) => item.record);
@@ -135,32 +174,38 @@ export function standardExamplesPromptXml(
 }
 
 export function globalStandardsPromptXml(selection: StandardsSelection = {}): string {
-  const records = loadGlobalStandards(selection).filter(
-    (record) => record.status === "accepted" && record.worker_facing !== false,
+  const scoped = loadScopedStandards(selection);
+  const records = scoped.filter(
+    ({ record }) => record.status === "accepted" && record.worker_facing !== false,
   );
+  const composed = standardsRoots(selection).length > 1;
+  // Game-scoped records carry their own enforcement declarations; a global-only
+  // set (Melee, or no selection) keeps the global-host wording.
+  const gameScoped = scoped.some((item) => item.scope === "game");
   const examples = examplesByStandardId(loadStandardExamples(selection));
   const lines = [
     "<decomp_standards>",
     "    <instruction>",
     "        These standards are mandatory requirements enforced by lint and review, not preferences.",
     "        Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted.",
-    selection.gameId && selection.gameId !== "melee"
+    gameScoped
       ? "        Follow each rule's declared lint or review mechanism. Accepted rules do not imply an automated check exists."
       : "        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.",
     "    </instruction>",
   ];
 
-  for (const record of records) {
-    const attrs = [`id="${xmlAttribute(promptStandardId(record.id))}"`].filter(
-      Boolean,
-    );
+  for (const { record, scope } of records) {
+    const attrs = [
+      `id="${xmlAttribute(promptStandardId(record.id))}"`,
+      composed ? `scope="${scope}"` : "",
+    ].filter(Boolean);
     lines.push(`    <standard ${attrs.join(" ")}>`);
     lines.push("        <description>");
     for (const item of stringArray(record.summary)) {
       lines.push(`            - ${xmlText(item)}`);
     }
     lines.push("        </description>");
-    if (selection.gameId && selection.gameId !== "melee") {
+    if (gameScoped) {
       lines.push(`        <enforcement>${xmlText(stringValue(record.qa_enforcement))}</enforcement>`);
       for (const item of stringArray(record.do)) lines.push(`        <do>${xmlText(item)}</do>`);
       for (const item of stringArray(record.do_not)) lines.push(`        <do_not>${xmlText(item)}</do_not>`);
@@ -199,12 +244,12 @@ export function globalStandardsPromptXml(selection: StandardsSelection = {}): st
   return lines.join("\n");
 }
 
-function loadGlobalStandards(selection: StandardsSelection = {}): JsonRecord[] {
-  return readOrderedSliceRecords<JsonRecord>(
-    standardsSlicesRoot(selectedStandardsRoot(selection)),
+function loadScopedStandards(selection: StandardsSelection = {}): ScopedStandard[] {
+  return readComposedSliceRecords<JsonRecord>(
+    standardsRoots(selection),
     "standards.jsonl",
     "standards",
-  ).map((item) => item.record);
+  ).map((item) => ({ record: item.record, scope: item.scope }));
 }
 
 function examplesByStandardId(

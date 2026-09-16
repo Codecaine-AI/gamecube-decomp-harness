@@ -128,6 +128,7 @@ class LocalClassNeedsOwnerTest(unittest.TestCase):
             self.repo(root)
             found = self.run_hook(root, 'src/MoveBG/MapObjCorona.cpp', ['class TKoopa : public JDrama::TNameRef {', 'public:', '};'])
             self.assertEqual([(f['rule_id'], f['severity'], f['line']) for f in found], [('sms_local_class_needs_owner', 'error', 1)])
+            self.assertEqual(found[0]['standard_id'], 'global_standard:sms-authored-evidence')
             self.assertIn('belongs to Enemy/Koopa.cpp', found[0]['message'])
 
     def test_class_in_own_unit_or_without_symbol_is_warning(self):
@@ -246,7 +247,7 @@ class ScanDiffIntegrationTest(unittest.TestCase):
             (root / 'config/GMSJ01').mkdir(parents=True)
             (root / 'config/GMSJ01/symbols.txt').write_text('')
             (root / 'config/GMSJ01/splits.txt').write_text('')
-            source = '#define SYSTEM_DUMMY_STRINGS_HPP\nclass TOrphan {\n};\n#pragma dont_inline on\nvoid TFoo::bar()\n{\n\tMtx44 transform;\n\tif (__fabsf(x) < 1.0f) { }\n}\n#pragma dont_inline off\nstatic void dummy(Vec* v) { }\n'
+            source = '#define SYSTEM_DUMMY_STRINGS_HPP\nclass TOrphan {\n};\n#pragma dont_inline on\nvoid TFoo::bar()\n{\n\tMtx44 transform;\n\tif (__fabsf(x) < 1.0f) { }\n\tJGeometry::TVec3<f32>();\n}\n#pragma dont_inline off\nstatic void dummy(Vec* v) { }\n'
             (root / FILE).write_text(source)
             patch = root / 'change.patch'
             lines = source.split('\n')[:-1]
@@ -256,8 +257,11 @@ class ScanDiffIntegrationTest(unittest.TestCase):
             self.assertTrue(result.stdout.strip(), result.stderr)
             payload = json.loads(result.stdout)
             got = {(f['rule_id'], f['line'], f['severity']) for f in payload['findings'] if f['rule_id'].startswith('sms_')}
-            for expected in [('sms_pch_string_convention', 1, 'error'), ('sms_local_class_needs_owner', 2, 'warning'), ('sms_fabricated_marker', 4, 'error'), ('sms_dummy_stack_padding', 7, 'error'), ('sms_intrinsic_bypass', 8, 'warning'), ('sms_dummy_vec_helper', 11, 'warning')]:
+            for expected in [('sms_pch_string_convention', 1, 'error'), ('sms_local_class_needs_owner', 2, 'warning'), ('sms_fabricated_marker', 4, 'error'), ('sms_dummy_stack_padding', 7, 'error'), ('sms_intrinsic_bypass', 8, 'warning'), ('sms_dummy_stack_padding', 9, 'error'), ('sms_dummy_vec_helper', 12, 'warning')]:
                 self.assertIn(expected, got)
+            # SMS owns the construct on each of these lines; the global twin is suppressed.
+            global_twins = {(f['rule_id'], f['line']) for f in payload['findings'] if f['rule_id'] in ('header_override_macro', 'codegen_pragma', 'novel_pragma', 'discarded_expression')}
+            self.assertEqual(global_twins, set())
 
 
 if __name__ == '__main__':

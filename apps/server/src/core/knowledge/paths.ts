@@ -21,6 +21,34 @@ export function knowledgeRoot(): string {
   return gameKnowledgeRoot();
 }
 
+/**
+ * Platform-level knowledge shared by every game. Mirrors a game's
+ * `knowledge/` layout (`sources/registry.json`, `sources/<section>/<id>`).
+ * `ORCH_GLOBAL_KNOWLEDGE_ROOT` overrides it; default `<packageRoot>/knowledge/global`.
+ */
+export function globalKnowledgeRoot(): string {
+  const override = process.env.ORCH_GLOBAL_KNOWLEDGE_ROOT;
+  if (override) return isAbsolute(override) ? override : resolve(packageRoot(), override);
+  return resolve(packageRoot(), "knowledge/global");
+}
+
+export function globalKnowledgeSourcesRoot(): string {
+  return resolve(globalKnowledgeRoot(), "sources");
+}
+
+export function globalKnowledgeSourceRegistryPath(): string {
+  return resolve(globalKnowledgeSourcesRoot(), "registry.json");
+}
+
+/** Storage root of a global (game-agnostic) source, resolved through the global registry. */
+export function globalSourceStorageRoot(sourceId: string): string {
+  return resolve(globalKnowledgeSourcesRoot(), registeredSourcePath(globalKnowledgeSourceRegistryPath(), sourceId));
+}
+
+export function globalSourceRoot(sourceId: string): string {
+  return globalSourceStorageRoot(sourceId);
+}
+
 export function gameKnowledgeRoot(gameId = "melee"): string {
   const override = process.env.ORCH_GAME_KNOWLEDGE_ROOT
     ?? process.env.ORCHESTRATOR_GAME_KNOWLEDGE_ROOT;
@@ -145,7 +173,10 @@ export function resourceGraphDbPath(): string {
 }
 
 function sourceRegistryPath(sourceId: string): string {
-  const path = knowledgeSourceRegistryPath();
+  return registeredSourcePath(knowledgeSourceRegistryPath(), sourceId);
+}
+
+function registeredSourcePath(path: string, sourceId: string): string {
   if (!existsSync(path)) return sourceId;
   const registry = JSON.parse(readFileSync(path, "utf8")) as SourceRegistryFile;
   for (const entry of registry.sources ?? []) {

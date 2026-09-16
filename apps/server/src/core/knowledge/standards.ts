@@ -1,13 +1,16 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { globalStandardsContext, globalStandardsPromptXml } from "@server/core/knowledge/decomp-context";
-import { knowledgeSourcesRoot, gameKnowledgeRoot, resourceGraphRoot, sourceStorageRoot } from "@server/core/knowledge/paths";
+import { knowledgeSourcesRoot, gameKnowledgeRoot, globalSourceStorageRoot, resourceGraphRoot } from "@server/core/knowledge/paths";
 import {
   listStandardsSliceFiles,
+  readComposedSliceRecords,
   readOrderedSliceRecords,
   standardsOrderPath,
+  standardsRoots,
   standardsSliceFilePath,
   standardsSlicesRoot,
+  type StandardsScope,
 } from "@server/core/knowledge/standards-files";
 import type { GameSummary, ResolvedGame } from "@server/core/game-registry";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
@@ -36,6 +39,12 @@ export interface StandardsFileRecord {
   superseded_by?: string[];
   curator_update_policy?: JsonObject;
   [key: string]: unknown;
+}
+
+/** A standards record plus the root scope (game or composed global) it was read from. */
+export interface ScopedStandardsFileRecord {
+  record: StandardsFileRecord;
+  scope: StandardsScope;
 }
 
 export interface StandardExampleFileRecord {
@@ -147,8 +156,9 @@ function sourceStorageRootForGame(game: ResolvedGame | null | undefined, sourceI
   return resolve(knowledgeRootForGame(game), "sources", sourceRegistryPathForGame(game, sourceId));
 }
 
+/** Slices root the payload/edit targets: the game's own tree, or the global source when no game is selected. */
 function standardsRootForGame(game: ResolvedGame | null | undefined): string {
-  const storageRoot = game ? sourceStorageRootForGame(game, "decomp_standards") : sourceStorageRoot("decomp_standards");
+  const storageRoot = game ? sourceStorageRootForGame(game, "decomp_standards") : globalSourceStorageRoot("decomp_standards");
   return standardsSlicesRoot(storageRoot);
 }
 
@@ -197,7 +207,8 @@ function formatStandardExampleContext(example: StandardExampleFileRecord | undef
   };
 }
 
-function standardsContextFromRecords(records: StandardsFileRecord[], examples: StandardExampleFileRecord[]): JsonObject {
+function standardsContextFromRecords(scoped: ScopedStandardsFileRecord[], examples: StandardExampleFileRecord[]): JsonObject {
+  const records = scoped.map((item) => item.record);
   const examplesByStandard = examplesByStandardId(examples);
   return {
     source: "decomp_standards",
@@ -206,8 +217,9 @@ function standardsContextFromRecords(records: StandardsFileRecord[], examples: S
     accepted_standard_count: records.filter((record) => record.status === "accepted").length,
     trust_rule: "Current source, headers, symbols, splits, assembly, objdiff, and regression output outrank global standards and path facts.",
     mutation_policy: "proposal_only_until_validated",
-    standards: records.map((record) => ({
+    standards: scoped.map(({ record, scope }) => ({
       id: record.id,
+      scope,
       status: record.status,
       family: record.family,
       disposition: record.disposition,
@@ -228,52 +240,6 @@ function standardsContextFromRecords(records: StandardsFileRecord[], examples: S
   };
 }
 
-function standardsPromptXmlFromRecords(records: StandardsFileRecord[], examples: StandardExampleFileRecord[]): string {
-  const accepted = records.filter((record) => record.status === "accepted" && record.worker_facing !== false);
-  const examplesByStandard = examplesByStandardId(examples);
-  const lines = [
-    "<decomp_standards>",
-    "    <instruction>These standards are mandatory requirements enforced by lint and review, not preferences. Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted. Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.</instruction>",
-    "    <authority>Current source, headers, symbols, splits, assembly, objdiff, and regression output outrank global standards and path facts.</authority>",
-  ];
-  for (const record of accepted) {
-    const attrs = [
-      `id="${xmlAttribute(promptStandardId(record.id))}"`,
-      optionalXmlAttribute("family", record.family),
-      optionalXmlAttribute("severity", record.severity),
-      optionalXmlAttribute("qa_enforcement", record.qa_enforcement),
-    ].filter(Boolean);
-    lines.push(`    <standard ${attrs.join(" ")}>`);
-    lines.push("        <description>");
-    for (const item of asStringArray(record.summary)) lines.push(`            - ${xmlText(item)}`);
-    lines.push("        </description>");
-    const example = examplesByStandard.get(record.id)?.[0];
-    if (example) {
-      const exampleAttrs = [
-        optionalXmlAttribute("id", example.id),
-        optionalXmlAttribute("qa_rule_id", example.qa_rule_id),
-        optionalXmlAttribute("severity", example.severity),
-      ].filter(Boolean);
-      lines.push(`        <canonical_example ${exampleAttrs.join(" ")}>`);
-      lines.push(`            <bad_code>${xmlText(example.bad_pattern)}</bad_code>`);
-      lines.push(`            <preferred_code>${xmlText(example.preferred_shape)}</preferred_code>`);
-      lines.push("            <why>");
-      for (const item of standardExampleDescription(example)) lines.push(`                - ${xmlText(item)}`);
-      lines.push("            </why>");
-      lines.push("        </canonical_example>");
-    }
-    const qaRuleIds = asStringArray(record.qa_rule_ids);
-    if (qaRuleIds.length > 0) {
-      lines.push("        <qa_rules>");
-      for (const item of qaRuleIds) lines.push(`            - ${xmlText(item)}`);
-      lines.push("        </qa_rules>");
-    }
-    lines.push("    </standard>");
-  }
-  lines.push("</decomp_standards>");
-  return lines.join("\n");
-}
-
 function validateStandardEdit(edit: StandardEdit): string[] {
   const errors: string[] = [];
   if (!/^global_standard:[a-z0-9-]+$/.test(stringValue(edit.id))) errors.push("id must match global_standard:<slug>.");
@@ -286,12 +252,20 @@ function validateStandardEdit(edit: StandardEdit): string[] {
 }
 
 export function createStandardsService(deps: StandardsServiceDeps): StandardsService {
-  function readStandardsRecords(standardsRoot: string): StandardsFileRecord[] {
+  // Game-owned records only: edits must never copy composed global records into the game tree.
+  function readOwnedStandardsRecords(standardsRoot: string): StandardsFileRecord[] {
     return readOrderedSliceRecords<StandardsFileRecord>(standardsRoot, "standards.jsonl", "standards").map((item) => item.record);
   }
 
+  // Composed view (game first, then the global root when it differs; game family wins).
+  function readStandardsRecords(standardsRoot: string): ScopedStandardsFileRecord[] {
+    return readComposedSliceRecords<StandardsFileRecord>(standardsRoots(standardsRoot), "standards.jsonl", "standards")
+      .map((item) => ({ record: item.record, scope: item.scope }));
+  }
+
   function readStandardExampleRecords(standardsRoot: string): StandardExampleFileRecord[] {
-    return readOrderedSliceRecords<StandardExampleFileRecord>(standardsRoot, "examples.jsonl", "examples").map((item) => item.record);
+    return readComposedSliceRecords<StandardExampleFileRecord>(standardsRoots(standardsRoot), "examples.jsonl", "examples")
+      .map((item) => item.record);
   }
 
   function writeStandardsSlices(standardsRoot: string, records: StandardsFileRecord[]): void {
@@ -361,7 +335,9 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
 
   function loadStandardsPayload(game: ResolvedGame | null): JsonObject {
     const standardsRoot = standardsRootForGame(game);
-    const records = readStandardsRecords(standardsRoot);
+    const roots = standardsRoots(standardsRoot);
+    const scoped = readStandardsRecords(standardsRoot);
+    const records = scoped.map((item) => item.record);
     const examples = readStandardExampleRecords(standardsRoot);
     const examplesByStandard = examplesByStandardId(examples);
     const warnings: string[] = [];
@@ -371,8 +347,10 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
       game: game ? deps.gameToSummary(game) : null,
       sourcePath: standardsRoot,
       examplesPath: standardsRoot,
-      records: records.map((record) => ({
+      globalSourcePath: roots.find((item) => item.scope === "global")?.root,
+      records: scoped.map(({ record, scope }) => ({
         id: record.id,
+        scope,
         title: record.title,
         summary: asStringArray(record.summary),
         status: record.status,
@@ -392,10 +370,10 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
         evidenceRefs: record.evidence_refs ?? [],
       })),
       examples: examples.map(formatStandardExamplePayload),
-      effectiveXml: game && game.gameId !== "melee"
-        ? globalStandardsPromptXml({ gameId: game.gameId, knowledgeRoot: knowledgeRootForGame(game) })
-        : standardsPromptXmlFromRecords(records, examples),
-      context: standardsContextFromRecords(records, examples),
+      // The XML workers receive: the composed (game + global) set for a game,
+      // the global set alone otherwise.
+      effectiveXml: globalStandardsPromptXml(game ? { gameId: game.gameId, knowledgeRoot: knowledgeRootForGame(game) } : {}),
+      context: standardsContextFromRecords(scoped, examples),
       inventory: standardsInventory(game),
       warnings,
     };
@@ -406,7 +384,7 @@ export function createStandardsService(deps: StandardsServiceDeps): StandardsSer
     const edit = asObject(rawEdit) as unknown as StandardEdit;
     const errors = validateStandardEdit(edit);
     if (errors.length > 0) return { ok: false, errors };
-    const records = readStandardsRecords(standardsRoot);
+    const records = readOwnedStandardsRecords(standardsRoot);
     const index = records.findIndex((record) => record.id === edit.id);
     const existing = index >= 0 ? records[index] : null;
     const merged: StandardsFileRecord = existing

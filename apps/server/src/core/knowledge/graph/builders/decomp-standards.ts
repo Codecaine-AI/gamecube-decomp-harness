@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import {
   listStandardsSliceFiles,
-  readOrderedSliceRecords,
+  readComposedSliceRecords,
   standardsOrderPath,
+  standardsRoots,
   standardsSlicesRoot,
 } from "../../standards-files.js";
 import { sourceStorageRoot } from "../../paths.js";
@@ -13,16 +14,20 @@ import { fileEntityId } from "./code-graph.js";
 const SOURCE_ID = "decomp_standards";
 const FILE_MENTION_RE = /(?:^|[\s`"'(])((?:src|include|asm|config)\/[A-Za-z0-9_./+@-]+)\b/g;
 
-/** Build graph records for the compact accepted standards and their examples. */
+/**
+ * Build graph records for the compact accepted standards and their examples.
+ * Reads the composed set: the selected game's slices first, then the global
+ * `knowledge/global` set (game family wins).
+ */
 export function buildDecompStandardsGraphRecords(): GraphRecords | null {
-  const slicesRoot = standardsSlicesRoot(sourceStorageRoot(SOURCE_ID));
-  const standards = readOrderedSliceRecords(slicesRoot, "standards.jsonl", "standards");
-  const examples = readOrderedSliceRecords(slicesRoot, "examples.jsonl", "examples");
-  const sourcePaths = [
-    standardsOrderPath(slicesRoot),
-    ...listStandardsSliceFiles(slicesRoot, "standards.jsonl"),
-    ...listStandardsSliceFiles(slicesRoot, "examples.jsonl"),
-  ].filter(existsSync);
+  const roots = standardsRoots(standardsSlicesRoot(sourceStorageRoot(SOURCE_ID)));
+  const standards = readComposedSliceRecords(roots, "standards.jsonl", "standards");
+  const examples = readComposedSliceRecords(roots, "examples.jsonl", "examples");
+  const sourcePaths = roots.flatMap(({ root }) => [
+    standardsOrderPath(root),
+    ...listStandardsSliceFiles(root, "standards.jsonl"),
+    ...listStandardsSliceFiles(root, "examples.jsonl"),
+  ]).filter(existsSync);
   if (standards.length === 0 || sourcePaths.length === 0) return null;
 
   const examplesByStandard = new Map<string, Record<string, unknown>[]>();

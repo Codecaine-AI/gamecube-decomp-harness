@@ -378,6 +378,8 @@ export interface PromptPreview {
 /** A durable decomp standard record loaded from the decomp_standards source. */
 export interface StandardRecord {
   id: string;
+  /** Root the record was read from: the selected game's tree or the composed global tree (`knowledge/global`). */
+  scope?: "game" | "global";
   title: string;
   summary: string[];
   status: string;
@@ -428,6 +430,8 @@ export interface StandardsPayload {
   game: GameSummary | null;
   sourcePath: string;
   examplesPath?: string;
+  /** Global standards root composed after the game's own root, when it differs. */
+  globalSourcePath?: string;
   records: StandardRecord[];
   examples: StandardExampleRecord[];
   /** Rendered <decomp_standards> XML as worker/QA prompts see it. */

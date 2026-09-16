@@ -4,7 +4,9 @@
 Implements the deterministic maintainer-rejection rules from the QA ship
 gate flow (docs/10-system-design/60-score-and-pr-handoff.md). The rule
 implementations live in per-family vertical slices under
-``games/melee/knowledge/sources/injectable/decomp_standards/standards/
+``knowledge/global/sources/injectable/decomp_standards/standards/
+<family>/rules.py`` (global set) and
+``games/<game>/knowledge/sources/injectable/decomp_standards/standards/
 <family>/rules.py`` (env override ``REVIEW_LINT_STANDARDS_DIR``); this module
 keeps the shared helpers and regex primitives, loads every slice, validates
 each slice module against its ``slice.json`` manifest, and assembles the
@@ -12,9 +14,12 @@ each slice module against its ``slice.json`` manifest, and assembles the
 
 Standards compose: the game's own standards directory (``ORCH_GAME_DIR`` /
 ``ORCH_GAME_KNOWLEDGE_ROOT``) is loaded first, then the global set (env
-``REVIEW_LINT_GLOBAL_STANDARDS_DIR``, defaulting to the Melee-hosted tree)
-when it is a different directory. Families are deduplicated by name and the
-game's slice wins on collision. An explicit ``REVIEW_LINT_STANDARDS_DIR``
+``REVIEW_LINT_GLOBAL_STANDARDS_DIR``, defaulting to the platform-level
+``knowledge/global`` tree; ``ORCH_GLOBAL_KNOWLEDGE_ROOT`` relocates it)
+when it is a different directory. A game may ship rule-free record slices
+(Melee's ``melee_conventions`` carries one record and no rules) or nothing at
+all and inherit the global rule set unchanged. Families are deduplicated by
+name and the game's slice wins on collision. An explicit ``REVIEW_LINT_STANDARDS_DIR``
 override is used alone unless the global env is also set.
 
 Rule families and their slices:
@@ -41,7 +46,10 @@ stack-slot-name subcase of ``m2c_residue_names``); those stay warnings and
 carry ``"llm_review": true`` in their finding detail. Rules may declare an
 optional per-surface severity map (``"surfaces": {"worker": ..., "pr_gate":
 ...}``) resolved when the caller passes ``--surface``; absent entries fall back
-to the base severity on both surfaces. Rules may also declare an optional
+to the base severity on both surfaces. The special surface severity
+``"skip"`` (``SKIP_SEVERITY``) drops the finding entirely on that surface;
+it applies both to per-hunk findings and to findings emitted by slice
+``POST_SCAN_HOOKS`` (see ``apply_surface_to_findings``). Rules may also declare an optional
 ``"excludes"`` glob list that carves SDK-like paths out of ``applies_to``.
 
 Engine-owned data-driven rules:
@@ -70,7 +78,11 @@ from typing import Any, Callable
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(Path(__file__).resolve().parents[3] / "_shared"))
-from search_index import package_root_for_tool, project_knowledge_root  # type: ignore
+from search_index import (  # type: ignore
+    global_knowledge_root,
+    package_root_for_tool,
+    project_knowledge_root,
+)
 
 ORCHESTRATOR_ROOT = package_root_for_tool(TOOL_ROOT)
 BANNED_DIR_ENV = "REVIEW_LINT_BANNED_DIR"
@@ -85,25 +97,25 @@ DEFAULT_STANDARDS_DIR = (
     / "decomp_standards"
     / "standards"
 )
-# Global (game-agnostic) standards are hosted under the Melee game dir. They
-# compose with the game's own standards at scan time (game wins per family).
+# Global (game-agnostic) standards live in the platform-level knowledge root
+# (``knowledge/global``). They compose with the game's own standards at scan
+# time (game wins per family).
 GLOBAL_STANDARDS_DIR_ENV = "REVIEW_LINT_GLOBAL_STANDARDS_DIR"
-GLOBAL_STANDARDS_GAME_ID = "melee"
 DEFAULT_GLOBAL_STANDARDS_DIR = (
-    ORCHESTRATOR_ROOT
-    / "games"
-    / GLOBAL_STANDARDS_GAME_ID
-    / "knowledge"
+    global_knowledge_root(TOOL_ROOT)
     / "sources"
     / "injectable"
     / "decomp_standards"
     / "standards"
 )
+# Banned-pattern data is Melee review-corpus data and still lives under the
+# Melee game dir; it composes the same way as standards.
 GLOBAL_BANNED_DIR_ENV = "REVIEW_LINT_GLOBAL_BANNED_DIR"
+GLOBAL_BANNED_GAME_ID = "melee"
 DEFAULT_GLOBAL_BANNED_DIR = (
     ORCHESTRATOR_ROOT
     / "games"
-    / GLOBAL_STANDARDS_GAME_ID
+    / GLOBAL_BANNED_GAME_ID
     / "knowledge"
     / "sources"
     / "injectable"
@@ -117,6 +129,9 @@ DEFAULT_APPLIES_TO = ["src/**/*.c", "src/**/*.cpp"]
 
 # Optional per-rule severity surfaces (see rule "surfaces" maps).
 QA_SURFACES = ("worker", "pr_gate")
+# Surface severity meaning "emit nothing on this surface". Resolved findings
+# with this severity are dropped instead of reported; it never reaches output.
+SKIP_SEVERITY = "skip"
 
 # SDK-like directories where upstream vendor code conventions differ from the
 # melee/sysdolphin source-quality rules. Rules opt in via their "excludes"
@@ -242,11 +257,8 @@ STANDARD_TITLES = {
     "global_standard:literals-and-data-ownership": (
         "Keep literals inline unless data ownership evidence says otherwise"
     ),
-    "global_standard:no-string-literal-symbol-regression": (
-        "Do not replace string literals with data symbols"
-    ),
     "global_standard:assert-report-macros": (
-        "Use project assert/report macros (HSD_ASSERT*) when they represent the source"
+        "Use the project's assert/report macros when they represent the source"
     ),
     "global_standard:canonical-control-flow-and-macros": (
         "Use canonical control flow and expression macros"
@@ -258,10 +270,7 @@ STANDARD_TITLES = {
         "Avoid new pragmas, register steering, and inline assembly for normal source"
     ),
     "global_standard:conservative-naming": (
-        "Use semantic names only when the role is evidenced"
-    ),
-    "global_standard:no-define-alias-global-renames": (
-        "Do not alias global renames with defines"
+        "Use semantic names only when the role is evidenced; do not alias renames with defines"
     ),
     "global_standard:truthful-headers-and-includes": (
         "Headers, prototypes, and includes must be truthful"
@@ -486,7 +495,7 @@ def global_standards_dir() -> Path | None:
     """Resolve the global standards directory that composes with the game's.
 
     ``REVIEW_LINT_GLOBAL_STANDARDS_DIR`` wins when set. Otherwise the
-    Melee-hosted tree is the global set, unless an explicit
+    platform-level ``knowledge/global`` tree is the global set, unless an explicit
     ``REVIEW_LINT_STANDARDS_DIR`` override is in effect (tests and ad-hoc
     scans that point at a fixture tree get exactly that tree).
     """
@@ -510,7 +519,8 @@ def standards_dirs() -> list[tuple[str, Path]]:
     """Ordered ``(scope, path)`` standards roots: game first, then global.
 
     The global entry is omitted when it is the same directory as the game's
-    (Melee itself) or when no global root applies.
+    or when no global root applies. A game whose own root is empty (Melee's
+    shell) still composes: ``[("game", <empty>), ("global", <global>)]``.
     """
 
     game = standards_dir()
@@ -636,16 +646,18 @@ def load_rule_slices() -> list[dict[str, Any]]:
     """
 
     roots = standards_dirs()
-    game_root = roots[0][1]
-    if not game_root.is_dir():
-        raise RuntimeError(f"review_lint: standards slice directory not found: {game_root}")
+    if not any(root.is_dir() for _scope, root in roots):
+        raise RuntimeError(
+            "review_lint: standards slice directory not found: "
+            + ", ".join(str(root) for _scope, root in roots)
+        )
     slices: list[dict[str, Any]] = []
     seen: set[str] = set()
     for scope, root in roots:
         if not root.is_dir():
-            if scope == "global":
-                continue
-            raise RuntimeError(f"review_lint: standards slice directory not found: {root}")
+            # A game may omit its own standards dir entirely and inherit the
+            # global set; a missing global root is skipped.
+            continue
         for record in _load_slices_from_dir(root, scope):
             if record["family"] in seen:
                 continue
@@ -947,11 +959,48 @@ def resolve_severity(
 
     Without a surface (or without a per-surface override for it) the base
     severity applies — fully backward compatible with pre-surface callers.
+    A per-surface value of ``SKIP_SEVERITY`` means the finding is dropped on
+    that surface; callers must filter it (``run_rules_on_hunk`` and
+    ``apply_surface_to_findings`` do).
     """
 
     if surface and surfaces and surface in surfaces:
         return surfaces[surface]
     return base_severity
+
+
+def apply_surface_to_findings(
+    findings: list[dict[str, Any]],
+    surface: str | None,
+) -> list[dict[str, Any]]:
+    """Resolve rule-level ``surfaces`` maps over complete findings.
+
+    Post-scan hooks build their findings directly (they never pass through
+    ``run_rules_on_hunk``), so scan_diff.py applies this after the hooks
+    run. Only rule-level ``surfaces`` maps (looked up by ``rule_id`` in
+    ``RULES``) are consulted; findings resolved to ``SKIP_SEVERITY`` are
+    dropped. Re-applying to already-resolved per-hunk findings is
+    idempotent because the surface map wins over the incoming severity.
+    """
+
+    if not surface:
+        return findings
+    surfaces_by_rule = {
+        rule["rule_id"]: rule["surfaces"] for rule in RULES if rule.get("surfaces")
+    }
+    result: list[dict[str, Any]] = []
+    for finding in findings:
+        surfaces = surfaces_by_rule.get(finding.get("rule_id"))
+        if not surfaces:
+            result.append(finding)
+            continue
+        severity = resolve_severity(finding.get("severity", "error"), surfaces, surface)
+        if severity == SKIP_SEVERITY:
+            continue
+        if severity != finding.get("severity"):
+            finding = {**finding, "severity": severity}
+        result.append(finding)
+    return result
 
 
 def run_rules_on_hunk(
@@ -983,6 +1032,8 @@ def run_rules_on_hunk(
                 partial.get("surfaces", rule.get("surfaces")),
                 surface,
             )
+            if severity == SKIP_SEVERITY:
+                continue
             finding: dict[str, Any] = {
                 "rule_id": partial.get("rule_id", rule["rule_id"]),
                 "severity": severity,

@@ -16,7 +16,7 @@ worktree-local tool caches.
 
 | Section | Sources | Access model |
 | --- | --- | --- |
-| Injected context | `decomp_standards` | Compact worker and review guidance. |
+| Injected context | `decomp_standards` | Game-scoped standards shell (empty). The global standards moved to `knowledge/global/sources/injectable/decomp_standards/`; Melee composes game + global like every game. |
 | Searchable corpus | `smashwiki` | Direct page, section, media, and text lookup. |
 | Raw librarian input | `discord_raw` | Timestamped messages consumed by extraction; workers do not search it directly. |
 | Code-connected evidence | `code_graph`, `past_prs`, `opseq_similarity`, `ghidra_xrefs` | Facts and relationships attached to files, functions, PRs, analogs, and binary xrefs. |

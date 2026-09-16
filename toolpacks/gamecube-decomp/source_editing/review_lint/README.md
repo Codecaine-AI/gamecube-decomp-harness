@@ -43,8 +43,10 @@ Stdout is always the JSON document
 human-readable summary goes to stderr. The rule engine lives in
 `api/_qa_rules.py` (shared with `scan.py`); the rule implementations live in
 per-family vertical slices under
+`knowledge/global/sources/injectable/decomp_standards/standards/<family>/rules.py`
+(global set) and
 `games/<game>/knowledge/sources/injectable/decomp_standards/standards/<family>/rules.py`
-(env override `REVIEW_LINT_STANDARDS_DIR`), each validated against its
+(game set; env override `REVIEW_LINT_STANDARDS_DIR`), each validated against its
 `slice.json` manifest and assembled into the registry in a canonical rule
 order. Slices may also export `POST_SCAN_HOOKS` (post-scan escalations such
 as the extern ownership analysis); the splits.txt ownership helper is in
@@ -58,9 +60,11 @@ Standards roots are loaded in order and composed:
    resolve it to `games/<game>/knowledge/sources/injectable/decomp_standards/standards`
    (`REVIEW_LINT_STANDARDS_DIR` overrides it).
 2. The global standards dir: `REVIEW_LINT_GLOBAL_STANDARDS_DIR` when set,
-   else the Melee-hosted tree
-   `games/melee/knowledge/sources/injectable/decomp_standards/standards`
-   when it is a different directory from the game's. (When
+   else the platform-level tree
+   `knowledge/global/sources/injectable/decomp_standards/standards`
+   (`ORCH_GLOBAL_KNOWLEDGE_ROOT` relocates `knowledge/global`)
+   when it is a different directory from the game's. A game may ship an
+   empty standards dir (Melee does) and inherit the global set. (When
    `REVIEW_LINT_STANDARDS_DIR` is set without the global env, only that
    directory is loaded, so fixture-backed tests get exactly the tree they
    name.)
@@ -153,9 +157,16 @@ SDK-like and vendor directories where upstream conventions differ
 
 Slice manifest rule entries accept two optional keys:
 
-- `"surfaces": {"worker": "error"|"warning", "pr_gate": ...}` — per-surface
+- `"surfaces": {"worker": "error"|"warning"|"skip", "pr_gate": ...}` — per-surface
   severity overrides, resolved only when the caller passes `--surface`;
-  absent surfaces fall back to the base severity.
+  absent surfaces fall back to the base severity. `"skip"` emits nothing on
+  that surface (the finding is dropped, never downgraded). It applies to
+  per-hunk findings and to findings emitted by a slice's `POST_SCAN_HOOKS`
+  (`scan_diff.py` resolves those through `_qa_rules.apply_surface_to_findings`).
+  Example: `sms_symbol_map_validation` declares `{"worker": "skip"}` because
+  the worker gate always scans a patch (diff mode) where map parity cannot be
+  proven; the runner's own micro gates cover undefined symbols and section
+  parity there, and the `pr_gate` surface runs with built objects.
 - `"llm_review": true` — the finding is advisory and must be routed to LLM
   review; the flag is propagated into the finding's `detail` dict.
 

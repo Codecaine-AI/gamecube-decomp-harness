@@ -1052,7 +1052,7 @@ def string_list(value: Any) -> list[str]:
 
 
 def global_standards_xml() -> str:
-    standards_root = ORCHESTRATOR_ROOT / "knowledge" / "sources" / "injectable" / "decomp_standards" / "standards"
+    standards_root = ORCHESTRATOR_ROOT / "knowledge" / "global" / "sources" / "injectable" / "decomp_standards" / "standards"
     records = [record for record in read_standards_slices(standards_root) if record.get("status") == "accepted"]
     lines = [
         "<decomp_standards>",

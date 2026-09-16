@@ -42,6 +42,7 @@ export {
 export {
   globalStandardsContext,
   globalStandardsPromptXml,
+  hasGameScopedStandards,
   loadStandardExamples,
   standardExamplesPromptXml,
   type StandardExampleSelector,
