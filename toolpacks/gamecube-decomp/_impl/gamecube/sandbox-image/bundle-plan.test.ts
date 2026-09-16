@@ -64,7 +64,10 @@ test("bundle stages a second game with resolved report, provenance and no local 
   const checkout = join(gameDir, "workspace/checkout");
   const put = (path: string, content = "fixture") => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, content); };
   for (const path of ["configure.py", "tools/download_tool.py", "build.ninja", "build/GZLE01/report.json",
-    "build/tools/sjiswrap.exe", "build/compilers/mwcc", "build/binutils/as", "build/GZLE01/main.o", "local.env", ".env.production", ".pi-sessions/trace.json"]) put(join(checkout, path));
+    "build/tools/sjiswrap.exe", "build/compilers/mwcc", "build/binutils/as", "build/GZLE01/main.o", "local.env", ".env.production", ".pi-sessions/trace.json", "orig/GZLE01/disc.rvz"]) put(join(checkout, path));
+  put(join(root, "knowledge/global/sources/injectable/decomp_standards/standards/order.json"), "{}");
+  put(join(gameDir, "knowledge/sources/injectable/decomp_standards/standards/order.json"), "{}");
+  put(join(gameDir, "knowledge/sources/injectable/decomp_standards/standards/__pycache__/rules.cpython-312.pyc"));
   const run = (args: string[], cwd = root) => {
     const result = Bun.spawnSync(args, { cwd });
     if (result.exitCode !== 0) throw new Error(result.stderr.toString());
@@ -96,9 +99,19 @@ test("bundle stages a second game with resolved report, provenance and no local 
   expect(entries).not.toContain("local.env");
   expect(entries).not.toContain(".env.production");
   expect(entries).not.toContain(".pi-sessions");
+  expect(entries).not.toContain("disc.rvz");
+  expect(entries).toContain("daytona-zelda-image/knowledge/global/sources/injectable/decomp_standards/standards/order.json");
+  expect(entries).toContain("daytona-zelda-image/games/zelda/knowledge/sources/injectable/decomp_standards/standards/order.json");
+  expect(entries).toContain("daytona-zelda-image/games/zelda/game.json");
+  expect(entries).not.toContain("__pycache__");
   const plan = JSON.parse(run(["tar", "-xOf", out, "daytona-zelda-image/provenance/image-plan.json"]));
   expect(plan.gameId).toBe("zelda");
   expect(plan.profile).toBe("4-core");
   expect(plan.resourceClass.cpu).toBe(4);
-  expect(run(["tar", "-xOf", out, "daytona-zelda-image/Dockerfile"])).toContain("COPY checkout ${WORKSPACE_ROOT}");
+  expect(plan.globalStandardsDir).toBe("knowledge/global/sources/injectable/decomp_standards/standards");
+  expect(plan.gameStandardsDir).toBe("games/zelda/knowledge/sources/injectable/decomp_standards/standards");
+  const dockerfile = run(["tar", "-xOf", out, "daytona-zelda-image/Dockerfile"]);
+  expect(dockerfile).toContain("COPY checkout ${WORKSPACE_ROOT}");
+  expect(dockerfile).toContain("COPY knowledge /opt/knowledge");
+  expect(dockerfile).toContain("ORCH_PACKAGE_ROOT=/opt");
 });

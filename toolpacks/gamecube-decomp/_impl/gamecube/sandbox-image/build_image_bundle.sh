@@ -82,6 +82,11 @@ CACHE_SHIM="$IMPL/tools/mwcc_objcache.py"
 CACHE_INSTALLER="$IMPL/tools/install_mwcc_cache.py"
 MWCC_ALLOC_DIR="$HARNESS_ROOT/toolpacks/gamecube-decomp/compiler/mwcc_alloc/sandbox"
 TOOLPACK_SOURCE="$HARNESS_ROOT/toolpacks/gamecube-decomp"
+GLOBAL_STANDARDS_REL="knowledge/global/sources/injectable/decomp_standards/standards"
+GAME_STANDARDS_REL="games/$GAME_ID/knowledge/sources/injectable/decomp_standards/standards"
+GLOBAL_STANDARDS="$HARNESS_ROOT/$GLOBAL_STANDARDS_REL"
+GAME_STANDARDS="$HARNESS_ROOT/$GAME_STANDARDS_REL"
+GAME_DESCRIPTOR="$HARNESS_ROOT/games/$GAME_ID/game.json"
 
 require_file "$WIBO"
 require_file "$STOCK_WIBO"
@@ -98,6 +103,9 @@ require_file "$MWCC_ALLOC_DIR/gdb_modern_capture.py"
 require_file "$MWCC_ALLOC_DIR/../api/analyze.py"
 require_file "$MWCC_ALLOC_DIR/../vendor/mwcc-decomp/PIN.json"
 require_dir "$TOOLPACK_SOURCE"
+require_dir "$GLOBAL_STANDARDS"
+require_dir "$GAME_STANDARDS"
+require_file "$GAME_DESCRIPTOR"
 require_file "$CHECKOUT/configure.py"
 require_file "$CHECKOUT/tools/download_tool.py"
 require_file "$CHECKOUT/build.ninja"
@@ -124,7 +132,9 @@ mkdir -p "$PAYLOAD/checkout" "$PAYLOAD/provenance/wibo-1.2.0-opt1" \
 echo "Copying configured $GAME_ID checkout..." >&2
 # Exclude measured local-development dead weight, including AI corpora that policy
 # forbids in sandboxes. The live fsmonitor socket is transient and unarchivable.
-tar -C "$CHECKOUT" \
+# Follow symlinks (-h): checkouts link orig/<version>/sys/* to a shared
+# repository tree, and the image needs the real disc files.
+tar -h -C "$CHECKOUT" \
   --exclude='./ai_docs' \
   --exclude='./local.env' \
   --exclude='./.env' \
@@ -139,8 +149,22 @@ tar -C "$CHECKOUT" \
   --exclude='./.decomp-orchestrator-state' \
   --exclude='./.git' \
   --exclude='./.git/fsmonitor--daemon.ipc' \
+  --exclude='*.rvz' \
+  --exclude='*.iso' \
+  --exclude='*.gcm' \
+  --exclude='*.ciso' \
+  --exclude='*.wia' \
   -cf - . | \
   tar -C "$PAYLOAD/checkout" -xf -
+
+# tar -h also dereferenced tracked symlinks; restore those so the packaged tree
+# matches the commit (git records them as links, not file contents).
+git -C "$CHECKOUT" ls-files -s -z | while IFS= read -r -d '' entry; do
+  case "$entry" in
+    120000\ *) link=${entry#*$'\t'}; target=$(readlink "$CHECKOUT/$link") || continue
+      rm -rf "$PAYLOAD/checkout/$link" && ln -s "$target" "$PAYLOAD/checkout/$link" ;;
+  esac
+done
 
 echo "Copying gamecube-decomp toolpack..." >&2
 (
@@ -153,6 +177,18 @@ echo "Copying gamecube-decomp toolpack..." >&2
     tar --null -T - -cf -
 ) | \
   tar -C "$PAYLOAD/toolpacks/gamecube-decomp" -xf -
+
+echo "Copying global and $GAME_ID standards..." >&2
+# review_lint composes the global standards with the game's own slice. The
+# image carries both under /opt (ORCH_PACKAGE_ROOT) for in-sandbox tool use;
+# job-time uploads under /opt/build-orchestrator still take precedence.
+mkdir -p "$PAYLOAD/$GLOBAL_STANDARDS_REL" "$PAYLOAD/$GAME_STANDARDS_REL"
+# Dereference symlinks: slices may link rules.py into the toolpack tree, and a
+# relative link is dangling once the tree is relocated into the image.
+cp -RL "$GLOBAL_STANDARDS/." "$PAYLOAD/$GLOBAL_STANDARDS_REL/"
+cp -RL "$GAME_STANDARDS/." "$PAYLOAD/$GAME_STANDARDS_REL/"
+cp -a "$GAME_DESCRIPTOR" "$PAYLOAD/games/$GAME_ID/game.json"
+find "$PAYLOAD/knowledge" "$PAYLOAD/games" \( -name __pycache__ -type d -prune -exec rm -rf {} + \) -o \( -name '*.pyc' -type f -delete \)
 
 PAYLOAD_TOOLPACK="$PAYLOAD/toolpacks/gamecube-decomp"
 require_file "$PAYLOAD_TOOLPACK/validation/checkdiff/api/run.py"
@@ -174,6 +210,10 @@ BAKED_HEAD=$(git -C "$CHECKOUT" rev-parse --verify 'HEAD^{commit}')
 git clone --quiet --depth 1 --no-checkout "file://$CHECKOUT" "$SHALLOW_REPO"
 [ "$(git -C "$SHALLOW_REPO" rev-parse --verify 'HEAD^{commit}')" = "$BAKED_HEAD" ] || \
   die "shallow clone HEAD does not match checkout HEAD"
+# A detached source leaves refs/ with only empty directories, which image build
+# context uploads drop; git then no longer recognizes the repository. Record a
+# real ref so the baked clone always carries refs/heads/<file>.
+git -C "$SHALLOW_REPO" update-ref refs/heads/baked "$BAKED_HEAD"
 cp -a "$SHALLOW_REPO/.git" "$PAYLOAD/checkout/.git"
 printf '%s\n' "$BAKED_HEAD" > "$PAYLOAD/provenance/baked-head.txt"
 cp -a "$WIBO_DIR/README.md" "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch" \

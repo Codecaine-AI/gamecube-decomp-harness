@@ -36,6 +36,9 @@ export function bundlePlan(options: { harnessRoot: string; gameId: string; profi
     workspaceRoot: sandbox.workspace_root,
     resourceClass: sandbox.resource_class,
     payloadDirectory: `daytona-${game.gameId}-image`,
+    // Standards staged into the image (harness-relative); the shell requires both.
+    globalStandardsDir: "knowledge/global/sources/injectable/decomp_standards/standards",
+    gameStandardsDir: `games/${game.gameId}/knowledge/sources/injectable/decomp_standards/standards`,
   };
   if (Object.values(plan).some((value) => typeof value === "string" && /[\r\n\0]/.test(value))) {
     throw new Error("Image plan paths cannot contain newlines or NUL bytes");

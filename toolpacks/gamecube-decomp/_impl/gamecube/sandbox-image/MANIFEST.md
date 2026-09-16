@@ -85,6 +85,14 @@ The image must contain `/opt/toolpacks/gamecube-decomp` and its `.ready` content
 stamp. The Python 3 environment must have the pinned `tree-sitter`,
 `tree-sitter-c`, and `libclang` packages installed by the Dockerfile.
 
+The image also carries the review_lint standards it was baked with: the global
+set at `/opt/knowledge/global/sources/injectable/decomp_standards/standards` and
+the game's slice at `/opt/games/<id>/knowledge/sources/injectable/decomp_standards/standards`
+(plus `/opt/games/<id>/game.json`). `ORCH_PACKAGE_ROOT=/opt` makes the toolpack's
+default root resolution work in-sandbox. Job-time uploads under
+`/opt/build-orchestrator` still take precedence through
+`REVIEW_LINT_GLOBAL_STANDARDS_DIR` and `ORCH_GAME_DIR`.
+
 Run these checks against a snapshot candidate:
 
 1. `python3 -c "import tree_sitter, tree_sitter_c, clang"` exits 0.
@@ -93,6 +101,11 @@ Run these checks against a snapshot candidate:
 
 ## Snapshot acceptance checks
 
+0. `git status --porcelain --untracked-files=no` in `$MELEE_ROOT` is empty: the
+   baked shallow clone carries a populated index (the Dockerfile runs
+   `git reset --mixed HEAD`), so per-claim `git checkout --force <rev>` removes
+   files the target revision no longer tracks. Tracked symlinks are links, and
+   untracked `orig/*/sys/*` links are dereferenced to real disc files.
 1. `file build/tools/wibo-real` reports a statically linked i386/i686 Linux ELF,
    and `build/tools/wibo` is the installed Python cache shim.
 2. `file build/tools/objdiff-cli` and `file build/tools/dtk` report Linux x86-64
@@ -156,9 +169,13 @@ SANDBOX_IMAGE=toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image
 bash "$SANDBOX_IMAGE/build_image_bundle.sh" --harness-root "$PWD" --game melee --profile 2-core --out /tmp/daytona-melee-image.tar.zst
 mkdir -p /tmp/daytona-melee-image
 tar --use-compress-program=unzstd -xf /tmp/daytona-melee-image.tar.zst -C /tmp/daytona-melee-image
-docker build --build-arg GAME_ID=melee --build-arg WORKSPACE_ROOT=/opt/melee --build-arg REPORT_PATH=build/GALE01/report.json -t <registry>/daytona-melee:<revision> /tmp/daytona-melee-image/daytona-melee-image
-docker push <registry>/daytona-melee:<revision>
-# Register a new Daytona snapshot from that image with the required resource class.
+# Pin the ARG defaults in the extracted Dockerfile (GAME_ID, WORKSPACE_ROOT,
+# REPORT_PATH); the Daytona Dockerfile build takes no build arguments.
+# Register one snapshot per profile from that Dockerfile, built on Daytona:
+daytona snapshot create <snapshot_name> --dockerfile /tmp/daytona-melee-image/daytona-melee-image/Dockerfile \
+  --context /tmp/daytona-melee-image/daytona-melee-image --cpu 2 --memory 4 --disk 5
+# (or the SDK: daytona.snapshot.create({ name, image: Image.fromDockerfile(<Dockerfile>), resources }))
+# Optional local size check: docker build --platform linux/amd64 <extracted payload dir>.
 # Update the selected profile in games/melee/config/sandbox.json with the registered
 # snapshot_name and snapshot_baked_rev from provenance/baked-head.txt.
 # Local overrides belong in games/melee/config/local.json.

@@ -24,8 +24,17 @@ ARG WORKSPACE_ROOT
 ARG REPORT_PATH
 RUN test -n "$GAME_ID" && test -n "$WORKSPACE_ROOT" && test -n "$REPORT_PATH"
 COPY checkout ${WORKSPACE_ROOT}
+# The bundled shallow clone ships without an index. Populate it from HEAD so a
+# later `git checkout --force <rev>` removes files the target no longer tracks
+# instead of leaving stale copies that change the build's source tree.
+# Build-context uploads flatten symlinks into files; restore tracked links.
+RUN git -C "$WORKSPACE_ROOT" reset --quiet --mixed HEAD \
+    && git -C "$WORKSPACE_ROOT" diff --name-only --diff-filter=T HEAD | xargs -r git -C "$WORKSPACE_ROOT" checkout -- \
+    && git -C "$WORKSPACE_ROOT" status --porcelain --untracked-files=no | head -20
 COPY image-tools /opt/image-tools
 COPY toolpacks /opt/toolpacks
+COPY knowledge /opt/knowledge
+COPY games /opt/games
 
 RUN mkdir -p /work \
     && if [ "$WORKSPACE_ROOT" != "/work/$GAME_ID" ]; then ln -s "$WORKSPACE_ROOT" "/work/$GAME_ID"; fi
@@ -34,6 +43,7 @@ ENV ORCH_GAME_ID=${GAME_ID} \
     ORCH_GAME_REPO_ROOT=${WORKSPACE_ROOT} \
     ORCH_GAME_REPORT_PATH=${REPORT_PATH} \
     ORCH_TOOL_PLATFORM=linux-i686 \
+    ORCH_PACKAGE_ROOT=/opt \
     MWCC_CACHE_DIR=${WORKSPACE_ROOT}/build/mwcc-objcache
 
 WORKDIR ${WORKSPACE_ROOT}
