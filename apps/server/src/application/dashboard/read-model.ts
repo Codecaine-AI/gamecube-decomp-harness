@@ -34,6 +34,7 @@ import {
   type SyncActionId,
 } from "@server/core/harness-runtime/phases/sync/runtime.js";
 import { parseBaseRef } from "@server/core/harness-runtime/phases/sync/upstream.js";
+import { observeUpstreamDrift, withLiveUpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 import { quietGit } from "@server/core/harness-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
@@ -1321,7 +1322,15 @@ export function getHarnessStateView(
       confirmation_required: ["run.hard_stop", "run.cancel", "run.recover", "sync.publish", "sync.cancel", "sync.recover"].includes(actionId),
     });
   }
-  const canonicalState = getHarnessState(store.db, gameId);
+  const persisted = getHarnessState(store.db, gameId);
+  // Upstream drift is observed from local refs on every read; the boundary sync persists it after each fetch.
+  const canonicalState = persisted && options.gameContext?.game
+    ? withLiveUpstreamDrift(persisted, observeUpstreamDrift({
+        repoRoot: persisted.source.worktree,
+        upstreamRef: (({ remote, branch }) => `${remote}/${branch}`)(parseBaseRef(options.gameContext.game.baseRef ?? "origin/master")),
+        acceptedUpstream: persisted.source.upstream_revision,
+      }))
+    : persisted;
   return {
     state: canonicalState,
     timeline: canonicalState ? getHarnessTimeline(store.db, gameId, { order: "desc", limit: 100 }) : [],

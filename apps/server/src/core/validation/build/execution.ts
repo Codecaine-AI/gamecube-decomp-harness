@@ -7,7 +7,7 @@ export function remoteBuildsEnabled(): boolean {
   return mode === "daytona";
 }
 
-export type BuildTaskKind = "report" | "ci" | "precommit" | "autofix" | "object" | "unit-snapshot" | "qa" | "command" | "report-changes";
+export type BuildTaskKind = "report" | "ci" | "precommit" | "autofix" | "object" | "unit-snapshot" | "qa" | "command" | "report-changes" | "format-check" | "format-apply" | "symbol-check";
 export interface BuildTask { kind: BuildTaskKind; input: Record<string, unknown> }
 
 export async function executeBuildTask<T>(repoRoot: string, task: BuildTask): Promise<T> {

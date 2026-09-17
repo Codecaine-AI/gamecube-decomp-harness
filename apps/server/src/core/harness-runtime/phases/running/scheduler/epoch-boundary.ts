@@ -1,6 +1,7 @@
 import { publishHarnessEpochSync } from "./harness-sync-publication.js";
 import { requireLease } from "@server/core/harness-state";
 import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
+import { recordUpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -367,6 +368,52 @@ async function productionBoundarySync(
       output: fixer?.output,
       files: fixer?.files,
       commit_sha: fixer?.commitSha,
+      worktree_dir: params.globals.repoRoot,
+      created_by: "epoch-cycle",
+    }),
+    symbolCheck: params.globals.game?.validation?.symbolCheck ?? null,
+    onSymbolCheckEvent: (status, detail) => addEvent(params.store, params.runId, "epoch_checkpoint_progress", "epoch-cycle", {
+      epoch: params.epochOrdinal,
+      epoch_id: params.schedulerEpochId ?? null,
+      boundary_attempt: boundaryAttempt,
+      phase: "boundary_sync_symbol_check",
+      status,
+      message: status === "started"
+        ? `validating map symbols of ${detail.files.length} changed C++ unit(s) against upstream ${detail.baselineRevision.slice(0, 10)} in the sandbox`
+        : detail.result?.status === "tool_unavailable"
+          ? `symbol check could not run: ${detail.result.toolError ?? "unknown"}`
+          : `symbol check ${detail.reasons?.length ? "found new map-symbol errors" : "passed"}: ${detail.result?.units.filter((unit) => unit.status === "failed").length ?? 0} of ${detail.files.length} unit(s) regressed`,
+      outcome: status === "started" ? undefined : detail.result?.status === "tool_unavailable" ? "failed" : detail.reasons?.length ? "blocked" : "completed",
+      baseline_revision: detail.baselineRevision,
+      files: detail.files,
+      reasons: detail.reasons ?? [],
+      symbol_check: detail.result ? { status: detail.result.status, map: detail.result.mapPath, validator: detail.result.validator, baseline: detail.result.baseline, units: detail.result.units.map((unit) => ({ source: unit.source, unit: unit.unit, status: unit.status, result: unit.result, new: unit.newErrors, inherited: unit.inheritedErrors, resolved: unit.resolvedErrors, new_lines: unit.newLines })) } : null,
+      worktree_dir: params.globals.repoRoot,
+      created_by: "epoch-cycle",
+    }),
+    onUpstreamDrift: (drift) => {
+      // Non-blocking: the boundary merges upstream right after this; the notice
+      // documents the drift and its first appearance lands on the timeline.
+      recordUpstreamDrift(params.store.db, { gameId, drift });
+      if (drift.upstream_ahead_by > 0) console.error(`[run-loop] upstream ${drift.upstream_ref} is ${drift.upstream_ahead_by} commit(s) ahead of accepted ${drift.accepted_upstream.slice(0, 10)}`);
+    },
+    formatting: params.globals.game?.validation?.formatting ?? null,
+    onFormatEvent: (status, detail) => addEvent(params.store, params.runId, "epoch_checkpoint_progress", "epoch-cycle", {
+      epoch: params.epochOrdinal,
+      epoch_id: params.schedulerEpochId ?? null,
+      boundary_attempt: boundaryAttempt,
+      phase: "boundary_sync_format",
+      status,
+      message: status === "started"
+        ? `running the sandbox's pinned clang-format over ${detail.files.length} changed source file(s)`
+        : status === "propagated"
+          ? `committed ${(detail.changedFiles ?? []).length} boundary-sync clang-format file(s)`
+          : `clang-format ${detail.version ?? "unknown"} left ${(detail.changedFiles ?? []).length} of ${detail.files.length} file(s) changed`,
+      outcome: status === "started" ? undefined : "completed",
+      clang_format_version: detail.version ?? null,
+      files: detail.files,
+      changed_files: detail.changedFiles,
+      commit_sha: detail.commitSha,
       worktree_dir: params.globals.repoRoot,
       created_by: "epoch-cycle",
     }),

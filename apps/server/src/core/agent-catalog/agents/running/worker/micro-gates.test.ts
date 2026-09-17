@@ -7,13 +7,17 @@ import type { WorkspaceExec } from "@server/infrastructure/shell";
 import type { WorkerUnitScoreSnapshot } from "./change-validation.js";
 import {
   applyMicroGatesToValidation,
+  evaluateFormattingGate,
   evaluateSectionParityGate,
+  evaluateSymbolValidationGate,
   evaluateUndefinedSymbolGate,
   lintBannedIdioms,
   listUndefinedSymbols,
   summarizeMicroGates,
   type WorkerMicroGateResult,
 } from "./micro-gates.js";
+import type { ClangFormatCheckResult } from "@server/core/validation/format/clang-format.js";
+import type { SymbolCheckResult, SymbolCheckUnitResult } from "@server/core/validation/symbols/symbol-check.js";
 
 function snapshot(sections: WorkerUnitScoreSnapshot["sections"]): WorkerUnitScoreSnapshot {
   return {
@@ -503,5 +507,123 @@ describe("micro-gate summaries", () => {
       reasons: ["build failed", ...gates.reasons],
       microGates: gates,
     });
+  });
+});
+
+describe("evaluateFormattingGate", () => {
+  const formatting = { clangFormatVersion: "21.1.8" };
+  const changedPaths = ["src/Enemy/foo.cpp", "include/Enemy/foo.hpp", "config/GMSJ01/symbols.txt"];
+  const checkResult = (overrides: Partial<ClangFormatCheckResult> = {}): ClangFormatCheckResult => ({
+    status: "clean", version: "21.1.8", files: ["include/Enemy/foo.hpp", "src/Enemy/foo.cpp"], violations: [], toolError: null, ...overrides,
+  });
+
+  test("fails on an unformatted .cpp and tells the worker to format the file", async () => {
+    const seen: string[][] = [];
+    const result = await evaluateFormattingGate({
+      enabled: true,
+      formatting,
+      changedPaths,
+      runFormatCheck: async (files) => {
+        seen.push(files);
+        return checkResult({
+          status: "violations",
+          violations: [
+            { file: "src/Enemy/foo.cpp", line: 40, message: "code should be clang-formatted" },
+            { file: "src/Enemy/foo.cpp", line: 12, message: "code should be clang-formatted" },
+          ],
+        });
+      },
+    });
+    expect(seen).toEqual([["include/Enemy/foo.hpp", "src/Enemy/foo.cpp"]]);
+    expect(result.status).toBe("failed");
+    expect(result.reasons[0]).toBe("src/Enemy/foo.cpp:12: code should be clang-formatted");
+    expect(result.reasons.at(-1)).toContain("clang-format -i --style=file --fallback-style=none -- src/Enemy/foo.cpp");
+    expect(summarizeMicroGates([result]).reasons[0]).toBe("micro_gate:formatting: src/Enemy/foo.cpp:12: code should be clang-formatted");
+  });
+
+  test("passes on clean output", async () => {
+    const result = await evaluateFormattingGate({ enabled: true, formatting, changedPaths, runFormatCheck: async () => checkResult() });
+    expect(result).toEqual({ gate: "formatting", status: "passed", reasons: [] });
+  });
+
+  test("is tool_unavailable when no sandbox runner exists, the tool fails, or the version drifts", async () => {
+    const none = await evaluateFormattingGate({ enabled: true, formatting, changedPaths, runFormatCheck: async () => null });
+    expect(none.status).toBe("tool_unavailable");
+    expect(none.toolError).toContain("no sandbox session");
+    const failed = await evaluateFormattingGate({ enabled: true, formatting, changedPaths, runFormatCheck: async () => checkResult({ status: "tool_unavailable", version: null, toolError: "clang-format: not found" }) });
+    expect(failed).toMatchObject({ status: "tool_unavailable", toolError: "clang-format: not found" });
+    const drifted = await evaluateFormattingGate({ enabled: true, formatting, changedPaths, runFormatCheck: async () => checkResult({ version: "22.1.5" }) });
+    expect(drifted.status).toBe("tool_unavailable");
+    expect(drifted.toolError).toContain("22.1.5");
+    expect(summarizeMicroGates([none, failed, drifted]).status).toBe("skipped");
+  });
+
+  test("skips without formatting config, when disabled, or without formattable changes", async () => {
+    let calls = 0;
+    const runFormatCheck = async () => { calls += 1; return checkResult(); };
+    expect(await evaluateFormattingGate({ enabled: true, formatting: null, changedPaths, runFormatCheck }))
+      .toEqual({ gate: "formatting", status: "skipped", reasons: ["no formatting config"] });
+    expect((await evaluateFormattingGate({ enabled: false, formatting, changedPaths, runFormatCheck })).status).toBe("skipped");
+    expect((await evaluateFormattingGate({ enabled: true, formatting, changedPaths: ["config/GMSJ01/symbols.txt"], runFormatCheck })).status).toBe("skipped");
+    expect(calls).toBe(0);
+  });
+});
+
+describe("evaluateSymbolValidationGate", () => {
+  const symbolCheck = { script: "tools/check-changed-symbol-order.py", map: "orig/GMSJ01/files/mario.MAP" };
+  const changedPaths = ["src/GC2D/ConsoleStr.cpp", "include/GC2D/ConsoleStr.hpp", "src/System/MarNameRefGen.cpp"];
+  const unit = (overrides: Partial<SymbolCheckUnitResult>): SymbolCheckUnitResult => ({
+    source: "src/GC2D/ConsoleStr.cpp", unit: "mario/GC2D/ConsoleStr", status: "passed", result: "PASS (no symbol-validation regressions)",
+    newErrors: 0, inheritedErrors: 0, resolvedErrors: 0, newLines: [], failLines: [], message: null, ...overrides,
+  });
+  const checkResult = (overrides: Partial<SymbolCheckResult> = {}): SymbolCheckResult => ({
+    status: "clean", files: ["src/GC2D/ConsoleStr.cpp", "src/System/MarNameRefGen.cpp"], units: [unit({}), unit({ source: "src/System/MarNameRefGen.cpp", unit: "mario/System/MarNameRefGen" })],
+    mapPath: symbolCheck.map, validator: { script: symbolCheck.script, revision: "blob" }, baseline: { revision: "base", dir: "/tmp/symbol-baseline", source: "provided" },
+    driverExitCode: 0, toolError: null, output: "", ...overrides,
+  });
+
+  test("fails on a unit with new map-symbol errors and names the unit, the [NEW] lines, and the fix hint", async () => {
+    const seen: string[][] = [];
+    const result = await evaluateSymbolValidationGate({
+      enabled: true, symbolCheck, changedPaths,
+      runSymbolCheck: async (files) => {
+        seen.push(files);
+        return checkResult({ status: "regressions", units: [
+          unit({ status: "failed", result: "FAIL (new symbol-validation errors)", newErrors: 2, inheritedErrors: 1, newLines: ["missing | SMS_isGetShine__FUlUlb", "missing | __sinit_MarNameRefGen_cpp"] }),
+          unit({ source: "src/System/MarNameRefGen.cpp", unit: "mario/System/MarNameRefGen" }),
+        ] });
+      },
+    });
+    expect(seen).toEqual([["src/GC2D/ConsoleStr.cpp", "src/System/MarNameRefGen.cpp"]]);
+    expect(result.status).toBe("failed");
+    expect(result.reasons[0]).toBe("mario/GC2D/ConsoleStr (src/GC2D/ConsoleStr.cpp): 2 new symbol-validation error(s); RESULT: FAIL (new symbol-validation errors)");
+    expect(result.reasons[1]).toBe("src/GC2D/ConsoleStr.cpp: [NEW] missing | SMS_isGetShine__FUlUlb");
+    expect(result.reasons.at(-1)).toContain("validate-symbol-order.py -u mario/GC2D/ConsoleStr");
+    expect(summarizeMicroGates([result]).reasons[0]).toStartWith("micro_gate:symbol_validation: mario/GC2D/ConsoleStr");
+  });
+
+  test("passes on clean output, including inherited-only debt", async () => {
+    const result = await evaluateSymbolValidationGate({ enabled: true, symbolCheck, changedPaths, runSymbolCheck: async () => checkResult({ units: [unit({ inheritedErrors: 3, result: "PASS with warnings (existing base-revision errors; strict diagnostics shown above)" })] }) });
+    expect(result).toEqual({ gate: "symbol_validation", status: "passed", reasons: [] });
+  });
+
+  test("is tool_unavailable when no sandbox runner exists, the map is absent, or the validator cannot run", async () => {
+    const none = await evaluateSymbolValidationGate({ enabled: true, symbolCheck, changedPaths, runSymbolCheck: async () => null });
+    expect(none).toMatchObject({ status: "tool_unavailable", toolError: expect.stringContaining("no sandbox session") });
+    const noMap = await evaluateSymbolValidationGate({ enabled: true, symbolCheck, changedPaths, runSymbolCheck: async () => checkResult({ status: "tool_unavailable", toolError: "linker map orig/GMSJ01/files/mario.MAP is missing from the sandbox" }) });
+    expect(noMap).toMatchObject({ status: "tool_unavailable", toolError: expect.stringContaining("linker map") });
+    const threw = await evaluateSymbolValidationGate({ enabled: true, symbolCheck, changedPaths, runSymbolCheck: async () => { throw new Error("session lost"); } });
+    expect(threw).toMatchObject({ status: "tool_unavailable", toolError: "session lost" });
+    expect(summarizeMicroGates([none, noMap, threw]).status).toBe("skipped");
+  });
+
+  test("skips without symbolCheck config, when disabled, or without changed .cpp units", async () => {
+    let calls = 0;
+    const runSymbolCheck = async () => { calls += 1; return checkResult(); };
+    expect(await evaluateSymbolValidationGate({ enabled: true, symbolCheck: null, changedPaths, runSymbolCheck }))
+      .toEqual({ gate: "symbol_validation", status: "skipped", reasons: ["no symbolCheck config"] });
+    expect((await evaluateSymbolValidationGate({ enabled: false, symbolCheck, changedPaths, runSymbolCheck })).status).toBe("skipped");
+    expect((await evaluateSymbolValidationGate({ enabled: true, symbolCheck, changedPaths: ["include/x.hpp", "src/y.c"], runSymbolCheck })).status).toBe("skipped");
+    expect(calls).toBe(0);
   });
 });

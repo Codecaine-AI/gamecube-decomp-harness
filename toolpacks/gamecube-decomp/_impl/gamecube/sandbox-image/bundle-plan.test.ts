@@ -115,3 +115,14 @@ test("bundle stages a second game with resolved report, provenance and no local 
   expect(dockerfile).toContain("COPY knowledge /opt/knowledge");
   expect(dockerfile).toContain("ORCH_PACKAGE_ROOT=/opt");
 });
+test("games with a symbol-check map record the map and its disc directory for bake-time extraction", () => {
+  const { root, gameDir } = fixture();
+  writeFileSync(join(gameDir, "config/build.json"), JSON.stringify({ reportPath: "build/GZLE01/report.json", symbolCheck: { script: "tools/check-changed-symbol-order.py", map: "orig/GZLE01/files/zelda.MAP" } }));
+  const plan = bundlePlan({ harnessRoot: root, gameId: "zelda" });
+  expect(plan.symbolCheckMap).toBe("orig/GZLE01/files/zelda.MAP");
+  expect(plan.discDir).toBe("orig/GZLE01");
+  writeFileSync(join(gameDir, "config/build.json"), JSON.stringify({ reportPath: "build/GZLE01/report.json", symbolCheck: { script: "tools/check.py", map: "build/zelda.MAP" } }));
+  expect(() => bundlePlan({ harnessRoot: root, gameId: "zelda" })).toThrow("must live under orig/<version>/");
+  writeFileSync(join(gameDir, "config/build.json"), JSON.stringify({ reportPath: "build/GZLE01/report.json" }));
+  expect(bundlePlan({ harnessRoot: root, gameId: "zelda" })).toMatchObject({ symbolCheckMap: "", discDir: "" });
+});

@@ -104,6 +104,24 @@ describe("game registry layout resolution", () => {
     expect(game.validation.addressNamedStaticDataAllowlist).toEqual([]);
   });
 
+  test("parses the optional symbolCheck validator config and leaves unconfigured games unset", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-symbol-check-"));
+    const gameDir = join(root, "games", "sms");
+    mkdirSync(join(gameDir, "config"), { recursive: true });
+    writeJson(join(gameDir, "game.json"), { id: "sms", config: { build: "./config/build.json" } });
+    writeJson(join(gameDir, "config/build.json"), { reportPath: "build/GMSJ01/report.json", symbolCheck: { script: "tools/check-changed-symbol-order.py", map: "orig/GMSJ01/files/mario.MAP" } });
+    const game = resolveGame({ orchestratorRoot: root, gameId: "sms" });
+    expect(game.validation.symbolCheck).toEqual({ script: "tools/check-changed-symbol-order.py", map: "orig/GMSJ01/files/mario.MAP" });
+    expect(game.validation.workerSymbolValidationGate).toBe(true);
+
+    writeJson(join(gameDir, "config/build.json"), { symbolCheck: { script: "/abs/check.py", map: "orig/GMSJ01/files/mario.MAP" } });
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "sms" })).toThrow("symbolCheck.script must be a checkout-relative path");
+    writeJson(join(gameDir, "config/build.json"), { symbolCheck: { script: "tools/check.py", map: "../mario.MAP" } });
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "sms" })).toThrow("symbolCheck.map must be a checkout-relative path");
+    writeJson(join(gameDir, "config/build.json"), { reportPath: "build/GMSJ01/report.json" });
+    expect(resolveGame({ orchestratorRoot: root, gameId: "sms" }).validation.symbolCheck).toBeUndefined();
+  });
+
   test("validates and normalizes address-named static data exceptions", () => {
     const root = mkdtempSync(join(tmpdir(), "game-registry-qa-allowlist-"));
     const gameDir = join(root, "games", "melee");

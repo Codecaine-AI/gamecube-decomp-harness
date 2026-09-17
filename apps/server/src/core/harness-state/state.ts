@@ -4,16 +4,26 @@ import { immediateTransaction } from "../orchestrator-state/storage/transaction.
 import type { Blocker } from "./types.js";
 
 export type ReadinessStatus = "pending" | "ready" | "blocked";
+/** Non-blocking operator information (upstream drift, ...); never gates admission. */
+export interface HarnessNotice {
+  code: string;
+  message: string;
+  source_kind: string;
+  source_id: string;
+  observed_at: string;
+  detail?: Record<string, unknown>;
+}
 export interface HarnessState {
   identity: { game_id: string; harness_id: string; revision: number };
   source: { worktree: string; head: string | null; upstream_revision: string | null; configuration_revision: string };
   execution: { desired: "run" | "paused"; workflow: "sync" | "run" | "none"; status: "initializing" | "active" | "idle" | "paused" | "blocked"; blockers: Blocker[] };
   readiness: { build: ReadinessStatus; sources: ReadinessStatus; sandbox: ReadinessStatus; evidence: ReadinessStatus };
   history: { run_id: string | null; epoch_id: string | null; sync_id: string | null; timeline_cursor: number; save_point_id: string | null };
+  notices: HarnessNotice[];
 }
 export interface HarnessBoundary {
   eventId: string;
-  kind: "sandbox_validated" | "initial_sync_accepted" | "epoch_completed" | "sync_completed" | "remote_application" | "epoch_prepared" | "epoch_admitted" | "pause_requested" | "resumed" | "recovered" | "failed" | "save_point" | "legacy";
+  kind: "sandbox_validated" | "initial_sync_accepted" | "epoch_completed" | "sync_completed" | "remote_application" | "epoch_prepared" | "epoch_admitted" | "pause_requested" | "resumed" | "recovered" | "failed" | "save_point" | "upstream_drift" | "legacy";
   outcome: string;
   runId?: string | null;
   epochId?: string | null;
@@ -30,7 +40,7 @@ export interface InitializeHarnessStateInput {
 }
 export interface TransitionHarnessStateInput {
   gameId: string; expectedRevision: number; commandId: string; now?: string;
-  patch: { source?: Partial<HarnessState["source"]>; execution?: Partial<HarnessState["execution"]>; readiness?: Partial<HarnessState["readiness"]>; history?: Partial<Omit<HarnessState["history"], "timeline_cursor">> };
+  patch: { source?: Partial<HarnessState["source"]>; execution?: Partial<HarnessState["execution"]>; readiness?: Partial<HarnessState["readiness"]>; history?: Partial<Omit<HarnessState["history"], "timeline_cursor">>; notices?: HarnessNotice[] };
   boundary?: HarnessBoundary;
 }
 function required(value: string, field: string): string {
@@ -58,7 +68,11 @@ function remember(db: Database, gameId: string, commandId: string, request: stri
 export function getHarnessState(db: Database, gameId: string): HarnessState | null {
   required(gameId, "gameId");
   const row = db.query("SELECT state_json FROM harness_state WHERE game_id = ?").get(gameId) as { state_json: string } | null;
-  return row ? JSON.parse(row.state_json) : null;
+  if (!row) return null;
+  const state = JSON.parse(row.state_json) as HarnessState;
+  // Rows written before notices existed read back with an empty list.
+  if (!Array.isArray(state.notices)) state.notices = [];
+  return state;
 }
 export function initializeHarnessState(db: Database, input: InitializeHarnessStateInput): HarnessState {
   return immediateTransaction(db, () => {
@@ -72,6 +86,7 @@ export function initializeHarnessState(db: Database, input: InitializeHarnessSta
       execution: { desired: "paused", workflow: "none", status: "initializing", blockers: [] },
       readiness: { build: "pending", sources: "pending", sandbox: "pending", evidence: "pending" },
       history: { run_id: null, epoch_id: null, sync_id: null, timeline_cursor: 0, save_point_id: null },
+      notices: [],
     };
     const now = input.now ?? new Date().toISOString();
     db.query("INSERT INTO harness_state VALUES (?, ?, ?, ?, ?, ?)").run(input.gameId, state.identity.harness_id, 0, JSON.stringify(state), now, now);
@@ -100,9 +115,12 @@ export function transitionHarnessState(db: Database, input: TransitionHarnessSta
         state.readiness.sources = "pending";
       }
     }
+    // A drift notice describes the prior accepted upstream; a new one retires it.
+    if (state.source.upstream_revision !== priorUpstream) state.notices = state.notices.filter(notice => notice.code !== "upstream_drift");
     if (input.patch.execution) Object.assign(state.execution, input.patch.execution);
     if (input.patch.readiness) Object.assign(state.readiness, input.patch.readiness);
     if (input.patch.history) Object.assign(state.history, input.patch.history);
+    if (input.patch.notices) state.notices = input.patch.notices.map(notice => ({ ...notice }));
     required(state.source.worktree, "worktree"); required(state.source.configuration_revision, "configuration_revision");
     const admittingRun = (!wasActiveRun && state.execution.workflow === "run" && state.execution.status === "active") || input.boundary?.kind === "epoch_admitted";
     if (admittingRun &&

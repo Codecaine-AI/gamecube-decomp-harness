@@ -1073,7 +1073,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       dryRun: false,
       shouldRun: true,
       claimedExact: false,
-      microGateFlags: { sectionParity: true, undefinedSymbols: false, bannedIdioms: false },
+      microGateFlags: { sectionParity: true, undefinedSymbols: false, bannedIdioms: false, formatting: false, symbolValidation: false },
       workspaceExec: scoreWorkspaceExec(99.77),
     });
 
@@ -1097,7 +1097,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       dryRun: false,
       shouldRun: true,
       claimedExact: false,
-      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: false },
+      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: false, formatting: false, symbolValidation: false },
       workspaceExec: scoreWorkspaceExec(100),
     });
 
@@ -1126,7 +1126,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       shouldRun: true,
       claimedExact: false,
       validation: { reportPath: "build/GMSJ01/report.json" },
-      microGateFlags: { sectionParity: false, undefinedSymbols: true, bannedIdioms: false },
+      microGateFlags: { sectionParity: false, undefinedSymbols: true, bannedIdioms: false, formatting: false, symbolValidation: false },
       workspaceExec: fakeWorkspaceExec(async (command) => {
         commands.push(command);
         if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
@@ -1155,7 +1155,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       dryRun: false,
       shouldRun: true,
       claimedExact: false,
-      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true },
+      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true, formatting: false, symbolValidation: false },
       postAttemptDiffText: [
         "diff --git a/src/melee/mn/mninfo.c b/src/melee/mn/mninfo.c",
         "+    short foo;",
@@ -1197,7 +1197,7 @@ describe("validateWorkerChange micro-gate integration", () => {
       shouldRun: true,
       claimedExact: false,
       validation: { reportPath: "build/GMSJ01/report.json" },
-      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true },
+      microGateFlags: { sectionParity: false, undefinedSymbols: false, bannedIdioms: true, formatting: false, symbolValidation: false },
       postAttemptDiffText: `diff --git a/${sourcePath} b/${sourcePath}\n-char shared[1] = "";\n+volatile char shared[1] = "";`,
       workspaceExec,
     });

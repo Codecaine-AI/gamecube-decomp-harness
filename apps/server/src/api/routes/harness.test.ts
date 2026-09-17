@@ -38,6 +38,20 @@ function fixture(ready = true) {
 }
 
 describe("harness controls", () => {
+  test("status reads merge the live upstream drift notice without persisting it", async () => {
+    const f = fixture();
+    { const db = openState(f.dir); try { transitionHarnessState(db.db, { gameId: "melee", expectedRevision: 1, commandId: "upstream", patch: { source: { upstream_revision: "U" } } }); } finally { db.db.close(); } }
+    const drift = { upstream_ref: "origin/master", upstream_head: "H3", accepted_upstream: "U", upstream_ahead_by: 3, oldest: { sha: "H1", subject: "one" }, newest: { sha: "H3", subject: "three" }, observed_at: "t" };
+    const deps: HarnessControlDeps = { ...f.deps, observeUpstreamDrift: (harness) => harness.source.upstream_revision === "U" ? drift : null };
+    const url = new URL("http://localhost/api/harness?gameId=melee");
+    const payload = await (await handleHarnessApiRoute(new Request(url), url, deps))!.json();
+    expect(payload.harness.notices).toEqual([expect.objectContaining({ code: "upstream_drift", source_id: "melee", detail: expect.objectContaining({ upstream_ahead_by: 3, newest: { sha: "H3", subject: "three" } }) })]);
+    expect(payload.harness.notices[0].message).toContain("is 3 commit(s) ahead of the accepted upstream U (oldest H1 one; newest H3 three)");
+    expect(payload.harness.execution.blockers).toEqual([]);
+    expect(f.read().state.notices).toEqual([]);
+    expect(f.read().state.identity.revision).toBe(payload.harness.identity.revision);
+  });
+
   test("timeline reads respect the cursor and never start or mutate work", async () => {
     const f = fixture();
     await f.call("pause", { gameId: "melee", commandId: "pause", expectedRevision: 1 });

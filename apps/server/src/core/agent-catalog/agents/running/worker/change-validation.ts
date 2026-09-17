@@ -16,15 +16,21 @@ import { resolveHeaderConsumers } from "./consumer-map.js";
 import {
   DEFAULT_WORKER_MICRO_GATE_FLAGS,
   applyMicroGatesToValidation,
+  evaluateFormattingGate,
   evaluateSectionParityGate,
+  evaluateSymbolValidationGate,
   evaluateUndefinedSymbolGate,
   lintBannedIdioms,
   listUndefinedSymbols,
   summarizeMicroGates,
+  type WorkerFormatCheckRunner,
+  type WorkerSymbolCheckRunner,
   type WorkerMicroGateFlags,
   type WorkerMicroGates,
   type WorkerMicroGateResult,
 } from "./micro-gates.js";
+import { changedSourcePathsFromDiff, runClangFormatCheck } from "@server/core/validation/format/clang-format.js";
+import { SYMBOL_BASELINE_DIR, SYMBOL_CHECK_SOURCE_RE, changedCppPathsFromDiff, runSymbolCheck, snapshotBaselineObjects } from "@server/core/validation/symbols/symbol-check.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 
 const SCORE_EPSILON = 0.000001;
@@ -128,6 +134,8 @@ export interface WorkerChangeBaseline {
   undefinedSymbols?: string[] | null;
   /** Why undefined-symbol capture failed; informational, capture is fail-open. */
   undefinedSymbolsError?: string | null;
+  /** Sandbox directory holding the pre-attempt object (+ objdiff.json) for the symbol validation gate; null when not captured. */
+  symbolBaselineDir?: string | null;
 }
 
 const FIRST_DIFF_ROW_LIMIT = 40;
@@ -651,6 +659,15 @@ export async function captureWorkerChangeBaseline(params: {
     };
   }
 
+  // The pre-attempt object is the symbol gate's baseline: copy it aside now,
+  // before the attempt's build overwrites it. Fail-open like the other captures.
+  let symbolBaselineDir: string | null = null;
+  if (params.validation?.symbolCheck && SYMBOL_CHECK_SOURCE_RE.test(sourcePath)) {
+    const snapshot = await snapshotBaselineObjects({ exec: (command, options) => params.workspaceExec.exec(command, options), files: [sourcePath], dir: SYMBOL_BASELINE_DIR });
+    await writeFile(resolve(params.outputDir, "pre_worker_symbol_baseline.txt"), `${snapshot.stdout}\n${snapshot.stderr}`);
+    if (snapshot.exitCode === 0) symbolBaselineDir = SYMBOL_BASELINE_DIR;
+  }
+
   const reportConfigArgs = await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec);
   let firstDiff: WorkerFirstDiff;
   try {
@@ -710,6 +727,7 @@ export async function captureWorkerChangeBaseline(params: {
       sourceSnapshotPaths,
       undefinedSymbols,
       undefinedSymbolsError,
+      symbolBaselineDir,
     };
   }
 
@@ -734,6 +752,7 @@ export async function captureWorkerChangeBaseline(params: {
       sourceSnapshotPaths,
       undefinedSymbols,
       undefinedSymbolsError,
+      symbolBaselineDir,
     };
   }
 
@@ -753,6 +772,7 @@ export async function captureWorkerChangeBaseline(params: {
     sourceSnapshotPaths,
     undefinedSymbols,
     undefinedSymbolsError,
+    symbolBaselineDir,
   };
 }
 
@@ -1545,8 +1565,14 @@ export async function validateWorkerChange(params: {
   qaScanRunner?: QaScanRunner;
   /** Per-gate enable flags from the game descriptor; defaults to all-on. */
   microGateFlags?: WorkerMicroGateFlags;
-  /** The attempt's write-set diff text for the banned-idiom micro-gate lint. */
+  /** The attempt's write-set diff text for the banned-idiom and formatting micro-gates. */
   postAttemptDiffText?: string;
+  /** Injectable clang-format dry-run; defaults to running the tool in the attempt's sandbox via workspaceExec. */
+  formatCheckRunner?: WorkerFormatCheckRunner;
+  /** Injectable map-symbol check; defaults to running the checkout's CI driver in the attempt's sandbox via workspaceExec. */
+  symbolCheckRunner?: WorkerSymbolCheckRunner;
+  /** Claim base revision: the symbol gate builds baseline objects from it when the pre-attempt snapshot does not cover a changed unit. */
+  baseRevision?: string | null;
   validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerChangeValidation> {
@@ -1604,7 +1630,33 @@ export async function validateWorkerChange(params: {
   const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
     ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
     : { gate: "banned_idioms", status: "skipped", reasons: ["banned idiom gate disabled by game validation config"] };
-  const microGates = summarizeMicroGates([sectionParity, undefinedSymbolGate, bannedIdioms]);
+  // Formatting runs in the same sandbox session as the object build above; its
+  // image bakes the game's pinned clang-format, so no host tool is consulted.
+  const formatting = await evaluateFormattingGate({
+    enabled: flags.formatting,
+    formatting: params.validation?.formatting ?? null,
+    changedPaths: changedSourcePathsFromDiff(params.postAttemptDiffText ?? ""),
+    runFormatCheck: params.formatCheckRunner
+      ?? ((files) => runClangFormatCheck({ files, exec: (command, options) => params.workspaceExec.exec(command, options) })),
+  });
+  // Map-symbol validation runs the checkout's own CI driver in the attempt's
+  // sandbox against the image's linker map; the pre-attempt object captured
+  // in the baseline is the base-revision object for the target unit.
+  const symbolValidation = await evaluateSymbolValidationGate({
+    enabled: flags.symbolValidation,
+    symbolCheck: params.validation?.symbolCheck ?? null,
+    changedPaths: objectBuilt ? changedCppPathsFromDiff(params.postAttemptDiffText ?? "") : [],
+    runSymbolCheck: params.symbolCheckRunner
+      ?? ((files) => runSymbolCheck({
+        files,
+        config: params.validation!.symbolCheck!,
+        baseline: { dir: params.baseline.symbolBaselineDir ?? null, revision: params.baseRevision ?? null },
+        repoRoot: params.repoRoot,
+        version: layout.version,
+        exec: (command, options) => params.workspaceExec.exec(command, options),
+      })),
+  });
+  const microGates = summarizeMicroGates([sectionParity, undefinedSymbolGate, bannedIdioms, formatting, symbolValidation]);
   const validation = applyMicroGatesToValidation(withQaLint, microGates);
   await writeFile(summaryPath, JSON.stringify(validation, null, 2));
   return validation;

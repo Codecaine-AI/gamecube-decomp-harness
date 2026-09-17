@@ -1,5 +1,21 @@
+/** Upstream CI formatting policy; unset when the game's CI does not enforce clang-format. */
+export interface GameFormattingConfig {
+  /** Exact clang-format version upstream CI pins (also baked into the game's sandbox image). */
+  clangFormatVersion: string;
+}
+
+/** Upstream CI map-symbol validation; unset when the game has no linker-map validator. */
+export interface GameSymbolCheckConfig {
+  /** Checkout-relative CI driver, e.g. `tools/check-changed-symbol-order.py`; the sandbox runs the checkout's own copy. */
+  script: string;
+  /** Checkout-relative linker map the validator reads, e.g. `orig/GMSJ01/files/mario.MAP`; baked into the sandbox image. */
+  map: string;
+}
+
 export interface GameBuildValidation {
   reportPath?: string;
+  formatting?: GameFormattingConfig | null;
+  symbolCheck?: GameSymbolCheckConfig | null;
 }
 
 export interface GameBuildLayout {

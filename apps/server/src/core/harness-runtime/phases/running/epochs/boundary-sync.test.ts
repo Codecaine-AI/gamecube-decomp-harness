@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -563,4 +563,163 @@ describe("boundary sync", () => {
       "boundary sync fetch failed: network unavailable",
     );
   });
+});
+
+describe("boundary sync clang-format step", () => {
+  const hooks = (advanced: { head?: string } = {}): BoundarySyncHooks => ({
+    ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {},
+    rebuildKnowledgeGraph: async () => {}, recomputeReport: async () => ({ matchedCodePercent: 100 }),
+    writePrSyncSavePoint: () => {}, advanceAnchor: () => {},
+    advanceHarnessHead: ({ headSha }) => { advanced.head = headSha; },
+  });
+
+  test("commits the sandbox's formatting diff before the head is accepted", async () => {
+    const sourcePath = "src/Enemy/test.cpp";
+    const fixture = fixtureRepo("same", sourcePath, "mario/Enemy/test");
+    const advanced: { head?: string } = {};
+    const events: Array<[string, unknown]> = [];
+    const requested: Array<{ repoRoot: string; files: string[] }> = [];
+    const result = await runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, mergePolicy: "theirs", targets: [],
+      formatting: { clangFormatVersion: "21.1.8" },
+      runFormatApply: async (input) => {
+        requested.push(input);
+        // Stand in for the sandbox: format on disk, capture the diff, restore the tree.
+        const file = join(input.repoRoot, sourcePath);
+        const original = readFileSync(file, "utf8");
+        writeFileSync(file, original.replace("{ return 2; }", "{\n    return 2;\n}"));
+        const diff = git(input.repoRoot, ["diff", "--", sourcePath]) + "\n";
+        writeFileSync(file, original);
+        return { status: "changed", version: "21.1.8", files: input.files, changedFiles: [sourcePath], diff, toolError: null };
+      },
+      onFormatEvent: (status, detail) => events.push([status, detail]),
+      hooks: hooks(advanced),
+    });
+    expect(requested).toEqual([{ repoRoot: fixture.repo, files: [sourcePath, "upstream.c"] }]);
+    expect(git(fixture.repo, ["log", "-1", "--format=%s"])).toBe("boundary sync clang-format: 1 file(s)");
+    expect(readFileSync(join(fixture.repo, sourcePath), "utf8")).toContain("{\n    return 2;\n}");
+    expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
+    expect(result.headSha).toBe(git(fixture.repo, ["rev-parse", "HEAD"]));
+    expect(advanced.head).toBe(result.headSha);
+    expect(events.map(([status]) => status)).toEqual(["started", "finished", "propagated"]);
+    expect(events[2]?.[1]).toMatchObject({ changedFiles: [sourcePath], commitSha: result.headSha, version: "21.1.8" });
+  });
+
+  test("leaves the head alone when formatting changes nothing and skips without config", async () => {
+    const fixture = fixtureRepo("same", "src/Enemy/test.cpp", "mario/Enemy/test");
+    let applies = 0;
+    const unchanged = await runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, mergePolicy: "theirs", targets: [],
+      formatting: { clangFormatVersion: "21.1.8" },
+      runFormatApply: async (input) => { applies += 1; return { status: "unchanged", version: "21.1.8", files: input.files, changedFiles: [], diff: "", toolError: null }; },
+      hooks: hooks(),
+    });
+    expect(applies).toBe(1);
+    expect(git(fixture.repo, ["log", "-1", "--format=%s"])).not.toContain("clang-format");
+    expect(unchanged.headSha).toBe(git(fixture.repo, ["rev-parse", "HEAD"]));
+
+    const second = fixtureRepo("same", "src/Enemy/other.cpp", "mario/Enemy/other");
+    await runBoundarySync({
+      repoRoot: second.repo, anchorSha: second.anchor, mergePolicy: "theirs", targets: [],
+      runFormatApply: async () => { throw new Error("must not run without formatting config"); },
+      hooks: hooks(),
+    });
+  });
+
+  test("refuses a sandbox tool whose version differs from the pin", async () => {
+    const fixture = fixtureRepo("same", "src/Enemy/test.cpp", "mario/Enemy/test");
+    await expect(runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, mergePolicy: "theirs", targets: [],
+      formatting: { clangFormatVersion: "21.1.8" },
+      runFormatApply: async (input) => ({ status: "changed", version: "22.1.5", files: input.files, changedFiles: input.files, diff: "junk", toolError: null }),
+      hooks: hooks(),
+    })).rejects.toThrow("does not match the game's pinned 21.1.8");
+    expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
+  });
+});
+
+describe("boundary sync map-symbol check and upstream drift", () => {
+  const symbolCheck = { script: "tools/check-changed-symbol-order.py", map: "orig/GMSJ01/files/mario.MAP" };
+  const hooks = (advanced: { head?: string } = {}): BoundarySyncHooks => ({
+    ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {},
+    rebuildKnowledgeGraph: async () => {}, recomputeReport: async () => ({ matchedCodePercent: 100 }),
+    writePrSyncSavePoint: () => {}, advanceAnchor: () => {},
+    advanceHarnessHead: ({ headSha }) => { advanced.head = headSha; },
+  });
+  const unit = (status: "passed" | "failed", newLines: string[] = []) => ({
+    source: "src/Enemy/local.cpp", unit: "mario/Enemy/local", status, result: status === "failed" ? "FAIL (new symbol-validation errors)" : "PASS",
+    newErrors: newLines.length, inheritedErrors: 0, resolvedErrors: 0, newLines, failLines: [], message: null,
+  });
+  const checkResult = (status: "clean" | "regressions" | "tool_unavailable", files: string[], baselineRevision: string, extra: Record<string, unknown> = {}) => ({
+    status, files, units: status === "regressions" ? [unit("failed", ["missing | SMS_isGetShine__FUlUlb"])] : status === "clean" ? [unit("passed")] : [],
+    mapPath: symbolCheck.map, validator: { script: symbolCheck.script, revision: "blob" }, baseline: { revision: baselineRevision, dir: "/tmp/symbol-baseline-src", source: "worktree_build" as const },
+    driverExitCode: status === "regressions" ? 1 : 0, toolError: null, output: "", ...extra,
+  });
+  function withLocalUnit(): ReturnType<typeof fixtureRepo> {
+    const fixture = fixtureRepo("same", "src/Enemy/test.cpp", "mario/Enemy/test");
+    mkdirSync(join(fixture.repo, "src/Enemy"), { recursive: true });
+    writeFileSync(join(fixture.repo, "src/Enemy/local.cpp"), "int local(void) { return 1; }\n");
+    git(fixture.repo, ["add", "."]);
+    git(fixture.repo, ["commit", "-m", "worker-integration(job-1): mario/Enemy/local::local [checkpoint 1]"]);
+    return fixture;
+  }
+
+  test("refuses the merged head when a changed unit reports new map-symbol errors against the merged upstream", async () => {
+    const fixture = withLocalUnit();
+    const advanced: { head?: string } = {};
+    const requested: Array<{ repoRoot: string; files: string[]; baselineRevision: string }> = [];
+    const events: Array<[string, unknown]> = [];
+    await expect(runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, mergePolicy: "theirs", targets: [], symbolCheck,
+      runSymbolCheck: async (input) => { requested.push(input); return checkResult("regressions", input.files, input.baselineRevision); },
+      onSymbolCheckEvent: (status, detail) => events.push([status, detail]),
+      hooks: hooks(advanced),
+    })).rejects.toThrow("new map-symbol validation errors against upstream");
+    // Only our unit is checked (upstream's own change is not diffed), against the merged upstream head.
+    expect(requested).toEqual([{ repoRoot: fixture.repo, files: ["src/Enemy/local.cpp"], baselineRevision: fixture.upstreamHead }]);
+    expect(advanced.head).toBeUndefined();
+    expect(events.map(([status]) => status)).toEqual(["started", "finished"]);
+    expect((events[1]![1] as { reasons: string[] }).reasons[1]).toBe("src/Enemy/local.cpp: [NEW] missing | SMS_isGetShine__FUlUlb");
+    expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
+  }, 30_000);
+
+  test("accepts a clean head, throws when the sandbox tool is unavailable, and skips without config or C++ changes", async () => {
+    const clean = withLocalUnit();
+    const advanced: { head?: string } = {};
+    const result = await runBoundarySync({
+      repoRoot: clean.repo, anchorSha: clean.anchor, mergePolicy: "theirs", targets: [], symbolCheck,
+      runSymbolCheck: async (input) => checkResult("clean", input.files, input.baselineRevision),
+      hooks: hooks(advanced),
+    });
+    expect(advanced.head).toBe(result.headSha);
+
+    const unavailable = withLocalUnit();
+    await expect(runBoundarySync({
+      repoRoot: unavailable.repo, anchorSha: unavailable.anchor, mergePolicy: "theirs", targets: [], symbolCheck,
+      runSymbolCheck: async (input) => checkResult("tool_unavailable", input.files, input.baselineRevision, { toolError: "linker map orig/GMSJ01/files/mario.MAP is missing from the sandbox" }),
+      hooks: hooks(),
+    })).rejects.toThrow("symbol check could not run: linker map");
+
+    let calls = 0;
+    const unconfigured = withLocalUnit();
+    await runBoundarySync({ repoRoot: unconfigured.repo, anchorSha: unconfigured.anchor, mergePolicy: "theirs", targets: [], runSymbolCheck: async () => { calls += 1; throw new Error("must not run"); }, hooks: hooks() });
+    const cOnly = fixtureRepo("same", "src/melee/ty/toy.c", "main/melee/ty/toy");
+    await runBoundarySync({ repoRoot: cOnly.repo, anchorSha: cOnly.anchor, mergePolicy: "theirs", targets: [], symbolCheck, runSymbolCheck: async () => { calls += 1; throw new Error("must not run"); }, hooks: hooks() });
+    expect(calls).toBe(0);
+  }, 30_000);
+
+  test("plans record how far upstream is ahead of the anchor and the run reports it before merging", async () => {
+    const fixture = fixtureRepo();
+    const plan = await planBoundarySync({ repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [] });
+    expect(plan.upstreamDrift).toMatchObject({
+      upstream_ref: "origin/master", upstream_head: fixture.upstreamHead, accepted_upstream: fixture.anchor, upstream_ahead_by: 1,
+      oldest: { sha: fixture.upstreamHead, subject: "upstream wins" }, newest: { sha: fixture.upstreamHead, subject: "upstream wins" },
+    });
+    const seen: unknown[] = [];
+    await runBoundarySync({ repoRoot: fixture.repo, anchorSha: fixture.anchor, mergePolicy: "theirs", targets: [], onUpstreamDrift: (drift) => { seen.push(drift); }, hooks: hooks() });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ upstream_ahead_by: 1 });
+    const settled = await planBoundarySync({ repoRoot: fixture.repo, anchorSha: fixture.upstreamHead, targets: [] });
+    expect(settled.upstreamDrift).toMatchObject({ upstream_ahead_by: 0, oldest: null, newest: null });
+  }, 30_000);
 });

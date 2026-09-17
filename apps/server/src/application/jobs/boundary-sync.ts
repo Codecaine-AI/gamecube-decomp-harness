@@ -90,6 +90,8 @@ export async function boundarySync(
     anchorSha: state.anchorSha,
     targets: state.targets,
     dryRun: true,
+    // SMS tracks upstream/main; the planner would otherwise fetch origin/master.
+    ...(globals.game?.baseRef ? { upstreamRef: globals.game.baseRef } : {}),
   };
   if (args.has("--sync-merge-policy")) planInput.mergePolicy = syncMergePolicyArg(args);
   const plan = await (dependencies.plan ?? planBoundarySync)(planInput);

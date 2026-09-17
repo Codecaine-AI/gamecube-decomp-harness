@@ -62,6 +62,8 @@ PLAN=$(bun "$SCRIPT_DIR/bundle-plan.ts" "$HARNESS_ROOT" "$GAME_ID" "$PROFILE" "$
   IFS= read -r REPORT_PATH
   IFS= read -r PAYLOAD_NAME
   IFS= read -r WORKSPACE_ROOT
+  IFS= read -r SYMBOL_CHECK_MAP
+  IFS= read -r DISC_DIR
   IFS= read -r PLAN_JSON
 } <<< "$PLAN"
 CHECKOUT=$(cd "$CHECKOUT" && pwd -P) || die "invalid checkout"
@@ -156,6 +158,32 @@ tar -h -C "$CHECKOUT" \
   --exclude='*.wia' \
   -cf - . | \
   tar -C "$PAYLOAD/checkout" -xf -
+
+# The map-symbol validator (tools/check-changed-symbol-order.py) reads the
+# linker map out of the extracted disc. Upstream CI gets it from its build
+# container's /orig; the image gets exactly that one file, extracted from the
+# disc image in orig/<version>/ with the checkout's dtk. The disc image itself
+# stays excluded above.
+if [ -n "$SYMBOL_CHECK_MAP" ]; then
+  echo "Staging symbol-check linker map $SYMBOL_CHECK_MAP..." >&2
+  mkdir -p "$PAYLOAD/checkout/$(dirname "$SYMBOL_CHECK_MAP")"
+  if [ -f "$CHECKOUT/$SYMBOL_CHECK_MAP" ]; then
+    cp -a "$CHECKOUT/$SYMBOL_CHECK_MAP" "$PAYLOAD/checkout/$SYMBOL_CHECK_MAP"
+  else
+    DISC_IMAGE=$(find "$CHECKOUT/$DISC_DIR" -maxdepth 1 -type f \( -name '*.rvz' -o -name '*.iso' -o -name '*.gcm' -o -name '*.ciso' -o -name '*.wia' \) -print -quit)
+    [ -n "$DISC_IMAGE" ] || die "no disc image under $CHECKOUT/$DISC_DIR to extract $SYMBOL_CHECK_MAP from"
+    if [ -x "$CHECKOUT/build/tools/dtk" ]; then DTK="$CHECKOUT/build/tools/dtk"; else DTK=$(command -v dtk || true); fi
+    [ -n "$DTK" ] || die "dtk is required to extract $SYMBOL_CHECK_MAP (configure the checkout or put dtk on PATH)"
+    DISC_EXTRACT="$TMP_ROOT/disc-extract"
+    "$DTK" disc extract "$DISC_IMAGE" "$DISC_EXTRACT" > "$TMP_ROOT/disc-extract.log" 2>&1 || \
+      die "dtk disc extract failed: $(tail -5 "$TMP_ROOT/disc-extract.log")"
+    MAP_IN_DISC="$DISC_EXTRACT/${SYMBOL_CHECK_MAP#"$DISC_DIR"/}"
+    require_file "$MAP_IN_DISC"
+    cp -a "$MAP_IN_DISC" "$PAYLOAD/checkout/$SYMBOL_CHECK_MAP"
+    rm -rf "$DISC_EXTRACT"
+  fi
+  require_file "$PAYLOAD/checkout/$SYMBOL_CHECK_MAP"
+fi
 
 # tar -h also dereferenced tracked symlinks; restore those so the packaged tree
 # matches the commit (git records them as links, not file contents).
@@ -261,6 +289,9 @@ for artifact in \
   "$PAYLOAD/image-tools/install_mwcc_cache.py"; do
   printf '%s  %s\n' "$(sha256_file "$artifact")" "${artifact#"$PAYLOAD"/}"
 done
+if [ -n "$SYMBOL_CHECK_MAP" ]; then
+  printf '%s  %s\n' "$(sha256_file "$PAYLOAD/checkout/$SYMBOL_CHECK_MAP")" "checkout/$SYMBOL_CHECK_MAP"
+fi
 if [ -f "$LINUX_OBJDIFF" ]; then
   printf '%s  %s\n' "$(sha256_file "$PAYLOAD/checkout/build/tools/objdiff-cli")" \
     "checkout/build/tools/objdiff-cli"

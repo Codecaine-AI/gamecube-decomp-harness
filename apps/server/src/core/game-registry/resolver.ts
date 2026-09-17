@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gameLayoutPath, readGameDescriptorConfig } from "./config.js";
+import type { GameFormattingConfig, GameSymbolCheckConfig } from "./build-layout.js";
 
 export interface GameValidationDefaults {
   qaTarget?: string;
@@ -17,6 +18,14 @@ export interface GameValidationDefaults {
   workerUndefinedSymbolGate?: boolean;
   /** Per-attempt worker micro-gate: fail attempts whose diff adds banned idioms (section-order hacks, bare short/long, K&R declarations). */
   workerBannedIdiomGate?: boolean;
+  /** Per-attempt worker micro-gate: fail attempts whose changed sources are not clang-formatted (requires `formatting`). */
+  workerFormattingGate?: boolean;
+  /** Upstream CI clang-format policy; unset skips every formatting gate and step. */
+  formatting?: GameFormattingConfig;
+  /** Per-attempt worker micro-gate: fail attempts whose changed units report new map-symbol validation errors (requires `symbolCheck`). */
+  workerSymbolValidationGate?: boolean;
+  /** Upstream CI map-symbol validator; unset skips the symbol_validation gate and the boundary/Sync symbol-check. */
+  symbolCheck?: GameSymbolCheckConfig;
   /** Refuse epoch admission when the knowledge board lacks fresh objdiff report provenance. */
   epochAdmissionFreshReportGate?: boolean;
   /** Refuse candidate spikes above this multiple of a recent non-empty epoch. */
@@ -140,7 +149,7 @@ export interface ResolvedGame {
   processName: string;
   baseRef: string;
   localEnvPath: string;
-  validation: Required<Omit<GameValidationDefaults, "targetExcludePrefixes">> & Pick<GameValidationDefaults, "targetExcludePrefixes">;
+  validation: ResolvedGameValidation;
   dashboard: Required<GameDashboardDefaults>;
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
@@ -152,6 +161,10 @@ export interface ResolvedGame {
   localOverridePath?: string;
   warnings: string[];
 }
+
+/** Optional keys stay unset for unconfigured games so their configuration fingerprint is stable. */
+type OptionalValidationKey = "targetExcludePrefixes" | "formatting" | "symbolCheck";
+export type ResolvedGameValidation = Required<Omit<GameValidationDefaults, OptionalValidationKey>> & Pick<GameValidationDefaults, OptionalValidationKey>;
 
 export interface GameSummary {
   id: string;
@@ -171,7 +184,7 @@ export interface GameSummary {
 
 const gameIdPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 
-const defaultValidation: Required<GameValidationDefaults> = {
+const defaultValidation: Required<Omit<GameValidationDefaults, "formatting" | "symbolCheck">> = {
   qaTarget: "changes_all",
   reportPath: "build/GALE01/report.json",
   reportChangesPath: "build/GALE01/report_changes.json",
@@ -181,6 +194,8 @@ const defaultValidation: Required<GameValidationDefaults> = {
   workerSectionParityGate: true,
   workerUndefinedSymbolGate: true,
   workerBannedIdiomGate: true,
+  workerFormattingGate: true,
+  workerSymbolValidationGate: true,
   epochAdmissionFreshReportGate: true,
   epochAdmissionCandidateMultiple: 4,
   epochAdmissionCandidateCap: 500,
@@ -283,6 +298,33 @@ function addressNamedStaticDataAllowlistField(value: unknown): AddressNamedStati
   });
 }
 
+const CLANG_FORMAT_VERSION_RE = /^\d+\.\d+\.\d+$/;
+
+function formattingField(value: unknown): GameFormattingConfig | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isObject(value)) throw new Error("validation.formatting must be an object");
+  const version = stringField(value.clangFormatVersion);
+  if (!version || !CLANG_FORMAT_VERSION_RE.test(version.trim())) {
+    throw new Error("validation.formatting.clangFormatVersion must be an exact major.minor.patch version");
+  }
+  return { clangFormatVersion: version.trim() };
+}
+
+const CHECKOUT_RELATIVE_PATH_RE = /^(?!\/)(?!\.\.(?:\/|$))(?:[^\0\n]+\/)*[^\0\n]+$/;
+
+function symbolCheckField(value: unknown): GameSymbolCheckConfig | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isObject(value)) throw new Error("validation.symbolCheck must be an object");
+  const script = stringField(value.script)?.trim();
+  const map = stringField(value.map)?.trim();
+  for (const [key, path] of [["script", script], ["map", map]] as const) {
+    if (!path || !CHECKOUT_RELATIVE_PATH_RE.test(path) || path.split("/").includes("..")) {
+      throw new Error(`validation.symbolCheck.${key} must be a checkout-relative path`);
+    }
+  }
+  return { script: script!, map: map! };
+}
+
 function validationFromObject(value: unknown): GameValidationDefaults | undefined {
   if (!isObject(value)) return undefined;
   return {
@@ -295,6 +337,10 @@ function validationFromObject(value: unknown): GameValidationDefaults | undefine
     ...(typeof value.workerSectionParityGate === "boolean" ? { workerSectionParityGate: value.workerSectionParityGate } : {}),
     ...(typeof value.workerUndefinedSymbolGate === "boolean" ? { workerUndefinedSymbolGate: value.workerUndefinedSymbolGate } : {}),
     ...(typeof value.workerBannedIdiomGate === "boolean" ? { workerBannedIdiomGate: value.workerBannedIdiomGate } : {}),
+    ...(typeof value.workerFormattingGate === "boolean" ? { workerFormattingGate: value.workerFormattingGate } : {}),
+    formatting: formattingField(value.formatting),
+    ...(typeof value.workerSymbolValidationGate === "boolean" ? { workerSymbolValidationGate: value.workerSymbolValidationGate } : {}),
+    symbolCheck: symbolCheckField(value.symbolCheck),
     ...(typeof value.epochAdmissionFreshReportGate === "boolean"
       ? { epochAdmissionFreshReportGate: value.epochAdmissionFreshReportGate }
       : {}),
@@ -645,6 +691,8 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
       ...requiredNested(defaultValidation, merged.validation),
       // Unconfigured games retain their existing effective configuration fingerprint.
       targetExcludePrefixes: merged.validation?.targetExcludePrefixes,
+      formatting: merged.validation?.formatting,
+      symbolCheck: merged.validation?.symbolCheck,
       reportChangesPath: merged.validation?.reportChangesPath
         ?? (merged.validation?.reportPath
           ? `${dirname(merged.validation.reportPath)}/report_changes.json`

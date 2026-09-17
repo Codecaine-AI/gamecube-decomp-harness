@@ -111,7 +111,10 @@ Run these checks against a snapshot candidate:
 2. `file build/tools/objdiff-cli` and `file build/tools/dtk` report Linux x86-64
    ELF binaries; every executable in `build/binutils` is Linux-compatible.
 3. `build/compilers`, `build/tools/sjiswrap.exe`, `build.ninja`, object files,
-   and `build/GALE01/report.json` exist.
+   and `build/GALE01/report.json` exist. For games with `validation.symbolCheck`,
+   the configured linker map exists too (SMS: `orig/GMSJ01/files/mario.MAP`) and
+   `NM=build/binutils/powerpc-eabi-nm python3 tools/check-changed-symbol-order.py <a tracked .cpp>`
+   runs to a `RESULT:` line.
 4. With networking disabled, touching one Melee source and running its Ninja
    object target succeeds under wibo, then the objdiff score server returns
    `READY` and scores that object.
@@ -146,6 +149,21 @@ unknown profiles fail. An optional `4-core` profile may use its own snapshot.
 `--checkout` overrides the resolved checkout when preparing a Linux-specific tree.
 The game's configured report path selects its build version; no Melee report is
 required for another game.
+
+### Linker map for the symbol-check task
+
+Games whose `validation.symbolCheck` names a linker map (SMS:
+`orig/GMSJ01/files/mario.MAP`) get exactly that file baked at the same
+checkout-relative path. Upstream CI reads it from its build container's
+`/orig`; `build_image_bundle.sh` extracts it from the disc image in
+`orig/<version>/` with the checkout's `build/tools/dtk disc extract` into a
+temporary directory and copies only the map (the disc image and the other
+extracted files stay out of the bundle, as before). The bundle records the
+map's SHA-256 next to the other artifacts, and the game's
+`worker-image.json` `verification_commands` asserts the file inside the
+image build. The sandbox `symbol-check` task and the worker
+`symbol_validation` micro gate refuse to run (`tool_unavailable`, recorded)
+when the map is absent, so a snapshot without it must be rebaked.
 
 The archive contains `daytona-<game-id>-image/checkout`, the shared toolpack,
 Dockerfile, and `provenance/image-plan.json`. The plan records the game, selected

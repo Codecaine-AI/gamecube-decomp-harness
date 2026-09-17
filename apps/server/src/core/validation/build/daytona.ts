@@ -125,9 +125,20 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     record.sandboxId = sandbox.sandboxId;
     await persist();
     const bundlePath = resolve(temp, "source.bundle");
-    await git(repoRoot, ["-c", "pack.threads=1", "bundle", "create", bundlePath, "HEAD"]);
+    // The image clone is shallow at the baked revision, so a symbol-check
+    // baseline below that boundary must travel in the bundle as its own head
+    // (git bundle only records refs, never raw ids).
+    const baselineRevision = task.kind === "symbol-check" && typeof task.input.baselineRevision === "string" ? task.input.baselineRevision : null;
+    const baselineRef = baselineRevision ? `refs/decomp-orchestrator/symbol-baseline/${id}` : null;
+    if (baselineRef) await git(repoRoot, ["update-ref", baselineRef, baselineRevision!]);
+    try {
+      await git(repoRoot, ["-c", "pack.threads=1", "bundle", "create", bundlePath, "HEAD", ...(baselineRef ? [baselineRef] : [])]);
+    } finally {
+      if (baselineRef) await git(repoRoot, ["update-ref", "-d", baselineRef]).catch(() => undefined);
+    }
     await sandbox.uploadFile(bundlePath, "/tmp/build-source.bundle");
     await exec(["git", "fetch", "/tmp/build-source.bundle", source.head]);
+    if (baselineRef) await exec(["git", "fetch", "/tmp/build-source.bundle", `${baselineRef}:${baselineRef}`]);
     await exec(["git", "checkout", "--force", "--detach", source.head]);
     // Discard only artifacts in this disposable sandbox, retaining its Linux
     // compiler/tool/original assets. Never upload host build caches.
@@ -228,7 +239,8 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     const response: BuildResponse = JSON.parse(await sandbox.readFile("/tmp/build-result.json"));
     await writeFile(resolve(evidenceDir, "result.json"), JSON.stringify(response, null, 2));
     const stale = (await buildSourceIdentity(repoRoot)).digest !== source.digest;
-    const unexpectedEdit = !!response.sourcePatch?.trim() && !["autofix", "precommit"].includes(task.kind);
+    // format-apply returns its diff in the value for the caller to apply on the host; the sandbox edit itself is expected.
+    const unexpectedEdit = !!response.sourcePatch?.trim() && !["autofix", "precommit", "format-apply"].includes(task.kind);
     const value = response.value as { exitCode?: number; status?: string; ok?: boolean } | undefined;
     const failed = !!response.failure || stale || unexpectedEdit || (value?.exitCode !== undefined && value.exitCode !== 0) || value?.ok === false || ["error", "failed", "blocked"].includes(value?.status ?? "");
     const stagedArtifacts: Array<[string, string]> = [];

@@ -151,7 +151,7 @@ function startSync(fixture: Omit<Fixture, "sync" | "context">, syncId: string): 
   };
 }
 
-function conflictFixture(syncId = "sync-conflicts", withPrSeries = true): Fixture {
+function conflictFixture(syncId = "sync-conflicts", withPrSeries = true, beforeStart?: (harness: string) => void): Fixture {
   const root = mkdtempSync(join(tmpdir(), "sync-engine-"));
   tempDirs.push(root);
   const remote = resolve(root, "upstream.git");
@@ -207,6 +207,7 @@ function conflictFixture(syncId = "sync-conflicts", withPrSeries = true): Fixtur
   write(harness, "ambiguous.c", "const char *color = \"harness\";\n");
   git(harness, "mv", "harness-rename.txt", "harness-renamed.txt");
   commitAll(harness, "epoch 2 ambiguous conflict");
+  beforeStart?.(harness);
 
   write(seed, "trivial.c", "int value = 2;\n");
   write(seed, "ambiguous.c", "const char *color = \"upstream\";\n");
@@ -948,4 +949,156 @@ describe("staged sync reconciliation", () => {
       }),
     });
   }, 30_000);
+});
+
+describe("staged sync clang-format check", () => {
+  function stubReportRun(fixture: Fixture): void {
+    fixture.context.forceReportRun = async (root, options) => {
+      if (root === fixture.harness) {
+        write(root, "build/GALE01/baseline.json", "{}");
+      } else {
+        write(root, "build/GALE01/report.changes.json", JSON.stringify({ from: {}, to: {}, units: [] }));
+      }
+      return {
+        baselinePath: resolve(root, "build/GALE01/baseline.json"),
+        reportChangesPath: resolve(root, "build/GALE01/report.changes.json"),
+        reportPath: resolve(root, "build/GALE01/report.json"),
+        resetBaseline: options?.resetBaseline ?? false,
+        steps: [],
+        timestamps: {},
+      };
+    };
+  }
+
+  test("records unformatted staged sources as a validation reason and blocks publication", async () => {
+    const fixture = conflictFixture("sync-format-violations", false);
+    let sync = await reconcileSync({ context: fixture.context, syncId: fixture.sync.sync_id, expectedRevision: fixture.sync.revision, commandId: "format-reconcile" });
+    const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
+    resolveRenameConflict(staging.harness.path, staging.harness.conflictingPaths, "harness-renamed.txt", "operator resolved\n");
+    sync = await resolveSyncConflict({ context: fixture.context, syncId: sync.sync_id, expectedRevision: sync.revision, commandId: "format-resolve" });
+    write(fixture.harness, "build.ninja", "# fixture build\n");
+    write(fixture.harness, "build/GALE01/report.json", "{}");
+    stubReportRun(fixture);
+    fixture.context.game = { baseRef: "origin/master", formatting: { clangFormatVersion: "21.1.8" } };
+    const checked: Array<{ worktreePath: string; files: string[] }> = [];
+    fixture.context.runFormatCheck = async (worktreePath, files) => {
+      checked.push({ worktreePath, files });
+      return { status: "violations", version: "21.1.8", files, violations: [{ file: "trivial.c", line: 1, message: "code should be clang-formatted" }], toolError: null };
+    };
+
+    const validated = await validateSync(fixture.context, { syncId: sync.sync_id, expectedRevision: sync.revision, commandId: "format-validate" });
+
+    expect(checked).toEqual([{ worktreePath: sync.staging!.workspace_path!, files: expect.arrayContaining(["trivial.c", "ambiguous.c"]) }]);
+    expect(validated.status).toBe("blocked");
+    expect(validated.blockers[0]?.message).toContain("trivial.c:1: code should be clang-formatted");
+    expect(validated.staging?.validation_evidence).toMatchObject({
+      result: "failed",
+      format_check: { status: "violations", pinned_version: "21.1.8", reported_version: "21.1.8", violations: 1 },
+    });
+    expect(readFileSync(resolve(sync.staging!.workspace_path!, "trivial.c"), "utf8")).toBe("int value = 2;\n");
+  }, 30_000);
+
+  test("passes a clean staged tree and skips the check without formatting config", async () => {
+    const fixture = conflictFixture("sync-format-clean", false);
+    let sync = await reconcileSync({ context: fixture.context, syncId: fixture.sync.sync_id, expectedRevision: fixture.sync.revision, commandId: "clean-reconcile" });
+    const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
+    resolveRenameConflict(staging.harness.path, staging.harness.conflictingPaths, "harness-renamed.txt", "operator resolved\n");
+    sync = await resolveSyncConflict({ context: fixture.context, syncId: sync.sync_id, expectedRevision: sync.revision, commandId: "clean-resolve" });
+    write(fixture.harness, "build.ninja", "# fixture build\n");
+    write(fixture.harness, "build/GALE01/report.json", "{}");
+    stubReportRun(fixture);
+    fixture.context.game = { baseRef: "origin/master", formatting: { clangFormatVersion: "21.1.8" } };
+    fixture.context.runFormatCheck = async (_worktreePath, files) => ({ status: "clean", version: "21.1.8", files, violations: [], toolError: null });
+    const validated = await validateSync(fixture.context, { syncId: sync.sync_id, expectedRevision: sync.revision, commandId: "clean-validate" });
+    expect(validated.status).toBe("validated");
+    expect(validated.staging?.validation_evidence).toMatchObject({ format_check: { status: "clean" } });
+    expect((validated.staging?.validation_evidence?.what_ran as Array<{ name: string }>).map((step) => step.name)).toContain("clang-format dry-run");
+
+    const unconfigured = conflictFixture("sync-format-unconfigured", false);
+    let other = await reconcileSync({ context: unconfigured.context, syncId: unconfigured.sync.sync_id, expectedRevision: unconfigured.sync.revision, commandId: "unconfigured-reconcile" });
+    const otherStaging = await inspectSyncStaging({ context: unconfigured.context, syncId: other.sync_id });
+    resolveRenameConflict(otherStaging.harness.path, otherStaging.harness.conflictingPaths, "harness-renamed.txt", "operator resolved\n");
+    other = await resolveSyncConflict({ context: unconfigured.context, syncId: other.sync_id, expectedRevision: other.revision, commandId: "unconfigured-resolve" });
+    write(unconfigured.harness, "build.ninja", "# fixture build\n");
+    write(unconfigured.harness, "build/GALE01/report.json", "{}");
+    stubReportRun(unconfigured);
+    unconfigured.context.runFormatCheck = async () => { throw new Error("must not run without formatting config"); };
+    const skipped = await validateSync(unconfigured.context, { syncId: other.sync_id, expectedRevision: other.revision, commandId: "unconfigured-validate" });
+    expect(skipped.status).toBe("validated");
+    expect(skipped.staging?.validation_evidence).toMatchObject({ format_check: { status: "skipped", reason: "no formatting config" } });
+  }, 60_000);
+});
+
+describe("staged sync map-symbol check", () => {
+  const symbolCheck = { script: "tools/check-changed-symbol-order.py", map: "orig/GMSJ01/files/mario.MAP" };
+  function stubReportRun(fixture: Fixture): void {
+    fixture.context.forceReportRun = async (root, options) => {
+      if (root === fixture.harness) write(root, "build/GALE01/baseline.json", "{}");
+      else write(root, "build/GALE01/report.changes.json", JSON.stringify({ from: {}, to: {}, units: [] }));
+      return {
+        baselinePath: resolve(root, "build/GALE01/baseline.json"), reportChangesPath: resolve(root, "build/GALE01/report.changes.json"),
+        reportPath: resolve(root, "build/GALE01/report.json"), resetBaseline: options?.resetBaseline ?? false, steps: [], timestamps: {},
+      };
+    };
+  }
+  async function stagedFixture(syncId: string) {
+    // A C++ unit the harness changed on top of the upstream base.
+    const fixture = conflictFixture(syncId, false, (harness) => {
+      write(harness, "src/Enemy/local.cpp", "int local(void) { return 1; }\n");
+      commitAll(harness, "harness cpp unit");
+    });
+    let sync = await reconcileSync({ context: fixture.context, syncId: fixture.sync.sync_id, expectedRevision: fixture.sync.revision, commandId: `${syncId}-reconcile` });
+    const staging = await inspectSyncStaging({ context: fixture.context, syncId: sync.sync_id });
+    resolveRenameConflict(staging.harness.path, staging.harness.conflictingPaths, "harness-renamed.txt", "operator resolved\n");
+    sync = await resolveSyncConflict({ context: fixture.context, syncId: sync.sync_id, expectedRevision: sync.revision, commandId: `${syncId}-resolve` });
+    write(fixture.harness, "build.ninja", "# fixture build\n");
+    write(fixture.harness, "build/GALE01/report.json", "{}");
+    stubReportRun(fixture);
+    fixture.context.game = { baseRef: "origin/master", symbolCheck };
+    return { fixture, sync };
+  }
+  const unit = (status: "passed" | "failed") => ({
+    source: "src/Enemy/local.cpp", unit: "mario/Enemy/local", status, result: status === "failed" ? "FAIL (new symbol-validation errors)" : "PASS (no symbol-validation regressions)",
+    newErrors: status === "failed" ? 1 : 0, inheritedErrors: 0, resolvedErrors: 0, newLines: status === "failed" ? ["missing | SMS_isGetShine__FUlUlb"] : [], failLines: [], message: null,
+  });
+
+  test("blocks publication when a staged unit reports new map-symbol errors against the merged upstream", async () => {
+    const { fixture, sync } = await stagedFixture("sync-symbol-regressions");
+    const checked: Array<{ worktreePath: string; files: string[]; baselineRevision: string }> = [];
+    fixture.context.runSymbolCheck = async (worktreePath, files, baselineRevision) => {
+      checked.push({ worktreePath, files, baselineRevision });
+      return { status: "regressions", files, units: [unit("failed")], mapPath: symbolCheck.map, validator: { script: symbolCheck.script, revision: "blob" }, baseline: { revision: baselineRevision, dir: "/tmp/symbol-baseline-src", source: "worktree_build" }, driverExitCode: 1, toolError: null, output: "" };
+    };
+    const validated = await validateSync(fixture.context, { syncId: sync.sync_id, expectedRevision: sync.revision, commandId: "symbol-validate" });
+    expect(checked).toEqual([{ worktreePath: sync.staging!.workspace_path!, files: ["src/Enemy/local.cpp"], baselineRevision: sync.intake.upstream_to }]);
+    expect(validated.status).toBe("blocked");
+    expect(validated.blockers[0]?.message).toContain("src/Enemy/local.cpp: [NEW] missing | SMS_isGetShine__FUlUlb");
+    expect(validated.staging?.validation_evidence).toMatchObject({
+      result: "failed",
+      symbol_check: { status: "regressions", baseline_revision: sync.intake.upstream_to, regressed_units: 1, units: [{ unit: "mario/Enemy/local", status: "failed", new: 1 }] },
+    });
+    expect(readFileSync(resolve(sync.staging!.workspace_path!, "src/Enemy/local.cpp"), "utf8")).toBe("int local(void) { return 1; }\n");
+  }, 30_000);
+
+  test("passes a clean staged tree, blocks on an unavailable tool, and skips without symbolCheck config", async () => {
+    const clean = await stagedFixture("sync-symbol-clean");
+    clean.fixture.context.runSymbolCheck = async (_path, files, baselineRevision) => ({ status: "clean", files, units: [unit("passed")], mapPath: symbolCheck.map, validator: { script: symbolCheck.script, revision: "blob" }, baseline: { revision: baselineRevision, dir: "/tmp/symbol-baseline-src", source: "worktree_build" }, driverExitCode: 0, toolError: null, output: "" });
+    const validated = await validateSync(clean.fixture.context, { syncId: clean.sync.sync_id, expectedRevision: clean.sync.revision, commandId: "clean-symbol-validate" });
+    expect(validated.status).toBe("validated");
+    expect(validated.staging?.validation_evidence).toMatchObject({ symbol_check: { status: "clean", regressed_units: 0 } });
+    expect((validated.staging?.validation_evidence?.what_ran as Array<{ name: string }>).map((step) => step.name)).toContain("map symbol check");
+
+    const unavailable = await stagedFixture("sync-symbol-unavailable");
+    unavailable.fixture.context.runSymbolCheck = async (_path, files, baselineRevision) => ({ status: "tool_unavailable", files, units: [], mapPath: symbolCheck.map, validator: { script: symbolCheck.script, revision: null }, baseline: { revision: baselineRevision, dir: null, source: null }, driverExitCode: null, toolError: "linker map orig/GMSJ01/files/mario.MAP is missing from the sandbox", output: "" });
+    const blocked = await validateSync(unavailable.fixture.context, { syncId: unavailable.sync.sync_id, expectedRevision: unavailable.sync.revision, commandId: "unavailable-symbol-validate" });
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.blockers[0]?.message).toContain("map symbol check unavailable in the sandbox: linker map");
+
+    const unconfigured = await stagedFixture("sync-symbol-unconfigured");
+    unconfigured.fixture.context.game = { baseRef: "origin/master" };
+    unconfigured.fixture.context.runSymbolCheck = async () => { throw new Error("must not run without symbolCheck config"); };
+    const skipped = await validateSync(unconfigured.fixture.context, { syncId: unconfigured.sync.sync_id, expectedRevision: unconfigured.sync.revision, commandId: "unconfigured-symbol-validate" });
+    expect(skipped.status).toBe("validated");
+    expect(skipped.staging?.validation_evidence).toMatchObject({ symbol_check: { status: "skipped", reason: "no symbolCheck config" } });
+  }, 90_000);
 });

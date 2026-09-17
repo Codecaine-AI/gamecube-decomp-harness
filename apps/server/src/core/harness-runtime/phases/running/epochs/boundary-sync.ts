@@ -1,10 +1,25 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { reportBoundaryDisplacements, reportRecoveryTargets } from "./boundary-recovery.js";
 import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
 import { fetchUpstreamMasterReport } from "./breakage-gate.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
+import { executeBuildTask } from "@server/core/validation/build/execution.js";
+import {
+  clangFormatVersionMismatch,
+  formattableSourcePaths,
+  type ClangFormatApplyResult,
+  type GameFormattingConfig,
+} from "@server/core/validation/format/clang-format.js";
+import {
+  symbolCheckSourcePaths,
+  symbolValidationReasons,
+  type GameSymbolCheckConfig,
+  type SymbolCheckResult,
+} from "@server/core/validation/symbols/symbol-check.js";
+import { computeUpstreamDrift, type UpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 import {
   applyScoreMergePolicy,
   policyContestedPaths,
@@ -54,6 +69,8 @@ export interface BoundarySyncPlan {
   targetsToRequeue: BoundaryDisplacement[];
   ledgerNotes: BoundaryDisplacement[];
   actions: string[];
+  /** How far the fetched upstream head is ahead of the accepted anchor, with the oldest and newest subjects. */
+  upstreamDrift?: UpstreamDrift;
 }
 
 export interface BoundaryGitResult {
@@ -110,6 +127,34 @@ export interface BoundarySyncInput {
     status: "started" | "finished" | "propagated",
     result?: BuildFixerResult & { files?: string[]; commitSha?: string },
   ) => void;
+  /** Game clang-format policy; unset skips the boundary format step. */
+  formatting?: GameFormattingConfig | null;
+  /** Runs `clang-format -i` in a game sandbox and returns the resulting diff; defaults to the Daytona format-apply task. */
+  runFormatApply?: (input: { repoRoot: string; files: string[] }) => Promise<ClangFormatApplyResult>;
+  onFormatEvent?: (status: "started" | "finished" | "propagated", detail: BoundaryFormatEventDetail) => void;
+  /** Game map-symbol validator; unset skips the boundary symbol check. */
+  symbolCheck?: GameSymbolCheckConfig | null;
+  /** Game build version for the baseline configure (`--version`); defaults to the report path's version. */
+  buildVersion?: string;
+  /** Runs the checkout's CI symbol driver in a game sandbox; defaults to the Daytona symbol-check task. */
+  runSymbolCheck?: (input: { repoRoot: string; files: string[]; baselineRevision: string }) => Promise<SymbolCheckResult>;
+  onSymbolCheckEvent?: (status: "started" | "finished", detail: BoundarySymbolCheckEventDetail) => void;
+  /** Observed after the upstream fetch, before any merge; the caller records the notice and timeline entry. */
+  onUpstreamDrift?: (drift: UpstreamDrift) => Promise<void> | void;
+}
+
+export interface BoundarySymbolCheckEventDetail {
+  files: string[];
+  baselineRevision: string;
+  result?: SymbolCheckResult;
+  reasons?: string[];
+}
+
+export interface BoundaryFormatEventDetail {
+  files: string[];
+  version?: string | null;
+  changedFiles?: string[];
+  commitSha?: string;
 }
 
 export type BoundaryPolicyFileLog = PolicyMergeFileLog;
@@ -157,6 +202,83 @@ async function discardBoundaryBuildFixerDiff(runGit: BoundaryGitRunner, repoRoot
 async function prepareBoundaryBuildFixerDiff(runGit: BoundaryGitRunner, repoRoot: string): Promise<void> {
   const status = await checkedGit(runGit, repoRoot, ["status", "--porcelain", "--untracked-files=all", "--", ...BUILD_FIXER_PATHSPEC], "build-fixer baseline check");
   if (status.trim()) throw new Error(`boundary sync build-fixer requires a clean worktree before editing: ${status}`);
+}
+
+async function defaultFormatApply(input: { repoRoot: string; files: string[] }): Promise<ClangFormatApplyResult> {
+  return executeBuildTask<ClangFormatApplyResult>(input.repoRoot, { kind: "format-apply", input: { paths: input.files } });
+}
+
+/**
+ * Formats every source changed since the accepted upstream anchor with the
+ * sandbox's pinned clang-format and commits the result, so the head the
+ * boundary accepts already passes upstream's lint CI. Formatting is
+ * whitespace-only, so the report recomputed above still describes this tree.
+ */
+async function formatBoundaryHead(input: BoundarySyncInput, runGit: BoundaryGitRunner, anchorSha: string): Promise<string | null> {
+  const pinned = input.formatting?.clangFormatVersion?.trim();
+  if (!pinned) return null;
+  const changed = await checkedGit(runGit, input.repoRoot, ["diff", "--name-only", "--diff-filter=ACMR", `${anchorSha}..HEAD`], "clang-format file capture");
+  const files = formattableSourcePaths(lines(changed));
+  if (files.length === 0) return null;
+  await prepareBoundaryBuildFixerDiff(runGit, input.repoRoot);
+  input.onFormatEvent?.("started", { files });
+  const applied = await (input.runFormatApply ?? defaultFormatApply)({ repoRoot: input.repoRoot, files });
+  if (applied.status === "tool_unavailable") {
+    throw new Error(`boundary sync clang-format failed: ${applied.toolError ?? "tool unavailable in the sandbox"}`);
+  }
+  const mismatch = clangFormatVersionMismatch(applied.version, pinned);
+  if (mismatch) throw new Error(`boundary sync clang-format refused: ${mismatch}`);
+  input.onFormatEvent?.("finished", { files, version: applied.version, changedFiles: applied.changedFiles });
+  if (!applied.diff.trim()) return null;
+  const temp = await mkdtemp(resolve(tmpdir(), "boundary-format-"));
+  try {
+    const patchPath = resolve(temp, "clang-format.patch");
+    await writeFile(patchPath, applied.diff.endsWith("\n") ? applied.diff : `${applied.diff}\n`);
+    await checkedGit(runGit, input.repoRoot, ["apply", "--check", patchPath], "clang-format patch check");
+    await checkedGit(runGit, input.repoRoot, ["apply", patchPath], "clang-format patch apply");
+  } catch (error) {
+    await runGit(input.repoRoot, ["checkout", "--", ...files]);
+    throw error;
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+  const changedFiles = lines(await checkedGit(runGit, input.repoRoot, ["diff", "--name-only", "HEAD", "--", ...files], "clang-format changed file capture"));
+  if (changedFiles.length === 0) return null;
+  await checkedGit(runGit, input.repoRoot, ["add", "--", ...changedFiles], "clang-format staging");
+  await checkedGit(runGit, input.repoRoot, ["commit", "--no-verify", "-m", `boundary sync clang-format: ${changedFiles.length} file(s)`, "--", ...changedFiles], "clang-format commit");
+  const headSha = await checkedGit(runGit, input.repoRoot, ["rev-parse", "HEAD"], "clang-format HEAD resolution");
+  input.onFormatEvent?.("propagated", { files, version: applied.version, changedFiles, commitSha: headSha });
+  return headSha;
+}
+
+async function defaultSymbolCheck(input: { repoRoot: string; files: string[]; baselineRevision: string }, config: GameSymbolCheckConfig, version: string): Promise<SymbolCheckResult> {
+  return executeBuildTask<SymbolCheckResult>(input.repoRoot, { kind: "symbol-check", input: { paths: input.files, baselineRevision: input.baselineRevision, script: config.script, map: config.map, version } });
+}
+
+/**
+ * Upstream CI rejects a changed C++ unit whose map-symbol errors are not
+ * already present at the merge base, so the boundary refuses to accept a head
+ * that would fail there. The baseline is the just-merged upstream head (what a
+ * PR's base would be); nothing is auto-fixed, the reasons block acceptance.
+ */
+async function checkBoundarySymbols(input: BoundarySyncInput, runGit: BoundaryGitRunner, upstreamHeadSha: string): Promise<void> {
+  const config = input.symbolCheck;
+  if (!config?.script?.trim() || !config.map?.trim()) return;
+  const changed = await checkedGit(runGit, input.repoRoot, ["diff", "--name-only", "--diff-filter=ACMR", `${upstreamHeadSha}..HEAD`, "--", "*.cpp"], "symbol-check file capture");
+  const files = symbolCheckSourcePaths(lines(changed));
+  if (files.length === 0) return;
+  input.onSymbolCheckEvent?.("started", { files, baselineRevision: upstreamHeadSha });
+  const version = input.buildVersion ?? reportVersion(input.reportRelPath ?? "build/GALE01/report.json");
+  const result = await (input.runSymbolCheck ?? ((request) => defaultSymbolCheck(request, config, version)))({ repoRoot: input.repoRoot, files, baselineRevision: upstreamHeadSha });
+  if (result.status === "tool_unavailable") {
+    input.onSymbolCheckEvent?.("finished", { files, baselineRevision: upstreamHeadSha, result, reasons: [result.toolError ?? "symbol check unavailable"] });
+    throw new Error(`boundary sync symbol check could not run: ${result.toolError ?? "tool unavailable in the sandbox"}`);
+  }
+  const reasons = symbolValidationReasons(result);
+  input.onSymbolCheckEvent?.("finished", { files, baselineRevision: upstreamHeadSha, result, reasons });
+  if (reasons.length > 0) {
+    throw new Error(`boundary sync refused: ${result.units.filter((unit) => unit.status === "failed").length} changed unit(s) report new map-symbol validation errors against upstream ${upstreamHeadSha.slice(0, 10)}: ${reasons.join("; ")}`);
+  }
 }
 
 export interface BoundarySyncResult {
@@ -365,12 +487,18 @@ export function detectBoundaryDisplacements(input: {
 export async function planBoundarySync(input: Omit<BoundarySyncInput, "hooks">): Promise<BoundarySyncPlan> {
   const runGit = input.runGit ?? defaultGit;
   const upstreamRef = input.upstreamRef ?? "origin/master";
-  await checkedGit(runGit, input.repoRoot, ["fetch", "origin"], "fetch");
+  // Fetch the remote the upstream ref lives on (SMS tracks `upstream/main`, Melee `origin/master`).
+  const remote = upstreamRef.includes("/") ? upstreamRef.slice(0, upstreamRef.indexOf("/")) : "origin";
+  await checkedGit(runGit, input.repoRoot, ["fetch", remote], "fetch");
   const [localHeadSha, upstreamHeadSha] = await Promise.all([
     checkedGit(runGit, input.repoRoot, ["rev-parse", "HEAD"], "local HEAD resolution"),
     checkedGit(runGit, input.repoRoot, ["rev-parse", upstreamRef], "upstream HEAD resolution"),
   ]);
   const drifted = input.anchorSha !== upstreamHeadSha;
+  const upstreamDrift = await computeUpstreamDrift({
+    repoRoot: input.repoRoot, upstreamRef, acceptedUpstream: input.anchorSha, upstreamHead: upstreamHeadSha,
+    runGit: async (root, args) => runGit(root, args),
+  });
   const mergeBaseSha = drifted
     ? await checkedGit(runGit, input.repoRoot, ["merge-base", localHeadSha, upstreamHeadSha], "merge-base resolution")
     : localHeadSha;
@@ -411,6 +539,7 @@ export async function planBoundarySync(input: Omit<BoundarySyncInput, "hooks">):
     upstreamTakenFiles,
     targetsToRequeue,
     ledgerNotes: targetsToRequeue,
+    upstreamDrift: upstreamDrift ?? undefined,
     actions: drifted
       ? [input.mergePolicy === "theirs" ? "merge_upstream_theirs" : "merge_upstream_score", "recompute_report", "append_override_notes", "requeue_displaced_targets", "knowledge_intake", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_harness_head"]
       : ["recompute_report", "knowledge_intake", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_harness_head"],
@@ -433,6 +562,7 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
     }
   }
   const plan = journal?.plan ?? await planBoundarySync({ ...input, runGit });
+  if (plan.upstreamDrift) await input.onUpstreamDrift?.(plan.upstreamDrift);
   if (input.dryRun) return { plan, changed: false, headSha: plan.localHeadSha };
   if (!input.hooks) throw new Error("boundary sync hooks are required outside dry-run mode");
   const mergePolicy = input.mergePolicy ?? "score";
@@ -529,6 +659,12 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
       throw fixerError;
     }
   }
+  // Format after the build-fixer so the accepted head is CI-clean; the
+  // committed tree differs from the measured one only by whitespace.
+  const formattedHead = await formatBoundaryHead(input, runGit, effectivePlan.anchorSha);
+  if (formattedHead) headSha = formattedHead;
+  // Map-symbol validation against the merged upstream: new errors block acceptance.
+  await checkBoundarySymbols(input, runGit, effectivePlan.upstreamHeadSha);
   if (journal) {
     const displacements = reportBoundaryDisplacements({
       before: journal.before,

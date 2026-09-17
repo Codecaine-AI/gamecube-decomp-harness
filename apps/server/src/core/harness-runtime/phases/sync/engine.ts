@@ -1,5 +1,19 @@
-import { remoteBuildsEnabled } from "@server/core/validation/build/execution.js";
+import { executeBuildTask, remoteBuildsEnabled } from "@server/core/validation/build/execution.js";
+import {
+  clangFormatVersionMismatch,
+  formatViolationReasons,
+  formattableSourcePaths,
+  type ClangFormatCheckResult,
+  type GameFormattingConfig,
+} from "@server/core/validation/format/clang-format.js";
 import { getHarnessState } from "@server/core/harness-state/state.js";
+import {
+  symbolCheckSourcePaths,
+  symbolValidationReasons,
+  type GameSymbolCheckConfig,
+  type SymbolCheckResult,
+} from "@server/core/validation/symbols/symbol-check.js";
+import { gameBuildLayout } from "@server/core/game-registry/build-layout.js";
 import { constants, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
@@ -57,6 +71,10 @@ interface SyncGameContext {
   reportPath?: string;
   reportChangesPath?: string;
   qaTarget?: string;
+  /** Upstream clang-format policy; unset skips the staged format check. */
+  formatting?: GameFormattingConfig | null;
+  /** Upstream map-symbol validator; unset skips the staged symbol check. */
+  symbolCheck?: GameSymbolCheckConfig | null;
 }
 
 type LooseJsonObject = Record<string, unknown>;
@@ -72,6 +90,10 @@ export interface SyncEngineContext {
   mergePolicy?: SyncMergePolicy;
   policyInputs?: PolicyMergeReports;
   forceReportRun?: typeof forceReportRun;
+  /** Dry-run clang-format over staged files in a game sandbox; defaults to the Daytona format-check task. */
+  runFormatCheck?: (worktreePath: string, files: string[]) => Promise<ClangFormatCheckResult>;
+  /** Map-symbol validation of staged files against the merged upstream in a game sandbox; defaults to the Daytona symbol-check task. */
+  runSymbolCheck?: (worktreePath: string, files: string[], baselineRevision: string) => Promise<SymbolCheckResult>;
   now?: () => string;
   /** One actor owns every event emitted by the current action. */
   actor?: EventActor;
@@ -104,6 +126,8 @@ export interface SyncValidationResult {
   result: "passed" | "failed";
   whatRan: JsonObject[];
   details?: JsonObject;
+  /** Operator-facing reasons for a failed result; the blocker message quotes them. */
+  reasons?: string[];
 }
 
 export interface ValidateSyncInput {
@@ -1067,6 +1091,7 @@ async function defaultValidation(
   context: SyncEngineContext,
   staging: SyncStagingProgress,
   upstreamFrom: string,
+  upstreamTo: string,
 ): Promise<SyncValidationResult> {
   const harnessWorktree = context.harnessWorktreePath;
   const harnessBuild = resolve(harnessWorktree, "build");
@@ -1131,10 +1156,24 @@ async function defaultValidation(
   }
   const regression = await readRegressionReport(report.reportChangesPath, "Sync staging validation", 0);
   const regressions = regression.regressions.length + regression.brokenMatches.length + regression.fuzzyRegressions.length;
+  const format = await stagedFormatCheck(context, worktreePath, upstreamFrom);
+  const symbols = await stagedSymbolCheck(context, worktreePath, upstreamTo);
+  const reasons = [
+    ...(regressions > 0 ? ["Staged baseline/gate validation reported regressions"] : []),
+    ...format.reasons,
+    ...symbols.reasons,
+  ];
   return {
-    result: regressions === 0 ? "passed" : "failed",
-    whatRan: report.steps.map((step) => ({ name: step.name, command: step.command, exit_code: step.exitCode })),
+    result: reasons.length === 0 ? "passed" : "failed",
+    whatRan: [
+      ...report.steps.map((step) => ({ name: step.name, command: step.command, exit_code: step.exitCode })),
+      ...(format.ran ? [{ name: "clang-format dry-run", command: "clang-format --dry-run --Werror --style=file --fallback-style=none", exit_code: format.reasons.length === 0 ? 0 : 1 }] : []),
+      ...(symbols.ran ? [{ name: "map symbol check", command: `python3 ${context.game?.symbolCheck?.script} --baseline-dir <${upstreamTo.slice(0, 10)} build> <changed .cpp>`, exit_code: symbols.reasons.length === 0 ? 0 : 1 }] : []),
+    ],
+    reasons,
     details: {
+      format_check: format.evidence,
+      symbol_check: symbols.evidence,
       baseline_path: report.baselinePath,
       report_changes_path: report.reportChangesPath,
       regressions: regression.regressions.length,
@@ -1146,6 +1185,73 @@ async function defaultValidation(
       upstream_adopted: false,
       local_commits: localCommits,
     },
+  };
+}
+
+/**
+ * Upstream CI rejects unformatted sources, so a manual Sync must not publish
+ * them silently. This only reports: the staged tree is never auto-formatted.
+ */
+async function stagedFormatCheck(
+  context: SyncEngineContext,
+  worktreePath: string,
+  upstreamFrom: string,
+): Promise<{ ran: boolean; reasons: string[]; evidence: JsonObject }> {
+  const pinned = context.game?.formatting?.clangFormatVersion?.trim();
+  if (!pinned) return { ran: false, reasons: [], evidence: { status: "skipped", reason: "no formatting config" } };
+  const changed = await runner(context)(worktreePath, ["diff", "--name-only", "--diff-filter=ACMR", `${upstreamFrom}..HEAD`], { check: true });
+  const files = formattableSourcePaths(changed.stdout.split(/\r?\n/));
+  if (files.length === 0) return { ran: false, reasons: [], evidence: { status: "skipped", reason: "no changed C/C++ sources", pinned_version: pinned } };
+  const check = context.runFormatCheck
+    ? await context.runFormatCheck(worktreePath, files)
+    : await executeBuildTask<ClangFormatCheckResult>(worktreePath, { kind: "format-check", input: { paths: files } });
+  const base: JsonObject = { pinned_version: pinned, reported_version: check.version, files: files.length };
+  if (check.status === "tool_unavailable") {
+    const reason = `clang-format check unavailable in the sandbox: ${check.toolError ?? "unknown failure"}`;
+    return { ran: true, reasons: [reason], evidence: { ...base, status: "tool_unavailable", tool_error: check.toolError } };
+  }
+  const mismatch = clangFormatVersionMismatch(check.version, pinned);
+  if (mismatch) return { ran: true, reasons: [mismatch], evidence: { ...base, status: "version_mismatch" } };
+  const reasons = formatViolationReasons(check.violations);
+  uiLog("stdout", `sync validation: clang-format ${check.version} found ${check.violations.length} violation(s) in ${files.length} staged file(s)`);
+  return {
+    ran: true,
+    reasons: reasons.length > 0 ? [`staged sources are not clang-formatted (${reasons.length} file(s)): ${reasons.join("; ")}`] : [],
+    evidence: { ...base, status: reasons.length > 0 ? "violations" : "clean", violations: check.violations.length, unformatted: reasons },
+  };
+}
+
+/**
+ * Upstream CI rejects changed C++ units with map-symbol errors absent from the
+ * merge base, so a manual Sync must not publish them. This only reports: the
+ * staged tree is never edited. The baseline is the merged upstream head.
+ */
+async function stagedSymbolCheck(
+  context: SyncEngineContext,
+  worktreePath: string,
+  upstreamTo: string,
+): Promise<{ ran: boolean; reasons: string[]; evidence: JsonObject }> {
+  const config = context.game?.symbolCheck;
+  if (!config?.script?.trim() || !config.map?.trim()) return { ran: false, reasons: [], evidence: { status: "skipped", reason: "no symbolCheck config" } };
+  const changed = await runner(context)(worktreePath, ["diff", "--name-only", "--diff-filter=ACMR", `${upstreamTo}..HEAD`, "--", "*.cpp"], { check: true });
+  const files = symbolCheckSourcePaths(changed.stdout.split(/\r?\n/));
+  if (files.length === 0) return { ran: false, reasons: [], evidence: { status: "skipped", reason: "no changed C++ units", baseline_revision: upstreamTo } };
+  const check = context.runSymbolCheck
+    ? await context.runSymbolCheck(worktreePath, files, upstreamTo)
+    : await executeBuildTask<SymbolCheckResult>(worktreePath, { kind: "symbol-check", input: { paths: files, baselineRevision: upstreamTo, script: config.script, map: config.map, version: gameBuildLayout({ reportPath: context.game?.reportPath }).version } });
+  const base: JsonObject = { baseline_revision: upstreamTo, map: check.mapPath, validator: check.validator, baseline: check.baseline, files: files.length };
+  if (check.status === "tool_unavailable") {
+    const reason = `map symbol check unavailable in the sandbox: ${check.toolError ?? "unknown failure"}`;
+    return { ran: true, reasons: [reason], evidence: { ...base, status: "tool_unavailable", tool_error: check.toolError } };
+  }
+  const reasons = symbolValidationReasons(check);
+  const units = check.units.map((unit) => ({ source: unit.source, unit: unit.unit, status: unit.status, result: unit.result, new: unit.newErrors, inherited: unit.inheritedErrors, resolved: unit.resolvedErrors, new_lines: unit.newLines }));
+  const regressed = check.units.filter((unit) => unit.status === "failed").length;
+  uiLog("stdout", `sync validation: map symbol check found ${regressed} regressed unit(s) in ${files.length} staged C++ file(s) against ${upstreamTo.slice(0, 10)}`);
+  return {
+    ran: true,
+    reasons: reasons.length > 0 ? [`staged C++ units report new map-symbol validation errors against upstream ${upstreamTo.slice(0, 10)} (${regressed} unit(s)): ${reasons.join("; ")}`] : [],
+    evidence: { ...base, status: reasons.length > 0 ? "regressions" : "clean", regressed_units: regressed, units },
   };
 }
 
@@ -1191,7 +1297,7 @@ export async function validateSync(context: SyncEngineContext, input: ValidateSy
   try {
     result = input.validate
       ? await input.validate(sync.staging.workspace_path, context, sync.staging)
-      : await defaultValidation(sync.staging.workspace_path, context, sync.staging, sync.intake.upstream_from);
+      : await defaultValidation(sync.staging.workspace_path, context, sync.staging, sync.intake.upstream_from, sync.intake.upstream_to);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     transitionSync(context.store, sync.sync_id, {
@@ -1226,7 +1332,7 @@ export async function validateSync(context: SyncEngineContext, input: ValidateSy
       expectedRevision: sync.revision,
       patch: {
         status: "blocked",
-        blockers: [validationBlocker(sync, "Staged baseline/gate validation reported regressions")],
+        blockers: [validationBlocker(sync, result.reasons?.length ? result.reasons.join("; ") : "Staged baseline/gate validation reported regressions")],
         staging,
       },
       payload: { validation_evidence: evidence },

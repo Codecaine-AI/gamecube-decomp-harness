@@ -52,25 +52,27 @@ class SmsBaselineTest(unittest.TestCase):
 
     def test_global_rules_compose_with_sms_rules(self):
         code, payload = self.scan('src/Enemy/example.cpp','#pragma dont_inline on // TODO: temporary matching scope')
-        self.assertEqual(code, 1)
+        self.assertEqual(code, 2)
         # sms_fabricated_marker owns pragma marking; the global codegen_pragma finding on the same line is suppressed.
         self.assertEqual([r['rule_id'] for r in payload['findings']], ['sms_fabricated_marker', 'sms_symbol_map_validation'])
         self.assertEqual([r['severity'] for r in payload['findings'] if r['rule_id'] == 'sms_fabricated_marker'], ['warning'])
         code, payload = self.scan('src/Enemy/example.cpp','    float f31 = value;')
-        self.assertEqual(code, 1)
-        self.assertEqual([r['rule_id'] for r in payload['findings']], ['sms_symbol_map_validation'])
+        self.assertEqual(code, 0)
+        self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_symbol_map_validation', 'info')])
 
-    def test_map_validation_skipped_on_worker_surface_and_kept_on_pr_gate(self):
-        # Worker gate always scans in diff mode; the runner's micro gates own
-        # symbol/section parity there, so the map rule must emit nothing.
+    def test_map_validation_skipped_on_worker_surface_and_reminder_on_pr_gate(self):
+        # Worker gate always scans in diff mode; the runner's symbol_validation
+        # micro gate owns map parity there, so the map rule must emit nothing.
         code, payload = self.scan('src/Enemy/example.cpp', '    float f31 = value;', surface='worker')
         self.assertEqual(code, 0, payload)
         self.assertEqual([r['rule_id'] for r in payload['findings']], [])
-        # pr_gate without built objects still fails closed.
+        # pr_gate keeps an informational reminder; the harness symbol-check task
+        # is the enforcing path, so the rule no longer fails closed.
         code, payload = self.scan('src/Enemy/example.cpp', '    float f31 = value;', surface='pr_gate')
-        self.assertEqual(code, 1)
-        self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_symbol_map_validation', 'error')])
-        self.assertIn('Materialize', payload['findings'][0]['message'])
+        self.assertEqual(code, 0)
+        self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_symbol_map_validation', 'info')])
+        self.assertIn('symbol_validation gate', payload['findings'][0]['message'])
+        self.assertIn('check-changed-symbol-order.py --baseline-dir', payload['findings'][0]['detail']['command'])
 
     def test_marked_codegen_pragma_is_warning_on_worker_surface(self):
         code, payload = self.scan('src/Enemy/example.cpp', '// TODO: fakematch\n#pragma dont_inline on', surface='worker')
@@ -191,10 +193,6 @@ class SmsRuleTest(unittest.TestCase):
         hunk = {'file': 'include/Enemy/example.hpp', 'added': [(2, '\ts16 mPitch;')], 'removed': ['\ts16 unkFC;'], 'post_file_text': full}
         self.assertEqual(sms.check_name_changes(hunk), [])
 
-    def test_head_map_rejects_dirty_checkout(self):
-        with tempfile.TemporaryDirectory() as temp, patch.object(sms.subprocess,'run',return_value=subprocess.CompletedProcess([],0,' M src/Enemy/example.cpp','')):
-            self.assertIn('clean checkout',self.map_check(temp,'head')[0]['message'])
-
     def test_suppress_global_overlaps(self):
         def f(rule, line, **detail):
             return {'file': 'src/Enemy/example.cpp', 'line': line, 'rule_id': rule, 'severity': 'error', 'detail': detail}
@@ -215,34 +213,15 @@ class SmsRuleTest(unittest.TestCase):
         self.assertFalse(sms.check_name_changes(self.hunk('int value = 2;','int value = 1;')))
 
     def map_check(self, root, mode='worktree'):
-        return sms.check_maps([],root,mode,[{'file':'src/Enemy/example.cpp'},{'file':'src/Enemy/example.cpp'}],None)
+        return sms.check_maps([],root,mode,[{'file':'src/Enemy/example.cpp'},{'file':'src/Enemy/example.cpp'},{'file':'src/JSystem/vendor.cpp'},{'file':'include/Enemy/example.hpp'}],None)
 
-    def test_map_proof_missing(self):
+    def test_map_reminder_never_runs_the_validator(self):
         with tempfile.TemporaryDirectory() as temp:
-            self.assertIn('Materialize',self.map_check(temp,'diff')[0]['message'])
-            self.assertIn('no built decomp unit',self.map_check(temp)[0]['message'])
-
-    def fixture(self, root):
-        (root/'objdiff.json').write_text(json.dumps({'units':[{'name':'Enemy/example','base_path':'build/example.o','metadata':{'source_path':'src/Enemy/example.cpp'}}]}))
-        (root/'build').mkdir()
-        (root/'build/example.o').touch()
-
-    def test_map_failures_and_success(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp)
-            self.fixture(root)
-            for status in [0,1,2]:
-                with self.subTest(status=status), patch.object(sms.subprocess,'run',side_effect=[subprocess.CompletedProcess([],0,'ninja: no work to do.',''),subprocess.CompletedProcess([],status,'UNUSED size warning','details')]) as run:
-                    result=self.map_check(root)
-                    self.assertEqual(len(result),1)
-                    self.assertEqual(result[0]['severity'],'info' if status==0 else 'error')
-                    self.assertIn('UNUSED size warning',result[0]['detail']['output'])
-                    self.assertEqual(run.call_count,2)
-            with patch.object(sms.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'[1/1] compile','')):
-                self.assertIn('stale',self.map_check(root)[0]['message'])
-            with patch.object(sms.subprocess,'run',side_effect=subprocess.TimeoutExpired('ninja',30)):
-                self.assertEqual(self.map_check(root)[0]['severity'],'error')
-            (root/'build/example.o').unlink()
-            self.assertIn('missing',self.map_check(root)[0]['message'])
+            for mode in ('diff', 'head', 'worktree'):
+                with self.subTest(mode=mode), patch.object(sms.subprocess, 'run', side_effect=AssertionError('the retired error path must not run the validator')):
+                    result = self.map_check(temp, mode)
+                    self.assertEqual([(r['file'], r['severity']) for r in result], [('src/Enemy/example.cpp', 'info')])
+                    self.assertEqual(result[0]['detail']['mode'], mode)
+                    self.assertIn('symbol-check task', result[0]['detail']['enforced_by'])
 
 if __name__ == '__main__': unittest.main()

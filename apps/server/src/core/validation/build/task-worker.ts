@@ -5,9 +5,32 @@ import { forceReportRun } from "../report/run.js";
 import { runCiParityGate, runPreCommitGate, runPreCommitAutofix } from "../ci-parity/run.js";
 import { buildObjectForSource, captureUnitMatchSnapshot } from "../qa/repair-checks.js";
 import { runQaScanDiff } from "../qa/scan-diff.js";
+import { runClangFormatApply, runClangFormatCheck } from "../format/clang-format.js";
+import { SYMBOL_BASELINE_DIR, runSymbolCheck, snapshotBaselineObjects, symbolCheckSourcePaths } from "../symbols/symbol-check.js";
 import { runCommand } from "@server/infrastructure/shell/run-command.js";
 import { baseConfigureCommand, configureCommandWithWrapper } from "@server/core/game-registry/configure-command.js";
 import type { BuildTask } from "./execution.js";
+
+function shellQuote(value: string): string {
+  return /^[A-Za-z0-9_./:@%+=,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * The image bakes its build with `worker-image.json` `configure_args` (tool
+ * paths, version, map). Reconfiguring with the same line keeps the sandbox on
+ * the baked toolchain instead of letting configure.py's default pins download
+ * a different objdiff/binutils, which would change report scores.
+ */
+async function imageConfigureCommand(): Promise<string | null> {
+  const path = resolve(process.env.ORCH_IMAGE_TOOLS_DIR ?? "/opt/image-tools", "worker-image.json");
+  try {
+    const config = JSON.parse(await readFile(path, "utf8")) as { configure_args?: unknown };
+    if (!Array.isArray(config.configure_args) || config.configure_args.length === 0 || !config.configure_args.every((arg) => typeof arg === "string")) return null;
+    return `python3 configure.py ${(config.configure_args as string[]).map(shellQuote).join(" ")}`;
+  } catch {
+    return null;
+  }
+}
 
 interface Request { repoRoot: string; sourceTree: string; task: BuildTask; reportOptions: { reportPath: string; reportChangesPath: string }; gameKind: string; logDir: string; resultPath: string; artifactRoots: string[]; extraArtifacts: string[] }
 const request: Request = JSON.parse(await readFile(process.argv[2]!, "utf8"));
@@ -20,9 +43,9 @@ const input = request.task.input;
 try {
   // Configure on Linux even if a baked build.ninja exists. Host binaries and
   // platform-specific build files are never uploaded.
-  if (input.skipConfigure !== true && !["precommit", "autofix", "report-changes"].includes(request.task.kind)) {
+  if (input.skipConfigure !== true && !["precommit", "autofix", "report-changes", "format-check", "format-apply"].includes(request.task.kind)) {
     const configured = await runCommand(request.repoRoot, ["/bin/sh", "-c",
-      typeof input.configureCommand === "string" ? input.configureCommand : configureCommandWithWrapper(baseConfigureCommand({ kind: request.gameKind }), "build/tools/wibo")], { timeoutMs: 600_000 });
+      typeof input.configureCommand === "string" ? input.configureCommand : configureCommandWithWrapper(await imageConfigureCommand() ?? baseConfigureCommand({ kind: request.gameKind }), "build/tools/wibo")], { timeoutMs: 600_000 });
     await writeFile(resolve(request.logDir, "configure.stdout.log"), configured.stdout);
     await writeFile(resolve(request.logDir, "configure.stderr.log"), configured.stderr);
     if (configured.exitCode !== 0) throw Object.assign(new Error(`Sandbox configure failed (${configured.exitCode}): ${configured.stderr || configured.stdout}`), { buildFixerDiagnostics: configured.stderr || configured.stdout });
@@ -53,6 +76,31 @@ try {
       break;
     case "report-changes": value = await runCommand(request.repoRoot, ["build/tools/objdiff-cli", "report", "changes", "-o", input.changesPath as string, input.baselinePath as string, input.reportPath as string]); break;
     case "command": value = await runCommand(request.repoRoot, input.command as string[], input.options as Parameters<typeof runCommand>[2]); break;
+    // The image bakes the game's pinned clang-format; both kinds report its version so callers can assert the pin.
+    case "format-check": value = await runClangFormatCheck({ files: input.paths as string[], exec: (command, options) => runCommand(request.repoRoot, command, options) }); break;
+    case "format-apply": value = await runClangFormatApply({ files: input.paths as string[], exec: (command, options) => runCommand(request.repoRoot, command, options) }); break;
+    case "symbol-check": {
+      const exec = (command: string[], options?: Parameters<typeof runCommand>[2]) => runCommand(request.repoRoot, command, options);
+      const files = symbolCheckSourcePaths(input.paths as string[]);
+      const baselineRevision = typeof input.baselineRevision === "string" ? input.baselineRevision : null;
+      // The image's warm objects are exactly the baseline when the baseline is
+      // the baked revision; snapshot them before HEAD's build overwrites them.
+      // Otherwise the check builds the baseline in a detached worktree, as CI does.
+      const baked = await runCommand(request.repoRoot, ["git", "rev-parse", "--verify", "refs/heads/baked^{commit}"]);
+      let baselineDir: string | null = null;
+      if (baselineRevision && baked.exitCode === 0 && baked.stdout.trim() === baselineRevision) {
+        const snapshot = await snapshotBaselineObjects({ exec, files, dir: SYMBOL_BASELINE_DIR });
+        await writeFile(resolve(request.logDir, "symbol-baseline-snapshot.log"), snapshot.stdout + "\n" + snapshot.stderr);
+        if (snapshot.exitCode === 0) baselineDir = SYMBOL_BASELINE_DIR;
+      }
+      value = await runSymbolCheck({
+        files, config: { script: input.script as string, map: input.map as string }, baseline: { dir: baselineDir, revision: baselineRevision },
+        repoRoot: request.repoRoot, version: typeof input.version === "string" ? input.version : "GMSJ01", exec,
+        timeoutMs: typeof input.timeoutMs === "number" ? input.timeoutMs : undefined,
+      });
+      await writeFile(resolve(request.logDir, "symbol-check.log"), (value as { output: string }).output ?? "");
+      break;
+    }
   }
 } catch (error) {
   const e = error as Error & Record<string, unknown>;

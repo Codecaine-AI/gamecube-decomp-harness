@@ -290,6 +290,17 @@ export interface HarnessStateReadModel {
   execution: { desired: "run" | "paused"; workflow: "sync" | "run" | "none"; status: string; blockers: DispatchStateBlocker[] };
   readiness: { build: string; sources: string; sandbox: string; evidence: string };
   history: { run_id: string | null; epoch_id: string | null; sync_id: string | null; timeline_cursor: number; save_point_id: string | null };
+  /** Non-blocking notices such as upstream drift; absent on payloads from older servers. */
+  notices?: HarnessNoticeReadModel[];
+}
+
+export interface HarnessNoticeReadModel {
+  code: string;
+  message: string;
+  source_kind: string;
+  source_id: string;
+  observed_at: string;
+  detail?: JsonObject;
 }
 
 export interface HarnessBoundaryReadModel {

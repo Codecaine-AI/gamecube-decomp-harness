@@ -26,6 +26,7 @@ export function HarnessSummary({ view }: { view: HarnessView }) {
             ))}
           </div>
           {harness.execution.blockers.map((blocker) => <p className="m-0 text-xs text-warn" key={`${blocker.code}:${blocker.source_id}`}>{blocker.message}</p>)}
+          {(harness.notices ?? []).map((notice) => <p className="m-0 text-xs text-dim" key={`${notice.code}:${notice.source_id}`} aria-label={`Notice ${notice.code}`}>{notice.message}</p>)}
           {harness.execution.desired === "paused" ? <p className="m-0 text-xs text-dim">Paused. Sync preserves this setting; the next epoch waits for Resume.</p> : null}
         </div>
       ) : <p className="mb-0 text-xs text-warn">Harness state is not initialized. Existing evidence remains available.</p>}

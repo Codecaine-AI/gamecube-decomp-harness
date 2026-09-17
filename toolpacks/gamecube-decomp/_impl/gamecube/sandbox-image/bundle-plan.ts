@@ -21,6 +21,14 @@ export function bundlePlan(options: { harnessRoot: string; gameId: string; profi
       || sandbox.workspace_root.split("/").includes("..")) {
     throw new Error("Sandbox workspace_root must be a normalized absolute Linux directory");
   }
+  // The map-symbol validator reads the linker map out of the extracted disc
+  // (`orig/<version>/files/...`). The disc image itself stays out of the
+  // bundle; the shell extracts just the map from `orig/<version>/` at bake time.
+  const symbolCheckMap = game.validation.symbolCheck?.map ?? "";
+  const discDir = symbolCheckMap ? symbolCheckMap.split("/").slice(0, 2).join("/") : "";
+  if (symbolCheckMap && (!/^orig\/[A-Za-z0-9_.-]+\/.+/.test(symbolCheckMap) || symbolCheckMap.split("/").includes(".."))) {
+    throw new Error("validation.symbolCheck.map must live under orig/<version>/ inside the checkout");
+  }
   const config = readGameConfigWithLocal(game.descriptorPath);
   const tools = config.tools as { toolsRoot?: unknown } | undefined;
   const toolsRoot = gameToolsRoot({ gameDir: game.gameDir, stateDir: game.stateDir,
@@ -36,6 +44,9 @@ export function bundlePlan(options: { harnessRoot: string; gameId: string; profi
     workspaceRoot: sandbox.workspace_root,
     resourceClass: sandbox.resource_class,
     payloadDirectory: `daytona-${game.gameId}-image`,
+    // Checkout-relative linker map baked for the symbol-check task ("" when the game has none) and the disc directory it is extracted from.
+    symbolCheckMap,
+    discDir,
     // Standards staged into the image (harness-relative); the shell requires both.
     globalStandardsDir: "knowledge/global/sources/injectable/decomp_standards/standards",
     gameStandardsDir: `games/${game.gameId}/knowledge/sources/injectable/decomp_standards/standards`,
@@ -53,7 +64,7 @@ if (import.meta.main) {
     const plan = bundlePlan({ harnessRoot, gameId, profile, checkout });
     // Fixed positional records: the shell reads these as data, never as shell code.
     console.log([plan.checkout, plan.toolsRoot, plan.reportPath, plan.payloadDirectory,
-      plan.workspaceRoot, JSON.stringify(plan)].join("\n"));
+      plan.workspaceRoot, plan.symbolCheckMap, plan.discDir, JSON.stringify(plan)].join("\n"));
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

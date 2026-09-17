@@ -1,6 +1,8 @@
 import { updatePreparedRunConfiguration } from "@server/core/harness-runtime/run-state/runs";
 import { handleHarnessApiRoute, reconcileDesiredHarnessRun, type HarnessControlDeps } from "@server/api/routes/harness.js";
 import { getHarnessState } from "@server/core/harness-state/state.js";
+import { observeUpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
+import { parseBaseRef } from "@server/core/harness-runtime/phases/sync/upstream.js";
 import { randomUUID } from "node:crypto";
 import { resolveOrchestratorLayout } from "@server/core/config/orchestrator";
 import { existsSync, watch, type FSWatcher } from "node:fs";
@@ -801,6 +803,11 @@ const harnessControlDeps: HarnessControlDeps = {
       return openState(paths.stateDir);
     },
     processActive: (stateDir) => processController.hasActiveProcess(stateDir).active,
+    observeUpstreamDrift: (harness) => {
+      const paths = gameContext.resolveDashboardGame({ gameId: harness.identity.game_id }, { useDefaultGame: false });
+      const { remote, branch } = parseBaseRef(paths.game?.baseRef ?? "origin/master");
+      return observeUpstreamDrift({ repoRoot: harness.source.worktree, upstreamRef: `${remote}/${branch}`, acceptedUpstream: harness.source.upstream_revision });
+    },
     initializeRun: async (body) => {
       const paths = gameContext.resolveDashboardGame(body, { useDefaultGame: false });
       const store = openState(paths.stateDir);

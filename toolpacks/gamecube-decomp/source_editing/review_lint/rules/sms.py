@@ -490,52 +490,26 @@ def no_hunk_check(hunk):
     return []
 
 
-def check_maps(findings, repo, mode, file_diffs, merge_base):
-    """Validate every changed game .cpp once, fail closed on skipped/stale inputs.
+MAP_VALIDATION_ENFORCED_BY = 'harness symbol_validation micro gate (worker attempts) and the sandbox symbol-check task (epoch boundary and Sync validation)'
+MAP_VALIDATION_COMMAND = 'NM=build/binutils/powerpc-eabi-nm python3 tools/check-changed-symbol-order.py --baseline-dir <base-revision build> <changed .cpp>'
 
-    Patch-only scans cannot prove compiled map parity. SIZE warnings are retained
-    as informational evidence, matching upstream policy, never a fabricated match.
-    The rule's ``surfaces`` map skips it on ``--surface worker`` (the engine drops
-    the findings after this hook runs); ``pr_gate`` keeps every finding.
+
+def check_maps(findings, repo, mode, file_diffs, merge_base):
+    """Remind reviewers that every changed game .cpp is map-validated by the harness.
+
+    The error path retired on 2026-09-17: the harness runs the checkout's own
+    ``tools/check-changed-symbol-order.py`` (with a base-revision baseline, as
+    upstream CI does) inside the game sandbox, as the ``symbol_validation``
+    worker micro gate and as the boundary/Sync ``symbol-check`` task. A
+    patch-only scan cannot prove map parity, so this hook no longer runs the
+    validator or fails closed; it emits one ``info`` reminder per changed unit
+    on the ``pr_gate`` surface (the rule's ``surfaces`` map skips ``worker``).
     """
     paths = sorted({r['file'] for r in file_diffs if r['file'].startswith('src/') and r['file'].endswith('.cpp') and not any(fnmatch(r['file'], p) for p in VENDOR_PATHS)})
-    if not paths:
-        return findings
-    repo = Path(repo)
-    try:
-        units = json.loads((repo/'objdiff.json').read_text())['units']
-        mapping = {u.get('metadata', {}).get('source_path'):u for u in units}
-    except (OSError, ValueError, KeyError):
-        mapping = {}
     for path in paths:
-        detail = {'requires_build': True, 'validation': 'map presence, order, linkage and UNUSED size'}
-        message, severity = '', 'error'
-        unit = mapping.get(path)
-        try:
-            if mode == 'diff':
-                raise ValueError('Materialize the patch and build its objects before map validation; patch-only scanning is not map evidence.')
-            if mode == 'head':
-                status = subprocess.run(['git','status','--porcelain','--untracked-files=normal'],cwd=repo,text=True,capture_output=True,timeout=30)
-                if status.returncode or status.stdout.strip():
-                    raise ValueError('HEAD-only map validation requires a clean checkout so its built objects represent the scanned commit. Use worktree scanning for local edits.')
-            if not unit or not unit.get('base_path'):
-                raise ValueError('Changed C++ file has no built decomp unit; map validation cannot be skipped.')
-            obj = repo/unit['base_path']
-            if not obj.is_file():
-                raise ValueError('Build the changed translation unit before map validation; its object is missing.')
-            dry = subprocess.run(['ninja','-n',unit['base_path']],cwd=repo,text=True,capture_output=True,timeout=30)
-            if dry.returncode or 'no work to do' not in dry.stdout:
-                raise ValueError('Build inputs are stale or the Ninja freshness check failed; rebuild before map validation.')
-            command = [sys.executable,str(repo/'tools/validate-symbol-order.py'),'-u',unit['name']]
-            checked = subprocess.run(command,cwd=repo,text=True,capture_output=True,timeout=120)
-            detail.update(command=command, exit_code=checked.returncode, output=checked.stdout+'\n'+checked.stderr)
-            if checked.returncode:
-                raise ValueError('Upstream symbol-map validation failed or could not run; see the preserved validator output.')
-            severity = 'info'
-            message = 'Symbol-map validation passed. Review any UNUSED size warnings in the validator output; they do not prove a reconstructed body matches.'
-        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
-            message = str(error)
-        findings.append({'file':path, 'line':1, 'excerpt':path, 'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':severity,'message':message,'detail':detail})
+        findings.append({'file':path, 'line':1, 'excerpt':path, 'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':'info',
+                         'message':'Changed C++ unit is map-validated by the harness symbol_validation gate and the boundary/Sync symbol-check task (new missing/order/binding errors versus the base revision block acceptance). Review any UNUSED size warnings in that evidence; they do not prove a reconstructed body matches.',
+                         'detail':{'requires_build': True, 'validation': 'map presence, order, linkage and UNUSED size', 'mode': mode, 'enforced_by': MAP_VALIDATION_ENFORCED_BY, 'command': MAP_VALIDATION_COMMAND}})
     return findings
 
 
@@ -580,9 +554,10 @@ RULES = [
     # Worker attempts get a review warning on a genuine rename candidate; the
     # PR gate rejects it until a maintainer integrates the name separately.
     {'rule_id':'sms_name_change_requires_review','standard_id':'global_standard:sms-name-review','severity':'warning','applies_to':['src/**','include/**','config/GMSJ01/symbols.txt'],'surfaces':{'worker':'warning','pr_gate':'error'},'check':check_name_changes,'message':'Name changes require maintainer review.'},
-    # Worker gate scans a patch (diff mode) where map parity cannot be proven;
-    # the runner's micro gates cover undefined symbols and section parity there,
-    # so the rule emits nothing on the worker surface. pr_gate keeps fail-closed.
-    {'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':'error','applies_to':['src/*.cpp'],'surfaces':{'worker':'skip'},'check':no_hunk_check,'message':'Changed C++ units require built symbol-map validation.'},
+    # Map validation is enforced by the harness (symbol_validation micro gate on
+    # worker attempts, symbol-check task at the epoch boundary and in Sync), all
+    # running the checkout's own validator with a base-revision baseline. This
+    # rule is the pr_gate reminder only; the worker surface emits nothing.
+    {'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':'info','applies_to':['src/*.cpp'],'surfaces':{'worker':'skip'},'check':no_hunk_check,'message':'Changed C++ units are map-validated by the harness symbol_validation gate and symbol-check task.'},
 ]
 POST_SCAN_HOOKS = [check_unused_locals_fallback, check_maps, suppress_global_overlaps]

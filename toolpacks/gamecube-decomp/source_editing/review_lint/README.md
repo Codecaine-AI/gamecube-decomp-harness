@@ -165,8 +165,10 @@ Slice manifest rule entries accept two optional keys:
   (`scan_diff.py` resolves those through `_qa_rules.apply_surface_to_findings`).
   Example: `sms_symbol_map_validation` declares `{"worker": "skip"}` because
   the worker gate always scans a patch (diff mode) where map parity cannot be
-  proven; the runner's own micro gates cover undefined symbols and section
-  parity there, and the `pr_gate` surface runs with built objects.
+  proven. Map validation itself is enforced by the harness: the
+  `symbol_validation` worker micro gate and the boundary/Sync `symbol-check`
+  sandbox task run the checkout's `tools/check-changed-symbol-order.py` with a
+  base-revision baseline. The `pr_gate` surface only carries an `info` reminder.
 - `"llm_review": true` — the finding is advisory and must be routed to LLM
   review; the flag is propagated into the finding's `detail` dict.
 

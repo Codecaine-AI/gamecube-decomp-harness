@@ -1455,6 +1455,8 @@ async function executeClaimedWorker(params: {
       sectionParity: globals.game?.validation?.workerSectionParityGate ?? true,
       undefinedSymbols: globals.game?.validation?.workerUndefinedSymbolGate ?? true,
       bannedIdioms: globals.game?.validation?.workerBannedIdiomGate ?? true,
+      formatting: globals.game?.validation?.workerFormattingGate ?? true,
+      symbolValidation: globals.game?.validation?.workerSymbolValidationGate ?? true,
     };
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
@@ -2169,6 +2171,7 @@ async function executeClaimedWorker(params: {
         microGateFlags,
         validation: globals.game?.validation,
         postAttemptDiffText: postAttemptDiff.stdout,
+        baseRevision: baseRev,
         workspaceExec,
       });
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")

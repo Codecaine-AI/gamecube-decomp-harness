@@ -1,7 +1,8 @@
 import type { StateStore } from "@server/core/harness-runtime/run-state";
 import { getRun } from "@server/core/harness-runtime/run-state";
-import { getHarnessState, getHarnessTimeline, transitionHarnessState } from "@server/core/harness-state/state.js";
+import { getHarnessState, getHarnessTimeline, transitionHarnessState, type HarnessState } from "@server/core/harness-state/state.js";
 import { getDispatchState } from "@server/core/harness-state/lease.js";
+import { withLiveUpstreamDrift, type UpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 
 type JsonObject = Record<string, unknown>;
 export interface HarnessControlDeps {
@@ -10,6 +11,8 @@ export interface HarnessControlDeps {
   startRun: (body: JsonObject) => Promise<Response>;
   resumeRun: (body: JsonObject) => unknown;
   processActive: (stateDir: string) => boolean;
+  /** Local-ref observation of upstream drift for the status payload; no fetch, no state mutation. */
+  observeUpstreamDrift?: (harness: HarnessState) => UpstreamDrift | null;
 }
 const starting = new Set<string>();
 const runSettingKeys = ["maxWorkers", "sandboxProfile", "provider", "model", "thinkingLevel", "agentTimeoutSeconds", "dryRunAgents", "goalKind", "goalValue", "epochTargetCap", "workerConfigureCommand", "epochConfigureCommand"];
@@ -28,7 +31,8 @@ export async function handleHarnessApiRoute(req: Request, url: URL, deps: Harnes
       store = deps.openStore({ gameId });
       const harness = getHarnessState(store.db, gameId);
       if (!harness) return Response.json({ error: "Harness is not initialized" }, { status: 404 });
-      return Response.json({ harness, timeline: getHarnessTimeline(store.db, gameId, { after, limit: 100 }) });
+      const live = deps.observeUpstreamDrift ? withLiveUpstreamDrift(harness, deps.observeUpstreamDrift(harness)) : harness;
+      return Response.json({ harness: live, timeline: getHarnessTimeline(store.db, gameId, { after, limit: 100 }) });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
     } finally { store?.db.close(); }

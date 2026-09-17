@@ -1,20 +1,37 @@
 import type { WorkspaceExec, CommandResult } from "@server/infrastructure/shell";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import type { WorkerUnitScoreSnapshot } from "./change-validation.js";
+import {
+  clangFormatVersionMismatch,
+  formatViolationReasons,
+  formattableSourcePaths,
+  type ClangFormatCheckResult,
+  type GameFormattingConfig,
+} from "@server/core/validation/format/clang-format.js";
+import {
+  symbolCheckSourcePaths,
+  symbolValidationReasons,
+  type GameSymbolCheckConfig,
+  type SymbolCheckResult,
+} from "@server/core/validation/symbols/symbol-check.js";
 
 export interface WorkerMicroGateFlags {
   sectionParity: boolean;
   undefinedSymbols: boolean;
   bannedIdioms: boolean;
+  formatting: boolean;
+  symbolValidation: boolean;
 }
 
 export const DEFAULT_WORKER_MICRO_GATE_FLAGS: WorkerMicroGateFlags = {
   sectionParity: true,
   undefinedSymbols: true,
   bannedIdioms: true,
+  formatting: true,
+  symbolValidation: true,
 };
 
-export type WorkerMicroGateName = "section_parity" | "undefined_symbols" | "banned_idioms";
+export type WorkerMicroGateName = "section_parity" | "undefined_symbols" | "banned_idioms" | "formatting" | "symbol_validation";
 
 export interface WorkerMicroGateResult {
   gate: WorkerMicroGateName;
@@ -158,6 +175,92 @@ export async function evaluateUndefinedSymbolGate(params: {
   );
   if (unknown.length > 20) reasons.push(`${unknown.length - 20} more undefined symbols omitted`);
   return { gate, status: reasons.length > 0 ? "failed" : "passed", reasons };
+}
+
+/** Runs `clang-format --dry-run --Werror` in the attempt's sandbox; null when no sandbox session can run it. */
+export type WorkerFormatCheckRunner = (files: string[]) => Promise<ClangFormatCheckResult | null>;
+
+/**
+ * Upstream CI rejects any tracked source that is not clang-formatted with the
+ * pinned version, so an attempt that leaves changed files unformatted is not
+ * publishable however well it scores. The check runs in the same sandbox as
+ * the attempt's object build (its image bakes the pinned tool), never on the
+ * host. Tool failures and version drift fail open as tool_unavailable.
+ */
+export async function evaluateFormattingGate(params: {
+  enabled: boolean;
+  formatting: GameFormattingConfig | null | undefined;
+  changedPaths: string[];
+  runFormatCheck: WorkerFormatCheckRunner;
+}): Promise<WorkerMicroGateResult> {
+  const gate = "formatting" as const;
+  if (!params.enabled) {
+    return { gate, status: "skipped", reasons: ["formatting gate disabled by game validation config"] };
+  }
+  const pinned = params.formatting?.clangFormatVersion?.trim();
+  if (!pinned) return { gate, status: "skipped", reasons: ["no formatting config"] };
+  const files = formattableSourcePaths(params.changedPaths);
+  if (files.length === 0) return { gate, status: "skipped", reasons: ["no changed C/C++ sources to format-check"] };
+
+  let result: ClangFormatCheckResult | null;
+  try {
+    result = await params.runFormatCheck(files);
+  } catch (error) {
+    return { gate, status: "tool_unavailable", reasons: [], toolError: error instanceof Error ? error.message : String(error) };
+  }
+  if (!result) return { gate, status: "tool_unavailable", reasons: [], toolError: "no sandbox session available to run clang-format" };
+  if (result.status === "tool_unavailable") {
+    return { gate, status: "tool_unavailable", reasons: [], toolError: result.toolError ?? "clang-format unavailable in the sandbox" };
+  }
+  const mismatch = clangFormatVersionMismatch(result.version, pinned);
+  if (mismatch) return { gate, status: "tool_unavailable", reasons: [], toolError: mismatch };
+  if (result.violations.length === 0) return { gate, status: "passed", reasons: [] };
+  const unformatted = [...new Set(result.violations.map((violation) => violation.file))].sort();
+  const reasons = [
+    ...formatViolationReasons(result.violations),
+    `format these files with the sandbox's clang-format ${pinned} before resubmitting: clang-format -i --style=file --fallback-style=none -- ${unformatted.join(" ")} (upstream CI rejects unformatted sources)`,
+  ];
+  return { gate, status: "failed", reasons };
+}
+
+/** Runs the checkout's CI symbol-order driver in the attempt's sandbox; null when no sandbox session can run it. */
+export type WorkerSymbolCheckRunner = (files: string[]) => Promise<SymbolCheckResult | null>;
+
+/**
+ * Upstream CI rejects a changed C++ unit whose object reports map-symbol
+ * errors (missing, misordered, or mis-bound symbols) that the base revision
+ * did not have, so an attempt that drops or reorders a symbol is not
+ * publishable however well it scores. The check runs in the attempt's sandbox
+ * against the image's linker map; a missing map or a validator that cannot
+ * run fails open as tool_unavailable and is recorded.
+ */
+export async function evaluateSymbolValidationGate(params: {
+  enabled: boolean;
+  symbolCheck: GameSymbolCheckConfig | null | undefined;
+  changedPaths: string[];
+  runSymbolCheck: WorkerSymbolCheckRunner;
+}): Promise<WorkerMicroGateResult> {
+  const gate = "symbol_validation" as const;
+  if (!params.enabled) {
+    return { gate, status: "skipped", reasons: ["symbol validation gate disabled by game validation config"] };
+  }
+  if (!params.symbolCheck?.script?.trim() || !params.symbolCheck.map?.trim()) return { gate, status: "skipped", reasons: ["no symbolCheck config"] };
+  const files = symbolCheckSourcePaths(params.changedPaths);
+  if (files.length === 0) return { gate, status: "skipped", reasons: ["no changed C++ units to validate against the map"] };
+
+  let result: SymbolCheckResult | null;
+  try {
+    result = await params.runSymbolCheck(files);
+  } catch (error) {
+    return { gate, status: "tool_unavailable", reasons: [], toolError: error instanceof Error ? error.message : String(error) };
+  }
+  if (!result) return { gate, status: "tool_unavailable", reasons: [], toolError: "no sandbox session available to run the symbol check" };
+  if (result.status === "tool_unavailable") {
+    return { gate, status: "tool_unavailable", reasons: [], toolError: result.toolError ?? "symbol check unavailable in the sandbox" };
+  }
+  const reasons = symbolValidationReasons(result);
+  if (reasons.length === 0) return { gate, status: "passed", reasons: [] };
+  return { gate, status: "failed", reasons };
 }
 
 interface AddedCodeLine {
