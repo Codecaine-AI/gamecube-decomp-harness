@@ -1,9 +1,17 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boundaryDeferredFindings, epochQaGateSummary, type RegressionRepairPlan } from "@server/core/harness-runtime/phases/running/epochs/settlement.js";
 import { evaluateQaGate } from "@server/core/validation/jobs/qa-gate.js";
 import { NO_RUN_SELECTED_RUN_ID, gitHeadRev, l2AcceptedAdvisoryOptions, resolveAcceptedAdvisories } from "./accepted-advisories.js";
-import { normalizeAdvisoryCode } from "./advisory-fingerprint.js";
+import { disableNetwork, fakeOk } from "@agent-kernel/kernel/model-nodes/testing";
+import {
+  bool,
+  createAdjudicationHarness,
+  extractionAnswer,
+  type AdjudicationHarness,
+} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/__fixtures__/adjudication.js";
+import { advisoryFingerprint, normalizeAdvisoryCode } from "./advisory-fingerprint.js";
 import { ADVISORY_FILE, LONG_CAST_LINE, UPSTREAM_ADVISORY_SOURCE, createAdvisoryRepo, type AdvisoryRepo, type WorkerChangeResult } from "./__fixtures__/advisory-repo.js";
 import type { QaScanFinding } from "./scan-diff.js";
 
@@ -32,8 +40,20 @@ const NO_REGRESSIONS: RegressionRepairPlan = {
   summary: { brokenMatches: 0, fuzzyRegressions: 0, metricRegressions: 0, regressedFunctions: 0, regressedSections: 0 },
 };
 
+const JUSTIFICATION = "MWCC emits lbz r0 only through the u8 cast; objdiff 98.1% -> 100%.";
+/** The worker's final note keeps the cast; the fake extraction maps it to finding A1. */
+const KEPT_NOTE = JSON.stringify({
+  status: "validation_ready",
+  summary: "typed the table load through the cast the original binary needs",
+  kept_advisories: [{ rule_id: "type_erasing_cast", file: ADVISORY_FILE, line: 10, justification: JUSTIFICATION }],
+});
+
 let repo: AdvisoryRepo;
+let adjudicator: AdjudicationHarness;
+let restoreNetwork: () => void;
 let epoch1: WorkerChangeResult;
+/** The af2 fingerprint L1 recorded for the accepted line. */
+let acceptedFingerprint: string;
 /** HEAD after epoch 2: the accepted line shifted by 7 with an edit elsewhere in its hunk. */
 let step2Rev: string;
 let acceptedLine: number;
@@ -65,9 +85,16 @@ function commitFile(text: string, message: string): string {
 }
 
 beforeAll(async () => {
+  restoreNetwork = disableNetwork();
   repo = createAdvisoryRepo();
-  // Epoch 1: the worker keeps the long cast line; enforce accepts it; apply-on-accept commits it as R.
-  epoch1 = await repo.integrateWorkerChange({ checkpointId: "checkpoint-a", rel: ADVISORY_FILE, after: ACCEPTED_SOURCE, accept: true });
+  // Inline enforce adjudication: the extraction finds the note's justification, the judge decides p = 0.93 (passAt 0.85).
+  adjudicator = await createAdjudicationHarness({
+    calls: () => fakeOk(extractionAnswer({ A1: JUSTIFICATION })),
+    decisions: () => bool(0.93),
+  });
+  // Epoch 1: the worker keeps the long cast line; enforce accepts it at L1; apply-on-accept commits it as R.
+  epoch1 = await repo.integrateWorkerChange({ rel: ADVISORY_FILE, after: ACCEPTED_SOURCE, noteText: KEPT_NOTE, adjudicator });
+  acceptedFingerprint = epoch1.acceptedFingerprints[0]!;
   // Epoch 2: seven lines above the accepted line and an edit elsewhere in its hunk.
   step2Rev = commitFile(`${SHIFT_BLOCK}${ACCEPTED_SOURCE.replace("(HSD_GObj* gobj, s32 slot)", "(HSD_GObj* gobj, s32 slot, s32 mode)")}`, "epoch 2: shift and nearby edit");
   acceptedLine = lineOf(repo.read(ADVISORY_FILE), LONG_CAST_LINE);
@@ -78,23 +105,42 @@ afterEach(() => {
   repo.git("clean", "-fdq");
   repo.git("stash", "clear");
   repo.git("checkout", "-q", "--detach", step2Rev);
-  repo.store.db.query("DELETE FROM accepted_advisory WHERE checkpoint_id <> 'checkpoint-a'").run();
-  repo.store.db.query("DELETE FROM integration_outcomes WHERE worker_checkpoint_id <> 'checkpoint-a'").run();
+  repo.store.db.query("DELETE FROM accepted_advisory WHERE checkpoint_id <> ?").run(epoch1.checkpointId);
+  repo.store.db.query("DELETE FROM integration_outcomes WHERE worker_checkpoint_id <> ?").run(epoch1.checkpointId);
 });
 
-afterAll(() => repo.close());
+afterAll(() => {
+  repo.close();
+  adjudicator.cleanup();
+  restoreNetwork();
+});
 
 describe("L1 to integration to L2 advisory replay (S13)", () => {
-  test("1. epoch 1: the L1 checkpoint's long cast line is accepted by its full line and integrated as R", () => {
+  test("1. epoch 1: enforce accepts the L1 checkpoint's long cast line by its full line; R integrates it", () => {
     const [finding] = castWarnings(epoch1.l1Findings);
     expect(castWarnings(epoch1.l1Findings)).toHaveLength(1);
     expect(LONG_CAST_LINE.trim().length).toBeGreaterThan(240);
     expect(finding!.excerpt).toBe(LONG_CAST_LINE.trim().slice(0, 240));
     expect(finding!.detail).toMatchObject({ llm_review: true });
-    expect(epoch1.accepted).toEqual([
-      expect.objectContaining({ checkpointId: "checkpoint-a", fullLine: normalizeAdvisoryCode(LONG_CAST_LINE), occurrences: 1 }),
-    ]);
-    expect(repo.git("show", "-s", "--format=%s", epoch1.integratedRev)).toBe("integrate checkpoint-a");
+    expect(epoch1.validation.advisoryGate).toBe("pending");
+    expect(epoch1.adjudication).toMatchObject({ mode: "enforce", verdict: "pass", applied: true });
+    expect(epoch1.adjudication.accepted_fingerprints).toEqual([advisoryFingerprint(finding!, LONG_CAST_LINE)]);
+
+    const rows = repo.store.db.query("SELECT * FROM accepted_advisory").all() as Array<Record<string, unknown>>;
+    expect(rows).toEqual([expect.objectContaining({
+      fingerprint: advisoryFingerprint(finding!, LONG_CAST_LINE),
+      checkpoint_id: epoch1.checkpointId,
+      run_id: repo.runId,
+      rule_id: "type_erasing_cast",
+      file: ADVISORY_FILE,
+      full_line: normalizeAdvisoryCode(LONG_CAST_LINE),
+      occurrences: 1,
+      probability: 0.93,
+    })]);
+    expect(rows[0]!.decision_run_id).toEqual(expect.any(String));
+    const checkpoint = repo.store.db.query("SELECT run_id, qa_status FROM worker_checkpoints WHERE id = ?").get(epoch1.checkpointId);
+    expect(checkpoint).toEqual({ run_id: repo.runId, qa_status: "warnings" });
+    expect(repo.git("show", "-s", "--format=%s", epoch1.integratedRev)).toBe(`integrate ${epoch1.checkpointId}`);
   }, 30_000);
 
   test("2. epoch 2: RUN_ID L2 exempts the shifted line; raw counts still show 1 warning", async () => {
@@ -102,9 +148,9 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
     const [finding] = castWarnings(findings);
     expect(finding!.line).toBe(castWarnings(epoch1.l1Findings)[0]!.line + 7);
     expect(resolution?.exempt).toEqual([{
-      fingerprint: epoch1.accepted[0]!.fingerprint,
+      fingerprint: acceptedFingerprint,
       finding: finding!,
-      checkpointId: "checkpoint-a",
+      checkpointId: epoch1.checkpointId,
       blame: { commit: epoch1.integratedRev, origLine: castWarnings(epoch1.l1Findings)[0]!.line },
     }]);
     expect(resolution?.blocking).toEqual([]);
@@ -132,9 +178,9 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
     const { findings, resolution, gate } = await l2(repo.runId);
     const [original, copy] = castWarnings(findings);
     expect(copy!.line).toBeGreaterThan(original!.line);
-    expect(resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId])).toEqual([[acceptedLine, "checkpoint-a"]]);
+    expect(resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId])).toEqual([[acceptedLine, epoch1.checkpointId]]);
     expect(resolution?.blocking).toEqual([
-      { fingerprint: epoch1.accepted[0]!.fingerprint, finding: copy!, reason: "not-from-accepted-integration" },
+      { fingerprint: acceptedFingerprint, finding: copy!, reason: "not-from-accepted-integration" },
     ]);
     expect(gate.effective?.counts).toEqual({ errors: 0, warnings: 1 });
     expect(gate.qaGatePassed).toBe(false);
@@ -145,18 +191,17 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
     // Worker B started from upstream and kept the same line; its integration
     // was resolved onto a head that already had it, so R5 only changes `count`.
     const patchB = repo.workerPatch(ADVISORY_FILE, UPSTREAM_ADVISORY_SOURCE, ACCEPTED_SOURCE.replace("    s32 count = 0;", "    s32 count = 1;"));
-    const l1B = await repo.scanPatch(patchB);
-    repo.recordCheckpoint("checkpoint-b", patchB);
-    const acceptedB = repo.acceptAdvisories("checkpoint-b", patchB, l1B.result?.findings ?? []);
-    expect(acceptedB.map((row) => [row.fingerprint, row.occurrences])).toEqual([[epoch1.accepted[0]!.fingerprint, 1]]);
+    const b = await repo.adjudicateAtL1({ patchText: patchB, noteText: KEPT_NOTE, adjudicator });
+    expect(b.acceptedFingerprints).toEqual([acceptedFingerprint]);
+    expect(repo.store.db.query("SELECT occurrences FROM accepted_advisory WHERE checkpoint_id = ?").get(b.checkpointId)).toEqual({ occurrences: 1 });
     const preApply = repo.head();
-    const r5 = commitFile(repo.read(ADVISORY_FILE).replace("    s32 count = 0;", "    s32 count = 1;"), "integrate checkpoint-b");
-    repo.recordIntegration("checkpoint-b", r5, preApply, "resolved");
+    const r5 = commitFile(repo.read(ADVISORY_FILE).replace("    s32 count = 0;", "    s32 count = 1;"), "integrate checkpoint B");
+    repo.recordIntegration(b.checkpointId, r5, preApply, "resolved");
 
     const { findings, resolution, gate } = await l2(repo.runId);
     const [, copy] = castWarnings(findings);
     expect(resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId, entry.blame.commit])).toEqual([
-      [acceptedLine, "checkpoint-a", epoch1.integratedRev],
+      [acceptedLine, epoch1.checkpointId, epoch1.integratedRev],
     ]);
     expect(resolution?.blocking.map((entry) => [entry.finding.line, entry.reason])).toEqual([[copy!.line, "not-from-accepted-integration"]]);
     expect(gate.qaGatePassed).toBe(false);
@@ -188,7 +233,7 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
     const reapplied = await l2(repo.runId);
     expect(reapplied.resolution?.exempt).toEqual([]);
     expect(reapplied.resolution?.blocking.map((entry) => [entry.fingerprint, entry.reason])).toEqual([
-      [epoch1.accepted[0]!.fingerprint, "not-from-accepted-integration"],
+      [acceptedFingerprint, "not-from-accepted-integration"],
     ]);
     expect(reapplied.gate.qaGatePassed).toBe(false);
 
@@ -197,7 +242,7 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
     const reintroduced = await l2(repo.runId);
     expect(reintroduced.resolution?.exempt).toEqual([]);
     expect(reintroduced.resolution?.blocking.map((entry) => [entry.fingerprint, entry.reason])).toEqual([
-      [epoch1.accepted[0]!.fingerprint, "not-from-accepted-integration"],
+      [acceptedFingerprint, "not-from-accepted-integration"],
     ]);
     expect(reintroduced.gate.qaGatePassed).toBe(false);
   }, 30_000);
@@ -239,8 +284,8 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
       const adjudication = {
         ruleId: "type_erasing_cast",
         file: ADVISORY_FILE,
-        fingerprint: epoch1.accepted[0]!.fingerprint,
-        checkpointIds: ["checkpoint-a"],
+        fingerprint: acceptedFingerprint,
+        checkpointIds: [epoch1.checkpointId],
       };
 
       const clean = await settle();
@@ -265,6 +310,28 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
       });
       expect(drifted.adjudicated).toBeUndefined();
       expect(boundaryDeferredFindings(NO_REGRESSIONS, drifted).map((finding) => finding.reason)).toEqual(["boundary_qa_deferred", "boundary_qa_deferred"]);
+
+      // HEAD moving, or an exempted file changing, while resolution runs discards the exemption it computed.
+      repo.git("-C", worktreeDir, "checkout", "-q", "--detach", step2Rev);
+      const stepTwoScan = await repo.scanEpoch(worktreeDir);
+      const duringResolution = async (change: () => void) => {
+        let resolvedExempt = 0;
+        const qaGate = await epochQaGateSummary({
+          store: repo.store, runId: repo.runId, worktreeDir, settledHead: step2Rev, invocation: stepTwoScan,
+          resolveAdvisories: async (input) => {
+            const resolution = await resolveAcceptedAdvisories(input);
+            resolvedExempt = resolution.exempt.length;
+            change();
+            return resolution;
+          },
+        });
+        expect(resolvedExempt).toBe(1);
+        expect(qaGate.adjudicated).toBeUndefined();
+        expect(boundaryDeferredFindings(NO_REGRESSIONS, qaGate).map((finding) => finding.reason)).toEqual(["boundary_qa_deferred"]);
+        repo.git("-C", worktreeDir, "checkout", "-q", "--force", "--detach", step2Rev);
+      };
+      await duringResolution(() => repo.git("-C", worktreeDir, "checkout", "-q", "--detach", epoch1.integratedRev));
+      await duringResolution(() => writeFileSync(join(worktreeDir, ADVISORY_FILE), `${readFileSync(join(worktreeDir, ADVISORY_FILE), "utf8")}// edited\n`));
     } finally {
       repo.git("worktree", "remove", "--force", worktreeDir);
     }
@@ -280,7 +347,7 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
 
       repo.git("stash", ...stashArgs);
       const restored = await l2(repo.runId);
-      expect(restored.resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId])).toEqual([[acceptedLine, "checkpoint-a"]]);
+      expect(restored.resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId])).toEqual([[acceptedLine, epoch1.checkpointId]]);
       expect(restored.gate.qaGatePassed).toBe(true);
     }
 
@@ -318,7 +385,7 @@ describe("L1 to integration to L2 advisory replay (S13)", () => {
       repo.git("stash", "-u");
       expect(repo.git("status", "--porcelain", "--untracked-files=all")).toBe("");
       const restored = await l2(repo.runId);
-      expect(restored.resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId])).toEqual([[acceptedLine, "checkpoint-a"]]);
+      expect(restored.resolution?.exempt.map((entry) => [entry.finding.line, entry.checkpointId])).toEqual([[acceptedLine, epoch1.checkpointId]]);
     }, 30_000);
   });
 });

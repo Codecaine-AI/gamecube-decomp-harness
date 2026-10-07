@@ -2,9 +2,15 @@
  * Temp git repo + temp orchestrator store for accepted-advisory tests (plan
  * §6.10, §7.1). The repo plays the harness checkout: an upstream base commit,
  * then worker changes integrated one commit each (apply-on-accept). The store
- * holds one harness run with the rows the enforce path writes: the worker
- * checkpoint, its `accepted_advisory` rows, and the `integration_outcomes`
- * row carrying `metadata.integrated_rev`.
+ * holds one harness run.
+ *
+ * Acceptance goes through the production L1 enforce path: the attempt's
+ * qa_diff.patch (shaped by `rewriteNoIndexDiffPaths`), the real L1 scan, the
+ * deferred validation, `buildLlmReviewCandidate`, `adjudicateAdvisories`
+ * against a temp node kernel with the kernel's fakes, then
+ * `recordWorkerCheckpoint` and `recordAcceptedAdvisories`. Only the
+ * integration outcome (status and `metadata.integrated_rev`, as the
+ * integration queue records it) is seeded directly.
  *
  * Scans go through `runQaScanDiff` with the real review_lint scanner and the
  * real global standards, run locally (never remote builds), so line numbers,
@@ -14,16 +20,25 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import {
+  adjudicateAdvisories,
+  buildLlmReviewCandidate,
+  type AdvisoryAdjudication,
+} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication";
+import type { AdjudicationHarness } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/__fixtures__/adjudication.js";
+import {
+  applyQaLintToValidation,
+  qaLintAdvisoryPartition,
+  qaLintFromInvocation,
+  rewriteNoIndexDiffPaths,
+  type WorkerChangeValidation,
+} from "@server/core/agent-catalog/agents/running/worker/change-validation";
+import { recordWorkerCheckpoint } from "@server/core/harness-runtime/run-state/worker-state.js";
 import { createRun } from "@server/core/harness-runtime/run-state/runs.js";
 import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
+import { recordAcceptedAdvisories } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { packageRoot } from "@server/core/knowledge";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
-import {
-  advisoryFingerprint,
-  fullFlaggedLineFromPatch,
-  isAdvisoryFinding,
-  normalizeAdvisoryCode,
-} from "../advisory-fingerprint.js";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type QaScanProcessRunner, type RunQaScanDiffOptions } from "../scan-diff.js";
 
 export const ADVISORY_FILE = "src/melee/gm/gmadvisory.c";
@@ -49,21 +64,20 @@ export const UPSTREAM_ADVISORY_SOURCE = [
   "",
 ].join("\n");
 
-const THRESHOLDS_JSON = JSON.stringify({ passAt: 0.85, failAt: 0.15, qualification: "enforcement-qualified" });
-
-export interface AcceptedAdvisoryRow {
-  fingerprint: string;
-  checkpointId: string;
-  fullLine: string;
-  occurrences: number;
-}
-
-export interface WorkerChangeResult {
+export interface L1Acceptance {
+  /** The id recordWorkerCheckpoint gave the attempt's checkpoint. */
   checkpointId: string;
   patchText: string;
   /** The L1 (worker surface, diff-file) scan of the attempt's patch. */
   l1Findings: QaScanFinding[];
-  accepted: AcceptedAdvisoryRow[];
+  /** The enforce validation before adjudication (advisoryGate "pending" for an advisory-only scan). */
+  validation: WorkerChangeValidation;
+  adjudication: AdvisoryAdjudication;
+  /** What recordAcceptedAdvisories wrote. */
+  acceptedFingerprints: string[];
+}
+
+export interface WorkerChangeResult extends L1Acceptance {
   integratedRev: string;
 }
 
@@ -81,24 +95,22 @@ export interface AdvisoryRepo {
   write(rel: string, text: string): void;
   /** Stage everything and commit; returns the new HEAD. */
   commit(message: string): string;
-  /** A worker attempt patch for `rel` going from `before` to `after`, shaped like the L1 `qa_diff.patch`. */
+  /** A worker attempt's qa_diff.patch for `rel` going from `before` to `after`, built the way L1 builds it. */
   workerPatch(rel: string, before: string, after: string): string;
-  /** The L1 scan of an attempt patch (`--diff-file`, worker surface). */
-  scanPatch(patchText: string): Promise<QaScanInvocation>;
   /** The L2 scan: committed diff plus worktree edits against the upstream base, PR-gate surface. */
   scanL2(overrides?: Partial<RunQaScanDiffOptions>): Promise<QaScanInvocation>;
   /** The epoch observability scan of a worktree's committed HEAD against the upstream base. */
   scanEpoch(worktreeDir: string): Promise<QaScanInvocation>;
-  recordCheckpoint(checkpointId: string, patchText: string): void;
-  /** The `accepted_advisory` rows the enforce path writes after a passing adjudication of `findings`. */
-  acceptAdvisories(checkpointId: string, patchText: string, findings: QaScanFinding[]): AcceptedAdvisoryRow[];
-  recordIntegration(checkpointId: string, integratedRev: string, preApplyRev: string, status?: "applied" | "resolved"): void;
   /**
-   * One worker checkpoint end to end: its patch against HEAD, the L1 scan,
-   * the checkpoint row, acceptance of every L1 advisory warning when
-   * `accept` is set, then apply-on-accept as one integration commit.
+   * One enforce attempt at L1 through production code: the real L1 scan of
+   * `patchText`, deferred validation, the candidate, inline adjudication
+   * against `adjudicator`'s kernel, then the checkpoint and its
+   * `accepted_advisory` rows (written only for a pass).
    */
-  integrateWorkerChange(params: { checkpointId: string; rel: string; after: string; accept: boolean }): Promise<WorkerChangeResult>;
+  adjudicateAtL1(params: { patchText: string; noteText: string; adjudicator: AdjudicationHarness }): Promise<L1Acceptance>;
+  recordIntegration(checkpointId: string, integratedRev: string, preApplyRev: string, status?: "applied" | "resolved"): void;
+  /** An enforce attempt against HEAD (adjudicateAtL1), then apply-on-accept as one integration commit. */
+  integrateWorkerChange(params: { rel: string; after: string; noteText: string; adjudicator: AdjudicationHarness }): Promise<WorkerChangeResult>;
   close(): void;
 }
 
@@ -155,82 +167,92 @@ export function createAdvisoryRepo(): AdvisoryRepo {
       ...options,
     });
 
-  let patchCount = 0;
+  let attempts = 0;
   const workerPatch = (rel: string, before: string, after: string): string => {
     const dir = mkdtempSync(join(root, "attempt-"));
     for (const [side, text] of [["pre", before], ["post", after]] as const) {
       mkdirSync(dirname(join(dir, side, rel)), { recursive: true });
       writeFileSync(join(dir, side, rel), text);
     }
-    const diff = Bun.spawnSync(["git", "diff", "--no-index", "--no-color", join("pre", rel), join("post", rel)], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+    const diff = Bun.spawnSync(["git", "diff", "--no-index", "--no-color", join(dir, "pre", rel), join(dir, "post", rel)], { stdout: "pipe", stderr: "pipe" });
     if (diff.exitCode !== 0 && diff.exitCode !== 1) throw new Error(`git diff --no-index failed: ${diff.stderr.toString()}`);
-    return diff.stdout.toString().replaceAll(`a/pre/${rel}`, `a/${rel}`).replaceAll(`b/post/${rel}`, `b/${rel}`);
+    return `${rewriteNoIndexDiffPaths(diff.stdout.toString(), rel)}\n`;
   };
 
-  const scanPatch = (patchText: string): Promise<QaScanInvocation> => {
-    patchCount += 1;
-    const diffFile = join(root, `attempt-${patchCount}.qa_diff.patch`);
-    writeFileSync(diffFile, patchText);
-    return scan({ diffFile, surface: "worker" });
-  };
-
-  const recordCheckpoint = (checkpointId: string, patchText: string): void => {
-    const patchPath = join(root, `${checkpointId}.qa_diff.patch`);
-    writeFileSync(patchPath, patchText);
-    store.db.query(`INSERT INTO worker_checkpoints
-      (id, worker_state_id, run_id, epoch_id, epoch_target_id, target_claim_id, attempt_index, validation_time,
-       old_score, new_score, delta, exact_match, hard_gates_passed, selectable, selected, qa_status, validation_status, patch_path, metadata_json)
-      VALUES (?, ?, ?, 'epoch-1', 'epoch-target', ?, 1, ?, 10, 11, 1, 0, 1, 1, 1, 'warnings', 'valid', ?, ?)`).run(
-      checkpointId,
-      `worker-${checkpointId}`,
+  const adjudicateAtL1 = async ({ patchText, noteText, adjudicator }: { patchText: string; noteText: string; adjudicator: AdjudicationHarness }): Promise<L1Acceptance> => {
+    attempts += 1;
+    const workerStateId = `worker-state-${attempts}`;
+    const scanPath = join(root, `attempt-${attempts}.qa_diff.patch`);
+    writeFileSync(scanPath, patchText);
+    const invocation = await scan({ diffFile: scanPath, surface: "worker" });
+    if (invocation.toolError !== null) throw new Error(`L1 scan failed: ${invocation.toolError}`);
+    const scanned = qaLintFromInvocation(invocation, scanPath);
+    const qaLint = { ...scanned, advisory: qaLintAdvisoryPartition(scanned) };
+    const validation: WorkerChangeValidation = {
+      ...applyQaLintToValidation(
+        { status: "passed", reasons: [], target: { unit: "main/melee/gm/gmadvisory", symbol: "gmAdvisory_Load", before: 98.1, after: 100, improved: true, exact: true } },
+        qaLint,
+        { deferAdvisories: true },
+      ),
+      preQa: { status: "passed", reasons: [] },
+    };
+    const candidate = buildLlmReviewCandidate({
+      mode: "enforce",
+      requestedMode: "enforce",
+      validation,
+      reviewLint: null,
+      outOfWriteSetChanges: [],
+      kernel: { run_id: adjudicator.parentRunId, container_id: adjudicator.temp.tempDb.containerId, pi_session_id: "worker-pi-session" },
+      attemptIndex: 0,
+      agentOutputPath: null,
+      patchText,
+    });
+    const adjudication = await adjudicateAdvisories({
+      kernel: adjudicator.temp.kernel,
+      candidate,
+      noteText,
+      patchText,
+      signal: AbortSignal.timeout(30_000),
+      requestIdPrefix: `attempt:${workerStateId}:0`,
+      config: adjudicator.config,
+      budgetMs: 30_000,
+    });
+    const checkpoint = recordWorkerCheckpoint(store, {
+      workerStateId,
       runId,
-      `claim-${checkpointId}`,
-      new Date().toISOString(),
-      patchPath,
-      JSON.stringify({ qa_status_effective: "clean" }),
-    );
-  };
-
-  const acceptAdvisories = (checkpointId: string, patchText: string, findings: QaScanFinding[]): AcceptedAdvisoryRow[] => {
-    // One row per fingerprint; `occurrences` counts its physical lines in the patch.
-    const byFingerprint = new Map<string, { row: AcceptedAdvisoryRow; finding: QaScanFinding }>();
-    for (const finding of findings) {
-      if (!isAdvisoryFinding(finding) || finding.severity !== "warning") continue;
-      const fullLine = fullFlaggedLineFromPatch(patchText, finding.file, finding.line, finding.excerpt);
-      if (fullLine === null) throw new Error(`flagged line ${finding.file}:${finding.line} is not an added line of the patch`);
-      const fingerprint = advisoryFingerprint(finding, fullLine);
-      const entry = byFingerprint.get(fingerprint);
-      if (entry) entry.row.occurrences += 1;
-      else byFingerprint.set(fingerprint, { row: { fingerprint, checkpointId, fullLine: normalizeAdvisoryCode(fullLine), occurrences: 1 }, finding });
-    }
-    for (const { row, finding } of byFingerprint.values()) {
-      store.db.query(`INSERT INTO accepted_advisory
-        (fingerprint, checkpoint_id, run_id, rule_id, file, full_line, occurrences, decision_run_id, probability, served_model, thresholds_json, accepted_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.97, 'jev-1.13.0', ?, ?)`).run(
-        row.fingerprint,
-        checkpointId,
-        runId,
-        finding.rule_id,
-        finding.file,
-        row.fullLine,
-        row.occurrences,
-        `decision-${checkpointId}`,
-        THRESHOLDS_JSON,
-        new Date().toISOString(),
-      );
-    }
-    return [...byFingerprint.values()].map((entry) => entry.row);
+      epochId: "epoch-1",
+      epochTargetId: `epoch-target-${attempts}`,
+      targetClaimId: `claim-${attempts}`,
+      attemptIndex: 0,
+      oldScore: 98.1,
+      newScore: 100,
+      exactMatch: true,
+      hardGatesPassed: adjudication.verdict === "pass",
+      qaStatus: qaLint.status,
+      validationStatus: adjudication.verdict === "pass" ? "passed" : "failed",
+      patchPath: scanPath,
+      metadata: { llm_review_candidate: candidate, llm_review_adjudication: adjudication },
+      authority: { host: "advisory-replay" },
+    });
+    const acceptedFingerprints = adjudication.verdict === "pass"
+      ? recordAcceptedAdvisories(store, { checkpointId: checkpoint.id, runId, adjudication, patchText })
+      : [];
+    return { checkpointId: checkpoint.id, patchText, l1Findings: invocation.result?.findings ?? [], validation, adjudication, acceptedFingerprints };
   };
 
   const recordIntegration = (checkpointId: string, integratedRev: string, preApplyRev: string, status: "applied" | "resolved" = "applied"): void => {
     const at = new Date().toISOString();
+    const checkpoint = store.db.query("SELECT epoch_id, epoch_target_id, target_claim_id, worker_state_id FROM worker_checkpoints WHERE id = ?")
+      .get(checkpointId) as { epoch_id: string; epoch_target_id: string; target_claim_id: string; worker_state_id: string };
     store.db.query(`INSERT INTO integration_outcomes
       (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_state_id, worker_checkpoint_id, status, disposition, metadata_json, created_at, updated_at)
-      VALUES (?, ?, 'epoch-1', 'epoch-target', ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       `integration-${checkpointId}`,
       runId,
-      `claim-${checkpointId}`,
-      `worker-${checkpointId}`,
+      checkpoint.epoch_id,
+      checkpoint.epoch_target_id,
+      checkpoint.target_claim_id,
+      checkpoint.worker_state_id,
       checkpointId,
       status,
       status === "applied" ? "clean_apply" : "resolved",
@@ -253,24 +275,17 @@ export function createAdvisoryRepo(): AdvisoryRepo {
     write,
     commit,
     workerPatch,
-    scanPatch,
     scanL2: (overrides = {}) => scan({ baseRef: baseRev, includeWorktree: true, surface: "pr_gate", ...overrides }),
     scanEpoch: (worktreeDir) => scan({ repoRoot: worktreeDir, baseRef: baseRev, worktreeId: "epoch" }),
-    recordCheckpoint,
-    acceptAdvisories,
+    adjudicateAtL1,
     recordIntegration,
-    async integrateWorkerChange({ checkpointId, rel, after, accept }) {
+    async integrateWorkerChange({ rel, after, noteText, adjudicator }) {
       const preApplyRev = head();
-      const patchText = workerPatch(rel, read(rel), after);
-      const l1 = await scanPatch(patchText);
-      if (l1.toolError !== null) throw new Error(`L1 scan failed: ${l1.toolError}`);
-      const l1Findings = l1.result?.findings ?? [];
-      recordCheckpoint(checkpointId, patchText);
-      const accepted = accept ? acceptAdvisories(checkpointId, patchText, l1Findings) : [];
+      const accepted = await adjudicateAtL1({ patchText: workerPatch(rel, read(rel), after), noteText, adjudicator });
       write(rel, after);
-      const integratedRev = commit(`integrate ${checkpointId}`);
-      recordIntegration(checkpointId, integratedRev, preApplyRev);
-      return { checkpointId, patchText, l1Findings, accepted, integratedRev };
+      const integratedRev = commit(`integrate ${accepted.checkpointId}`);
+      recordIntegration(accepted.checkpointId, integratedRev, preApplyRev);
+      return { ...accepted, integratedRev };
     },
     close() {
       store.db.close();

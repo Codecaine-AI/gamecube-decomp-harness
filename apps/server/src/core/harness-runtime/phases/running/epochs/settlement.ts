@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
 import { resolveAcceptedAdvisories, type AcceptedAdvisoryResolution } from "@server/core/validation/qa/accepted-advisories.js";
+import { normalizeAdvisoryPath } from "@server/core/validation/qa/advisory-fingerprint.js";
 import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
 import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
@@ -614,8 +615,9 @@ function runHasAcceptedAdvisories(store: StateStore, runId: string): boolean {
  * advisories, its advisory warnings are resolved against that run's records
  * at the settled head (clean files, full line, af2, integration, blame);
  * exempt ones are listed under `adjudicated`. Every doubt (tool error, a
- * worktree not at the settled head, a resolver failure) leaves the findings
- * out of `adjudicated`, so they are deferred exactly as before.
+ * worktree not at the settled head before or after resolution, an exempted
+ * file no longer clean after it, a resolver failure) leaves the findings out
+ * of `adjudicated`, so they are deferred exactly as before.
  */
 export async function epochQaGateSummary(params: {
   store: StateStore;
@@ -624,6 +626,8 @@ export async function epochQaGateSummary(params: {
   /** The settlement's committed epoch head the worktree was checked out at. */
   settledHead: string | null;
   invocation: QaScanInvocation;
+  /** Defaults to resolveAcceptedAdvisories; tests wrap it to change the worktree while it runs. */
+  resolveAdvisories?: typeof resolveAcceptedAdvisories;
 }): Promise<EpochQaGateSummary> {
   const { invocation } = params;
   const summary: EpochQaGateSummary = {
@@ -642,14 +646,28 @@ export async function epochQaGateSummary(params: {
       console.error(`[epoch] qa scan worktree is not at the settled head ${params.settledHead}; accepted advisories are not honoured`);
       return summary;
     }
-    const resolution = await resolveAcceptedAdvisories({
+    const resolution = await (params.resolveAdvisories ?? resolveAcceptedAdvisories)({
       store: params.store,
       runId: params.runId,
       repoRoot: params.worktreeDir,
       headRev: params.settledHead,
       findings: summary.findings,
     });
-    if (resolution.exempt.length > 0) summary.adjudicated = resolution.exempt;
+    if (resolution.exempt.length === 0) return summary;
+    // Resolution awaited several git reads: publish only evidence that still
+    // describes the settled head, with every exempted file still clean.
+    const headAfter = await git(params.worktreeDir, ["rev-parse", "HEAD"]);
+    if (!headAfter.ok || headAfter.text !== params.settledHead) {
+      console.error(`[epoch] qa scan worktree left the settled head ${params.settledHead} during resolution; accepted advisories are not honoured`);
+      return summary;
+    }
+    const exemptFiles = [...new Set(resolution.exempt.map((entry) => normalizeAdvisoryPath(entry.finding.file)))];
+    const status = await git(params.worktreeDir, ["--literal-pathspecs", "status", "--porcelain", "--untracked-files=all", "--", ...exemptFiles]);
+    if (!status.ok || status.text.trim() !== "") {
+      console.error("[epoch] an exempted file changed during resolution; accepted advisories are not honoured");
+      return summary;
+    }
+    summary.adjudicated = resolution.exempt;
   } catch (error) {
     console.error(`[epoch] accepted-advisory resolution failed; every QA finding stays deferred: ${error instanceof Error ? error.message : String(error)}`);
   }
