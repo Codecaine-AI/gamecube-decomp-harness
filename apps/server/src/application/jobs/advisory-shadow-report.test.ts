@@ -13,6 +13,7 @@ import {
 } from "./advisory-shadow-report";
 
 const JEV = "typesafe/jev-1.13.0";
+const JEV_2 = "typesafe/jev-2.0";
 const RECORDED = { passAt: 0.85, failAt: 0.15, qualification: "exploratory" };
 const NOT_CONFIGURED = { status: "skipped", reasons: ["no --post-return-check-command configured"] };
 const SKIPPED_AFTER_QA = { status: "skipped", reasons: ["runner validation did not pass"] };
@@ -37,18 +38,27 @@ type Advisory = Record<string, unknown>;
 
 let fingerprints = 0;
 
-/** A warning advisory; a decision is recorded when it has a probability or an engine error. */
-function warning(probability: number | null, result: string, extra: Advisory = {}): Advisory {
+/**
+ * A warning advisory; a decision is recorded when it has a probability or an
+ * engine error. `served` is the decision's served model (null: no provenance,
+ * as for engine errors and decisions whose replay failed).
+ */
+function warning(probability: number | null, result: string, extra: Advisory = {}, served: string | null = JEV): Advisory {
   fingerprints += 1;
+  const hasDecision = probability !== null || extra.abstain_reason === "engine-error";
   return {
     fingerprint: `af2:${fingerprints}`,
     severity: "warning",
     rule_id: "type_erasing_cast",
     result,
     ...(probability === null ? {} : { probability }),
-    ...(probability === null && extra.abstain_reason !== "engine-error" ? {} : {
-      decision: { run_id: "decision-run", engine: "pi-ai", served_model: JEV, confidence_source: "logprob", thresholds: RECORDED },
-    }),
+    ...(hasDecision ? {
+      decision: {
+        run_id: "decision-run",
+        thresholds: { passAt: RECORDED.passAt, failAt: RECORDED.failAt },
+        ...(served === null ? {} : { engine: "pi-ai", served_model: served, confidence_source: "logprob" }),
+      },
+    } : {}),
     ...extra,
   };
 }
@@ -103,7 +113,7 @@ function seedCheckpoint(store: StateStore, input: {
   );
 }
 
-/** A store with six adjudicated shadow checkpoints, one pending, and rows every filter must drop. */
+/** A store with eight adjudicated shadow checkpoints, one pending, and rows every filter must drop. */
 function seededStateDir(): string {
   const stateDir = tempDir("advisory-shadow-report-");
   const store = openState(stateDir);
@@ -142,16 +152,35 @@ function seededStateDir(): string {
       adjudication: adjudication({
         verdict: "abstain",
         extraction: "ok",
-        advisories: [warning(null, "abstain", { abstain_reason: "engine-error" })],
+        advisories: [warning(null, "abstain", { abstain_reason: "engine-error" }, null)],
       }),
     });
-    // A pass served by an uncalibrated model never counts, whatever the thresholds.
+    // A pass served by another model than requested: it counts only under thresholds for the served model.
     seedCheckpoint(store, {
       id: "cp-f",
       adjudication: adjudication({
         verdict: "abstain",
         extraction: "ok",
-        advisories: [warning(0.95, "abstain", { abstain_reason: "served-model-unverified" })],
+        advisories: [warning(0.95, "abstain", { abstain_reason: "served-model-unverified" }, JEV_2)],
+      }),
+    });
+    // Regression (M9 review F3): requested jev-1.13.0, served jev-2.0, p 0.52. Thresholds for
+    // jev-1.13.0 must not accept it, however low their passAt.
+    seedCheckpoint(store, {
+      id: "cp-g",
+      adjudication: adjudication({
+        verdict: "abstain",
+        extraction: "ok",
+        advisories: [warning(0.52, "abstain", { abstain_reason: "low-confidence" }, JEV_2)],
+      }),
+    });
+    // No served-model provenance: never a would-accept, under any thresholds.
+    seedCheckpoint(store, {
+      id: "cp-h",
+      adjudication: adjudication({
+        verdict: "abstain",
+        extraction: "ok",
+        advisories: [warning(0.6, "abstain", { abstain_reason: "low-confidence" }, null)],
       }),
     });
     seedCheckpoint(store, { id: "cp-pending" });
@@ -194,7 +223,7 @@ describe("advisory-shadow-report", () => {
       model: JEV,
       thresholds: {
         [JEV]: { passAt: 0.5, failAt: 0.1, qualification: "exploratory" },
-        "other/model": { passAt: 0.1, failAt: 0.05 },
+        [JEV_2]: { passAt: 0.9, failAt: 0.1 },
       },
     }));
     const before = storeDigest(stateDir);
@@ -203,36 +232,42 @@ describe("advisory-shadow-report", () => {
 
     expect(result.filters).toEqual({ run: "run-1", since: "2026-10-07T00:00:00.000Z" });
     expect({ eligible: result.eligible, adjudicated: result.adjudicated, pending: result.pending }).toEqual({
-      eligible: 7,
-      adjudicated: 6,
+      eligible: 9,
+      adjudicated: 8,
       pending: 1,
     });
-    expect(result.extraction).toEqual({ ok: 5, error: 1, skipped: 0, unknown: 0 });
-    expect(result.verdicts).toEqual({ pass: 1, fail: 1, abstain: 3, error: 1, unknown: 0 });
+    expect(result.extraction).toEqual({ ok: 7, error: 1, skipped: 0, unknown: 0 });
+    expect(result.verdicts).toEqual({ pass: 1, fail: 1, abstain: 5, error: 1, unknown: 0 });
     expect(result.decisions).toMatchObject({
-      count: 7,
-      abstain: 3,
-      abstain_rate: 0.4286,
-      abstain_reasons: { "low-confidence": 1, "engine-error": 1, "served-model-unverified": 1 },
+      count: 9,
+      abstain: 5,
+      abstain_rate: 0.5556,
+      abstain_reasons: { "low-confidence": 3, "engine-error": 1, "served-model-unverified": 1 },
       engine_error: 1,
-      engine_error_rate: 0.1429,
+      engine_error_rate: 0.1111,
+      served_models: { [JEV]: 5, [JEV_2]: 2, unknown: 2 },
     });
     expect(result.decisions.histogram).toHaveLength(20);
     expect(result.decisions.histogram[0]).toEqual({ from: 0, to: 0.05, count: 0 });
-    expect(histogramCounts(result)).toEqual({ "0.15-0.2": 1, "0.5-0.55": 1, "0.9-0.95": 2, "0.95-1": 2 });
-    expect(result.recorded_thresholds).toEqual([{ ...RECORDED, count: 6 }]);
+    expect(histogramCounts(result)).toEqual({ "0.15-0.2": 1, "0.5-0.55": 2, "0.6-0.65": 1, "0.9-0.95": 2, "0.95-1": 2 });
+    expect(result.recorded_thresholds).toEqual([{ ...RECORDED, count: 8 }]);
+    // Thresholds count only decisions their own model served: cp-g (served jev-2.0 at p 0.52) is a
+    // mismatch under jev-1.13.0's passAt 0.5, and cp-h (no provenance) is never accepted.
     expect(result.would_accept).toEqual([
       {
         label: "configured", source: "recorded", passAt: null, failAt: null, model: null,
-        evaluated: 6, count: 1, rate: 0.1667, unknown_post_return_check_not_run: 1,
+        evaluated: 8, count: 1, rate: 0.125, unknown_post_return_check_not_run: 1,
+        unknown_served_model: 1, served_model_mismatch: 2,
       },
       {
         label: JEV, source: "alternative", passAt: 0.5, failAt: 0.1, model: JEV,
-        evaluated: 6, count: 2, rate: 0.3333, unknown_post_return_check_not_run: 1,
+        evaluated: 8, count: 2, rate: 0.25, unknown_post_return_check_not_run: 1,
+        unknown_served_model: 1, served_model_mismatch: 2,
       },
       {
-        label: "other/model", source: "alternative", passAt: 0.1, failAt: 0.05, model: "other/model",
-        evaluated: 0, count: 0, rate: null, unknown_post_return_check_not_run: 0,
+        label: JEV_2, source: "alternative", passAt: 0.9, failAt: 0.1, model: JEV_2,
+        evaluated: 8, count: 1, rate: 0.125, unknown_post_return_check_not_run: 1,
+        unknown_served_model: 1, served_model_mismatch: 2,
       },
     ]);
     // Read-only: the store's bytes are unchanged.
@@ -242,8 +277,8 @@ describe("advisory-shadow-report", () => {
   test("without filters every eligible shadow checkpoint counts; enforce, ineligible and clean rows never do", async () => {
     const result = await report(seededStateDir(), []);
 
-    expect({ eligible: result.eligible, adjudicated: result.adjudicated }).toEqual({ eligible: 9, adjudicated: 8 });
-    expect(result.would_accept).toEqual([expect.objectContaining({ label: "configured", evaluated: 8, count: 3 })]);
+    expect({ eligible: result.eligible, adjudicated: result.adjudicated }).toEqual({ eligible: 11, adjudicated: 10 });
+    expect(result.would_accept).toEqual([expect.objectContaining({ label: "configured", evaluated: 10, count: 3 })]);
   });
 
   test("threshold files: a pair, a labelled list, and invalid input", () => {

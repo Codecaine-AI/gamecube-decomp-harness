@@ -20,7 +20,10 @@ export interface ShadowReportFilters {
   since?: string;
 }
 
-/** An alternative threshold pair; `model` limits it to adjudications that requested that model. */
+/**
+ * An alternative threshold pair. With `model` it applies only to decisions
+ * that model served; without it, to any decision whose served model is known.
+ */
 export interface ShadowReportThresholds {
   label: string;
   passAt: number;
@@ -34,13 +37,18 @@ export interface ShadowWouldAccept {
   source: "recorded" | "alternative";
   passAt: number | null;
   failAt: number | null;
+  /** The served model the thresholds belong to; for "recorded", each adjudication's requested model. */
   model: string | null;
-  /** Adjudications the thresholds apply to. */
+  /** Adjudications with thresholds to evaluate. */
   evaluated: number;
   count: number;
   rate: number | null;
   /** Would-accepts whose post-return check never ran (a configured check could still reject them). */
   unknown_post_return_check_not_run: number;
+  /** Not counted: a threshold-bound decision has no served-model provenance. */
+  unknown_served_model: number;
+  /** Not counted: a decision was served by a model these thresholds were not calibrated for. */
+  served_model_mismatch: number;
 }
 
 export interface AdvisoryShadowReport {
@@ -60,6 +68,8 @@ export interface AdvisoryShadowReport {
     abstain_reasons: Record<string, number>;
     engine_error: number;
     engine_error_rate: number | null;
+    /** Decisions by served model ("unknown" without provenance). */
+    served_models: Record<string, number>;
     histogram: Array<{ from: number; to: number; count: number }>;
   };
   /** Distinct thresholds recorded on the adjudications. */
@@ -79,6 +89,8 @@ interface AdvisoryView {
   result: string | null;
   probability: number | null;
   abstainReason: string | null;
+  /** The model that answered the decision; null without provenance. */
+  servedModel: string | null;
   /** The decision node ran (an answer, an abstain, or an engine error). */
   decided: boolean;
   /** The outcome came from comparing `probability` with the thresholds, so other thresholds can change it. */
@@ -135,15 +147,19 @@ function adjudicationView(raw: unknown): AdjudicationView | null {
       const probability = finite(advisory.probability);
       const result = text(advisory.result);
       const abstainReason = text(advisory.abstain_reason);
+      const decision = isRecord(advisory.decision) ? advisory.decision : null;
+      const servedModel = text(decision?.served_model);
       return {
         severity: text(advisory.severity),
         result,
         probability,
         abstainReason,
-        decided: probability !== null || isRecord(advisory.decision),
+        servedModel: servedModel || null,
+        decided: probability !== null || decision !== null,
+        // An unverified served model is still a probability; it counts only under thresholds for that model.
         thresholdBound: probability !== null && (
           result === "pass"
-          || (result === "abstain" && abstainReason === "low-confidence")
+          || (result === "abstain" && (abstainReason === "low-confidence" || abstainReason === "served-model-unverified"))
           || (result === "fail" && advisory.fail_reason === "judged-unjustified")),
         readableLine: typeof advisory.fingerprint === "string" && advisory.fingerprint.length > 0,
       };
@@ -165,19 +181,26 @@ function checkpointView(row: ShadowCheckpointRow): CheckpointView {
   };
 }
 
+type ThresholdOutcome = "accept" | "reject" | "unknown-served-model" | "served-model-mismatch";
+
 /**
  * Enforce accepts a checkpoint only when extraction succeeded and every
  * warning was accepted with a readable flagged line (the fold, §6.5). Only
- * outcomes that came from the thresholds (pass, low-confidence abstain,
- * judged unjustified) are re-evaluated at `passAt`; a missing justification,
- * an engine error, an unverified served model or an unreadable line rejects
- * at any thresholds. Info advisories never block.
+ * outcomes that came from a probability (pass, low-confidence or
+ * unverified-model abstain, judged unjustified) are re-evaluated at
+ * `passAt`, and only for decisions served by `model` (any known model when
+ * null): thresholds apply to the model they were calibrated for. A missing
+ * justification, an engine error or an unreadable line rejects at any
+ * thresholds; a decision without served-model provenance is never accepted.
+ * Info advisories never block.
  */
-function wouldAcceptAt(view: AdjudicationView, passAt: number): boolean {
-  if (view.extraction !== "ok" || view.verdict === "error") return false;
+function outcomeAt(view: AdjudicationView, passAt: number, model: string | null): ThresholdOutcome {
+  if (view.extraction !== "ok" || view.verdict === "error") return "reject";
   const warnings = view.advisories.filter((advisory) => advisory.severity === "warning");
-  return warnings.length > 0 && warnings.every((advisory) =>
-    advisory.thresholdBound && advisory.readableLine && advisory.probability !== null && advisory.probability >= passAt);
+  if (warnings.length === 0 || warnings.some((advisory) => !advisory.thresholdBound || !advisory.readableLine)) return "reject";
+  if (warnings.some((advisory) => advisory.servedModel === null)) return "unknown-served-model";
+  if (model !== null && warnings.some((advisory) => advisory.servedModel !== model)) return "served-model-mismatch";
+  return warnings.every((advisory) => advisory.probability !== null && advisory.probability >= passAt) ? "accept" : "reject";
 }
 
 function rate(count: number, total: number): number | null {
@@ -198,23 +221,35 @@ function bump<K extends string>(counts: Record<K, number>, key: string | null, f
 function wouldAcceptFor(
   views: CheckpointView[],
   set: { label: string; source: ShadowWouldAccept["source"]; passAt: number | null; failAt: number | null; model: string | null },
-  passAtOf: (view: AdjudicationView) => number | null,
+  thresholdsOf: (view: AdjudicationView) => { passAt: number; model: string | null } | null,
 ): ShadowWouldAccept {
   let evaluated = 0;
   let count = 0;
-  let unknown = 0;
+  let unknownPostReturn = 0;
+  let unknownServed = 0;
+  let mismatch = 0;
   for (const view of views) {
     const adjudication = view.adjudication;
     if (!adjudication) continue;
-    if (set.model !== null && adjudication.modelRequested !== set.model) continue;
-    const passAt = passAtOf(adjudication);
-    if (passAt === null) continue;
+    const thresholds = thresholdsOf(adjudication);
+    if (thresholds === null) continue;
     evaluated += 1;
-    if (!wouldAcceptAt(adjudication, passAt)) continue;
+    const outcome = outcomeAt(adjudication, thresholds.passAt, thresholds.model);
+    if (outcome === "unknown-served-model") unknownServed += 1;
+    if (outcome === "served-model-mismatch") mismatch += 1;
+    if (outcome !== "accept") continue;
     count += 1;
-    if (view.postReturnNotRun) unknown += 1;
+    if (view.postReturnNotRun) unknownPostReturn += 1;
   }
-  return { ...set, evaluated, count, rate: rate(count, evaluated), unknown_post_return_check_not_run: unknown };
+  return {
+    ...set,
+    evaluated,
+    count,
+    rate: rate(count, evaluated),
+    unknown_post_return_check_not_run: unknownPostReturn,
+    unknown_served_model: unknownServed,
+    served_model_mismatch: mismatch,
+  };
 }
 
 /** Builds the report from an open orchestrator database. Read-only: SELECTs only. */
@@ -249,6 +284,7 @@ export function buildAdvisoryShadowReport(
   }));
   const recorded = new Map<string, AdvisoryShadowReport["recorded_thresholds"][number]>();
   const abstainReasons: Record<string, number> = {};
+  const servedModels: Record<string, number> = {};
   let decided = 0;
   let abstain = 0;
   let engineError = 0;
@@ -265,6 +301,8 @@ export function buildAdvisoryShadowReport(
     for (const advisory of adjudication.advisories) {
       if (advisory.severity !== "warning" || !advisory.decided) continue;
       decided += 1;
+      const served = advisory.servedModel ?? "unknown";
+      servedModels[served] = (servedModels[served] ?? 0) + 1;
       if (advisory.result === "abstain") {
         abstain += 1;
         const reason = advisory.abstainReason ?? "unknown";
@@ -290,6 +328,7 @@ export function buildAdvisoryShadowReport(
       abstain_reasons: abstainReasons,
       engine_error: engineError,
       engine_error_rate: rate(engineError, decided),
+      served_models: servedModels,
       histogram,
     },
     recorded_thresholds: [...recorded.values()],
@@ -297,12 +336,13 @@ export function buildAdvisoryShadowReport(
       wouldAcceptFor(
         views,
         { label: "configured", source: "recorded", passAt: null, failAt: null, model: null },
-        (view) => view.thresholds?.passAt ?? null,
+        // Recorded thresholds were calibrated for the model the adjudication requested.
+        (view) => (view.thresholds && view.modelRequested ? { passAt: view.thresholds.passAt, model: view.modelRequested } : null),
       ),
       ...alternatives.map((set) => wouldAcceptFor(
         views,
         { label: set.label, source: "alternative", passAt: set.passAt, failAt: set.failAt, model: set.model ?? null },
-        () => set.passAt,
+        () => ({ passAt: set.passAt, model: set.model ?? null }),
       )),
     ],
   };
@@ -321,7 +361,7 @@ function thresholdPair(raw: unknown, where: string): { passAt: number; failAt: n
  * Alternative thresholds from a JSON file: one `{ passAt, failAt }` pair, an
  * array of `{ label?, passAt, failAt }`, or an advisory-adjudication
  * `config.json` (`{ thresholds: { "<model>": { passAt, failAt, ... } } }`),
- * whose entries apply only to adjudications that requested that model.
+ * whose entries apply only to decisions served by that model.
  */
 export function parseShadowReportThresholds(raw: unknown, source = "--thresholds"): ShadowReportThresholds[] {
   if (Array.isArray(raw)) {
