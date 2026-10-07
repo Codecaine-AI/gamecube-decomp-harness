@@ -27,6 +27,12 @@ export interface CancelScenarioResult {
   requests: number;
   /** The mock saw the client close a held request. */
   clientClosed: boolean;
+  /**
+   * The first request's 500 reached the client before the cancel: the cancel
+   * found the call past its request, in the retry policy's backoff (it fired
+   * while no request was open, and no retry followed).
+   */
+  firstAnsweredBeforeCancel: boolean;
   /** From the cancel (abort or deadline) to the call settling. */
   settleMs: number;
   doctorOk: boolean;
@@ -47,18 +53,37 @@ const engine = bamlEngine({
 
 async function scenario(
   name: string,
-  opts: { hold: boolean; abortAfterFirstRequestMs?: number; timeoutMs: number },
+  opts: {
+    hold: boolean;
+    abortAfterFirstRequestMs?: number;
+    timeoutMs: number;
+    /**
+     * Hold the first request and answer it 500 this long before the deadline,
+     * so the deadline lands in the 500 ms backoff however long the request
+     * took to arrive; the result proves it with `firstAnsweredBeforeCancel`.
+     */
+    answerFirstBeforeDeadlineMs?: number;
+  },
 ): Promise<CancelScenarioResult> {
   server.requests.length = 0;
   const controller = new AbortController();
   let cancelledAt = 0;
+  let startedAt = 0;
+  let firstAnsweredAt = 0;
   server.reply(() => {
-    if (opts.abortAfterFirstRequestMs !== undefined && server.requests.length === 1) {
+    const first = server.requests.length === 1;
+    if (opts.abortAfterFirstRequestMs !== undefined && first) {
       setTimeout(() => {
         cancelledAt = Date.now();
         controller.abort();
       }, opts.abortAfterFirstRequestMs);
     }
+    if (opts.answerFirstBeforeDeadlineMs !== undefined && first) {
+      const holdMs = Math.max(0, startedAt + opts.timeoutMs - opts.answerFirstBeforeDeadlineMs - Date.now());
+      setTimeout(() => { firstAnsweredAt = Date.now(); }, holdMs);
+      return { kind: "hold", maxMs: holdMs };
+    }
+    if (first && !opts.hold) firstAnsweredAt = Date.now();
     return opts.hold ? { kind: "hold" } : { kind: "status", status: 500, body: { error: { message: "overloaded" } } };
   });
   const kernel = createKernel({
@@ -68,7 +93,7 @@ async function scenario(
     nodes: { piModels: fakePiModels({ baseUrl: server.url("/v1") }) },
   });
 
-  const startedAt = Date.now();
+  startedAt = Date.now();
   let outcome = "ok";
   let runId: string | undefined;
   try {
@@ -106,6 +131,8 @@ async function scenario(
       endKind: endData?.error?.kind ?? null,
       requests: server.requests.length,
       clientClosed: server.requests.some((request) => request.clientClosed === true),
+      firstAnsweredBeforeCancel: firstAnsweredAt > 0 && firstAnsweredAt < cancelledAt
+        && server.requests[0]?.clientClosed !== true,
       settleMs: settledAt - cancelledAt,
       doctorOk: (await kernel.doctor()).ok,
     };
@@ -121,7 +148,7 @@ try {
     await scenario("retry-control", { hold: false, timeoutMs: 10_000 }),
     await scenario("abort-during-request", { hold: true, abortAfterFirstRequestMs: 150, timeoutMs: 10_000 }),
     await scenario("abort-during-backoff", { hold: false, abortAfterFirstRequestMs: 100, timeoutMs: 10_000 }),
-    await scenario("deadline-during-backoff", { hold: false, timeoutMs: 150 }),
+    await scenario("deadline-during-backoff", { hold: false, timeoutMs: 3_000, answerFirstBeforeDeadlineMs: 300 }),
   ];
   console.log(`RESULT ${JSON.stringify(results)}`);
 } finally {

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { openState, type StateStore } from "@server/core/harness-runtime/run-state";
 import { enqueueJob, getJobByDedupeKey } from "@server/core/job-queue/kernel.js";
-import type { JobRecord } from "@server/core/job-queue/types.js";
+import type { JobRecord, JobResult } from "@server/core/job-queue/types.js";
 
 import { SubmissionNotYetIngested } from "@server/core/knowledge-v2/checkpoint-feed/handler.js";
 
@@ -35,6 +35,11 @@ async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<voi
     if (Date.now() > deadline) throw new Error("condition not reached in time");
     await sleep(10);
   }
+}
+
+/** Every reaction already queued (a settled handler's continuations included) has run once this resolves. */
+function drainMicrotasks(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 class Matching extends Error {
@@ -142,20 +147,31 @@ describe("model-node lane retry policy", () => {
     const store = tempStore();
     enqueue(store, "checkpoint_knowledge", "match-hang");
     const calls: string[] = [];
-    // Ignores the abort, then fails with the matching error long after the claim was released.
-    const hanging: ModelNodeJobHandler = () => new Promise((_resolve, reject) => setTimeout(() => reject(new Matching()), 200));
+    // Ignores the abort; fails with the matching error only when the test says so, after the claim was released.
+    const late = Promise.withResolvers<JobResult>();
+    let started = false;
+    const hanging: ModelNodeJobHandler = () => {
+      started = true;
+      return late.promise;
+    };
     const retry: ModelNodeRetryPolicy = (record) => {
       calls.push(record.dedupeKey);
       return { backoffMs: 1_800_000, terminal: false };
     };
     const lane = startModelNodeLane({ store, kind: "checkpoint_knowledge", handler: hanging, catchUp: () => 0, retry, intervalMs: 10, log: () => {} });
-    await waitFor(() => job(store, "checkpoint_knowledge", "match-hang").status === "claimed");
+    await waitFor(() => started && job(store, "checkpoint_knowledge", "match-hang").status === "claimed");
     await lane.stop({ maxWaitMs: 20 });
+    // The consumer finished the execution, so its heartbeat is cleared.
+    expect(lane.inFlight()).toBe(0);
     // Released through the queue's failure path: retry due now, attempt 1 of the default 5.
     const released = job(store, "checkpoint_knowledge", "match-hang");
     expect(released).toMatchObject({ status: "waiting", attempts: 1, leaseId: null });
     expect(backoffMs(released)).toBe(0);
-    await sleep(300);
+
+    // Now the handler fails with the matching error; wait until its rejection has been delivered.
+    late.reject(new Matching());
+    await late.promise.catch(() => {});
+    await drainMicrotasks();
     expect(job(store, "checkpoint_knowledge", "match-hang").revision).toBe(released.revision);
     expect(calls).toEqual([]);
   });

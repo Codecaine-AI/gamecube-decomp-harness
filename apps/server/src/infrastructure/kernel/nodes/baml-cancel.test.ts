@@ -47,13 +47,16 @@ describe("BAML native cancellation", () => {
         doctorOk: true,
       });
 
-      // Abort, and the operation deadline, while the retry policy waits: the retry never goes out.
+      // Abort, and the operation deadline, while the retry policy waits: the first 500 reached
+      // the client before the cancel (no request was open), and the retry never goes out.
       expect(byName["abort-during-backoff"]).toMatchObject({
         outcome: "aborted",
         runStatus: "aborted",
         endStatus: "aborted",
         endKind: "aborted",
         requests: 1,
+        clientClosed: false,
+        firstAnsweredBeforeCancel: true,
         doctorOk: true,
       });
       expect(byName["deadline-during-backoff"]).toMatchObject({
@@ -62,6 +65,8 @@ describe("BAML native cancellation", () => {
         endStatus: "aborted",
         endKind: "timeout",
         requests: 1,
+        clientClosed: false,
+        firstAnsweredBeforeCancel: true,
         doctorOk: true,
       });
 

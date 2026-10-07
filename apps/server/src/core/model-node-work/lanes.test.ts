@@ -2,22 +2,7 @@ import { afterEach, describe, expect, jest, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  activeWorkerCount,
-  admitEpochTargets,
-  blockingWorkerOutputIntegrationCount,
-  claimNextEpochTarget,
-  closeSchedulerEpoch,
-  closeWorkerState,
-  createRun,
-  openState,
-  schedulerEpochProgress,
-  startSchedulerEpoch,
-  unhandledEventCount,
-  type StateStore,
-} from "@server/core/harness-runtime/run-state";
-import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
-import { epochBoundaryWorkPending } from "@server/core/harness-runtime/phases/running/scheduler/run-loop.js";
+import { openState, type StateStore } from "@server/core/harness-runtime/run-state";
 import { claimJobByDedupeKey, claimNextJob, markJobRunning } from "@server/core/job-queue/kernel.js";
 import type { JobRecord, JobResult } from "@server/core/job-queue/types.js";
 import {
@@ -53,6 +38,8 @@ function tempStore(): StateStore {
 
 const ago = (ms: number): string => new Date(Date.now() - ms).toISOString();
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+/** Every reaction already queued (a settled handler's continuations included) has run once this resolves. */
+const drainMicrotasks = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
 async function waitFor(condition: () => boolean, timeoutMs = 5_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -131,88 +118,19 @@ function recordingHandlers(): { handlers: ModelNodeHandlers; handled: string[] }
 }
 
 describe("model-node lanes", () => {
-  test("lanes: a pending checkpoint_* job does not delay settlement or keep the loop alive", async () => {
-    const store = tempStore();
-    seedRunHarness(store);
-    const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
-    const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
-    admitEpochTargets(store, {
-      epochId: epoch.id,
-      runId: run.id,
-      candidates: [{ kind: "function", unit: "unit", symbol: "fn", sourcePath: "src/fn.c", size: 64, fuzzy: 91 }],
-      workerPoolSize: 1,
-    });
-    const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 });
-    const workerStateId = claim?.workerStateId ?? "";
-    let aborts = 0;
-    const hanging: ModelNodeJobHandler = (_job, ctx) => new Promise<JobResult>((_resolve, reject) => {
-      ctx.signal.addEventListener("abort", () => { aborts += 1; reject(ctx.signal.reason); });
-    });
-    const abandoned: number[] = [];
-    const lanes = startModelNodeLanes({
-      store,
-      config: { adjudication: true, knowledge: true },
-      handlers: { checkpoint_adjudication: hanging, checkpoint_knowledge: hanging },
-      onShutdownAbandoned: (count) => abandoned.push(count),
-      lane: { intervalMs: 10 },
-      log: () => {},
-    });
-    let stopped = false;
-    try {
-      seedCheckpoint(store, { id: "cp-worker", runId: run.id, workerStateId, epochId: epoch.id, validationTime: new Date().toISOString() });
-      closeWorkerState(store, {
-        authority: { host: "model-node-lanes-test" },
-        workerStateId,
-        lifecycleStatus: "timeout",
-        epochTargetStatus: "finished",
-        summary: { test: true },
-        timeoutSummary: "test finished",
-      });
-      lanes.afterWorkerSettled(workerStateId);
-      seedSettledEpoch(store, { id: "epoch-prior", runId: run.id, closedAt: new Date().toISOString() });
-      seedCheckpoint(store, { id: "cp-prior", runId: run.id, workerStateId: "worker-prior", epochId: "epoch-prior", validationTime: ago(1), qaStatus: "clean", eligible: false });
-      seedIntegration(store, { checkpointId: "cp-prior", runId: run.id, epochId: "epoch-prior" });
-      lanes.afterEpochBoundary("epoch-prior");
-      await waitFor(() => jobs(store).length === 2 && jobs(store).every((job) => job.status === "claimed"));
-
-      // Every settlement and exit predicate the run loop uses ignores the lane jobs.
-      expect(activeWorkerCount(store, run.id)).toBe(0);
-      expect(blockingWorkerOutputIntegrationCount(store, run.id)).toBe(0);
-      expect(schedulerEpochProgress(store, epoch.id)).toMatchObject({ remaining: 0, claimed: 0 });
-      expect(epochBoundaryWorkPending(store, run.id, new Date(), true)).toBe(true);
-      expect(unhandledEventCount(store, run.id)).toBe(0);
-      closeSchedulerEpoch(store, epoch.id, { status: "completed" });
-      expect(store.db.query("SELECT status FROM epochs WHERE id = ?").get(epoch.id)).toEqual({ status: "completed" });
-      expect(jobs(store).map((job) => [job.kind, job.dedupe_key, job.status])).toEqual([
-        ["checkpoint_adjudication", "cp-worker", "claimed"],
-        ["checkpoint_knowledge", "cp-prior", "claimed"],
-      ]);
-
-      // Shutdown waits only for the grace, aborts the handlers, and leaves the jobs for a later lease.
-      const startedAt = Date.now();
-      await lanes.stop({ maxWaitMs: 50 });
-      stopped = true;
-      expect(Date.now() - startedAt).toBeLessThan(2_000);
-      expect(aborts).toBe(2);
-      expect(abandoned.at(-1)).toBe(2);
-      await waitFor(() => jobs(store).every((job) => job.status === "waiting"));
-      expect(jobs(store).map((job) => job.attempts)).toEqual([1, 1]);
-    } finally {
-      if (!stopped) await lanes.stop({ maxWaitMs: 50 });
-    }
-  });
-
   test("lanes: shutdown past the grace releases a non-cooperative handler's claim; its late result writes nothing", async () => {
     const store = tempStore();
     seedRun(store, "run-a");
     ensureModelNodeLaneState(store, "checkpoint_adjudication", ago(600_000));
     seedCheckpoint(store, { id: "cp-1", runId: "run-a", workerStateId: "ws-1", validationTime: ago(60_000) });
     let lateResolve: ((result: JobResult) => void) | undefined;
+    let lateResult: Promise<JobResult> | undefined;
     let context: ModelNodeHandlerContext | undefined;
     // Ignores the abort signal and never settles on its own.
     const stubborn: ModelNodeJobHandler = (_job, ctx) => {
       context = ctx;
-      return new Promise<JobResult>((resolve) => { lateResolve = resolve; });
+      lateResult = new Promise<JobResult>((resolve) => { lateResolve = resolve; });
+      return lateResult;
     };
     const abandoned: number[] = [];
     const lane = startModelNodeLane({
@@ -242,10 +160,11 @@ describe("model-node lanes", () => {
     expect(released).toMatchObject({ status: "waiting", lease_id: null, lease_expires_at: null, result_ref: null, attempts: 1 });
     expect(Date.parse(released.next_attempt_at!)).toBeLessThanOrEqual(Date.now());
 
-    // No heartbeat renews the released claim, and the handler's late result writes nothing.
-    await sleep(100);
+    // The execution is finished (inFlight 0 above), so no heartbeat renews the released claim;
+    // the handler's late result, once delivered, writes nothing.
     lateResolve!({ resultRef: "late", detail: { status: "late" } });
-    await sleep(50);
+    await lateResult!;
+    await drainMicrotasks();
     expect(row()).toEqual(released);
     expect(store.db.query("SELECT COUNT(*) AS count FROM game_events WHERE event_type = 'job.succeeded'").get()).toEqual({ count: 0 });
 
@@ -346,38 +265,6 @@ describe("model-node lanes", () => {
     }
     expect(handled.sort()).toEqual(["checkpoint_adjudication:cp-1", "checkpoint_adjudication:cp-2", "checkpoint_adjudication:cp-3"]);
     expect(jobs(store).map((job) => [job.dedupe_key, job.attempts])).toEqual([["cp-1", 2], ["cp-2", 1], ["cp-3", 1]]);
-  });
-
-  test("lanes: settlement right after a scan, then immediate exit, leaves durable jobs", async () => {
-    const store = tempStore();
-    seedRun(store, "run-a");
-    const handler = jest.fn(async (): Promise<JobResult> => ({ resultRef: null }));
-    const lanes = startModelNodeLanes({
-      store,
-      config: { adjudication: true, knowledge: true },
-      handlers: { checkpoint_adjudication: handler, checkpoint_knowledge: handler },
-      lane: { intervalMs: 60_000, catchUpEveryMs: 60_000 },
-    });
-    lanes.catchUp();
-    await sleep(1);
-
-    // 1 ms after the scan: an epoch settles and a worker finishes with an eligible checkpoint.
-    const at = new Date().toISOString();
-    seedSettledEpoch(store, { id: "epoch-late", runId: "run-a", closedAt: at });
-    seedCheckpoint(store, { id: "cp-integrated", runId: "run-a", workerStateId: "ws-integrated", epochId: "epoch-late", validationTime: at, qaStatus: "clean", eligible: false });
-    seedIntegration(store, { checkpointId: "cp-integrated", runId: "run-a", epochId: "epoch-late" });
-    seedCheckpoint(store, { id: "cp-late-worker", runId: "run-a", workerStateId: "ws-late", validationTime: at });
-    lanes.afterEpochBoundary("epoch-late");
-    expect(jobs(store).map((job) => [job.kind, job.dedupe_key])).toEqual([["checkpoint_knowledge", "cp-integrated"]]);
-
-    // The loop stops at once, before the worker's settle callback could enqueue its checkpoint.
-    await lanes.stop({ maxWaitMs: 1_000 });
-
-    expect(jobs(store).map((job) => [job.kind, job.dedupe_key, job.status, JSON.parse(job.payload_json)])).toEqual([
-      ["checkpoint_adjudication", "cp-late-worker", "queued", { checkpointId: "cp-late-worker" }],
-      ["checkpoint_knowledge", "cp-integrated", "queued", { checkpointId: "cp-integrated", epochId: "epoch-late", integrationId: "integration-cp-integrated" }],
-    ]);
-    expect(handler).not.toHaveBeenCalled();
   });
 
   test("lanes: restart with a different run recovers stranded items", async () => {

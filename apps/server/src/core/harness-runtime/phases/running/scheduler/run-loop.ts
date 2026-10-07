@@ -168,6 +168,8 @@ export type TriggerAgentResult = RunLoopResult;
 export interface RunLoopDeps {
   sandboxProvider?: SandboxProvider;
   providerProbe?: () => Promise<ProviderProbeResult>;
+  /** Test seam: the worker job's task executor and sandbox provisioning; production passes nothing. */
+  workerJobDeps?: Pick<NonNullable<Parameters<typeof workerJobDescriptor>[1]>, "executor" | "provisionSandbox">;
 }
 
 export function providerCircuitConfigFromArgs(args: Map<string, string | true>) {
@@ -903,6 +905,7 @@ export async function runRunLoop(
       runLoopWakeResolve?.();
     };
     const workerDescriptor = workerJobDescriptor(workerCtx, {
+      ...deps.workerJobDeps,
       sandboxProvider,
       trackSandboxDeletion: (deletion) => {
         pendingSettleWork.add(deletion);
