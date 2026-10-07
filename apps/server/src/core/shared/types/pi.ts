@@ -15,4 +15,10 @@ export interface PiRunResult {
   // (stopReason "error"), e.g. every retry timed out against the LLM endpoint.
   // The session "completed" from the SDK's perspective but produced no usable turn.
   providerError?: string;
+  // Agent Kernel identity of the spawn, set on kernel spawns only (never on
+  // dry runs). On a spawn that threw, run and container come from the
+  // kernel's onRunStarted callback and are absent if the run never started.
+  kernelRunId?: string;
+  kernelContainerId?: string;
+  kernelPiSessionId?: string;
 }
