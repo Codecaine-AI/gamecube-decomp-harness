@@ -58,11 +58,13 @@
         "aa-h-ref",
         "aa-ref-lead",
         "aa-ref-code",
+        "aa-ref-replay",
         "aa-h-fail",
         "aa-fail-lead",
         "aa-fail-pre",
         "aa-fail-during",
         "aa-fail-l2",
+        "aa-fail-codes",
         "aa-fail-open",
         "aa-h-feed",
         "aa-feed-lead",
@@ -179,7 +181,8 @@
         }
       ],
       "children": [
-        "aa-mode-off-a"
+        "aa-mode-off-a",
+        "aa-mode-off-b"
       ]
     },
     "aa-mode-off-a": {
@@ -191,6 +194,55 @@
       "text": [
         {
           "insert": "The worker runs as it did before adjudication existed. It records no candidate and reads no adjudication config."
+        }
+      ],
+      "children": []
+    },
+    "aa-mode-off-b": {
+      "id": "aa-mode-off-b",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "With the knowledge feed also off, the run records the same "
+        },
+        {
+          "insert": "write_set_integration_flags",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " payload as "
+        },
+        {
+          "insert": "main",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". That payload holds only "
+        },
+        {
+          "insert": "write_set_widening",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "created_by",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", with no model-node keys."
         }
       ],
       "children": []
@@ -212,7 +264,8 @@
       ],
       "children": [
         "aa-mode-shadow-a",
-        "aa-mode-shadow-b"
+        "aa-mode-shadow-b",
+        "aa-mode-shadow-c"
       ]
     },
     "aa-mode-shadow-a": {
@@ -264,6 +317,28 @@
         },
         {
           "insert": " to the checkpoint metadata. The trace viewer shows the decisions under the worker's kernel run."
+        }
+      ],
+      "children": []
+    },
+    "aa-mode-shadow-c": {
+      "id": "aa-mode-shadow-c",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "A kernel "
+        },
+        {
+          "insert": "invalid-request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " is terminal in this lane, so the lane records the result and does not retry. The error means the request id already names a different request, for example after the thresholds changed between attempts."
         }
       ],
       "children": []
@@ -612,6 +687,7 @@
       ],
       "children": [
         "aa-report-3a",
+        "aa-report-3a-meta",
         "aa-report-3b"
       ]
     },
@@ -623,19 +699,19 @@
       },
       "text": [
         {
-          "insert": "The report counts downgraded candidates by reason. Each checkpoint's "
+          "insert": "The "
         },
         {
-          "insert": "llm_review_candidate",
+          "insert": "enforce_downgraded",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": " metadata also records "
+          "insert": " key counts candidates whose run requested enforce but ran shadow, as a "
         },
         {
-          "insert": "requested_mode",
+          "insert": "total",
           "attributes": {
             "code": true
           }
@@ -644,13 +720,53 @@
           "insert": " and "
         },
         {
+          "insert": "by_reason",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The key is absent when no candidate was downgraded."
+        }
+      ],
+      "children": []
+    },
+    "aa-report-3a-meta": {
+      "id": "aa-report-3a-meta",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Each checkpoint's "
+        },
+        {
+          "insert": "llm_review_candidate",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " metadata records "
+        },
+        {
+          "insert": "requested_mode",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", plus "
+        },
+        {
           "insert": "downgraded_reason",
           "attributes": {
             "code": true
           }
         },
         {
-          "insert": "."
+          "insert": " when enforce ran as shadow."
         }
       ],
       "children": []
@@ -663,7 +779,25 @@
       },
       "text": [
         {
-          "insert": "The run prints one warning line at start when it downgrades enforce. Its "
+          "insert": "When "
+        },
+        {
+          "insert": "run-loop",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " downgrades enforce, it prints one warning at start that begins "
+        },
+        {
+          "insert": "[advisory-adjudication] enforce requested",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and names the reason. The run's "
         },
         {
           "insert": "write_set_integration_flags",
@@ -681,7 +815,7 @@
           }
         },
         {
-          "insert": " and "
+          "insert": ", plus "
         },
         {
           "insert": "advisory_adjudication_downgraded_reason",
@@ -690,7 +824,7 @@
           }
         },
         {
-          "insert": "."
+          "insert": " when enforce is downgraded."
         }
       ],
       "children": []
@@ -1490,7 +1624,25 @@
       },
       "text": [
         {
-          "insert": "If the run prints a downgrade warning at start, enforce is not in effect. The warning names the reason."
+          "insert": "If "
+        },
+        {
+          "insert": "run-loop",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " prints an "
+        },
+        {
+          "insert": "[advisory-adjudication] enforce requested",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " warning at start, enforce is not in effect. The warning names the reason in parentheses."
         }
       ],
       "children": []
@@ -1612,7 +1764,25 @@
       "props": {},
       "text": [
         {
-          "insert": "A group merges equivalent flagged lines across attempts and workers, so correlated items count once. A group with conflicting human labels is excluded and listed in the report. "
+          "insert": "A group merges equivalent flagged lines across attempts and workers, so correlated items count once. A group whose human labels disagree is left out of both selection and held-out evaluation. The JSON report lists these groups as "
+        },
+        {
+          "insert": "selection.conflictingGroups",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " and "
+        },
+        {
+          "insert": "heldout.conflictingGroups",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and the Markdown report names only the held-out ones. "
         },
         {
           "insert": "--write",
@@ -1761,6 +1931,59 @@
       "text": [
         {
           "insert": "# Prefix every line with: bun run server:job -- advisory-calibration\nbuild-dataset --source-root <dir> [--game <g>] [--dir <out>]\nshadow-export --source-root <dir> [--game <g>] [--dir <out>]\nextract --engine live|replay|fake [--dir <d>] [--limit <n>] [--db <path>]\nbootstrap-labels --engine live|replay|fake [--dir <d>] [--limit <n>] [--synthesize <n>] [--db <path>]\nreview [--dir <d>] [--reviewer <name>]\nsplit [--dir <d>] [--salt <s>]\ncalibrate --engine live|replay|fake [--dir <d>] [--dry-run] [--write] [--config <file>] [--model <ref>]\n          [--run <file>] [--limit <n>] [--db <path>] [--max-false-accept-upper <x>]\nfreeze-replay --source-root <dir> --run <id> --worker-state <id> --attempt <n> --out <dir>\n          [--game <g>] [--probability <p>]\nreplay --fixture <dir> --engine live|replay|fake [--db <path>]"
+        }
+      ],
+      "children": []
+    },
+    "aa-ref-replay": {
+      "id": "aa-ref-replay",
+      "type": "paragraph",
+      "props": {},
+      "text": [
+        {
+          "insert": "extract",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "bootstrap-labels",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", and "
+        },
+        {
+          "insert": "calibrate",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " nest their model nodes under a parent run fixed per command, dataset, and engine. Request ids digest the full request and that parent, so a rerun into the same "
+        },
+        {
+          "insert": "--db",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " replays unchanged requests and runs changed ones fresh. Without "
+        },
+        {
+          "insert": "--db",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", each command opens a fresh temporary kernel database and replays nothing."
         }
       ],
       "children": []
@@ -1929,7 +2152,16 @@
       },
       "text": [
         {
-          "insert": "Cancellation, a gate write failure, an unverified served model, or any exception also fails closed."
+          "insert": "Cancellation, a gate write failure, a kernel "
+        },
+        {
+          "insert": "invalid-request",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", an unverified served model, or any exception also fails closed."
         }
       ],
       "children": []
@@ -2042,6 +2274,132 @@
       ],
       "children": []
     },
+    "aa-fail-codes": {
+      "id": "aa-fail-codes",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Recorded errors",
+          "attributes": {
+            "bold": true
+          }
+        }
+      ],
+      "children": [
+        "aa-fail-codes-a",
+        "aa-fail-codes-b"
+      ]
+    },
+    "aa-fail-codes-a": {
+      "id": "aa-fail-codes-a",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Enforce and shadow persist only fixed error codes. An adjudication record's "
+        },
+        {
+          "insert": "error",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " field holds "
+        },
+        {
+          "insert": "kernel-error: <code>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "reviewer-unavailable: <kind>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "ineligible: <reason>",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "evidence-missing: note",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "evidence-missing: patch",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "config-invalid",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", or "
+        },
+        {
+          "insert": "unexpected-error",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "aa-fail-codes-b": {
+      "id": "aa-fail-codes-b",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Any other text becomes "
+        },
+        {
+          "insert": "unexpected-error",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", so checkpoint metadata, queue rows, retry messages, and logs never carry exception text, prompts, or credentials."
+        }
+      ],
+      "children": []
+    },
     "aa-fail-open": {
       "id": "aa-fail-open",
       "type": "paragraph",
@@ -2104,6 +2462,7 @@
         "aa-feed-lane-a",
         "aa-feed-lane-b",
         "aa-feed-lane-c",
+        "aa-feed-lane-c2",
         "aa-feed-lane-d"
       ]
     },
@@ -2177,7 +2536,7 @@
       },
       "text": [
         {
-          "insert": "The first attempt records its evidence digests, input, and kernel run before the call. A retry whose evidence no longer matches is skipped as "
+          "insert": "The first attempt records its evidence digests and input before the call. A retry whose evidence or input differs from that record is skipped as "
         },
         {
           "insert": "evidence-changed",
@@ -2187,6 +2546,19 @@
         },
         {
           "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "aa-feed-lane-c2": {
+      "id": "aa-feed-lane-c2",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "Each attempt that starts a kernel run records that run before the model call, so a replay cites the run whose output it returns. If that write fails, the kernel ends the run without a model call and the job retries."
         }
       ],
       "children": []
@@ -2229,7 +2601,8 @@
       ],
       "children": [
         "aa-feed-good-a",
-        "aa-feed-good-b"
+        "aa-feed-good-b",
+        "aa-feed-good-c"
       ]
     },
     "aa-feed-good-a": {
@@ -2253,7 +2626,34 @@
       },
       "text": [
         {
-          "insert": "If the epoch's settlement records show that the confirmation pass ran, the checkpoint must also be "
+          "insert": "The epoch's settlement records give the confirmation pass a status of "
+        },
+        {
+          "insert": "ran",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", "
+        },
+        {
+          "insert": "not-run",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", or "
+        },
+        {
+          "insert": "unknown",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". When the pass ran, the checkpoint must also be "
         },
         {
           "insert": "confirmed",
@@ -2263,6 +2663,55 @@
         },
         {
           "insert": "."
+        }
+      ],
+      "children": []
+    },
+    "aa-feed-good-c": {
+      "id": "aa-feed-good-c",
+      "type": "list-item",
+      "props": {
+        "ordered": false
+      },
+      "text": [
+        {
+          "insert": "With "
+        },
+        {
+          "insert": "unknown",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ", the lane rejects a tentative checkpoint as "
+        },
+        {
+          "insert": "confirmation-status-unknown",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": ". The checkpoint's "
+        },
+        {
+          "insert": "checkpoint_knowledge",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " metadata records each rejection as status "
+        },
+        {
+          "insert": "not-confirmed",
+          "attributes": {
+            "code": true
+          }
+        },
+        {
+          "insert": " with its rule and reason."
         }
       ],
       "children": []
