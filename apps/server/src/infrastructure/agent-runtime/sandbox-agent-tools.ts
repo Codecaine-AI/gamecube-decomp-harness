@@ -9,7 +9,7 @@ import {
   truncateHead,
   truncateLine,
   type BashOperations,
-} from "@earendil-works/pi-coding-agent";
+} from "@agent-kernel/kernel/pi-sdk";
 import type { SandboxExecResult, SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import type {
   RequestWriteSetWideningHandler,

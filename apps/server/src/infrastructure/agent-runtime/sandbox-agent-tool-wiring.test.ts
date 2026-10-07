@@ -7,7 +7,7 @@ import {
   DefaultResourceLoader,
   SessionManager,
   SettingsManager,
-} from "@earendil-works/pi-coding-agent";
+} from "@agent-kernel/kernel/pi-sdk";
 import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
 import { buildMeleeKernelToolFactories } from "./kernel-pi-runner.js";
 import {
@@ -70,6 +70,7 @@ describe("sandbox same-name agent tool wiring", () => {
       cwd: hostRoot,
       agentDir: hostRoot,
       sessionManager: SessionManager.create(hostRoot, join(hostRoot, "direct-sessions")),
+      settingsManager: SettingsManager.inMemory({ cacheWarming: "off" }),
       customTools: registration.customTools as never,
       excludeTools: registration.excludedTools,
     });
@@ -112,7 +113,7 @@ describe("sandbox same-name agent tool wiring", () => {
       bashEnvironment: { SANDBOX_PATH: "kernel" },
       excludeBuiltinTools: ["write", "read", "edit", "grep", "glob", "bash"],
     });
-    const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false } });
+    const settingsManager = SettingsManager.inMemory({ compaction: { enabled: false }, cacheWarming: "off" });
     const resourceLoader = new DefaultResourceLoader({
       cwd: hostRoot,
       agentDir: hostRoot,

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-import type { ExtensionContext, ExtensionFactory } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, ExtensionFactory } from "@agent-kernel/kernel/pi-sdk";
 import {
   createKernel as createLiveKernel,
   type CreateKernelConfig,

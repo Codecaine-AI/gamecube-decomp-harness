@@ -1,4 +1,4 @@
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { ModelRuntime } from "@agent-kernel/kernel/pi-sdk";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { loadLocalEnv } from "@server/infrastructure/env";

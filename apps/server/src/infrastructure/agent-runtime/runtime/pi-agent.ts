@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   createBashToolDefinition,
   type BashOperations,
-} from "@earendil-works/pi-coding-agent";
+} from "@agent-kernel/kernel/pi-sdk";
 import type { PiPromptBundle, PiRunResult, RuntimeAgentRole } from "@server/core/shared/types";
 import { loadLocalEnv } from "@server/infrastructure/env";
 import { buildAgentTools, type AgentToolProfileInput, type AgentToolRuntimeContext } from "@server/core/tools/index.js";
@@ -278,7 +278,7 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
     };
   }
 
-  const pi = (await import("@earendil-works/pi-coding-agent")) as Record<string, any>;
+  const pi = (await import("@agent-kernel/kernel/pi-sdk")) as Record<string, any>;
   const config = piConfig(options);
   const sessionDir = options.sessionDir ?? defaultPiSessionDir(options.role);
   await mkdir(sessionDir, { recursive: true });
@@ -320,6 +320,8 @@ export async function runPiAgent(options: PiRunOptions): Promise<PiRunResult> {
       modelRegistry,
       thinkingLevel: config.thinkingLevel,
       sessionManager,
+      // Pi 1.0 warms the prompt cache by default with extra requests; off, as in the kernel.
+      settingsManager: pi.SettingsManager.inMemory({ cacheWarming: "off" }),
       resourceLoader,
       customTools,
       ...(toolRegistration.excludedTools.length
