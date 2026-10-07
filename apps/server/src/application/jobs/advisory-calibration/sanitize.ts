@@ -2,7 +2,8 @@
 // (plan §6.9): absolute paths under the source root (or the legacy checkout
 // root the history recorded) become `<source-root>/…`, the home directory
 // becomes `<home>`, values of secret-looking environment variables and any
-// token-like string are replaced. Structured data is scrubbed key by key and
+// token-like string are replaced. Credentials are located on the original text
+// in one pass (redactSecrets), so a secret inside a token never splits it. Structured data is scrubbed key by key and
 // value by value before it is serialized (sanitizeDeep), so a pattern never
 // eats JSON punctuation. Every non-empty value of a secret-looking variable is
 // a secret, whatever it looks like ("1" and "true" included); only the
@@ -49,25 +50,6 @@ function replaceLiteral(pieces: Piece[], needle: string, replacement: string): P
   return out;
 }
 
-/** Replaces every match of a global `pattern` in the input pieces. */
-function replacePattern(pieces: Piece[], pattern: RegExp, replacement: string): Piece[] {
-  const out: Piece[] = [];
-  for (const piece of pieces) {
-    if (piece.generated) {
-      out.push(piece);
-      continue;
-    }
-    let last = 0;
-    for (const match of piece.text.matchAll(pattern)) {
-      if (match.index > last) out.push({ text: piece.text.slice(last, match.index), generated: false });
-      out.push({ text: replacement, generated: true });
-      last = match.index + match[0].length;
-    }
-    if (last < piece.text.length) out.push({ text: piece.text.slice(last), generated: false });
-  }
-  return out;
-}
-
 export interface SanitizerOptions {
   sourceRoot: string;
   env?: Record<string, string | undefined>;
@@ -82,6 +64,59 @@ export interface Sanitize {
 
 function withoutTrailingSlash(path: string): string {
   return path.length > 1 ? path.replace(/\/+$/, "") : path;
+}
+
+interface Span {
+  start: number;
+  end: number;
+  token: boolean;
+  /** The secret variable whose occurrence is longest in the span (env-only spans). */
+  name: string;
+  nameLength: number;
+}
+
+/**
+ * Credentials found on the ORIGINAL text, all at once: every token-like span
+ * (`Bearer …`, `sk-…`) and every occurrence of a long secret value. Spans that
+ * overlap are merged and replaced whole, a span holding any token by
+ * `<redacted:token>`, so a secret inside a token never splits it and leaves a
+ * suffix behind. Everything outside the spans is kept input.
+ */
+function redactSecrets(text: string, secrets: ReadonlyArray<[string, string]>): Piece[] {
+  const spans: Span[] = [];
+  for (const match of text.matchAll(TOKEN_LIKE)) {
+    spans.push({ start: match.index, end: match.index + match[0].length, token: true, name: "", nameLength: 0 });
+  }
+  for (const [name, value] of secrets) {
+    for (let at = text.indexOf(value); at >= 0; at = text.indexOf(value, at + 1)) {
+      spans.push({ start: at, end: at + value.length, token: false, name, nameLength: value.length });
+    }
+  }
+  if (spans.length === 0) return [{ text, generated: false }];
+  spans.sort((a, b) => a.start - b.start || b.end - a.end);
+  const merged: Span[] = [];
+  for (const span of spans) {
+    const last = merged.at(-1);
+    if (last && span.start < last.end) {
+      last.end = Math.max(last.end, span.end);
+      last.token ||= span.token;
+      if (span.nameLength > last.nameLength) {
+        last.name = span.name;
+        last.nameLength = span.nameLength;
+      }
+    } else {
+      merged.push({ ...span });
+    }
+  }
+  const pieces: Piece[] = [];
+  let at = 0;
+  for (const span of merged) {
+    if (span.start > at) pieces.push({ text: text.slice(at, span.start), generated: false });
+    pieces.push({ text: span.token ? "<redacted:token>" : `<redacted:env:${span.name}>`, generated: true });
+    at = span.end;
+  }
+  if (at < text.length) pieces.push({ text: text.slice(at), generated: false });
+  return pieces;
 }
 
 export function createSanitizer(opts: SanitizerOptions): Sanitize {
@@ -102,9 +137,7 @@ export function createSanitizer(opts: SanitizerOptions): Sanitize {
     .filter((root) => root.prefix.length > 1)
     .sort((a, b) => b.prefix.length - a.prefix.length);
   const sanitize = (text: string) => {
-    let pieces: Piece[] = [{ text, generated: false }];
-    for (const [name, value] of secrets) pieces = replaceLiteral(pieces, value, `<redacted:env:${name}>`);
-    pieces = replacePattern(pieces, TOKEN_LIKE, "<redacted:token>");
+    let pieces = redactSecrets(text, secrets);
     for (const root of roots) pieces = replaceLiteral(pieces, root.prefix, root.replacement);
     if (shortSecrets.length > 0) {
       // Every kept input piece, scanned on its own: only the replacements generated above are exempt.

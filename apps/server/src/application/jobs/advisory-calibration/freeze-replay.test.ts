@@ -194,9 +194,12 @@ describe("freeze-replay", () => {
       for (const name of readdirSync(out)) {
         const text = readFileSync(join(out, name), "utf8");
         expect(text).not.toContain(secret);
+        expect(text).not.toContain(`${secret}x`);
+        expect(text).not.toContain("Bearer <redacted");
         expect(text).not.toContain(history.root);
       }
-      const expectedKeys = { "<redacted:env:FIXTURE_SECRET_TOKEN>": "safe value", "Bearer <redacted:env:FIXTURE_SECRET_TOKEN>x": { "<source-root>/games": true } };
+      // The bearer key holds the secret plus a suffix: removed whole, no "x" left behind.
+      const expectedKeys = { "<redacted:env:FIXTURE_SECRET_TOKEN>": "safe value", "<redacted:token>": { "<source-root>/games": true } };
       expect(JSON.parse(readFileSync(join(out, "note.txt"), "utf8"))).toMatchObject(expectedKeys);
       expect(JSON.parse(readFileSync(join(out, "checkpoint.json"), "utf8")).agent_note).toMatchObject(expectedKeys);
     } finally {

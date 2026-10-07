@@ -63,13 +63,26 @@ describe("history sanitizer", () => {
     expect(valued.shortSecretsSeen()).toEqual(["PASSWORD"]);
     expect(() => assertNoShortSecrets(valued, "freeze-replay")).toThrow("PASSWORD");
 
-    // Replacements the sanitizer wrote stay exempt, and are never rewritten by a later pattern.
-    const generated = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh", SHORT_TOKEN: "Bear" } });
-    expect(generated("Bearer abcdefgh")).toBe("Bearer <redacted:env:LONG_TOKEN>");
-    expect(generated.shortSecretsSeen()).toEqual(["SHORT_TOKEN"]);
+    // Replacements the sanitizer wrote stay exempt.
     const generatedOnly = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh", SHORT_TOKEN: "red" } });
     expect(generatedOnly("x abcdefgh y")).toBe("x <redacted:env:LONG_TOKEN> y");
     expect(generatedOnly.shortSecretsSeen()).toEqual([]);
+  });
+
+  test("a token holding a secret is removed whole, suffix included, in prose, keys and values", () => {
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh", OVERLAP_KEY: "cdefBear" } });
+    for (const token of ["Bearer abcdefgh-tail-private", "sk-abcdefgh-tail-private", "Bearer x-abcdefgh-tail-private"]) {
+      expect(sanitize(`auth ${token} end`)).toBe("auth <redacted:token> end");
+      const scrubbed = JSON.stringify(sanitizeDeep({ [token]: { value: `Authorization: ${token} sent`, list: [token] } }, sanitize));
+      expect(scrubbed).toBe('{"<redacted:token>":{"value":"Authorization: <redacted:token> sent","list":["<redacted:token>"]}}');
+      expect(scrubbed).not.toContain("tail-private");
+      expect(scrubbed).not.toContain("abcdefgh");
+    }
+    // A secret that overlaps the start of a token: the union is one redaction.
+    expect(sanitize("abcdefBearer qq zz")).toBe("ab<redacted:token> zz");
+    // A secret next to a token, not overlapping it: two redactions.
+    expect(sanitize("abcdefghBearer qq")).toBe("<redacted:env:LONG_TOKEN><redacted:token>");
+    expect(sanitize.shortSecretsSeen()).toEqual([]);
   });
 
   test("keys are scrubbed like values, and keys that scrub to one name are kept apart", () => {
