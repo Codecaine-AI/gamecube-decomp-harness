@@ -10,6 +10,7 @@
  * and tool errors are never touched here.
  */
 import { existsSync } from "node:fs";
+import { lstat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { advisoryFingerprint, fullFlaggedLineAtRev, isAdvisoryFinding, normalizeAdvisoryPath } from "./advisory-fingerprint.js";
@@ -69,6 +70,59 @@ async function fileIsClean(repoRoot: string, file: string): Promise<boolean> {
 }
 
 /**
+ * Worktree state captured immediately before a QA scan, so the scanned
+ * evidence can be tied to the committed tree even if files change while the
+ * scan or resolution runs (review M10 F1).
+ */
+export interface QaScanGuard {
+  /** Wall-clock time taken before the scan started. */
+  takenAtMs: number;
+  /** Paths with any staged, unstaged, or untracked change before the scan; null when `git status` failed. */
+  dirtyPaths: ReadonlySet<string> | null;
+}
+
+/**
+ * A worktree file written within this margin before the scan, or at any time
+ * after it, is treated as touched. It covers coarse kernel timestamp clocks
+ * and filesystems that store whole-second times.
+ */
+const SCAN_TIMESTAMP_MARGIN_MS = 1000;
+
+/** Every path `git status --porcelain -z` reports, both sides of a rename or copy included. */
+function porcelainPaths(stdout: string): Set<string> {
+  const paths = new Set<string>();
+  const entries = stdout.split("\0");
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index]!;
+    if (entry.length < 4) continue;
+    paths.add(normalizeAdvisoryPath(entry.slice(3)));
+    if (/[RC]/.test(entry.slice(0, 2)) && index + 1 < entries.length) {
+      index += 1;
+      paths.add(normalizeAdvisoryPath(entries[index]!));
+    }
+  }
+  return paths;
+}
+
+/** Capture the worktree's dirty paths and the time, before running the scan this guards. */
+export async function captureQaScanGuard(repoRoot: string): Promise<QaScanGuard> {
+  const takenAtMs = Date.now();
+  const status = await git(repoRoot, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
+  return { takenAtMs, dirtyPaths: status.exitCode === 0 ? porcelainPaths(status.stdout) : null };
+}
+
+/** The worktree file has not been written since (or just before) the guarded scan started. */
+async function untouchedSinceScan(repoRoot: string, file: string, guard: QaScanGuard): Promise<boolean> {
+  try {
+    const stats = await lstat(resolve(repoRoot, file));
+    const cutoff = guard.takenAtMs - SCAN_TIMESTAMP_MARGIN_MS;
+    return stats.ctimeMs < cutoff && stats.mtimeMs < cutoff;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The commit and original line `git blame` attributes line `line` of `file`
  * at `rev` to. The ignore-revs list is cleared so a repo's
  * `blame.ignoreRevsFile` cannot reattribute the line.
@@ -115,13 +169,16 @@ function acceptedRows(store: StateStore, runId: string, fingerprint: string): Ac
 
 /**
  * Classify every advisory warning of a scan as exempt or blocking (plan §6.10):
- * 0. the file has no uncommitted change (`dirty-file`);
+ * 0. the file has no uncommitted change now, nor (with `scanGuard`) before the scan (`dirty-file`);
  * 1. its complete flagged line is readable at `headRev` and starts with the excerpt (`unreadable`);
  * 2. an `accepted_advisory` row of `runId` carries its af2 fingerprint (`no-accepted-record`);
  * 3. that row's checkpoint was integrated (`applied`/`resolved`) at some `integrated_rev` R (`not-integrated`);
  * 4. `git blame -L` attributes the line to R itself (`not-from-accepted-integration`);
  * 5. each row exempts at most `occurrences` distinct blamed (commit, line) pairs (`credit-exhausted`).
  * A finding repeated for an already-credited physical line reuses that credit.
+ * Immediately before returning, each exempt file is revalidated: still clean,
+ * and (with `scanGuard`) not written since the scan started; otherwise its
+ * exemptions become `dirty-file`. Callers must still recheck HEAD afterwards.
  * Never throws: a git or store read failure makes the affected advisories blocking.
  * Exempt and blocking entries carry the caller's own finding objects.
  */
@@ -131,8 +188,10 @@ export async function resolveAcceptedAdvisories(params: {
   repoRoot: string;
   headRev: string;
   findings: QaScanFinding[];
+  /** Captured with `captureQaScanGuard` before the scan that produced `findings`. */
+  scanGuard?: QaScanGuard;
 }): Promise<AcceptedAdvisoryResolution> {
-  const { store, runId, repoRoot, headRev } = params;
+  const { store, runId, repoRoot, headRev, scanGuard } = params;
   const resolution: AcceptedAdvisoryResolution = { runId, headRev, exempt: [], blocking: [] };
   const cleanFiles = new Map<string, boolean>();
   const rowsByFingerprint = new Map<string, AcceptedRow[] | null>();
@@ -144,6 +203,10 @@ export async function resolveAcceptedAdvisories(params: {
     const block = (reason: RejectedReason, fingerprint: string | null = null) => resolution.blocking.push({ fingerprint, finding, reason });
     const file = normalizeAdvisoryPath(finding.file);
 
+    if (scanGuard !== undefined && (scanGuard.dirtyPaths === null || scanGuard.dirtyPaths.has(file))) {
+      block("dirty-file");
+      continue;
+    }
     let clean = cleanFiles.get(file);
     if (clean === undefined) {
       clean = await fileIsClean(repoRoot, file);
@@ -210,6 +273,19 @@ export async function resolveAcceptedAdvisories(params: {
     }
     resolution.exempt.push({ fingerprint, finding, checkpointId, blame });
   }
+
+  // Revalidate right before publishing: the scanned file must still equal the
+  // committed line that was fingerprinted and blamed.
+  const stillValid = new Map<string, boolean>();
+  for (const file of new Set(resolution.exempt.map((entry) => normalizeAdvisoryPath(entry.finding.file)))) {
+    stillValid.set(file, (await fileIsClean(repoRoot, file)) && (scanGuard === undefined || (await untouchedSinceScan(repoRoot, file, scanGuard))));
+  }
+  const exempt = resolution.exempt;
+  resolution.exempt = [];
+  for (const entry of exempt) {
+    if (stillValid.get(normalizeAdvisoryPath(entry.finding.file))) resolution.exempt.push(entry);
+    else resolution.blocking.push({ fingerprint: entry.fingerprint, finding: entry.finding, reason: "dirty-file" });
+  }
   return resolution;
 }
 
@@ -245,10 +321,12 @@ export interface L2AcceptedAdvisoryOptions {
  * names a run in the orchestrator store at `stateDir`, opened in verify mode;
  * only that run's records are used and nothing is inferred. With no run
  * selected (`manual`, missing, or unknown) the result carries at most the
- * operator notice, so the gate behaves exactly as today. `headRev` is HEAD as
- * captured before the scan; if HEAD cannot be resolved or has moved by the
- * end of resolution, no exemption is returned. A missing store is never
- * created, and an unreadable one leaves today's behaviour (undefined).
+ * operator notice, so the gate behaves exactly as today. `headRev` and
+ * `scanGuard` are captured before the scan: findings in paths dirty at that
+ * point never qualify, exempt files are revalidated after resolution, and if
+ * HEAD cannot be resolved or has moved by then, no exemption is returned. A
+ * missing store is never created, and an unreadable one leaves today's
+ * behaviour (undefined).
  */
 export async function l2AcceptedAdvisoryOptions(params: {
   stateDir: string;
@@ -256,6 +334,8 @@ export async function l2AcceptedAdvisoryOptions(params: {
   repoRoot: string;
   headRev: string | null;
   findings: QaScanFinding[];
+  /** From `captureQaScanGuard` before the scan; regression-check always passes it. */
+  scanGuard?: QaScanGuard;
   trace?: (message: string) => void;
 }): Promise<L2AcceptedAdvisoryOptions | undefined> {
   const trace = params.trace ?? (() => {});
@@ -283,6 +363,7 @@ export async function l2AcceptedAdvisoryOptions(params: {
       repoRoot: params.repoRoot,
       headRev: params.headRev,
       findings: params.findings,
+      scanGuard: params.scanGuard,
     });
     const headAfter = await gitHeadRev(params.repoRoot);
     if (headAfter !== params.headRev) {

@@ -9,6 +9,7 @@ import {
 } from "@server/core/validation/objdiff/report";
 import { runQaScanDiff, type QaScanInvocation } from "@server/core/validation/qa";
 import {
+  captureQaScanGuard,
   gitHeadRev,
   l2AcceptedAdvisoryOptions,
   NO_RUN_SELECTED_RUN_ID,
@@ -187,8 +188,10 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
     trace("qa gate skipped via --skip-qa-gate");
   } else {
     // Accepted llm_review advisories are honoured only for an explicitly
-    // selected harness run, against HEAD as it was when the scan started.
+    // selected harness run, against HEAD and the worktree as they were when
+    // the scan started.
     const requestedRunId = runId === NO_RUN_SELECTED_RUN_ID ? null : runId;
+    const scanGuard = requestedRunId === null ? undefined : await captureQaScanGuard(globals.repoRoot);
     const scanHeadRev = requestedRunId === null ? null : await gitHeadRev(globals.repoRoot);
     trace(`qa gate: review_lint scan_diff vs ${qaBaseRef}`);
     qaInvocation = await runQaScanDiff({
@@ -210,6 +213,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
       repoRoot: globals.repoRoot,
       headRev: scanHeadRev,
       findings: qaInvocation.result?.findings ?? [],
+      scanGuard,
       trace,
     });
   }

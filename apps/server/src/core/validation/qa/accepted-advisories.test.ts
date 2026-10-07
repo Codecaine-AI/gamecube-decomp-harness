@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
 import { evaluateQaGate } from "@server/core/validation/jobs/qa-gate.js";
-import { l2AcceptedAdvisoryOptions, resolveAcceptedAdvisories } from "./accepted-advisories.js";
+import { captureQaScanGuard, l2AcceptedAdvisoryOptions, resolveAcceptedAdvisories, type QaScanGuard } from "./accepted-advisories.js";
 import { advisoryFingerprint, normalizeAdvisoryCode } from "./advisory-fingerprint.js";
 import type { QaScanFinding, QaScanInvocation } from "./scan-diff.js";
 
@@ -255,6 +255,51 @@ describe("L2 run selection", () => {
     expect(runB.qaGatePassed).toBe(false);
     expect(runB.exemptedAdvisories).toEqual([]);
     expect(runB.blockingAdvisories?.map(({ reason }) => reason)).toEqual(["not-integrated"]);
+  });
+
+  test("a file that was dirty before the scan, or rewritten while it ran, is never exempt even if clean at resolution", async () => {
+    const { f, integrated, scan } = await acceptedFixture();
+    f.integration("run-a", "cp-a", "applied", integrated);
+    f.accept("run-a", "cp-a", 1);
+    const committed = [...KEEP.slice(0, 5), LONG_LINE, ...KEEP.slice(5)];
+    // A rewrite past character 240 keeps the scanner's excerpt, so only the guard can tell it from the committed line.
+    const pastExcerpt = [...KEEP.slice(0, 5), LONG_LINE.replace("0x24", "0x28"), ...KEEP.slice(5)];
+    const l2 = async (scanGuard: QaScanGuard) => {
+      const opts = await l2AcceptedAdvisoryOptions({
+        stateDir: f.stateDir,
+        requestedRunId: "run-a",
+        repoRoot: f.repo,
+        headRev: integrated,
+        findings: scan.result!.findings,
+        scanGuard,
+      });
+      return evaluateQaGate(scan, false, opts);
+    };
+    // Let the committed file age past the guard's timestamp margin.
+    await Bun.sleep(1100);
+    expect((await l2(await captureQaScanGuard(f.repo))).qaGatePassed).toBe(true);
+
+    // Dirty when the scan starts, cleaned (stashed) before resolution.
+    writeFileSync(resolve(f.repo, FILE), `${pastExcerpt.join("\n")}\n`);
+    writeFileSync(resolve(f.repo, "src/lb/untracked.c"), `${LONG_LINE}\n`);
+    const dirtyGuard = await captureQaScanGuard(f.repo);
+    expect([...dirtyGuard.dirtyPaths!].sort()).toEqual([FILE, "src/lb/untracked.c"]);
+    git(f.repo, "stash", "-u", "-q");
+    const stashed = await l2(dirtyGuard);
+    expect(stashed.qaGatePassed).toBe(false);
+    expect(stashed.exemptedAdvisories).toEqual([]);
+    expect(stashed.blockingAdvisories?.map(({ reason }) => reason)).toEqual(["dirty-file"]);
+
+    // Clean when the scan starts, rewritten and restored while it runs.
+    await Bun.sleep(1100);
+    const cleanGuard = await captureQaScanGuard(f.repo);
+    expect(cleanGuard.dirtyPaths?.size).toBe(0);
+    writeFileSync(resolve(f.repo, FILE), `${pastExcerpt.join("\n")}\n`);
+    writeFileSync(resolve(f.repo, FILE), `${committed.join("\n")}\n`);
+    expect(git(f.repo, "status", "--porcelain")).toBe("");
+    const rewritten = await l2(cleanGuard);
+    expect(rewritten.qaGatePassed).toBe(false);
+    expect(rewritten.blockingAdvisories?.map(({ fingerprint, reason }) => [fingerprint, reason])).toEqual([[FINGERPRINT, "dirty-file"]]);
   });
 
   test("a selected run is not honoured when HEAD was unresolved or moved during the scan", async () => {
