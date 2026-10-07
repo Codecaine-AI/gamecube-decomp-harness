@@ -130,9 +130,15 @@ function boundedCredentialReason(ref: string, provider: string, error: string): 
 
 /**
  * Resolves each model ref and its credential the way the kernel does at run
- * time (Pi's ModelRuntime and ModelRegistry over the agent dir's auth.json and
- * models.json; `$VAR` references read the process env). Null when every route
- * resolves to a credential; otherwise a bounded skip reason. No network.
+ * time: Pi's ModelRuntime and ModelRegistry over the agent dir's auth.json and
+ * models.json, with `$VAR` references read from the process env. No model
+ * catalog is fetched (`refreshOnCreate: false`), but credential resolution
+ * behaves as at run time: it may run a configured key command or refresh (and
+ * persist) an expired OAuth credential. The smoke calls it only with
+ * MODEL_NODES_LIVE=1, where the real run resolves the same way; the offline
+ * test hands it a plain `$VAR` key and an empty auth.json, so neither can
+ * happen there. Null when every route resolves to a credential; otherwise a
+ * bounded skip reason.
  */
 async function piCredentialMissing(agentDir: string, refs: readonly string[]): Promise<string | null> {
   let registry: ModelRegistry;
@@ -170,6 +176,7 @@ function restoreEnv(): void {
 }
 
 async function liveSkipReason(): Promise<string | null> {
+  // Offline stops here: no env file is loaded and no credential is resolved.
   if (!LIVE) return "MODEL_NODES_LIVE is not 1";
   if (!(await codexLbReachable())) return `codex-lb is not reachable at ${CODEX_LB.hostname}:${CODEX_LB.port}`;
   // Only the Codecaine env file (TYPESAFE_API_KEY and friends), in-process; never printed.
@@ -445,12 +452,19 @@ afterAll(async () => {
 
 // Offline: the preflight resolves credentials through Pi, so an unset `$VAR` reference skips instead of running keyless.
 describe("live smoke preflight", () => {
-  test("an apiKey referencing an unset variable is a bounded skip reason; once set, the route resolves", async () => {
+  test("offline, the preflight stops before loading env or resolving credentials", () => {
+    if (LIVE) return;
+    expect(skipReason).toBe("MODEL_NODES_LIVE is not 1");
+    expect(savedEnv.size).toBe(0);
+  });
+
+  test("a plain `$VAR` apiKey whose variable is unset is a bounded skip reason; once set, the route resolves", async () => {
     const restoreNetwork = disableNetwork();
     const agentDir = mkdtempSync(join(tmpdir(), "mn-live-preflight-"));
     const variable = `MN_LIVE_SMOKE_UNSET_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
     const value = `fixture-credential-${randomUUID()}`;
     try {
+      // A plain env reference and no stored credential: no key command can run and no OAuth credential can refresh.
       writeFileSync(join(agentDir, "auth.json"), "{}\n");
       writeFileSync(join(agentDir, "models.json"), JSON.stringify({
         providers: {
