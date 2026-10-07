@@ -254,10 +254,12 @@ export function createProviderCircuitBreaker(
 }
 
 /**
- * Records the run's widening and model-node policies (always, so they are
- * auditable even at their defaults). An enforce request also records the
- * mode workers will run, resolved by the worker's own rule, and warns once
- * when it is downgraded to shadow. Off and shadow record exactly as before.
+ * Records the run's widening policy (always, so it is auditable even at its
+ * default) and, when any model-node feature is on, the model-node policies.
+ * With adjudication and the knowledge feed both off the payload is exactly
+ * today's (plan §11 #14). An enforce request also records the mode workers
+ * will run, resolved by the worker's own rule, and warns once when it is
+ * downgraded to shadow.
  */
 export function recordRunLoopFlags(
   store: StateStore,
@@ -269,15 +271,18 @@ export function recordRunLoopFlags(
   const enforce = nodeFlags.advisoryAdjudication === "enforce"
     ? resolveWorkerAdvisoryMode("enforce", options.advisoryConfig)
     : null;
+  const modelNodesOn = nodeFlags.advisoryAdjudication !== "off" || nodeFlags.checkpointKnowledgeFeed === "on";
   const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
     write_set_widening: writeSetFlags.writeSetWidening,
-    advisory_adjudication: nodeFlags.advisoryAdjudication,
-    ...(enforce && {
-      advisory_adjudication_effective: enforce.mode,
-      ...(enforce.downgradedReason && { advisory_adjudication_downgraded_reason: enforce.downgradedReason }),
+    ...(modelNodesOn && {
+      advisory_adjudication: nodeFlags.advisoryAdjudication,
+      ...(enforce && {
+        advisory_adjudication_effective: enforce.mode,
+        ...(enforce.downgradedReason && { advisory_adjudication_downgraded_reason: enforce.downgradedReason }),
+      }),
+      checkpoint_knowledge_feed: nodeFlags.checkpointKnowledgeFeed,
+      checkpoint_knowledge_cap: nodeFlags.checkpointKnowledgeCap,
     }),
-    checkpoint_knowledge_feed: nodeFlags.checkpointKnowledgeFeed,
-    checkpoint_knowledge_cap: nodeFlags.checkpointKnowledgeCap,
     created_by: "run-loop",
   });
   markEventHandled(store, flagEvent);
