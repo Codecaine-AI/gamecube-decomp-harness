@@ -17,7 +17,7 @@ import {
   writeJson,
   type FeedFixture,
 } from "./__fixtures__/feed-fixture.js";
-import { confirmationPassRanForEpoch, evaluateConfirmedGood, sha256Hex, type ConfirmedGoodVerdict } from "./confirmed-good.js";
+import { confirmationPassStatus, evaluateConfirmedGood, sha256Hex, type ConfirmedGoodVerdict } from "./confirmed-good.js";
 
 const fixtures: FeedFixture[] = [];
 afterEach(() => {
@@ -308,17 +308,17 @@ describe("confirmed-good selection", () => {
       addEvent(f.store, "run-a", "epoch_checkpoint_progress", "epoch-cycle", { label, phase: "confirmation_pass", status, message: "", ...extra });
     progress(`epoch-${ordinal}`, "started");
     progress(`epoch-${ordinal}`, "warning", { confirmation: { status: "unattributed", confirmedIds: [], regressedId: null } });
-    expect(confirmationPassRanForEpoch(f.store, "epoch-pass")).toBe(true);
+    expect(confirmationPassStatus(f.store, "epoch-pass")).toEqual({ status: "ran", source: "progress" });
     expect(rejection(await evaluate(f, "cp-left-tentative"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
     const confirmed = await evaluate(f, "cp-confirmed-by-pass");
     expect(confirmed.confirmed && confirmed.checkpoint.confirmation).toBe("bisect");
 
     // The next epoch of the same run: its pass only waited for a baseline, and the earlier epoch's events are not its own.
-    const next = seedSettledEpoch(f, { id: "epoch-waited", runId: "run-a" });
+    const next = seedSettledEpoch(f, { id: "epoch-waited", runId: "run-a", confirmationPass: "none" });
     seedCheckpoint(f, { id: "cp-waited", epochId: "epoch-waited", runId: "run-a", symbol: "fn_waited" });
     progress(`epoch-${next.ordinal}`, "skipped");
     progress(`epoch-${next.ordinal}-pr-sync`, "started");
-    expect(confirmationPassRanForEpoch(f.store, "epoch-waited")).toBe(false);
+    expect(confirmationPassStatus(f.store, "epoch-waited")).toEqual({ status: "not-run", source: "progress" });
     const waited = await evaluate(f, "cp-waited");
     expect(waited.confirmed && waited.checkpoint.confirmation).toBe("epoch-settled");
 
@@ -345,5 +345,58 @@ describe("confirmed-good selection", () => {
     for (const id of ["cp-row-tentative", "cp-integration-regressed", "cp-metadata-only"]) {
       expect({ id, ...rejection(await evaluate(f, id)) }).toEqual({ id, rule: 5, reason: "not-confirmed-by-confirmation-pass" });
     }
+  });
+  test("confirmed-good: rule 5 by the epoch's recorded confirmation status — ran, not run, unknown", async () => {
+    const f = fixture("confirmation-status");
+    const setSavePointStatus = (epochId: string, status: string) => f.store.db
+      .query("UPDATE save_points SET payload_json = json_set(payload_json, '$.confirmation_pass', json(?)) WHERE id = ?")
+      .run(JSON.stringify({ status }), `epoch-save-point-${epochId}`);
+    const epoch = (id: string, confirmationPass: "not-run" | "ran" | "none", symbol: string, validationState = "tentative") => {
+      seedSettledEpoch(f, { id, runId: "run-a", confirmationPass });
+      seedCheckpoint(f, { id: `cp-${id}`, epochId: id, runId: "run-a", symbol, validationState });
+    };
+
+    // Not run, from the settlement result (production today: the pass is off): rule 5 does not apply.
+    epoch("off", "not-run", "fn_off");
+    expect(confirmationPassStatus(f.store, "off")).toEqual({ status: "not-run", source: "settled-evidence" });
+    const off = await evaluate(f, "cp-off");
+    expect(off.confirmed && off.checkpoint.confirmation).toBe("epoch-settled");
+
+    // Ran, from the settlement result: a tentative checkpoint is excluded, a confirmed one passes.
+    epoch("ran", "ran", "fn_ran");
+    seedCheckpoint(f, { id: "cp-ran-confirmed", epochId: "ran", runId: "run-a", symbol: "fn_ran_confirmed", validationState: "confirmed" });
+    expect(confirmationPassStatus(f.store, "ran")).toEqual({ status: "ran", source: "settled-evidence" });
+    expect(rejection(await evaluate(f, "cp-ran"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+    const ranConfirmed = await evaluate(f, "cp-ran-confirmed");
+    expect(ranConfirmed.confirmed && ranConfirmed.checkpoint.confirmation).toBe("bisect");
+
+    // Unknown: no record of the pass at all. A tentative checkpoint fails closed; one the pass confirmed still satisfies the rule.
+    epoch("unknown", "none", "fn_unknown");
+    seedCheckpoint(f, { id: "cp-unknown-confirmed", epochId: "unknown", runId: "run-a", symbol: "fn_unknown_confirmed", validationState: "confirmed" });
+    expect(confirmationPassStatus(f.store, "unknown")).toEqual({ status: "unknown", source: null });
+    expect(rejection(await evaluate(f, "cp-unknown"))).toEqual({ rule: 5, reason: "confirmation-status-unknown" });
+    const unknownConfirmed = await evaluate(f, "cp-unknown-confirmed");
+    expect(unknownConfirmed.confirmed && unknownConfirmed.checkpoint.confirmation).toBe("bisect");
+
+    // The save point's own record, when the settlement writes it: disabled and skipped are not run, ran is ran.
+    for (const [status, expected] of [["disabled", "not-run"], ["skipped", "not-run"], ["ran", "ran"]] as const) {
+      const id = `save-point-${status}`;
+      epoch(id, "none", `fn_${status}`);
+      setSavePointStatus(id, status);
+      expect(confirmationPassStatus(f.store, id)).toEqual({ status: expected, source: "save-point" });
+      const verdict = await evaluate(f, `cp-${id}`);
+      if (expected === "ran") expect(rejection(verdict)).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+      else expect(verdict.confirmed && verdict.checkpoint.confirmation).toBe("epoch-settled");
+    }
+
+    // Any record that the pass ran wins over one that says it did not.
+    epoch("mixed", "not-run", "fn_mixed");
+    setSavePointStatus("mixed", "disabled");
+    addEvent(f.store, "run-a", "epoch_checkpoint_progress", "epoch-cycle", {
+      label: `epoch-${f.store.db.query<{ ordinal: number }, []>("SELECT ordinal FROM epochs WHERE id = 'mixed'").get()!.ordinal}`,
+      phase: "confirmation_pass", status: "started", message: "",
+    });
+    expect(confirmationPassStatus(f.store, "mixed")).toEqual({ status: "ran", source: "progress" });
+    expect(rejection(await evaluate(f, "cp-mixed"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
   });
 });

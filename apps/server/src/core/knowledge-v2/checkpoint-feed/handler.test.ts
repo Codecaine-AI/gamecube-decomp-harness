@@ -12,6 +12,7 @@ import {
   fakeFailure,
   fakeOk,
   fakePiModels,
+  untilAborted,
   type FakeCallResponse,
   type TempKernel,
 } from "@agent-kernel/kernel/model-nodes/testing";
@@ -114,7 +115,9 @@ interface NodeHarness {
   timeouts: number[];
 }
 
-async function nodeHarness(respond: (input: ConfirmedCheckpointInput) => FakeCallResponse = (input) => fakeOk(extracted(input))): Promise<NodeHarness> {
+async function nodeHarness(
+  respond: (input: ConfirmedCheckpointInput, request: { signal?: AbortSignal }) => FakeCallResponse | Promise<FakeCallResponse> = (input) => fakeOk(extracted(input)),
+): Promise<NodeHarness> {
   const inputs: ConfirmedCheckpointInput[] = [];
   const timeouts: number[] = [];
   const engine = createFakeCallEngine<NodeCalls>({
@@ -123,7 +126,7 @@ async function nodeHarness(respond: (input: ConfirmedCheckpointInput) => FakeCal
       const input = (request.args as unknown[])[0] as ConfirmedCheckpointInput;
       inputs.push(input);
       timeouts.push(request.timeoutMs);
-      return respond(input);
+      return respond(input, request);
     },
   });
   const temp = await createTempKernel<NodeCalls>({
@@ -509,6 +512,50 @@ describe("checkpoint_knowledge handler", () => {
     expect(tasks(f)).toEqual(before);
     expect(recordedOutcome(f, "cp-1")).toEqual(recorded);
     expect(harness.inputs).toHaveLength(1);
+  });
+
+  test("a replay after an aborted attempt and a fresh one cites the fresh run whose output it returns", async () => {
+    const f = fixture("rebind-run");
+    // Attempt A runs until the lane aborts it; every later invocation answers.
+    const aborting = await nodeHarness(async (input, request) => {
+      if (aborting.inputs.length === 1) await untilAborted(request.signal);
+      return fakeOk(extracted(input));
+    });
+    seedConfirmed(f);
+    const handler = createCheckpointKnowledgeHandler(f.globals, deps(f, aborting));
+
+    // A: aborted mid-call (the lane stopping); the job retries.
+    const lane = new AbortController();
+    const first = claimed(f, "cp-1");
+    const attemptA = handler(first.job, { ...first.ctx, signal: lane.signal });
+    await waitFor(() => aborting.inputs.length === 1);
+    lane.abort(new Error("lane stopped"));
+    await expect(attemptA).rejects.toThrow();
+    const runA = extractionBinding(f.store, "cp-1")!.kernel_run_id;
+    expect(typeof runA).toBe("string");
+
+    // B: a fresh run under the same request id answers, then the enqueue loses its claim.
+    let lost = true;
+    const retry = { ...first.ctx, ensureClaim: () => { if (lost && aborting.inputs.length > 1) throw new Error("claim lost"); } };
+    await expect(handler(first.job, retry)).rejects.toThrow("claim lost");
+    expect(aborting.inputs).toHaveLength(2);
+    const runB = extractionBinding(f.store, "cp-1")!.kernel_run_id;
+    expect(runB).not.toBe(runA);
+
+    // The next retry replays B's output (no third engine call) and cites B.
+    lost = false;
+    expect((await handler(first.job, retry)).detail).toMatchObject({ status: "enqueued", kernel_run_id: runB });
+    expect(aborting.inputs).toHaveLength(2);
+    expect(tasks(f)[0]!.payload.extraction.kernel_run_id).toBe(runB);
+    const traceDb = new Database(aborting.temp.tempDb.path, { readonly: true });
+    try {
+      expect(traceDb.query("SELECT id, status FROM agent_runs WHERE id IN (?, ?) ORDER BY started_at").all(runA, runB)).toEqual([
+        { id: runA, status: "aborted" },
+        { id: runB, status: "done" },
+      ]);
+    } finally {
+      traceDb.close();
+    }
   });
 
   test("a retry whose evidence changed after the bound extraction skips with evidence-changed and enqueues nothing stale", async () => {

@@ -238,28 +238,72 @@ function confirmationState(metadata: Record<string, unknown>): string | null {
   return typeof state === "string" ? state : null;
 }
 
+/** "not-run" covers both a disabled pass and one that only waited for a rolling baseline. */
+export type ConfirmationPassStatus = "ran" | "not-run" | "unknown";
+
+export interface ConfirmationPassRecord {
+  status: ConfirmationPassStatus;
+  /** The record that decided it; null when nothing was recorded. */
+  source: "save-point" | "progress" | "settled-evidence" | null;
+}
+
+interface ConfirmationEvidenceRow {
+  save_point_status: string | null;
+  progress_ran: number;
+  progress_skipped: number;
+  settled_ran: number;
+  settled_without_pass: number;
+}
+
 /**
- * Whether the confirmation pass ran at the epoch's settlement, from what the
- * settlement records for that epoch: its `confirmation_pass` progress
- * (labelled `epoch-<ordinal>` in the epoch's run) started, finished or
- * warned (an unattributed pass leaves checkpoints tentative and writes no
- * checkpoint metadata), or the settled-evidence event carries a pass result.
- * A pass that only waited for a baseline (`skipped`) did not run.
+ * What the epoch's settlement recorded about the confirmation pass:
+ * - `save_points.payload_json.confirmation_pass.status` (`ran`, `skipped`,
+ *   `disabled`), when the settlement writes it;
+ * - the settlement's `confirmation_pass` progress, labelled `epoch-<ordinal>`
+ *   in the epoch's run: `started`, `finished` or `warning` (an unattributed
+ *   pass, which leaves checkpoints tentative and writes no checkpoint
+ *   metadata) mean it ran; `skipped` means it only waited for a baseline;
+ * - the settled-evidence record of the epoch: its settlement result carries
+ *   `confirmation` exactly when the pass ran, so a result without it means
+ *   the pass was disabled or skipped.
+ * Any record that the pass ran wins. With no record at all the status is
+ * `unknown`, which selection treats as missing evidence (fail closed).
  */
-export function confirmationPassRanForEpoch(store: StateStore, epochId: string): boolean {
-  return store.db.query<{ ran: number }, [string, string]>(`
-    SELECT 1 AS ran
-    FROM epochs e
-    JOIN events ev ON ev.run_id = e.run_id AND ev.event_type = 'epoch_checkpoint_progress'
-    WHERE e.id = ?1 AND json_valid(ev.payload_json) AND (
-      (json_extract(ev.payload_json, '$.phase') = 'confirmation_pass'
-        AND json_extract(ev.payload_json, '$.label') = 'epoch-' || e.ordinal
-        AND json_extract(ev.payload_json, '$.status') IN ('started', 'finished', 'warning'))
-      OR (json_extract(ev.payload_json, '$.phase') = 'epoch_settled_evidence'
-        AND json_extract(ev.payload_json, '$.epoch_id') = ?2
-        AND COALESCE(json_extract(ev.payload_json, '$.result.confirmation.status'), 'disabled') <> 'disabled')
-    )
-    LIMIT 1`).get(epochId, epochId) !== null;
+export function confirmationPassStatus(store: StateStore, epochId: string): ConfirmationPassRecord {
+  const row = store.db.query<ConfirmationEvidenceRow, [string, string]>(`
+    SELECT
+      (SELECT CASE WHEN json_valid(sp.payload_json) THEN json_extract(sp.payload_json, '$.confirmation_pass.status') END
+        FROM save_points sp WHERE sp.id = 'epoch-save-point-' || e.id) AS save_point_status,
+      EXISTS (SELECT 1 FROM events ev
+        WHERE ev.run_id = e.run_id AND ev.event_type = 'epoch_checkpoint_progress' AND json_valid(ev.payload_json)
+          AND json_extract(ev.payload_json, '$.phase') = 'confirmation_pass'
+          AND json_extract(ev.payload_json, '$.label') = 'epoch-' || e.ordinal
+          AND json_extract(ev.payload_json, '$.status') IN ('started', 'finished', 'warning')) AS progress_ran,
+      EXISTS (SELECT 1 FROM events ev
+        WHERE ev.run_id = e.run_id AND ev.event_type = 'epoch_checkpoint_progress' AND json_valid(ev.payload_json)
+          AND json_extract(ev.payload_json, '$.phase') = 'confirmation_pass'
+          AND json_extract(ev.payload_json, '$.label') = 'epoch-' || e.ordinal
+          AND json_extract(ev.payload_json, '$.status') = 'skipped') AS progress_skipped,
+      EXISTS (SELECT 1 FROM events ev
+        WHERE ev.run_id = e.run_id AND ev.event_type = 'epoch_checkpoint_progress' AND json_valid(ev.payload_json)
+          AND json_extract(ev.payload_json, '$.phase') = 'epoch_settled_evidence'
+          AND json_extract(ev.payload_json, '$.epoch_id') = ?2
+          AND COALESCE(json_extract(ev.payload_json, '$.result.confirmation.status'), 'disabled') <> 'disabled') AS settled_ran,
+      EXISTS (SELECT 1 FROM events ev
+        WHERE ev.run_id = e.run_id AND ev.event_type = 'epoch_checkpoint_progress' AND json_valid(ev.payload_json)
+          AND json_extract(ev.payload_json, '$.phase') = 'epoch_settled_evidence'
+          AND json_extract(ev.payload_json, '$.epoch_id') = ?2
+          AND json_type(ev.payload_json, '$.result') = 'object'
+          AND json_type(ev.payload_json, '$.result.confirmation') IS NULL) AS settled_without_pass
+    FROM epochs e WHERE e.id = ?1`).get(epochId, epochId);
+  if (!row) return { status: "unknown", source: null };
+  if (row.save_point_status === "ran") return { status: "ran", source: "save-point" };
+  if (Number(row.progress_ran) === 1) return { status: "ran", source: "progress" };
+  if (Number(row.settled_ran) === 1) return { status: "ran", source: "settled-evidence" };
+  if (row.save_point_status === "disabled" || row.save_point_status === "skipped") return { status: "not-run", source: "save-point" };
+  if (Number(row.progress_skipped) === 1) return { status: "not-run", source: "progress" };
+  if (Number(row.settled_without_pass) === 1) return { status: "not-run", source: "settled-evidence" };
+  return { status: "unknown", source: null };
 }
 
 function targetOf(row: CheckpointRow, integration: IntegrationRow): CheckpointTarget | null {
@@ -358,18 +402,24 @@ export async function evaluateConfirmedGood(
 
   // Rule 5: when the confirmation pass ran for the epoch, worker_checkpoints.validation_state must be
   // "confirmed". Any recorded pass state of the checkpoint or its integration also counts as a run
-  // (fail closed), and every recorded state must agree.
+  // (fail closed), and every recorded state must agree. A checkpoint the pass confirmed satisfies the
+  // rule whatever the epoch recorded; any other checkpoint needs the epoch's record that the pass did
+  // not run, and with no record at all it is not confirmed.
   const metadata = jsonObject(row.metadata_json);
   const recordedStates = [confirmationState(metadata), confirmationState(integrationMetadata)]
     .filter((state): state is string => state !== null);
-  const passRan = confirmationPassRanForEpoch(store, epochId)
-    || row.validation_state !== "tentative"
-    || recordedStates.length > 0;
-  if (passRan && (row.validation_state !== "confirmed" || recordedStates.some((state) => state !== "confirmed"))) {
+  const pass = confirmationPassStatus(store, epochId);
+  const confirmedByPass = row.validation_state === "confirmed" && recordedStates.every((state) => state === "confirmed");
+  const passRan = pass.status === "ran" || row.validation_state !== "tentative" || recordedStates.length > 0;
+  if (passRan && !confirmedByPass) {
     return notConfirmed(5, "not-confirmed-by-confirmation-pass", {
       validation_state: row.validation_state,
       recorded_states: recordedStates,
+      epoch_confirmation: pass.status,
     });
+  }
+  if (!passRan && pass.status === "unknown") {
+    return notConfirmed(5, "confirmation-status-unknown", { epoch_id: epochId });
   }
 
   return {

@@ -238,18 +238,24 @@ function bindExtraction(store: StateStore, checkpointId: string, binding: Extrac
     .run(JSON.stringify(binding), checkpointId);
 }
 
-/** Records the bound call's kernel run once it is known; never throws into the kernel. */
-function bindKernelRun(store: StateStore, checkpointId: string, runId: string): void {
+/**
+ * Records the kernel run of the extraction attempt that just started, so a
+ * later replay cites the run whose output it returns: an aborted attempt is
+ * followed by a fresh one under the same request id, and that fresh run is
+ * the one a replay serves. Only an unchanged binding (same request, same
+ * input) is updated. Never throws into the kernel.
+ */
+function bindKernelRun(store: StateStore, checkpointId: string, binding: ExtractionBinding, runId: string): void {
   try {
     store.db.query(`
       UPDATE worker_checkpoints
       SET metadata_json = json_set(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.kernel_run_id', ?)
       WHERE id = ? AND json_valid(metadata_json)
-        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}') IS NOT NULL
-        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.kernel_run_id') IS NULL`)
-      .run(runId, checkpointId);
+        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.request_id') = ?
+        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.input_sha256') = ?`)
+      .run(runId, checkpointId, binding.request_id, binding.input_sha256);
   } catch {
-    // The run id is a convenience for the payload; the binding's digests are what guard a replay.
+    // The run id is provenance for the payload; the binding's digests are what guard a replay.
   }
 }
 
@@ -367,7 +373,7 @@ export function createCheckpointKnowledgeHandler(
         signal: ctx.signal,
         onNodeStarted: (ids: { runId: string }) => {
           kernelRunId = ids.runId;
-          bindKernelRun(ctx.store, checkpointId, ids.runId);
+          bindKernelRun(ctx.store, checkpointId, binding, ids.runId);
         },
       };
       const container = () => (deps.callContainer ?? defaultCallContainer(globals, ctx.store))(job, checkpoint);

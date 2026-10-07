@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { openState, type StateStore } from "@server/core/harness-runtime/run-state";
+import { addEvent, openState, type StateStore } from "@server/core/harness-runtime/run-state";
 import { ensureModelNodeLaneState } from "@server/core/model-node-work/catch-up.js";
 import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 
@@ -124,6 +124,13 @@ export interface EpochSeed {
   commitSha?: string | null;
   /** Default: a report with no decrease for the default target, written under the fixture. */
   reportChangesPath?: string | null;
+  /**
+   * What the settlement recorded about the confirmation pass. Default
+   * "not-run": the settled-evidence record of a boundary whose pass is off
+   * (production today), whose result has no `confirmation`. "ran" records a
+   * pass result; "none" records nothing (status unknown).
+   */
+  confirmationPass?: "not-run" | "ran" | "none";
 }
 
 /** Objdiff metric values with string byte counts, like real output. */
@@ -164,6 +171,21 @@ export function seedSettledEpoch(f: FeedFixture, seed: EpochSeed): { reportChang
       `epoch-save-point-${seed.id}`, seed.runId, seed.commitSha === undefined ? "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" : seed.commitSha,
       reportChangesPath, closedAt ?? ago(60_000),
     );
+  }
+  if (seed.status === undefined || seed.status === "completed") {
+    const recorded = seed.confirmationPass ?? "not-run";
+    if (recorded !== "none") {
+      addEvent(f.store, seed.runId, "epoch_checkpoint_progress", "run-loop", {
+        phase: "epoch_settled_evidence",
+        epoch_id: seed.id,
+        attempt: 1,
+        result: {
+          commitSha: seed.commitSha ?? "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          savePoint: { ok: seed.savePoint !== false, savePointId: `epoch-save-point-${seed.id}`, blockerRaised: false },
+          ...(recorded === "ran" ? { confirmation: { status: "confirmed", confirmedIds: [], regressedId: null } } : {}),
+        },
+      });
+    }
   }
   return { reportChangesPath, ordinal };
 }

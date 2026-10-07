@@ -350,6 +350,45 @@ describe("knowledge catch-up over settled epochs", () => {
     expect(status()).toMatchObject({ "cp-new": "queued", "cp-still-missing": "failed" });
   });
 
+  test("stranded-job recovery returns to older jobs under a steady inflow of new ones", () => {
+    const f = fixture("stranded-inflow");
+    enableKnowledgeLane(f.store);
+    const insert = f.store.db.query(`INSERT INTO jobs (job_id, kind, dedupe_key, game_id, status, attempts, payload_json, error_json,
+        created_at, updated_at, completed_at)
+      VALUES (?, 'checkpoint_knowledge', ?, 'melee', 'failed', 17, ?, ?, ?, ?, ?)`);
+    const base = Date.parse("2026-10-01T00:00:00.000Z");
+    let next = 0;
+    /** `count` more terminal submission-not-found jobs, each newer than every job before it. */
+    const strand = (count: number): string[] => f.store.db.transaction(() => Array.from({ length: count }, () => {
+      const index = next++;
+      const id = `cp-${String(index).padStart(5, "0")}`;
+      const at = new Date(base + index * 1_000).toISOString();
+      insert.run(`job-${id}`, id, JSON.stringify({ checkpointId: id, epochId: "epoch-1", integrationId: `integration-${id}` }),
+        JSON.stringify({ message: `submission-not-found: no knowledge submission records checkpoint ${id} yet` }), at, at, at);
+      return id;
+    }))();
+    const older = strand(STRANDED_SCAN_LIMIT);
+    const delayed = older[500]!;
+    let ingested = false;
+    const examined = new Map<string, number>();
+    const lookup = (_gameId: string, checkpointIds: readonly string[]) => {
+      for (const id of checkpointIds) examined.set(id, (examined.get(id) ?? 0) + 1);
+      return new Set(ingested ? checkpointIds.filter((id) => id === delayed) : []);
+    };
+
+    // Every scan, another full batch of newer stranded jobs arrives; the delayed submission lands after the first scan.
+    let requeuedAtScan: number | null = null;
+    for (let scan = 1; scan <= 5 && requeuedAtScan === null; scan += 1) {
+      strand(STRANDED_SCAN_LIMIT);
+      if (catchUpKnowledge(f.store, { ingestedSubmissions: lookup }) > 0) requeuedAtScan = scan;
+      ingested = true;
+    }
+    // The first sweep ends at the newest job that existed when it began; the next starts again from the oldest.
+    expect(requeuedAtScan).toBe(3);
+    expect(examined.get(delayed)).toBe(2);
+    expect(knowledgeJobs(f.store).find((job) => job.checkpointId === delayed)?.status).toBe("queued");
+  });
+
   test("stranded-job recovery rotates past the scan limit, so a newer recoverable job is not starved", () => {
     const f = fixture("stranded-rotation");
     enableKnowledgeLane(f.store);
