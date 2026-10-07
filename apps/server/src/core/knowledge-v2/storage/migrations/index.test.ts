@@ -3,11 +3,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
+import { enqueueIndexTask } from "../../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../store.js";
 import { runKnowledgeStorageMigrations } from "./index.js";
 import { workerRunIntegrationDetailMigration } from "./004-worker-run-integration-detail.js";
 import { targetMovedToIdMigration } from "./005-target-moved-to-id.js";
 import { eventNoteCauseMigration } from "./006-event-note-cause.js";
+import { checkpointConfirmedPathwayMigration } from "./007-checkpoint-confirmed-pathway.js";
 
 const tempDirs: string[] = [];
 const stores: KnowledgeStore[] = [];
@@ -43,6 +45,7 @@ describe("knowledge-v2 storage migrations", () => {
       db.exec("DELETE FROM schema_migrations WHERE version = 4");
       db.exec("DELETE FROM schema_migrations WHERE version = 5");
       db.exec("DELETE FROM schema_migrations WHERE version = 6");
+      db.exec("DELETE FROM schema_migrations WHERE version = 7");
 
       expect(() => runKnowledgeStorageMigrations(db)).not.toThrow();
     } finally {
@@ -126,5 +129,84 @@ describe("knowledge-v2 storage migrations", () => {
     } finally {
       db.close();
     }
+  });
+
+  test("migration 007 widens the CHECK on an old store, is a no-op on a fresh one, adds the runtime_ref index", () => {
+    const tableSql = (store: KnowledgeStore): string =>
+      store.db.query<{ sql: string }, []>(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'index_task'",
+      ).get()!.sql;
+    const schemaVersion = (store: KnowledgeStore): number =>
+      store.db.query<{ schema_version: number }, []>("PRAGMA schema_version").get()!.schema_version;
+    const runtimeRefPlan = (store: KnowledgeStore): string =>
+      store.db.query<{ detail: string }, []>(
+        "EXPLAIN QUERY PLAN SELECT worker_run_id, seq, id FROM submission WHERE runtime_ref = 'checkpoint-1'",
+      ).all().map(({ detail }) => detail).join("\n");
+    const indexTaskRows = (store: KnowledgeStore) =>
+      store.db.query("SELECT id, pathway, payload, enqueued_at, started_at, done_at FROM index_task ORDER BY id").all();
+    const oldRows = [
+      { id: "task:a", pathway: "run_closed", payload: "attempt://run/run:a", enqueued_at: "2026-09-01T00:00:00.000Z", started_at: null, done_at: null },
+      { id: "task:b", pathway: "pr_imported", payload: "[\"pr-1\"]", enqueued_at: "2026-09-02T00:00:00.000Z", started_at: "2026-09-02T01:00:00.000Z", done_at: null },
+      { id: "task:c", pathway: "drift_recheck", payload: "{\"target_id\":\"t\"}", enqueued_at: "2026-09-03T00:00:00.000Z", started_at: "2026-09-03T01:00:00.000Z", done_at: "2026-09-03T02:00:00.000Z" },
+    ];
+
+    // An old store: the shared per-game store as the previous build left it, at migration 006.
+    const oldRoot = makeTempDir();
+    const seeded = openKnowledgeStore({ knowledgeRoot: oldRoot });
+    seeded.db.exec(`
+      DROP INDEX submission_runtime_ref;
+      DROP TABLE index_task;
+      CREATE TABLE index_task (
+        id TEXT PRIMARY KEY,
+        pathway TEXT NOT NULL CHECK (pathway IN ('run_closed', 'pr_imported', 'regression', 'archival_ingest', 'drift_recheck')),
+        payload TEXT NOT NULL,
+        enqueued_at TEXT NOT NULL,
+        started_at TEXT,
+        done_at TEXT
+      );
+      DELETE FROM schema_migrations WHERE version = 7;
+    `);
+    const insertOld = seeded.db.query("INSERT INTO index_task VALUES (?, ?, ?, ?, ?, ?)");
+    for (const row of oldRows) {
+      insertOld.run(row.id, row.pathway, row.payload, row.enqueued_at, row.started_at, row.done_at);
+    }
+    expect(() => insertOld.run("task:early", "checkpoint_confirmed", "{}", "2026-09-04T00:00:00.000Z", null, null)).toThrow();
+    expect(runtimeRefPlan(seeded)).not.toContain("submission_runtime_ref");
+    seeded.close();
+
+    const migrated = openKnowledgeStore({ knowledgeRoot: oldRoot });
+    stores.push(migrated);
+    expect(migrated.db.query("SELECT version, name FROM schema_migrations WHERE version = 7").get()).toEqual({
+      version: 7,
+      name: "checkpoint-confirmed-pathway",
+    });
+    expect(tableSql(migrated)).toContain("'checkpoint_confirmed'");
+    expect(indexTaskRows(migrated)).toEqual(oldRows);
+    expect(migrated.db.query("SELECT name FROM sqlite_master WHERE name LIKE 'index_task_%'").all()).toEqual([]);
+    enqueueIndexTask(migrated, {
+      id: "task:checkpoint_confirmed:checkpoint-1",
+      pathway: "checkpoint_confirmed",
+      payload: "{}",
+      enqueuedAt: "2026-09-04T00:00:00.000Z",
+    });
+    expect(() => migrated.db.query("INSERT INTO index_task VALUES ('task:bad', 'bogus', '{}', '2026-09-04', NULL, NULL)").run()).toThrow();
+    expect(runtimeRefPlan(migrated)).toContain("USING INDEX submission_runtime_ref");
+
+    // A fresh store already carries the widened CHECK and the index; 007 changes nothing.
+    const fresh = openKnowledgeStore({ knowledgeRoot: makeTempDir() });
+    stores.push(fresh);
+    expect(tableSql(fresh)).toContain("'checkpoint_confirmed'");
+    expect(runtimeRefPlan(fresh)).toContain("USING INDEX submission_runtime_ref");
+    enqueueIndexTask(fresh, { id: "task:fresh", pathway: "checkpoint_confirmed", payload: "{}", enqueuedAt: "2026-09-04T00:00:00.000Z" });
+    const freshSql = tableSql(fresh);
+    const freshVersion = schemaVersion(fresh);
+
+    checkpointConfirmedPathwayMigration.up(fresh.db);
+    checkpointConfirmedPathwayMigration.up(migrated.db);
+
+    expect(schemaVersion(fresh)).toBe(freshVersion);
+    expect(tableSql(fresh)).toBe(freshSql);
+    expect(fresh.db.query("SELECT id FROM index_task").all()).toEqual([{ id: "task:fresh" }]);
+    expect(indexTaskRows(migrated)).toHaveLength(oldRows.length + 1);
   });
 });

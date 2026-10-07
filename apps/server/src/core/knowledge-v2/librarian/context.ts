@@ -59,7 +59,8 @@ export type LibrarianPathway =
   | "pr_imported"
   | "regression"
   | "archival_ingest"
-  | "drift_recheck";
+  | "drift_recheck"
+  | "checkpoint_confirmed";
 
 export interface LibrarianTaskRow {
   id: string;
@@ -141,6 +142,9 @@ export type LibrarianSlicePayload =
 
 export const DISCORD_SLICE_LIMIT = 40;
 export const WIKI_SLICE_LIMIT = 20;
+export const CHECKPOINT_CONFIRMED_SCHEMA = "checkpoint_confirmed_v1";
+/** Struct, field, and global subjects named by a confirmed checkpoint's type facts that join the touched list. */
+export const CHECKPOINT_FACT_SUBJECT_LIMIT = 8;
 
 interface WorkerRunRow {
   id: string;
@@ -163,6 +167,26 @@ interface SubmissionRow {
   hypothesis: string | null;
   submitted_at: string;
 }
+
+interface CheckpointSubmissionRow extends SubmissionRow {
+  id: string;
+  runtime_ref: string | null;
+}
+
+interface CheckpointConfirmedPayload {
+  checkpointId: string;
+  workerRunId: string;
+  submissionId: string | null;
+  submissionSeq: number;
+  facts: Record<string, unknown>[];
+  keptAdvisories: Record<string, unknown>[];
+  raw: Record<string, unknown>;
+}
+
+type CheckpointFactSubject =
+  | { subject: string; entity_locator: string; entity_kind: EntityKind }
+  | { subject: string; target_stable_key: string }
+  | { subject: string; unresolved: "not_found" | "ambiguous" | "not_an_identifier" | "subject_cap" };
 
 interface PullRequestRow {
   id: string;
@@ -287,6 +311,8 @@ function instructionFor(pathway: LibrarianPathway): string {
       return "Work the mentioned archival subjects in order — entities first, targets last — researching the bounded source slice across every resource before devising facts.";
     case "drift_recheck":
       return "Work the flagged subjects in order — checking each live fact and every evidence verdict — before devising replacement facts.";
+    case "checkpoint_confirmed":
+      return "Work the confirmed checkpoint's subjects in order — linked entities and the structs, fields, and globals its type facts name first, the target last — merging each extracted fact into the existing entity for its subject and citing the checkpoint's submission (`submission.locator`); the run narrative belongs to the closed run's pass and is never restated here.";
     default:
       throw new TypeError(`Unknown librarian pathway: ${String(pathway)}`);
   }
@@ -518,6 +544,200 @@ function buildRunClosedContext(
     supportingSubjects(store, target.id),
     object,
   );
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function checkpointConfirmedPayload(payload: string): CheckpointConfirmedPayload {
+  let value: unknown;
+  try {
+    value = JSON.parse(payload) as unknown;
+  } catch {
+    throw new Error("checkpoint_confirmed payload is malformed");
+  }
+  if (!isRecord(value) || value.schema !== CHECKPOINT_CONFIRMED_SCHEMA) {
+    throw new Error(`checkpoint_confirmed payload is not ${CHECKPOINT_CONFIRMED_SCHEMA}`);
+  }
+  const checkpointId = nonEmptyString(value.checkpoint_id);
+  const workerRunId = nonEmptyString(value.worker_run_id);
+  if (checkpointId === null || workerRunId === null) {
+    throw new Error("checkpoint_confirmed payload must name a checkpoint and a worker run");
+  }
+  const submissionSeq = value.submission_seq;
+  if (typeof submissionSeq !== "number" || !Number.isSafeInteger(submissionSeq) || submissionSeq < 0) {
+    throw new Error("checkpoint_confirmed payload must name a submission_seq");
+  }
+  if (value.submission_id !== undefined && nonEmptyString(value.submission_id) === null) {
+    throw new Error("checkpoint_confirmed submission_id is malformed");
+  }
+  const keptAdvisories = value.kept_advisories ?? [];
+  if (!Array.isArray(value.facts) || value.facts.some((fact) => !isRecord(fact))) {
+    throw new Error("checkpoint_confirmed facts must be an array of objects");
+  }
+  if (!Array.isArray(keptAdvisories) || keptAdvisories.some((advisory) => !isRecord(advisory))) {
+    throw new Error("checkpoint_confirmed kept_advisories must be an array of objects");
+  }
+  return {
+    checkpointId,
+    workerRunId,
+    submissionId: nonEmptyString(value.submission_id),
+    submissionSeq,
+    facts: value.facts as Record<string, unknown>[],
+    keptAdvisories: keptAdvisories as Record<string, unknown>[],
+    raw: value,
+  };
+}
+
+const TYPE_FACT_SUBJECT = /^([A-Za-z_][A-Za-z0-9_]*)(?:(?:::|->|\.|#)([A-Za-z_][A-Za-z0-9_]*))?$/;
+
+/**
+ * Resolves the struct, field, or global each type fact names to an existing subject, so the pass
+ * can merge the fact into it. Tactics, idioms, and codegen quirks land on curated patterns, which
+ * are writable without being touched, so they are left to entity_lookup.
+ */
+function checkpointFactSubjects(
+  store: KnowledgeStoreHandle,
+  facts: readonly Record<string, unknown>[],
+  known: { entityIds: Set<string>; targetIds: Set<string> },
+): { entities: EntityRow[]; targets: TargetRow[]; subjects: CheckpointFactSubject[] } {
+  const entityByLocator = store.db.query<EntityRow, [string, string]>(`
+    SELECT id, kind, locator FROM entity
+    WHERE locator = ? AND kind = ? AND identity_status = 'active'
+  `);
+  const targetsBySymbol = store.db.query<TargetRow, [string]>(`
+    SELECT * FROM target WHERE symbol = ? AND identity_status = 'current' ORDER BY stable_key, id
+  `);
+  const findEntity = (kind: EntityKind, locators: string[]): EntityRow | null => {
+    for (const locator of locators) {
+      const row = entityByLocator.get(locator, kind);
+      if (row) return row;
+    }
+    return null;
+  };
+  const entities: EntityRow[] = [];
+  const targets: TargetRow[] = [];
+  const subjects: CheckpointFactSubject[] = [];
+  const seenSubjects = new Set<string>();
+  const added = new Set<string>();
+  for (const fact of facts) {
+    if (fact.kind !== "type_fact" || typeof fact.subject !== "string") continue;
+    const subject = fact.subject.trim();
+    if (!subject || seenSubjects.has(subject)) continue;
+    seenSubjects.add(subject);
+    const match = TYPE_FACT_SUBJECT.exec(subject);
+    if (!match) {
+      subjects.push({ subject, unresolved: "not_an_identifier" });
+      continue;
+    }
+    const [, structName, fieldName] = match;
+    const entity = (fieldName === undefined
+      ? null
+      : findEntity("struct_field", [`struct:${structName}#${fieldName}`, `struct://${structName}#${fieldName}`]))
+      ?? findEntity("struct", [`struct:${structName}`, `struct://${structName}`]);
+    const targetRows = entity === null && fieldName === undefined ? targetsBySymbol.all(structName!) : [];
+    if (entity === null && targetRows.length !== 1) {
+      subjects.push({ subject, unresolved: targetRows.length > 1 ? "ambiguous" : "not_found" });
+      continue;
+    }
+    const key = entity === null ? `target:${targetRows[0]!.id}` : `entity:${entity.id}`;
+    const alreadyTouched = entity === null
+      ? known.targetIds.has(targetRows[0]!.id)
+      : known.entityIds.has(entity.id);
+    if (!alreadyTouched && !added.has(key)) {
+      if (added.size >= CHECKPOINT_FACT_SUBJECT_LIMIT) {
+        subjects.push({ subject, unresolved: "subject_cap" });
+        continue;
+      }
+      added.add(key);
+      if (entity === null) targets.push(targetRows[0]!);
+      else entities.push(entity);
+    }
+    subjects.push(entity === null
+      ? { subject, target_stable_key: targetRows[0]!.stable_key }
+      : { subject, entity_locator: entity.locator, entity_kind: entity.kind });
+  }
+  return { entities, targets, subjects };
+}
+
+function buildCheckpointConfirmedContext(
+  store: KnowledgeStoreHandle,
+  rawPayload: string,
+  options: LibrarianBuildOptions,
+): BuiltPathwayContext {
+  const payload = checkpointConfirmedPayload(rawPayload);
+  const run = readWorkerRun(store, payload.workerRunId);
+  if (!run) throw new Error(`Worker run not found: ${payload.workerRunId}`);
+  const locator = formatLocator({
+    kind: "attempt",
+    runId: run.id,
+    submissionSequence: payload.submissionSeq,
+  });
+  const submission = store.db.query<CheckpointSubmissionRow, [string, number]>(`
+    SELECT id, seq, score, description, hypothesis, submitted_at, runtime_ref
+    FROM submission
+    WHERE worker_run_id = ? AND seq = ?
+  `).get(run.id, payload.submissionSeq);
+  if (!submission) throw new Error(`Submission not found: ${locator}`);
+  if (payload.submissionId !== null && submission.id !== payload.submissionId) {
+    throw new Error(`checkpoint_confirmed submission ${payload.submissionId} does not match ${locator}`);
+  }
+  if (submission.runtime_ref !== payload.checkpointId) {
+    throw new Error(`Submission ${locator} does not record checkpoint ${payload.checkpointId}`);
+  }
+  const target = loadTargetRow(store, run.target_id);
+  if (!target) throw new Error(`Target not found for worker run: ${run.id}`);
+
+  const pathwaySubjects = fullTargetPathwaySubjects(store, target, options, true);
+  const targetSubjectEntry = pathwaySubjects.at(-1)!;
+  const linkedEntities = pathwaySubjects.slice(0, -1);
+  const known = {
+    entityIds: new Set(linkedMechanicalEntities(store, target).map(({ id }) => id)),
+    targetIds: new Set([target.id]),
+  };
+  const factSubjects = checkpointFactSubjects(store, payload.facts, known);
+  const subjects: LibrarianTouchedSubject[] = [
+    ...linkedEntities,
+    ...factSubjects.entities.map((entity) => ({
+      ...entitySubject(store, entity, false),
+      drift: compactDrift(subjectDrift(store, { entityId: entity.id }, options)),
+    })),
+    ...factSubjects.targets.map((factTarget) => ({
+      ...targetSubject(store, factTarget, options, false),
+      drift: compactDrift(subjectDrift(store, { targetId: factTarget.id }, options)),
+    })),
+    targetSubjectEntry,
+  ];
+  const raw = payload.raw;
+  const object = {
+    schema: CHECKPOINT_CONFIRMED_SCHEMA,
+    checkpoint: {
+      id: payload.checkpointId,
+      epoch_id: raw.epoch_id ?? null,
+      integration_id: raw.integration_id ?? null,
+      integrated_rev: raw.integrated_rev ?? null,
+      save_point_commit: raw.save_point_commit ?? null,
+      confirmation: raw.confirmation ?? null,
+    },
+    target: raw.target ?? null,
+    submission: {
+      locator,
+      id: submission.id,
+      worker_run_id: run.id,
+      seq: submission.seq,
+      score: submission.score,
+      description: submission.description,
+      hypothesis: submission.hypothesis,
+      submitted_at: submission.submitted_at,
+    },
+    facts: payload.facts,
+    fact_subjects: factSubjects.subjects,
+    kept_advisories: payload.keptAdvisories,
+    sources: raw.sources ?? null,
+    extraction: raw.extraction ?? null,
+  };
+  return finalizeSubjects(subjects, supportingSubjects(store, target.id), object);
 }
 
 function pullRequestRows(store: KnowledgeStoreHandle, payload: string): PullRequestRow[] {
@@ -1470,6 +1690,9 @@ export function buildTaskContext(
       case "drift_recheck":
         built = buildDriftRecheckContext(store, payload, buildOptions);
         break;
+      case "checkpoint_confirmed":
+        built = buildCheckpointConfirmedContext(store, payload, buildOptions);
+        break;
       default:
         throw new TypeError(`Unknown librarian pathway: ${String(task.pathway)}`);
     }
@@ -1480,7 +1703,8 @@ export function buildTaskContext(
     head_revision: headRevision,
     drift_gate: task.pathway === "run_closed"
       || task.pathway === "pr_imported"
-      || task.pathway === "drift_recheck",
+      || task.pathway === "drift_recheck"
+      || task.pathway === "checkpoint_confirmed",
     task: {
       id: task.id,
       pathway: task.pathway,

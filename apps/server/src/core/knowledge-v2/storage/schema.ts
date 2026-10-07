@@ -22,7 +22,7 @@ export type EventKind = "regression" | "note";
 export type EventCause = "merge_conflict" | "upstream_change";
 export type EventRefKind = "worker_run" | "epoch" | "pr" | "commit";
 export type WatermarkSource = "pr" | "discord" | "wiki" | "attempt";
-export type IndexPathway = "run_closed" | "pr_imported" | "regression" | "archival_ingest" | "drift_recheck";
+export type IndexPathway = "run_closed" | "pr_imported" | "regression" | "archival_ingest" | "drift_recheck" | "checkpoint_confirmed";
 
 export const targets = sqliteTable(
   "target",
@@ -119,7 +119,7 @@ export const runNarratives = sqliteTable("run_narrative", {
   createdAt: text("created_at").notNull(),
 }, (table) => [check("run_narrative_produced_by_check", sql`${table.producedBy} IN ('live', 'backfill')`)]);
 
-export const submissions = sqliteTable("submission", { id: text("id").primaryKey(), workerRunId: text("worker_run_id").notNull().references(() => workerRuns.id), seq: integer("seq").notNull(), description: text("description").notNull(), hypothesis: text("hypothesis"), score: real("score").notNull(), submittedAt: text("submitted_at").notNull(), runtimeRef: text("runtime_ref") }, (table) => [unique("submission_worker_run_seq").on(table.workerRunId, table.seq)]);
+export const submissions = sqliteTable("submission", { id: text("id").primaryKey(), workerRunId: text("worker_run_id").notNull().references(() => workerRuns.id), seq: integer("seq").notNull(), description: text("description").notNull(), hypothesis: text("hypothesis"), score: real("score").notNull(), submittedAt: text("submitted_at").notNull(), runtimeRef: text("runtime_ref") }, (table) => [unique("submission_worker_run_seq").on(table.workerRunId, table.seq), index("submission_runtime_ref").on(table.runtimeRef)]);
 
 export const pullRequests = sqliteTable("pull_request", { id: text("id").primaryKey(), targetId: text("target_id").references(() => targets.id), entityId: text("entity_id").references(() => entities.id), prRef: text("pr_ref").notNull(), summary: text("summary").notNull(), outcome: text("outcome").$type<Outcome>().notNull(), mergedAt: text("merged_at").notNull() }, (table) => [check("pull_request_outcome_check", sql`${table.outcome} IN ('match', 'improvement', 'no_change', 'error')`), check("pull_request_subject_check", sql`(${table.targetId} IS NULL) <> (${table.entityId} IS NULL)`), index("pull_request_target_id").on(table.targetId), index("pull_request_entity_id").on(table.entityId)]);
 
@@ -130,7 +130,7 @@ export const eventRefs = sqliteTable("event_ref", { eventId: text("event_id").no
 export const discordMessages = sqliteTable("discord_message", { id: text("id").primaryKey(), channel: text("channel").notNull(), author: text("author").notNull(), postedAt: text("posted_at").notNull(), content: text("content").notNull(), threadId: text("thread_id"), ingestedAt: text("ingested_at").notNull() });
 export const wikiSections = sqliteTable("wiki_section", { id: text("id").primaryKey(), page: text("page").notNull(), section: text("section").notNull(), mirrorRevision: text("mirror_revision").notNull(), content: text("content").notNull(), ingestedAt: text("ingested_at").notNull() }, (table) => [unique("wiki_section_revision").on(table.page, table.section, table.mirrorRevision)]);
 export const sourceWatermarks = sqliteTable("source_watermark", { source: text("source").$type<WatermarkSource>().primaryKey(), position: text("position").notNull(), updatedAt: text("updated_at").notNull() }, (table) => [check("source_watermark_source_check", sql`${table.source} IN ('pr', 'discord', 'wiki', 'attempt')`)]);
-export const indexTasks = sqliteTable("index_task", { id: text("id").primaryKey(), pathway: text("pathway").$type<IndexPathway>().notNull(), payload: text("payload").notNull(), enqueuedAt: text("enqueued_at").notNull(), startedAt: text("started_at"), doneAt: text("done_at") }, (table) => [check("index_task_pathway_check", sql`${table.pathway} IN ('run_closed', 'pr_imported', 'regression', 'archival_ingest', 'drift_recheck')`)]);
+export const indexTasks = sqliteTable("index_task", { id: text("id").primaryKey(), pathway: text("pathway").$type<IndexPathway>().notNull(), payload: text("payload").notNull(), enqueuedAt: text("enqueued_at").notNull(), startedAt: text("started_at"), doneAt: text("done_at") }, (table) => [check("index_task_pathway_check", sql`${table.pathway} IN ('run_closed', 'pr_imported', 'regression', 'archival_ingest', 'drift_recheck', 'checkpoint_confirmed')`)]);
 export const subjectIndexStates = sqliteTable("subject_index_state", { targetId: text("target_id").references(() => targets.id), entityId: text("entity_id").references(() => entities.id), indexedAt: text("indexed_at").notNull() }, (table) => [check("subject_index_state_subject_check", sql`(${table.targetId} IS NULL) <> (${table.entityId} IS NULL)`), uniqueIndex("subject_index_state_target_id").on(table.targetId).where(sql`${table.targetId} IS NOT NULL`), uniqueIndex("subject_index_state_entity_id").on(table.entityId).where(sql`${table.entityId} IS NOT NULL`)]);
 
 export const schemaMigrations = sqliteTable("schema_migrations", {

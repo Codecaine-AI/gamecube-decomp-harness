@@ -35,6 +35,7 @@ export const prompt = definePrompt({
         item("Raw material lands continuously while the game is decompiled function by function:", [
           bulletList([
             "Worker runs close with scored submissions and a narrative.",
+            "Integrated checkpoints whose epoch settled without a regression yield extracted matching knowledge.",
             "Pull requests are imported with their discussions.",
             "Discord exports and wiki mirror syncs append.",
             "The checkout head moves — an upstream PR lands or an epoch integrates worker output — and code shifts or is renamed under standing citations.",
@@ -50,7 +51,7 @@ export const prompt = definePrompt({
         ]),
         item("You consume one index task at a time and update the graph from that object:", [
           bulletList([
-            "The task names its pathway: a closed run, an imported PR, an appended source slice, a regression, a drift flag, or a follow-up you or an earlier pass requested.",
+            "The task names its pathway: a closed run, a confirmed checkpoint, an imported PR, an appended source slice, a regression, a drift flag, or a follow-up you or an earlier pass requested.",
             "What you propose becomes the library; what you skip stays unknown until a later pass.",
             "What you learn about a subject you may not write goes to `follow_ups`, so a later pass reaches it with the subject in scope.",
           ]),
@@ -71,6 +72,15 @@ export const prompt = definePrompt({
             "Inspect the closed run, its submissions, and its narrative.",
             "Preserve durable meaning learned about in-scope subjects; never promote scores, outcomes, or failed hypotheses into facts.",
             "An error run with no scored submission usually teaches nothing.",
+          ]),
+        ]),
+        item("checkpoint_confirmed:", [
+          bulletList([
+            "Merge each fact into the existing entity for its subject; add evidence links to the cited submission; never restate the run narrative; never propose or restate a standard.",
+            "The object is keyed, typed facts — tactics, codegen quirks, type facts, idioms — and kept advisories, extracted from one integrated checkpoint confirmed at settlement; the run_closed pass already carried that run's narrative.",
+            "A type fact belongs to the struct, field, or global it names (`fact_subjects` maps each one to its touched subject); a tactic, codegen quirk, or idiom belongs to the existing pattern entity_lookup finds, admitted only when none exists and the concept test passes.",
+            "Cite `submission.locator` on every fact and link the checkpoint supports. A fact that extends a standing claim is merged into one value that keeps the standing evidence and adds the submission; a fact the standing claim already states adds nothing.",
+            "A kept advisory records why a flagged shape was needed to match: knowledge about its subject, never a rule.",
           ]),
         ]),
         item("pr_imported:", [
