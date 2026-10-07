@@ -8,13 +8,18 @@ import {
   applyQaLintToValidation,
   captureWorkerChangeBaseline,
   compareWorkerUnitSnapshots,
+  effectiveQaLint,
   extendWorkerChangeBaselineSourceSnapshot,
+  failForPendingAdvisories,
+  QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE,
   QA_LINT_REPAIR_INSTRUCTION,
+  qaLintAdvisoryPartition,
   qaLintFromInvocation,
   qaLintRepairReasons,
   rewriteNoIndexDiffPaths,
   validateWorkerChange,
   type WorkerChangeBaseline,
+  type WorkerChangeValidation,
   type WorkerQaLint,
   type WorkerUnitScoreSnapshot,
 } from "./change-validation.js";
@@ -1205,5 +1210,250 @@ describe("validateWorkerChange micro-gate integration", () => {
     expect(validation.status).toBe("failed");
     expect(validation.reasons).toContainEqual(expect.stringContaining("micro_gate:banned_idioms: qualifier_changed_on_shared_global"));
     expect(commands).toContainEqual(["cat", "config/GMSJ01/symbols.txt"]);
+  });
+});
+
+describe("advisory adjudication modes", () => {
+  const target = { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" };
+  const allMicroGatesOff = { sectionParity: false, undefinedSymbols: false, bannedIdioms: false, formatting: false, symbolValidation: false };
+
+  function advisory(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
+    return finding({
+      rule_id: "type_erasing_cast",
+      severity: "warning",
+      message: "Added type-erasing cast.",
+      excerpt: "u8* p = (u8*) obj;",
+      standard_id: "global_standard:type-erasing-casts",
+      detail: { llm_review: true, cast: "u8*" },
+      ...overrides,
+    });
+  }
+
+  // The scanner's exit-code contract: 1 = hard-fail findings, 2 = warnings only, 0 = clean.
+  function scan(findings: QaScanFinding[]): QaScanInvocation {
+    const exitCode = findings.some((entry) => entry.severity === "error") ? 1 : findings.some((entry) => entry.severity === "warning") ? 2 : 0;
+    return invocation({ exitCode, result: scanResult(findings, exitCode === 1 ? "failed" : exitCode === 2 ? "warned" : "passed") });
+  }
+
+  /** One attempt whose source changed (so the QA scan runs) and whose target scored `targetAfter` against a baseline of 50. */
+  async function runAttempt(outputDir: string, options: {
+    findings: QaScanFinding[];
+    targetAfter?: number;
+    /** Added write-set diff lines; when set, the banned-idiom micro-gate runs on them. */
+    bannedIdiomDiff?: string;
+    retainPreQa?: boolean;
+    deferAdvisories?: boolean;
+  }): Promise<WorkerChangeValidation> {
+    const sourceSnapshotDir = join(outputDir, "pre_worker_source");
+    await mkdir(join(sourceSnapshotDir, "src/melee/ft"), { recursive: true });
+    await writeFile(join(sourceSnapshotDir, target.source_path), "int a;\n");
+    const baseline: WorkerChangeBaseline = {
+      status: "available",
+      reasons: [],
+      objectTarget: "build/GALE01/src/melee/ft/ftcoll.o",
+      firstDiff: null,
+      sourceSnapshotDir,
+      sourceSnapshotPaths: [target.source_path],
+      snapshot: {
+        schemaVersion: 1,
+        capturedAt: "2026-06-30T00:00:00.000Z",
+        unit: target.unit,
+        symbol: target.symbol,
+        sourcePath: target.source_path,
+        objectTarget: "build/GALE01/src/melee/ft/ftcoll.o",
+        metrics: [],
+        functions: [{ name: target.symbol, score: 50, size: 16 }],
+        sections: [],
+        targetScore: 50,
+      },
+    };
+    const report = JSON.stringify({
+      left: { sections: [], symbols: [{ name: target.symbol, match_percent: options.targetAfter ?? 75, size: 16, instructions: [] }] },
+    });
+    return validateWorkerChange({
+      repoRoot: "/workspace/advisory-modes",
+      hostRepoRoot: "/host/melee",
+      outputDir,
+      attemptIndex: 0,
+      baseline,
+      target,
+      dryRun: false,
+      shouldRun: true,
+      claimedExact: false,
+      orchestratorRoot: "/tmp/orchestrator",
+      microGateFlags: options.bannedIdiomDiff ? { ...allMicroGatesOff, bannedIdioms: true } : allMicroGatesOff,
+      postAttemptDiffText: options.bannedIdiomDiff,
+      retainPreQa: options.retainPreQa,
+      deferAdvisories: options.deferAdvisories,
+      qaScanRunner: async () => scan(options.findings),
+      workspaceExec: fakeWorkspaceExec(async (command) => {
+        if (command[0] === "build/tools/objdiff-cli") return { exitCode: 0, stdout: report, stderr: "" };
+        if (command.join(" ") === `cat ${target.source_path}`) return { exitCode: 0, stdout: "int a;\nu8* p = (u8*) obj;\n", stderr: "" };
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }),
+    });
+  }
+
+  async function summaryOf(validation: WorkerChangeValidation): Promise<unknown> {
+    return JSON.parse(await readFile(validation.summaryPath ?? "", "utf8"));
+  }
+
+  /** The validation minus every field the adjudication modes may add. */
+  function withoutAdjudicationData(validation: WorkerChangeValidation): WorkerChangeValidation {
+    const { preQa: _preQa, advisoryGate: _advisoryGate, ...rest } = validation;
+    if (!rest.qaLint) return rest;
+    const { advisory: _advisory, ...qaLint } = rest.qaLint;
+    return { ...rest, qaLint };
+  }
+
+  test("partition marks advisory-only scans; info advisories never count as deterministic warnings", () => {
+    const warn = advisory();
+    const infoAdvisory = advisory({ severity: "info", rule_id: "authored_style", line: 50 });
+    const suppressed = finding({ severity: "info", rule_id: "extern_in_c", line: 60, disposition: "suppressed" });
+    const deterministicWarning = finding({ severity: "warning", rule_id: "unrolled_assert", line: 70 });
+    const advisoryError = advisory({ severity: "error", line: 80 });
+    const partition = (findings: QaScanFinding[]) => qaLintAdvisoryPartition(qaLintFromInvocation(scan(findings), "/tmp/scan.patch"));
+
+    expect(partition([warn, infoAdvisory])).toEqual({ findings: [warn, infoAdvisory], deterministic: [], advisoryOnly: true });
+    expect(partition([warn, suppressed])).toEqual({ findings: [warn], deterministic: [suppressed], advisoryOnly: true });
+    // An info advisory alone never makes the scan advisory-only: nothing blocks.
+    expect(partition([infoAdvisory]).advisoryOnly).toBe(false);
+    expect(partition([warn, deterministicWarning])).toEqual({ findings: [warn], deterministic: [deterministicWarning], advisoryOnly: false });
+    // An llm_review error is a hard failure, never an advisory.
+    expect(partition([advisoryError])).toEqual({ findings: [], deterministic: [advisoryError], advisoryOnly: false });
+  });
+
+  test("retainPreQa adds preQa and changes nothing else", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "advisory-retain-preqa-"));
+    const findings = [advisory()];
+
+    const off = await runAttempt(outputDir, { findings });
+    // `off` stays byte-identical to the pre-adjudication output, on disk too.
+    expect(await summaryOf(off)).toEqual(JSON.parse(JSON.stringify(off)));
+    expect(Object.keys(off)).not.toContain("preQa");
+    expect(Object.keys(off)).not.toContain("advisoryGate");
+    expect(Object.keys(off.qaLint ?? {})).not.toContain("advisory");
+
+    const shadow = await runAttempt(outputDir, { findings, retainPreQa: true });
+    expect(shadow.status).toBe("failed");
+    expect(shadow.preQa).toEqual({ status: "passed", reasons: [] });
+    expect(shadow.qaLint?.advisory?.advisoryOnly).toBe(true);
+    expect(withoutAdjudicationData(shadow)).toEqual(off);
+    expect(await summaryOf(shadow)).toEqual(JSON.parse(JSON.stringify(shadow)));
+
+    const skipped = await validateWorkerChange({
+      repoRoot: "/workspace/advisory-modes",
+      hostRepoRoot: "/host/melee",
+      outputDir,
+      attemptIndex: 1,
+      baseline: { status: "snapshot_unavailable", reasons: [], snapshot: null, firstDiff: null },
+      target,
+      dryRun: true,
+      shouldRun: true,
+      claimedExact: false,
+      retainPreQa: true,
+      workspaceExec: fakeWorkspaceExec(),
+    });
+    expect(skipped.preQa).toEqual({ status: "skipped", reasons: skipped.reasons });
+  });
+
+  test("deferAdvisories keeps status passed only for advisory-only scans", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "advisory-defer-"));
+    const enforce = await runAttempt(outputDir, { findings: [advisory(), advisory({ severity: "info", rule_id: "authored_style", line: 50 })], deferAdvisories: true });
+    expect(enforce.status).toBe("passed");
+    expect(enforce.advisoryGate).toBe("pending");
+    expect(enforce.qaLint?.status).toBe("warnings");
+    expect(enforce.reasons.some((reason) => reason.includes("QA finding(s) requiring repair"))).toBe(false);
+    expect(await summaryOf(enforce)).toMatchObject({ status: "passed", advisoryGate: "pending" });
+
+    const notDeferred: Array<{ name: string; findings: QaScanFinding[]; targetAfter?: number; bannedIdiomDiff?: string }> = [
+      { name: "advisory plus deterministic warning", findings: [advisory(), finding({ severity: "warning", rule_id: "unrolled_assert", line: 70 })] },
+      { name: "deterministic error", findings: [finding()] },
+      { name: "llm_review error", findings: [advisory({ severity: "error" })] },
+      { name: "advisory-only on an attempt that already failed", findings: [advisory()], targetAfter: 50 },
+      {
+        name: "advisory-only on an improving attempt a micro-gate fails",
+        findings: [advisory()],
+        bannedIdiomDiff: "diff --git a/src/melee/ft/ftcoll.c b/src/melee/ft/ftcoll.c\n+    short foo;",
+      },
+    ];
+    for (const entry of notDeferred) {
+      const attempt = { findings: entry.findings, targetAfter: entry.targetAfter, bannedIdiomDiff: entry.bannedIdiomDiff };
+      const off = await runAttempt(outputDir, attempt);
+      const deferred = await runAttempt(outputDir, { ...attempt, deferAdvisories: true });
+      expect({ name: entry.name, advisoryGate: deferred.advisoryGate }).toEqual({ name: entry.name, advisoryGate: undefined });
+      expect(deferred.status).not.toBe("passed");
+      expect(withoutAdjudicationData(deferred)).toEqual(off);
+    }
+  });
+
+  test("failForPendingAdvisories reproduces today's flip exactly", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "advisory-fail-pending-"));
+    const findings = [advisory()];
+    const off = await runAttempt(outputDir, { findings });
+    const pending = await runAttempt(outputDir, { findings, deferAdvisories: true });
+
+    const failed = failForPendingAdvisories(pending);
+    expect(failed.status).toBe("failed");
+    expect(failed.reasons.at(-1)).toBe("qa lint found 1 QA finding(s) requiring repair (gate exit 2)");
+    expect(failed.advisoryGate).toBe("failed");
+    expect(withoutAdjudicationData(failed)).toEqual(off);
+
+    const verdict = "advisory type_erasing_cast at src/melee/ft/ftcoll.c:42 rejected: judged unjustified (p=0.12)";
+    expect(failForPendingAdvisories(pending, [verdict]).reasons).toEqual([...off.reasons, verdict]);
+
+    // A pending verdict that a later check already failed keeps that status, as today.
+    const laterFailure = failForPendingAdvisories({ ...pending, status: "failed", reasons: [...pending.reasons, "strict-object mismatch"] });
+    expect(laterFailure.status).toBe("failed");
+    expect(laterFailure.reasons).toEqual([...pending.reasons, "strict-object mismatch", "qa lint found 1 QA finding(s) requiring repair (gate exit 2)"]);
+
+    expect(failForPendingAdvisories(off)).toBe(off);
+  });
+
+  test("effectiveQaLint feeds back only the advisories adjudication left blocking", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "advisory-effective-"));
+    const first = advisory({ line: 42 });
+    const second = advisory({ line: 43, excerpt: "s16* q = (s16*) obj;" });
+    const info = advisory({ severity: "info", rule_id: "authored_style", line: 50 });
+    const suppressed = finding({ severity: "info", rule_id: "extern_in_c", line: 60, disposition: "suppressed" });
+    const pending = await runAttempt(outputDir, { findings: [first, second, info, suppressed], deferAdvisories: true });
+
+    // Every advisory accepted: no QA rejection feedback, raw evidence kept, and
+    // a deterministic finding the resolution left out is never dropped.
+    const accepted: WorkerChangeValidation = { ...pending, advisoryResolution: { acceptedFingerprints: ["af2:first", "af2:second"], remaining: [info] } };
+    expect(effectiveQaLint(accepted)).toMatchObject({ status: "clean", exitCode: 0, findings: [info, suppressed] });
+    expect(qaLintRepairReasons(effectiveQaLint(accepted))).toEqual([]);
+    expect(accepted.qaLint?.status).toBe("warnings");
+
+    // One accepted, one rejected: feedback names only the rejected one, with the enforce instruction.
+    const partial = failForPendingAdvisories(
+      { ...pending, advisoryResolution: { acceptedFingerprints: ["af2:first"], remaining: [{ ...second }, info] } },
+      ["advisory type_erasing_cast at src/melee/ft/ftcoll.c:43 rejected: unclear (p=0.52)"],
+    );
+    const partialReasons = qaLintRepairReasons(effectiveQaLint(partial));
+    expect(effectiveQaLint(partial)?.status).toBe("warnings");
+    expect(partialReasons.some((reason) => reason.includes("src/melee/ft/ftcoll.c:43"))).toBe(true);
+    expect(partialReasons.some((reason) => reason.includes("src/melee/ft/ftcoll.c:42"))).toBe(false);
+    expect(partialReasons.at(-1)).toBe(QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE);
+
+    // Nothing accepted (rejection, outage, timeout): every advisory stays, enforce instruction; the raw view is untouched.
+    const rejected = failForPendingAdvisories(pending);
+    const rejectedReasons = qaLintRepairReasons(effectiveQaLint(rejected));
+    expect(rejectedReasons.filter((reason) => reason.startsWith("qa_lint_finding:"))).toHaveLength(4);
+    expect(rejectedReasons.at(-1)).toBe(QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE);
+    expect(qaLintRepairReasons(rejected.qaLint).at(-1)).toBe(QA_LINT_REPAIR_INSTRUCTION);
+  });
+
+  test("effectiveQaLint is the raw qaLint without adjudication and for any non-advisory scan", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "advisory-effective-raw-"));
+    const off = await runAttempt(outputDir, { findings: [advisory()] });
+    expect(effectiveQaLint(off)).toBe(off.qaLint);
+    const pending = await runAttempt(outputDir, { findings: [advisory()], deferAdvisories: true });
+    expect(effectiveQaLint(pending)).toBe(pending.qaLint);
+
+    // A resolution never exempts anything from a scan with a deterministic error.
+    const violations = await runAttempt(outputDir, { findings: [finding(), advisory({ line: 43 })], deferAdvisories: true });
+    const resolved: WorkerChangeValidation = { ...violations, advisoryResolution: { acceptedFingerprints: ["af2:x"], remaining: [] } };
+    expect(effectiveQaLint(resolved)).toBe(violations.qaLint);
   });
 });

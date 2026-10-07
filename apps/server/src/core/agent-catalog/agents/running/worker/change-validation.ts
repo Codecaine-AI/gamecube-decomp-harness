@@ -5,6 +5,7 @@ import { gameBuildLayout, type GameBuildValidation } from "@server/core/game-reg
 import type { RunGameMetadata } from "@server/core/shared/types";
 import type { WriteSetEntry } from "@server/core/harness-runtime/run-state/write-set-categories";
 import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
+import { isAdvisoryFinding } from "@server/core/validation/qa/advisory-fingerprint.js";
 import {
   runCommand,
   type CommandResult,
@@ -152,6 +153,36 @@ export interface WorkerQaLint {
   scanPath: string | null;
   /** Scanner/diff infrastructure failure detail; L1 fails open but records it. */
   toolError: string | null;
+  /** Advisory partition; attached only when advisory adjudication is on (shadow, enforce), so `off` output is unchanged. */
+  advisory?: WorkerQaLintAdvisory;
+  /**
+   * Effective view only (enforce): the remaining findings failed advisory
+   * adjudication, so repair feedback ends with
+   * QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE. Never set on a raw scan.
+   */
+  advisoryGateFailed?: true;
+}
+
+/** `llm_review` advisories versus every other (deterministic) finding of one scan. */
+export interface WorkerQaLintAdvisory {
+  /** detail.llm_review findings of severity warning or info: the only findings a model may adjudicate. */
+  findings: QaScanFinding[];
+  /** Every other finding, `llm_review` errors included; never deferred or adjudicated. */
+  deterministic: QaScanFinding[];
+  /** Status "warnings", no deterministic error or warning, and at least one `llm_review` warning. */
+  advisoryOnly: boolean;
+}
+
+/** Verdict from score validation and micro-gates before QA lint (retainPreQa). */
+export interface WorkerPreQa {
+  status: WorkerRunnerValidation["status"];
+  reasons: string[];
+}
+
+/** Enforce: advisories the adjudication accepted, and the findings that still count. */
+export interface WorkerAdvisoryResolution {
+  acceptedFingerprints: string[];
+  remaining: QaScanFinding[];
 }
 
 export type ScopedCheckMode = "strict-object" | "section-measure";
@@ -184,6 +215,16 @@ export type WorkerChangeValidation = WorkerRunnerValidation & {
   qaLint: WorkerQaLint | null;
   scopedChecks?: WidenedScopedChecks;
   microGates?: WorkerMicroGates;
+  /** retainPreQa (shadow, enforce): the verdict before QA lint, which the final verdict cannot give back. */
+  preQa?: WorkerPreQa;
+  /**
+   * Enforce only. "pending": advisory-only QA findings were deferred and the
+   * verdict left unflipped until adjudication; "failed": failForPendingAdvisories
+   * applied today's QA failure after adjudication did not accept them.
+   */
+  advisoryGate?: "pending" | "failed";
+  /** Enforce only: set by the worker cycle after adjudication; read through effectiveQaLint. */
+  advisoryResolution?: WorkerAdvisoryResolution;
 };
 
 export interface ScopedUnitCheckRunnerOptions {
@@ -984,8 +1025,31 @@ export function qaLintFromInvocation(invocation: QaScanInvocation, scanPath: str
   return { status: "clean", exitCode: invocation.exitCode, findings, scanPath, toolError: null };
 }
 
+/**
+ * Split a scan into `llm_review` advisories and deterministic findings. Only
+ * a "warnings" scan whose every warning is an advisory is advisory-only:
+ * info findings (advisory or not) never block, and an `llm_review` error is
+ * deterministic, so it can never be deferred to a model.
+ */
+export function qaLintAdvisoryPartition(qaLint: Pick<WorkerQaLint, "status" | "findings">): WorkerQaLintAdvisory {
+  const findings = qaLint.findings.filter(isAdvisoryFinding);
+  const deterministic = qaLint.findings.filter((finding) => !isAdvisoryFinding(finding));
+  const advisoryOnly = qaLint.status === "warnings"
+    && !deterministic.some((finding) => finding.severity === "error" || finding.severity === "warning")
+    && findings.some((finding) => finding.severity === "warning");
+  return { findings, deterministic, advisoryOnly };
+}
+
+function withQaLintAdvisory(qaLint: WorkerQaLint): WorkerQaLint {
+  return { ...qaLint, advisory: qaLintAdvisoryPartition(qaLint) };
+}
+
 export const QA_LINT_REPAIR_INSTRUCTION =
   "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match inside your claimed write set (game assert/report macros, established inline helpers), including typing in-slice code to the foreign types already present on master. When that measurably fails because the canonical fix is a declaration in the owning header or a symbols.txt/splits.txt update, never substitute a source-local shim: if write-set widening is enabled, submit a structured widening_request with the mismatched declaration, objdiff evidence, expected owner, and why the lower rung failed. Until the runner authorizes it, an edit outside the write set is dropped at patch capture. If widening is disabled, denied, or routed at rung 4, state \"exact requires cross-file edit to <path>\" in your note's blockers and return the best gate-clean version confined to your write set. If the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
+
+/** Enforce only: replaces QA_LINT_REPAIR_INSTRUCTION when the remaining QA findings are `llm_review` advisories that adjudication did not accept. */
+export const QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE =
+  "The QA findings above are llm_review advisories that the reviewer did not accept; the runner validation reasons name each rejected advisory and why (justification missing, judged unjustified, unclear, reviewer unavailable, or insufficient time). An advisory may stay only when matching the original binary requires it. For each rejected advisory, either remove the flagged pattern and return the best gate-clean version inside your claimed write set (a lower match % is a successful outcome), or keep it and record it in your note's kept_advisories as { rule_id, file, line, justification }, one entry per finding, citing concrete evidence: the objdiff result, and the instruction, register or stack offset the pattern produces, and why the cleaner alternative does not match. A missing, vague or unclear justification fails the attempt like any other QA finding, and so does a reviewer that is unavailable or runs out of time. Do not resubmit an unchanged diff with a justification the reviewer already rejected.";
 
 function qaLintRequiresRepair(qaLint: WorkerQaLint | null | undefined): qaLint is WorkerQaLint {
   return qaLint?.status === "violations" || qaLint?.status === "warnings";
@@ -1035,8 +1099,21 @@ export function qaLintRepairReasons(qaLint: WorkerQaLint | null | undefined): st
   if (reasons.length === 0) {
     reasons.push(`qa_lint_finding: scan_diff gate failed (exit ${qaLint.exitCode ?? "unknown"}) without parseable findings`);
   }
-  reasons.push(QA_LINT_REPAIR_INSTRUCTION);
+  reasons.push(qaLint.advisoryGateFailed ? QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE : QA_LINT_REPAIR_INSTRUCTION);
   return reasons;
+}
+
+/** Today's QA failure: a passed verdict turns failed and one reason names the finding count. */
+function withQaLintFailure<T extends WorkerRunnerValidation>(validation: T, qaLint: WorkerQaLint | null): T & { qaLint: WorkerQaLint | null } {
+  return {
+    ...validation,
+    status: validation.status === "passed" ? "failed" : validation.status,
+    reasons: [
+      ...validation.reasons,
+      `qa lint found ${qaLint?.findings.length ?? 0} QA finding(s) requiring repair (gate exit ${qaLint?.exitCode ?? "unknown"})`,
+    ],
+    qaLint,
+  };
 }
 
 /**
@@ -1046,18 +1123,76 @@ export function qaLintRepairReasons(qaLint: WorkerQaLint | null | undefined): st
  * repair targets during automated work; the right next step is to remove them
  * or prove a false positive, not ship them as incidental score progress.
  * tool_unavailable and clean never change the score verdict.
+ *
+ * `deferAdvisories` (enforce only) leaves a passed verdict passed, marked
+ * `advisoryGate: "pending"`, when every blocking finding is an `llm_review`
+ * advisory; the worker cycle then adjudicates and calls
+ * failForPendingAdvisories unless the advisories are accepted. A verdict that
+ * already failed, or any deterministic error or warning, takes today's path.
  */
-export function applyQaLintToValidation(validation: WorkerRunnerValidation, qaLint: WorkerQaLint | null): WorkerChangeValidation {
+export function applyQaLintToValidation(
+  validation: WorkerRunnerValidation,
+  qaLint: WorkerQaLint | null,
+  options: { deferAdvisories?: boolean } = {},
+): WorkerChangeValidation {
   if (!qaLintRequiresRepair(qaLint)) return { ...validation, qaLint };
-  return {
-    ...validation,
-    status: validation.status === "passed" ? "failed" : validation.status,
-    reasons: [
-      ...validation.reasons,
-      `qa lint found ${qaLint.findings.length} QA finding(s) requiring repair (gate exit ${qaLint.exitCode ?? "unknown"})`,
-    ],
-    qaLint,
-  };
+  if (options.deferAdvisories && validation.status === "passed" && qaLintAdvisoryPartition(qaLint).advisoryOnly) {
+    return { ...validation, qaLint, advisoryGate: "pending" };
+  }
+  return withQaLintFailure(validation, qaLint);
+}
+
+/**
+ * Enforce: the deferred advisories were not accepted (rejection, outage,
+ * missing key, timeout, insufficient budget, exception). Applies exactly the
+ * flip and reason applyQaLintToValidation applies without deferral, then
+ * `extraReasons` (the per-advisory verdicts), and marks the gate "failed".
+ * A validation that is not pending is returned unchanged.
+ */
+export function failForPendingAdvisories(validation: WorkerChangeValidation, extraReasons: string[] = []): WorkerChangeValidation {
+  if (validation.advisoryGate !== "pending") return validation;
+  const { advisoryGate: _pending, ...undeferred } = validation;
+  const failed = withQaLintFailure(undeferred, undeferred.qaLint);
+  return { ...failed, reasons: [...failed.reasons, ...extraReasons], advisoryGate: "failed" };
+}
+
+function qaFindingKey(finding: QaScanFinding): string {
+  return JSON.stringify([finding.rule_id, finding.severity, finding.file, finding.line, finding.excerpt, finding.message]);
+}
+
+/**
+ * The QA view that drives error classification and repair feedback. Without
+ * adjudication (off, shadow, enforce before or without it) it is the raw
+ * `qaLint` itself. After enforce adjudication of an advisory-only scan, the
+ * status is recomputed from `advisoryResolution.remaining` (`clean` when no
+ * error or warning remains); deterministic findings are never dropped, and any
+ * scan that was not a "warnings" scan keeps its raw verdict. A failed gate
+ * switches the standing repair instruction to the enforce advisory variant.
+ * The raw `qaLint` stays on the validation, in the summary, and in `qa_status`.
+ */
+export function effectiveQaLint(validation: WorkerChangeValidation): WorkerQaLint | null {
+  const qaLint = validation.qaLint;
+  const resolution = validation.advisoryResolution;
+  const gateFailed = validation.advisoryGate === "failed";
+  if (!qaLint || qaLint.status !== "warnings" || (!resolution && !gateFailed)) return qaLint;
+  let effective = qaLint;
+  if (resolution) {
+    const remaining = new Set(resolution.remaining.map(qaFindingKey));
+    const findings = qaLint.findings.filter((finding) => !isAdvisoryFinding(finding) || remaining.has(qaFindingKey(finding)));
+    const status: WorkerQaLint["status"] = findings.some((finding) => finding.severity === "error")
+      ? "violations"
+      : findings.some((finding) => finding.severity === "warning")
+        ? "warnings"
+        : "clean";
+    effective = {
+      ...qaLint,
+      status,
+      exitCode: status === "clean" && qaLint.exitCode === 2 ? 0 : qaLint.exitCode,
+      findings,
+      ...(qaLint.advisory ? { advisory: qaLintAdvisoryPartition({ status, findings }) } : {}),
+    };
+  }
+  return gateFailed && qaLintRequiresRepair(effective) ? { ...effective, advisoryGateFailed: true } : effective;
 }
 
 export function applyScopedChecksToValidation(
@@ -1575,10 +1710,17 @@ export async function validateWorkerChange(params: {
   baseRevision?: string | null;
   validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
+  /** Advisory adjudication shadow and enforce: also return `preQa` (and attach the QA advisory partition). No other effect. */
+  retainPreQa?: boolean;
+  /** Advisory adjudication enforce only: defer advisory-only QA failures of an otherwise passing attempt (`advisoryGate: "pending"`). */
+  deferAdvisories?: boolean;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
-  const skipped = (reason: string): WorkerChangeValidation => ({ status: "skipped", reasons: [reason], summaryPath, qaLint: null });
+  const skipped = (reason: string): WorkerChangeValidation => {
+    const validation: WorkerChangeValidation = { status: "skipped", reasons: [reason], summaryPath, qaLint: null };
+    return params.retainPreQa ? { ...validation, preQa: { status: "skipped", reasons: [reason] } } : validation;
+  };
 
   if (params.dryRun) return skipped("dry-run agents do not execute runner-owned worker-change validation");
   if (!params.shouldRun) return skipped("runner checkpoint validation was not requested");
@@ -1586,7 +1728,7 @@ export async function validateWorkerChange(params: {
   // The QA lint scan runs even when the score comparison below cannot (build
   // failure, missing snapshot): QA findings must be reported regardless of
   // whether the attempt's score evidence is usable.
-  const qaLint = await runWorkerQaLintScan({
+  const scannedQaLint = await runWorkerQaLintScan({
     repoRoot: params.repoRoot,
     hostRepoRoot: params.hostRepoRoot,
     outputDir: params.outputDir,
@@ -1598,10 +1740,11 @@ export async function validateWorkerChange(params: {
     qaScanRunner: params.qaScanRunner ?? runQaScanDiff,
     workspaceExec: params.workspaceExec,
   });
+  // Shadow and enforce only, so `off` output stays byte-identical.
+  const qaLint = params.retainPreQa || params.deferAdvisories ? withQaLintAdvisory(scannedQaLint) : scannedQaLint;
   const flags = params.microGateFlags ?? DEFAULT_WORKER_MICRO_GATE_FLAGS;
   const layout = gameBuildLayout(params.validation);
   const { validation: scoreValidation, afterSnapshot } = await validateWorkerScoreChange(params, summaryPath);
-  const withQaLint = applyQaLintToValidation(scoreValidation, qaLint);
   const sectionParity = evaluateSectionParityGate({
     enabled: flags.sectionParity,
     before: params.baseline.snapshot,
@@ -1657,7 +1800,17 @@ export async function validateWorkerChange(params: {
       })),
   });
   const microGates = summarizeMicroGates([sectionParity, undefinedSymbolGate, bannedIdioms, formatting, symbolValidation]);
-  const validation = applyMicroGatesToValidation(withQaLint, microGates);
+  // Both QA flips only turn "passed" into "failed", so the pre-QA verdict
+  // cannot be re-derived from the final one. Deferral is only worth an
+  // adjudication when nothing but the advisories stands in the way.
+  const preQa = applyMicroGatesToValidation(scoreValidation, microGates);
+  const withQaLint = applyQaLintToValidation(scoreValidation, qaLint, {
+    deferAdvisories: params.deferAdvisories === true && preQa.status === "passed",
+  });
+  const gated = applyMicroGatesToValidation(withQaLint, microGates);
+  const validation: WorkerChangeValidation = params.retainPreQa
+    ? { ...gated, preQa: { status: preQa.status, reasons: [...preQa.reasons] } }
+    : gated;
   await writeFile(summaryPath, JSON.stringify(validation, null, 2));
   return validation;
 }
