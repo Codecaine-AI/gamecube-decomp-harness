@@ -56,9 +56,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     try {
       await advisoryCalibration(argv.slice(1));
     } finally {
-      await closeNodeKernel();
-      await closeDefaultMeleeKernelRuntime();
-      resetDefaultMeleeKernelRuntimeForTests();
+      try {
+        // The node kernel writes through the melee kernel runtime's DB: flush it first.
+        await closeNodeKernel();
+      } finally {
+        await closeDefaultMeleeKernelRuntime();
+        resetDefaultMeleeKernelRuntimeForTests();
+      }
     }
     return;
   }
