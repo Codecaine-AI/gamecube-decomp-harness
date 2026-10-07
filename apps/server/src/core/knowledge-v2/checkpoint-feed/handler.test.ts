@@ -514,7 +514,7 @@ describe("checkpoint_knowledge handler", () => {
     expect(harness.inputs).toHaveLength(1);
   });
 
-  test("a replay after an aborted attempt and a fresh one cites the fresh run whose output it returns", async () => {
+  test("a replay after an aborted attempt and a fresh one cites the fresh run whose output it returns; an unrecorded run never reaches the engine", async () => {
     const f = fixture("rebind-run");
     // Attempt A runs until the lane aborts it; every later invocation answers.
     const aborting = await nodeHarness(async (input, request) => {
@@ -534,6 +534,27 @@ describe("checkpoint_knowledge handler", () => {
     const runA = extractionBinding(f.store, "cp-1")!.kernel_run_id;
     expect(typeof runA).toBe("string");
 
+    // A fresh attempt whose run cannot be recorded never reaches the engine: the write fails (ABORT) or matches
+    // no binding (IGNORE). The job fails retryable, nothing is enqueued, and the binding still names A.
+    for (const [failure, message] of [
+      ["RAISE(ABORT, 'injected write failure')", "injected write failure"],
+      ["RAISE(IGNORE)", "extraction binding did not record kernel run"],
+    ] as const) {
+      f.store.db.exec(`CREATE TRIGGER fail_rebind BEFORE UPDATE OF metadata_json ON worker_checkpoints
+        WHEN json_extract(NEW.metadata_json, '$.checkpoint_knowledge_extraction.kernel_run_id')
+          IS NOT json_extract(OLD.metadata_json, '$.checkpoint_knowledge_extraction.kernel_run_id')
+        BEGIN SELECT ${failure}; END`);
+      try {
+        await expect(handler(first.job, first.ctx)).rejects.toThrow(message);
+      } finally {
+        f.store.db.exec("DROP TRIGGER fail_rebind");
+      }
+      expect(aborting.inputs).toHaveLength(1);
+      expect(tasks(f)).toEqual([]);
+      expect(recordedOutcome(f, "cp-1")).toBeNull();
+      expect(extractionBinding(f.store, "cp-1")!.kernel_run_id).toBe(runA);
+    }
+
     // B: a fresh run under the same request id answers, then the enqueue loses its claim.
     let lost = true;
     const retry = { ...first.ctx, ensureClaim: () => { if (lost && aborting.inputs.length > 1) throw new Error("claim lost"); } };
@@ -552,6 +573,11 @@ describe("checkpoint_knowledge handler", () => {
       expect(traceDb.query("SELECT id, status FROM agent_runs WHERE id IN (?, ?) ORDER BY started_at").all(runA, runB)).toEqual([
         { id: runA, status: "aborted" },
         { id: runB, status: "done" },
+      ]);
+      // The two unrecorded attempts ended without a model request.
+      expect(traceDb.query(`SELECT r.status FROM agent_runs r JOIN pi_agent_sessions s ON s.id = r.pi_session_id
+        WHERE s.kind = 'call' ORDER BY r.started_at`).all()).toEqual([
+        { status: "aborted" }, { status: "error" }, { status: "error" }, { status: "done" },
       ]);
     } finally {
       traceDb.close();

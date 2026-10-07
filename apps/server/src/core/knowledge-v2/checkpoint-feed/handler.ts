@@ -243,19 +243,23 @@ function bindExtraction(store: StateStore, checkpointId: string, binding: Extrac
  * later replay cites the run whose output it returns: an aborted attempt is
  * followed by a fresh one under the same request id, and that fresh run is
  * the one a replay serves. Only an unchanged binding (same request, same
- * input) is updated. Never throws into the kernel.
+ * input) is updated.
+ *
+ * Runs in `onNodeStarted`, before the engine is invoked, and throws when the
+ * write fails or matches no binding: the kernel then ends that run without
+ * calling the model, and the job fails retryable. A run that could not be
+ * recorded is never paid for, so a replay never cites an earlier run.
  */
 function bindKernelRun(store: StateStore, checkpointId: string, binding: ExtractionBinding, runId: string): void {
-  try {
-    store.db.query(`
-      UPDATE worker_checkpoints
-      SET metadata_json = json_set(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.kernel_run_id', ?)
-      WHERE id = ? AND json_valid(metadata_json)
-        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.request_id') = ?
-        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.input_sha256') = ?`)
-      .run(runId, checkpointId, binding.request_id, binding.input_sha256);
-  } catch {
-    // The run id is provenance for the payload; the binding's digests are what guard a replay.
+  const written = store.db.query(`
+    UPDATE worker_checkpoints
+    SET metadata_json = json_set(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.kernel_run_id', ?)
+    WHERE id = ? AND json_valid(metadata_json)
+      AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.request_id') = ?
+      AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.input_sha256') = ?`)
+    .run(runId, checkpointId, binding.request_id, binding.input_sha256);
+  if (written.changes !== 1) {
+    throw new Error(`checkpoint_knowledge ${checkpointId}: extraction binding did not record kernel run ${runId}`);
   }
 }
 
@@ -371,9 +375,11 @@ export function createCheckpointKnowledgeHandler(
         requestId,
         timeoutMs: CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS,
         signal: ctx.signal,
+        // Throwing here ends the run before the engine is invoked (see bindKernelRun).
         onNodeStarted: (ids: { runId: string }) => {
-          kernelRunId = ids.runId;
+          ctx.ensureClaim();
           bindKernelRun(ctx.store, checkpointId, binding, ids.runId);
+          kernelRunId = ids.runId;
         },
       };
       const container = () => (deps.callContainer ?? defaultCallContainer(globals, ctx.store))(job, checkpoint);
