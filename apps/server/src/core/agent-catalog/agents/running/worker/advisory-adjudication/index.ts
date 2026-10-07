@@ -37,6 +37,15 @@ import {
   type AdvisoryAdjudicationConfig,
   type AdvisoryThresholds,
 } from "./config.js";
+import {
+  callFailureKind,
+  failureCode,
+  isCallError,
+  isGateError,
+  isTerminalFailure,
+  sanitizeAdjudicationError,
+  sanitizeDowngradeReason,
+} from "./errors.js";
 import { applyJudgement, foldVerdicts, type AdvisoryJudgeOutcome, type FoldResult } from "./fold.js";
 import { extractHunk } from "./hunks.js";
 import { JUSTIFIED_QUESTION_ID, justifiedQuestions } from "./question.js";
@@ -51,6 +60,7 @@ import type {
 export * from "./budget.js";
 export * from "./candidate.js";
 export * from "./config.js";
+export * from "./errors.js";
 export * from "./fold.js";
 export * from "./hunks.js";
 export * from "./mode.js";
@@ -75,7 +85,6 @@ const MAX_FINDING_MESSAGE_CHARS = 1_000;
 const MAX_EVIDENCE_ITEMS = 20;
 const MAX_EVIDENCE_CHARS = 500;
 const MAX_RATIONALE_CHARS = 2_000;
-const MAX_ERROR_CHARS = 300;
 
 export function justificationCheckName(advisoryId: string): string {
   return `justification:${advisoryId}`;
@@ -150,11 +159,6 @@ function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
-function errorText(error: unknown): string {
-  if (error instanceof Error) return truncate(`${error.name}: ${error.message}`, MAX_ERROR_CHARS);
-  return "Error: non-error thrown";
-}
-
 function abortKind(signal: AbortSignal | undefined): "timeout" | "aborted" {
   const reason: unknown = signal?.reason;
   return reason instanceof Error && reason.name === "TimeoutError" ? "timeout" : "aborted";
@@ -221,7 +225,7 @@ function buildRecord(
     schema: "llm_review_adjudication_v1",
     requested_mode: requested,
     mode: candidate.mode,
-    ...(candidate.downgraded_reason !== undefined && { downgraded_reason: candidate.downgraded_reason }),
+    ...(candidate.downgraded_reason !== undefined && { downgraded_reason: sanitizeDowngradeReason(candidate.downgraded_reason) }),
     verdict: fold.verdict,
     applied: candidate.mode === "enforce",
     advisories,
@@ -235,7 +239,7 @@ function buildRecord(
       : { passAt: 1, failAt: 0, qualification: "none" },
     ...(ctx.budgetMs !== undefined && { budget_ms: ctx.budgetMs }),
     duration_ms: Math.max(0, Date.now() - ctx.startedAtMs),
-    ...(fields.error !== undefined && { error: fields.error }),
+    ...(fields.error !== undefined && { error: sanitizeAdjudicationError(fields.error)! }),
     ...(fields.retryable === true && { retryable: true }),
   };
 }
@@ -296,39 +300,9 @@ export function failClosedAdjudication(params: FailClosedAdjudicationParams): Ad
     sources: { note_sha256: params.sources?.note_sha256 ?? null, patch_sha256: params.sources?.patch_sha256 ?? null },
   };
   return unavailableRecord(ctx, candidateItems(params.candidate, null), params.reason, {
-    error: params.error ?? `reviewer-unavailable: ${params.reason}`,
+    error: sanitizeAdjudicationError(params.error ?? `reviewer-unavailable: ${params.reason}`)!,
     ...(params.retryable === true && { retryable: true }),
   });
-}
-
-// ── kernel error shapes (matched by name: no kernel value import on this path) ──
-
-interface NodeErrorLike {
-  name: "KernelNodeError";
-  code: string;
-  gateResult?: GateResult;
-}
-
-function isNodeError(error: unknown): error is NodeErrorLike {
-  return error instanceof Error && error.name === "KernelNodeError" && typeof (error as { code?: unknown }).code === "string";
-}
-
-function isCallError(error: unknown): error is Error & { runId: string; failure: { kind: string } } {
-  return (
-    error instanceof Error &&
-    error.name === "KernelCallError" &&
-    typeof (error as { failure?: { kind?: unknown } }).failure?.kind === "string"
-  );
-}
-
-function isGateError(error: unknown): error is Error & { gateResult: GateResult; cause: unknown } {
-  return error instanceof Error && error.name === "KernelGateError" && typeof (error as { gateResult?: unknown }).gateResult === "object";
-}
-
-function callErrorKind(error: unknown): string {
-  if (isCallError(error)) return error.failure.kind;
-  if (isNodeError(error)) return error.code;
-  return "exception";
 }
 
 // ── the abort guard ───────────────────────────────────────────────────────────
@@ -505,14 +479,14 @@ async function runAdjudication(
       structured_field_used: knowledge?.structured_field_used === true,
     };
   } catch (failure) {
-    const kind = callErrorKind(failure);
+    const kind = callFailureKind(failure);
     const runId = extractionRunId ?? (isCallError(failure) ? failure.runId : undefined);
     progress.extraction = { status: "error", ...(runId !== undefined && { run_id: runId }), error_kind: kind };
     const advisories = items.map((item) => undecided(baseAdvisory(item, undefined), "extraction-error"));
     return finish(kernel, ctx, advisories, {
       extraction: progress.extraction,
       error: kind === "aborted" ? `reviewer-unavailable: ${abortKind(signal)}` : `reviewer-unavailable: extraction-${kind}`,
-      retryable: !isCallError(failure),
+      retryable: !isCallError(failure) && !isTerminalFailure(failure),
       parentRunId,
       prefix,
       signal,
@@ -561,8 +535,8 @@ async function runAdjudication(
   try {
     gate = await kernel.gate(ADVISORY_GATE_NAME, { parentRunId, requestId: adjudicationRequestIds.gate(prefix), ...(signal !== undefined && { signal }) }, checks);
   } catch (failure) {
-    retryable = true;
-    error = errorText(failure);
+    retryable = !isTerminalFailure(failure);
+    error = failureCode(failure);
     // A decide check rejected: gate_end holds the recorded result. Any other failure (including an
     // unpersisted gate_end) yields no verdict the caller may use.
     if (isGateError(failure)) gate = failure.gateResult;
@@ -718,12 +692,12 @@ async function escalate(
     const failedRunId = runId ?? (isCallError(failure) ? failure.runId : undefined);
     return {
       outcome: {
-        verdict: `error:${callErrorKind(failure)}`,
+        verdict: `error:${callFailureKind(failure)}`,
         rationale: "",
         valid: false,
         ...(failedRunId !== undefined && { run_id: failedRunId }),
       },
-      retryable: !isCallError(failure),
+      retryable: !isCallError(failure) && !isTerminalFailure(failure),
     };
   }
 }
@@ -792,8 +766,8 @@ async function finish(
       ],
     );
   } catch (failure) {
-    error ??= errorText(failure);
-    retryable = true;
+    error ??= failureCode(failure);
+    retryable ||= !isTerminalFailure(failure);
   }
   const expected = foldCheckOutcome(fold).result;
   if (recorded === null || recorded.aborted || recorded.verdict !== expected) {
@@ -846,7 +820,7 @@ export async function adjudicateAdvisories(params: AdjudicateAdvisoriesParams): 
     const items = progress.items;
 
     // Fail-closed preconditions: no node call is made.
-    if (!ctx.config) return unavailableRecord(ctx, items, "exception", { error: errorText(loaded.error) });
+    if (!ctx.config) return unavailableRecord(ctx, items, "exception", { error: failureCode(loaded.error) });
     if (!ctx.thresholds) return unavailableRecord(ctx, items, "no-thresholds", { error: "reviewer-unavailable: no-thresholds" });
     if (!candidate.eligible) {
       return unavailableRecord(ctx, items, "ineligible", { error: `ineligible: ${candidate.ineligible_reason ?? "unknown"}` });
@@ -892,7 +866,7 @@ export async function adjudicateAdvisories(params: AdjudicateAdvisoriesParams): 
     try {
       return unavailableRecord(fallbackCtx, progress?.items ?? [], "exception", {
         ...(progress && { extraction: progress.extraction }),
-        error: errorText(failure),
+        error: failureCode(failure),
         retryable: true,
       });
     } catch {
@@ -910,7 +884,7 @@ export async function adjudicateAdvisories(params: AdjudicateAdvisoriesParams): 
         model: { requested: "" },
         thresholds: { passAt: 1, failAt: 0, qualification: "none" },
         duration_ms: Math.max(0, Date.now() - startedAtMs),
-        error: errorText(failure),
+        error: failureCode(failure),
         retryable: true,
       };
     }

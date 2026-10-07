@@ -7,7 +7,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { adjudicateAdvisories } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/index.js";
+import {
+  adjudicateAdvisories,
+  sanitizeAdjudicationRecord,
+} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/index.js";
 import type {
   AdvisoryAdjudication,
   LlmReviewCandidate,
@@ -146,8 +149,10 @@ export function createAdjudicationHandler(globals: GlobalArgs, deps: Adjudicatio
     ]);
     // A null kernel and missing evidence are the core's to classify: no node call either way,
     // a retryable result for the kernel, a recorded evidence-missing result for the files.
-    const kernel = await nodeKernel();
-    const adjudicated = await adjudicate({
+    // A kernel that fails to start is an unavailable one (retried); its message never reaches the queue.
+    const kernel = await nodeKernel().catch(() => null);
+    // Only fixed error codes reach metadata, the job's retry error, and logs (§4.7).
+    const adjudicated = sanitizeAdjudicationRecord(await adjudicate({
       kernel,
       candidate,
       noteText: note.text,
@@ -156,9 +161,11 @@ export function createAdjudicationHandler(globals: GlobalArgs, deps: Adjudicatio
       requestIdPrefix: adjudicationRequestIdPrefix(checkpointId),
       // The digests of the exact bytes this handler read.
       sources: { note_sha256: note.sha256, patch_sha256: patch.sha256 },
-    });
+    }));
     throwIfAborted(ctx.signal, checkpointId);
     // Infrastructure (no node kernel, kernel write failure, unexpected exception) is retried, not recorded.
+    // A requestId that already names a different request (invalid-request) is recorded, not retried:
+    // the same job would mismatch forever.
     if (adjudicated.retryable) {
       throw new Error(`checkpoint_adjudication ${checkpointId}: ${adjudicated.error ?? "retryable adjudication failure"}`);
     }

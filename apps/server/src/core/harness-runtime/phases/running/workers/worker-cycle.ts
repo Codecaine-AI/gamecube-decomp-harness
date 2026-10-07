@@ -32,8 +32,10 @@ import {
   buildLlmReviewCandidate,
   effectiveMode,
   failClosedAdjudication,
+  failureCode,
   foldVerdicts,
   inlineBudget,
+  sanitizeAdjudicationRecord,
   shippedAdvisoryAdjudicationConfig,
   type AdvisoryAdjudication,
   type AdvisoryAdjudicationConfig,
@@ -1318,7 +1320,8 @@ async function adjudicateDeferredAdvisories(params: {
       adjudication = failClosedAdjudication({
         candidate,
         reason: "exception",
-        error: error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 300) : "Error: non-error thrown",
+        // A fixed code only: exception messages can carry prompts or credentials (§4.7).
+        error: failureCode(error),
         config,
         budgetMs: budget.ms,
       });
@@ -2599,7 +2602,7 @@ async function executeClaimedWorker(params: {
           // advisories (the qa_status column keeps the raw scan status).
           ...(advisoryMode.mode === "enforce"
             ? {
-                llm_review_adjudication: inlineAdvisories?.adjudication ?? null,
+                llm_review_adjudication: sanitizeAdjudicationRecord(inlineAdvisories?.adjudication ?? null),
                 qa_status_effective: effectiveQaLint(runnerValidation)?.status ?? null,
               }
             : {}),

@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -267,13 +267,18 @@ async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<vo
 }
 
 /** Runs the real lane with the handler until every adjudication job settled. */
-async function runLane(store: StateStore, deps: AdjudicationHandlerDeps, globals = globalsFor(store.stateDir)): Promise<void> {
+async function runLane(
+  store: StateStore,
+  deps: AdjudicationHandlerDeps,
+  globals = globalsFor(store.stateDir),
+  log: (line: string) => void = () => {},
+): Promise<void> {
   const lanes = startModelNodeLanes({
     store,
     config: { adjudication: true, knowledge: false },
     handlers: { checkpoint_adjudication: createAdjudicationHandler(globals, deps), checkpoint_knowledge: null },
     lane: { intervalMs: 10 },
-    log: () => {},
+    log,
   });
   try {
     await waitFor(() => adjudicationJobs(store).every((job) => job.status === "succeeded" || job.status === "waiting"));
@@ -473,6 +478,98 @@ describe("checkpoint_adjudication handler", () => {
     expect(harness.decisions.calls).toBe(2);
     expect(checkpointRow(store, "cp-released")).toEqual(before);
     expect(adjudicationJobs(store)).toEqual([{ dedupe_key: "cp-released", status: "waiting", attempts: 1, result_ref: null }]);
+  });
+
+  test("exception text from any node never reaches metadata, queue rows, events or logs (§4.7)", async () => {
+    const sentinel = `PROMPT_MARKER_${randomUUID()} Bearer CRED_MARKER_${randomUUID()}`;
+    const store = tempStore();
+    const harness = await nodeHarness();
+    const evidence = writeEvidence(tempDir("mn-adjudication-evidence-"));
+    seedCheckpoint(store, { id: "cp-gate", ...evidence, kernel: kernelOf(harness) });
+    seedCheckpoint(store, { id: "cp-call", workerStateId: "worker-2", ...evidence, kernel: kernelOf(harness) });
+    const real = harness.kernel;
+    // The gate throws an unexpected error (retried); the call throws a call failure carrying the sentinel (recorded).
+    const kernel: WorkerNodeKernel = {
+      call: ((...args: Parameters<WorkerNodeKernel["call"]>) =>
+        args[2]?.requestId?.startsWith("checkpoint:cp-call:")
+          ? Promise.reject(Object.assign(new Error(sentinel), { name: "KernelCallError", runId: "r", failure: { kind: "http", status: 500, rawResponse: sentinel } }))
+          : real.call(...args)) as WorkerNodeKernel["call"],
+      decide: ((...args: Parameters<WorkerNodeKernel["decide"]>) => real.decide(...args)) as WorkerNodeKernel["decide"],
+      step: ((...args: Parameters<WorkerNodeKernel["step"]>) => real.step(...args)) as WorkerNodeKernel["step"],
+      gate: ((...args: Parameters<WorkerNodeKernel["gate"]>) =>
+        args[1].requestId?.startsWith("checkpoint:cp-gate:")
+          ? Promise.reject(new TypeError(sentinel))
+          : real.gate(...args)) as WorkerNodeKernel["gate"],
+    };
+    const logs: string[] = [];
+    const consoleLines: string[] = [];
+    const saved = { error: console.error, warn: console.warn, info: console.info, log: console.log };
+    for (const level of ["error", "warn", "info", "log"] as const) {
+      console[level] = (...parts: unknown[]) => void consoleLines.push(parts.map(String).join(" "));
+    }
+    try {
+      catchUpAdjudication(store);
+      await runLane(store, { nodeKernel: async () => kernel }, globalsFor(store.stateDir), (line) => logs.push(line));
+    } finally {
+      Object.assign(console, saved);
+    }
+
+    expect(adjudicationOf(store, "cp-call")).toMatchObject({ verdict: "error", error: "reviewer-unavailable: extraction-http" });
+    expect(adjudicationOf(store, "cp-gate")).toBeUndefined();
+    const dump = JSON.stringify([
+      store.db.query("SELECT * FROM jobs").all(),
+      store.db.query("SELECT * FROM game_events").all(),
+      store.db.query("SELECT * FROM worker_checkpoints").all(),
+      logs,
+      consoleLines,
+    ]);
+    expect(dump).toContain("unexpected-error");
+    expect(dump).not.toContain("PROMPT_MARKER_");
+    expect(dump).not.toContain("CRED_MARKER_");
+  });
+
+  test("a node kernel that fails to start is retried under a fixed code", async () => {
+    const store = tempStore();
+    const evidence = writeEvidence(tempDir("mn-adjudication-evidence-"));
+    seedCheckpoint(store, { id: "cp-1", ...evidence, kernel: { run_id: "worker-run", container_id: "c", pi_session_id: "s" } });
+    catchUpAdjudication(store);
+    const handler = createAdjudicationHandler(globalsFor(store.stateDir), {
+      nodeKernel: async () => {
+        throw new Error(`PROMPT_MARKER_${randomUUID()}`);
+      },
+    });
+    const claimed = claimNextJob(store, { kind: "checkpoint_adjudication", concurrencyLimit: 4, leaseMs: 60_000 })!;
+    const failure = await handler(claimed.job, { store, token: claimed.token, signal: new AbortController().signal, ensureClaim: () => {} })
+      .then(() => null, (error: unknown) => error as Error);
+    expect(failure?.message).toBe("checkpoint_adjudication cp-1: reviewer-unavailable: no-node-kernel");
+  });
+
+  test("a requestId already used for a different request is recorded, not retried", async () => {
+    const store = tempStore();
+    const harness = await nodeHarness();
+    const evidence = writeEvidence(tempDir("mn-adjudication-evidence-"));
+    seedCheckpoint(store, { id: "cp-1", ...evidence, kernel: kernelOf(harness) });
+    // An earlier adjudication under the same checkpoint id saw a different note (e.g. the file was rewritten).
+    const candidate = JSON.parse(checkpointRow(store, "cp-1").metadata_json).llm_review_candidate;
+    await adjudicateAdvisories({
+      kernel: harness.kernel,
+      candidate,
+      noteText: `${NOTE}\nedited`,
+      patchText: PATCH,
+      requestIdPrefix: "checkpoint:cp-1",
+    });
+
+    catchUpAdjudication(store);
+    await runLane(store, { nodeKernel: async () => harness.kernel });
+
+    expect(adjudicationJobs(store).map((job) => [job.dedupe_key, job.status, job.attempts])).toEqual([["cp-1", "succeeded", 1]]);
+    expect(adjudicationOf(store, "cp-1")).toMatchObject({
+      verdict: "error",
+      error: "reviewer-unavailable: extraction-invalid-request",
+      extraction: { status: "error", error_kind: "invalid-request" },
+      accepted_fingerprints: [],
+    });
+    expect(adjudicationOf(store, "cp-1")!.retryable).toBeUndefined();
   });
 
   test("dry-run agents make no node call; a missing node kernel is retried, never recorded", async () => {

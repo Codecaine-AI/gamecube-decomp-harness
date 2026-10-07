@@ -9,6 +9,18 @@ import {
 } from "./state.js";
 import type { LlmReviewCodeFacts } from "./types.js";
 
+// The contract limits, independent of the module's constants: plan §6.5
+// (hunk ≤ 120 lines, justification ≤ 4,000 characters) and §6.8 (≤ 16 KB of hunk).
+const CONTRACT_HUNK_LINES = 120;
+const CONTRACT_HUNK_CHARS = 16_000;
+const CONTRACT_JUSTIFICATION_CHARS = 4_000;
+
+test("the module's bounds stay within the contract limits", () => {
+  expect(MAX_STATE_HUNK_LINES).toBeLessThanOrEqual(CONTRACT_HUNK_LINES);
+  expect(MAX_STATE_HUNK_CHARS).toBeLessThanOrEqual(CONTRACT_HUNK_CHARS);
+  expect(MAX_STATE_JUSTIFICATION_CHARS).toBeLessThanOrEqual(CONTRACT_JUSTIFICATION_CHARS);
+});
+
 function finding(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
   return {
     rule_id: "type_erasing_cast",
@@ -73,7 +85,7 @@ describe("advisory decision state", () => {
     const lines = Array.from({ length: 500 }, (_, index) => `+    line_${index};`);
     const hunk = state({ hunk: lines.join("\n") }).hunk!;
     const kept = hunk.split("\n");
-    expect(kept.length).toBeLessThanOrEqual(MAX_STATE_HUNK_LINES);
+    expect(kept.length).toBeLessThanOrEqual(CONTRACT_HUNK_LINES);
     expect(kept[0]).toBe("+    line_0;");
     expect(kept.at(-1)).toMatch(/more lines/);
   });
@@ -82,7 +94,7 @@ describe("advisory decision state", () => {
     const lines = Array.from({ length: 100 }, (_, index) => `+${String(index).padEnd(399, "x")}`);
     const original = lines.join("\n");
     const hunk = state({ hunk: original }).hunk!;
-    expect(hunk.length).toBeLessThanOrEqual(MAX_STATE_HUNK_CHARS);
+    expect(hunk.length).toBeLessThanOrEqual(CONTRACT_HUNK_CHARS);
     const kept = hunk.split("\n");
     const body = kept.slice(0, -1);
     expect(body).toEqual(lines.slice(0, body.length));
@@ -92,19 +104,19 @@ describe("advisory decision state", () => {
   test("a hunk over both bounds keeps the marker; one oversized line is itself cut", () => {
     const lines = Array.from({ length: 300 }, (_, index) => `+${String(index).padEnd(199, "y")}`);
     const hunk = state({ hunk: lines.join("\n") }).hunk!;
-    expect(hunk.length).toBeLessThanOrEqual(MAX_STATE_HUNK_CHARS);
-    expect(hunk.split("\n").length).toBeLessThanOrEqual(MAX_STATE_HUNK_LINES);
+    expect(hunk.length).toBeLessThanOrEqual(CONTRACT_HUNK_CHARS);
+    expect(hunk.split("\n").length).toBeLessThanOrEqual(CONTRACT_HUNK_LINES);
     expect(hunk).toMatch(/\n… \[\d+ more lines\]$/);
 
     const single = state({ hunk: `+${"z".repeat(20_000)}` }).hunk!;
-    expect(single.length).toBeLessThanOrEqual(MAX_STATE_HUNK_CHARS);
+    expect(single.length).toBeLessThanOrEqual(CONTRACT_HUNK_CHARS);
     expect(single.startsWith("+zzz")).toBe(true);
     expect(single).toMatch(/more characters\]$/);
   });
 
   test("bounds and trims the justification; a blank one becomes null", () => {
     const long = state({ justification: "because ".repeat(1250) }).justification!;
-    expect(long.length).toBeLessThanOrEqual(MAX_STATE_JUSTIFICATION_CHARS);
+    expect(long.length).toBeLessThanOrEqual(CONTRACT_JUSTIFICATION_CHARS);
     expect(long.startsWith("because because")).toBe(true);
 
     expect(state({ justification: "  matches 0x24 \n" }).justification).toBe("matches 0x24");

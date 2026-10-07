@@ -221,7 +221,7 @@ describe("§6.7 failure modes", () => {
 
     expectFailClosed(result);
     expect(result).toMatchObject({ verdict: "error", retryable: true, extraction: { status: "ok" } });
-    expect(result.error).toStartWith("KernelNodeError:");
+    expect(result.error).toBe("kernel-error: row-write-failed");
     expect(h.classifier.calls).toHaveLength(0);
   });
 
@@ -259,7 +259,7 @@ describe("§6.7 failure modes", () => {
       expect(h.classifier.calls).toHaveLength(2);
       expectFailClosed(result);
       expect(result).toMatchObject({ verdict: "error", retryable: true, accepted_fingerprints: [] });
-      expect(result.error).toStartWith("KernelNodeError:");
+      expect(result.error).toBe("kernel-error: row-write-failed");
       expect(result.advisories.some((a) => a.result === "pass")).toBe(false);
     },
   );
@@ -279,7 +279,7 @@ describe("§6.7 failure modes", () => {
     const result = await run(h, { kernel });
 
     expectFailClosed(result);
-    expect(result).toMatchObject({ verdict: "error", retryable: true, error: "Error: fold write failed", accepted_fingerprints: [] });
+    expect(result).toMatchObject({ verdict: "error", retryable: true, error: "unexpected-error", accepted_fingerprints: [] });
   });
 
   test("an earlier pass never survives a later decision's kernel failure", async () => {
@@ -313,7 +313,7 @@ describe("§6.7 failure modes", () => {
 
     expectFailClosed(result);
     expect(result).toMatchObject({ verdict: "error", retryable: true });
-    expect(result.error).toStartWith("KernelGateError:");
+    expect(result.error).toBe("kernel-error: row-write-failed");
     expect(result.gate_span_id).toBeString();
     expect(result.advisories.filter((a) => a.severity === "warning").map((a) => a.abstain_reason)).toEqual(["kernel-error", "skipped"]);
   });
@@ -371,7 +371,7 @@ describe("§6.7 failure modes", () => {
       config: testConfig("fake-decide/fake-jev"),
     });
     expectFailClosed(result);
-    expect(result).toMatchObject({ verdict: "error", retryable: true, extraction: { status: "error", error_kind: "exception" } });
+    expect(result).toMatchObject({ verdict: "error", retryable: true, extraction: { status: "error", error_kind: "unexpected-error" } });
   });
 
   test("a throwing step and a malformed candidate still resolve fail closed", async () => {
