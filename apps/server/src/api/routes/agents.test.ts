@@ -36,6 +36,43 @@ describe("handleAgentsApiRoute", () => {
     }]);
   });
 
+  test("threads the advisory adjudication preview mode and leaves it unset when absent", async () => {
+    const received: unknown[] = [];
+    const load = deps({
+      loadKernelAgentsPayload: (_paths, options) => {
+        received.push(options);
+        return { agents: [] };
+      },
+    });
+
+    const withMode = await handleAgentsApiRoute(
+      new URL("http://localhost/api/kernel/agents?advisory_adjudication=enforce&target=unit%2Fa%3ASym"),
+      load,
+    );
+    const absent = await handleAgentsApiRoute(new URL("http://localhost/api/kernel/agents"), load);
+
+    expect(withMode?.status).toBe(200);
+    expect(absent?.status).toBe(200);
+    expect(received).toEqual([
+      { target: { unit: "unit/a", symbol: "Sym" }, advisoryAdjudication: "enforce" },
+      undefined,
+    ]);
+  });
+
+  test("rejects an unknown advisory adjudication mode", async () => {
+    let called = false;
+    const response = await handleAgentsApiRoute(
+      new URL("http://localhost/api/kernel/agents?advisory_adjudication=sometimes"),
+      deps({ loadKernelAgentsPayload: () => { called = true; return {}; } }),
+    );
+
+    expect(response?.status).toBe(400);
+    expect(called).toBeFalse();
+    expect(await response?.json()).toEqual({
+      error: "advisory_adjudication must be one of: off, shadow, enforce",
+    });
+  });
+
   test("rejects a malformed target selector", async () => {
     let called = false;
     const response = await handleAgentsApiRoute(
