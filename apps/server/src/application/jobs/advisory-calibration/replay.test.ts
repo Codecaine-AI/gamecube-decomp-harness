@@ -64,17 +64,70 @@ describe("advisory replay", () => {
     expect(adjudication.sources.patch_sha256).toBe(JSON.parse(readFileSync(join(FIXTURE, "manifest.json"), "utf8")).files["qa_diff.patch"]);
     expect(printed.at(-2)).toContain("4 advisories adjudicated, verdict pass");
 
-    // The nodes are traced in the dedicated database: one extraction call, four decisions, one gate.
+    // The nodes are traced in the dedicated database: one extraction call, four decisions, one advisory gate.
     expect(existsSync(dbPath)).toBe(true);
     const db = new Database(dbPath, { readonly: true });
     try {
       const kinds = db.query("SELECT kind, COUNT(*) AS n FROM pi_agent_sessions GROUP BY kind ORDER BY kind").all() as Array<{ kind: string; n: number }>;
       expect(Object.fromEntries(kinds.map((row) => [row.kind, row.n]))).toMatchObject({ call: 1, decision: 4 });
-      const gates = db.query("SELECT COUNT(*) AS n FROM trace_events WHERE type = 'gate_end'").get() as { n: number };
+      const gates = db
+        .query("SELECT COUNT(*) AS n FROM trace_events WHERE type = 'gate_end' AND json_extract(event_data, '$.gate_name') = 'llm-review-advisories'")
+        .get() as { n: number };
       expect(gates.n).toBe(1);
     } finally {
       db.close();
     }
+  });
+
+  test("replay leaves its parent run, session and container terminal; a second replay into the same --db reuses prior results", async () => {
+    // Statuses of the seeded parent (the run with no parent run), its session and its container.
+    const parentStates = (dbPath: string) => {
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        return db
+          .query(
+            `SELECT r.status AS run, s.status AS session, c.status AS container,
+                    r.ended_at IS NOT NULL AS run_ended, s.ended_at IS NOT NULL AS session_ended, c.ended_at IS NOT NULL AS container_ended
+               FROM agent_runs r JOIN pi_agent_sessions s ON s.id = r.pi_session_id JOIN containers c ON c.id = r.container_id
+              WHERE r.parent_run_id IS NULL ORDER BY r.started_at`,
+          )
+          .all();
+      } finally {
+        db.close();
+      }
+    };
+    const done = { run: "done", session: "ended", container: "done", run_ended: 1, session_ended: 1, container_ended: 1 };
+    const nodeSessions = (dbPath: string) => {
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        const rows = db.query("SELECT kind, COUNT(*) AS n FROM pi_agent_sessions WHERE kind IN ('call', 'decision') GROUP BY kind").all() as Array<{ kind: string; n: number }>;
+        return Object.fromEntries(rows.map((row) => [row.kind, row.n]));
+      } finally {
+        db.close();
+      }
+    };
+
+    for (const engine of ["replay", "fake"] as const) {
+      const dbPath = join(tempDir(), "replay.db");
+      const first = await runReplay({ fixtureDir: FIXTURE, engine, dbPath });
+      expect(first.reusedDb).toBe(false);
+      expect(first.doctor.ok).toBe(true);
+      expect(parentStates(dbPath)).toEqual([done]);
+
+      // Same --db: every node replays by requestId (no new call or decision run); the new parent is terminal too.
+      const printed: string[] = [];
+      const second = await replayCommand(parseCalibrationArgs(["replay", "--fixture", FIXTURE, "--engine", engine, "--db", dbPath]), (line) => printed.push(line));
+      expect(second.reusedDb).toBe(true);
+      expect(printed.some((line) => line.includes("already existed") && line.includes("reused its prior results"))).toBe(true);
+      expect(second.adjudication.advisories.map((a) => a.decision?.run_id)).toEqual(first.adjudication.advisories.map((a) => a.decision?.run_id));
+      expect(nodeSessions(dbPath)).toEqual({ call: 1, decision: 4 });
+      expect(parentStates(dbPath)).toEqual([done, done]);
+    }
+
+    // A replay that fails (here: an invalid config) still ends its parent, as an error.
+    const failedDb = join(tempDir(), "failed.db");
+    await expect(runReplay({ fixtureDir: FIXTURE, engine: "replay", dbPath: failedDb, config: { thresholds: {} } as never })).rejects.toThrow();
+    expect(parentStates(failedDb)).toEqual([{ run: "error", session: "error", container: "error", run_ended: 1, session_ended: 1, container_ended: 1 }]);
   });
 
   test("replay --engine fake extracts from the note and abstains at the fake classifier's p = 0.5", async () => {

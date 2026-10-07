@@ -236,6 +236,7 @@ async function scoreWithKernel(
     fake: { probability: () => fixtureP.get(current ?? "") ?? 0.5 },
   });
   const rows: ProbabilityRow[] = [];
+  let failed = true;
   try {
     for (const entry of scorable) {
       if (opts.engine === "fake" && typeof entry.item.fixture_p !== "number") continue;
@@ -263,8 +264,9 @@ async function scoreWithKernel(
       });
     }
     if (opts.engine === "live") opts.print(`calibrate: ${rows.length} decisions traced in ${handle.dbPath}`);
+    failed = false;
   } finally {
-    await handle.close();
+    await handle.close(failed ? "error" : "done");
   }
   return rows;
 }

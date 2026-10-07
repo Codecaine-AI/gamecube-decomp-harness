@@ -12,7 +12,7 @@
 //   calibrate --engine live|replay|fake [--dir <d>] [--dry-run] [--write] [--config <file>] [--model <ref>] [--run <file>]
 //             [--limit <n>] [--db <path>] [--max-false-accept-upper <x>]
 //   freeze-replay --source-root <dir> --run <id> --worker-state <id> --attempt <n> --out <dir> [--game <g>] [--probability <p>]
-//   replay --fixture <dir> --engine live|replay|fake [--db <path>]
+//   replay --fixture <dir> --engine live|replay|fake [--db <path>]   (an existing --db reuses its prior results by requestId)
 import { parseCalibrationArgs } from "./args.js";
 
 export const ADVISORY_CALIBRATION_COMMANDS = [

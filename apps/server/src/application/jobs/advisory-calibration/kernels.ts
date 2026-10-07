@@ -5,8 +5,9 @@
 // - `fake`: the kernel's offline fakes (plan §7.1): a scripted call engine and
 //   the fake classifier, with every production model ref aliased to them, so
 //   no model client is constructed and nothing reaches the network.
-// Every node nests under one seeded parent run, which is closed on close() so
-// the trace doctor sees a finished run.
+// Every node nests under one seeded parent run; close() ends that run, its
+// session and its container (done/ended, or error), so the trace doctor and
+// the viewer see a finished command rather than a pending one.
 import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -69,16 +70,30 @@ export interface CalibrationKernel {
   classifier?: FakeClassifier;
   /** The trace doctor over this kernel's database. */
   doctor(): Promise<DoctorReport>;
-  /** Ends the parent run, flushes, closes, and removes an owned temp directory (fake only). */
-  close(): Promise<void>;
+  /**
+   * Ends the parent run, session and container (`done`/`ended`/`done`, or
+   * `error` for a failed command), flushes, closes, and removes an owned temp
+   * directory (fake only).
+   */
+  close(outcome?: ParentOutcome): Promise<void>;
+  /** Ends the parent run, session and container now (once; close() then keeps that outcome), e.g. before running the doctor. */
+  finish(outcome: ParentOutcome): Promise<void>;
 }
+
+export type ParentOutcome = "done" | "error";
 
 interface KernelDbHost {
   db: unknown;
   close(): Promise<void>;
 }
 
-async function seedParent(db: unknown, label: string): Promise<{ containerId: string; parentRunId: string; parentSessionId: string }> {
+interface ParentIds {
+  containerId: string;
+  parentRunId: string;
+  parentSessionId: string;
+}
+
+async function seedParent(db: unknown, label: string): Promise<ParentIds> {
   const { setupPiSessionAndRun } = await import("@agent-kernel/kernel/spawn-pipeline/session");
   const containerId = `melee:advisory-calibration-${label}-${randomUUID()}`;
   const now = new Date().toISOString();
@@ -89,7 +104,7 @@ async function seedParent(db: unknown, label: string): Promise<{ containerId: st
     appKey: [containerId],
     parentContainerId: null,
     label: `advisory-calibration ${label}`,
-    status: "running",
+    status: "active",
     workingDir: null,
     phase: null,
     phaseVocabulary: [],
@@ -109,9 +124,14 @@ async function seedParent(db: unknown, label: string): Promise<{ containerId: st
   return { containerId, parentRunId, parentSessionId };
 }
 
-async function finishParent(db: unknown, parentRunId: string): Promise<void> {
-  const { updateAgentRunStatus } = await import("@agent-kernel/db");
-  await updateAgentRunStatus(db as KernelDatabase, parentRunId, "done", { endedAt: new Date().toISOString() });
+/** The seeded parent run, its session and its container reach a terminal status together. */
+async function finishParent(db: unknown, ids: ParentIds, outcome: ParentOutcome): Promise<void> {
+  const { updateAgentRunStatus, updateContainerStatus, updatePiAgentSessionStatus } = await import("@agent-kernel/db");
+  const endedAt = new Date().toISOString();
+  const kernelDb = db as KernelDatabase;
+  await updateAgentRunStatus(kernelDb, ids.parentRunId, outcome, { endedAt });
+  await updatePiAgentSessionStatus(kernelDb, ids.parentSessionId, outcome === "done" ? "ended" : "error", endedAt);
+  await updateContainerStatus(kernelDb, ids.containerId, outcome, { endedAt });
 }
 
 async function runDoctor(db: unknown): Promise<DoctorReport> {
@@ -189,8 +209,15 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
   const { path: dbPath, ownedDir } = resolveDbPath(opts.dbPath);
   if (opts.engine === "fake") {
     const fake = await openFakeKernel(opts, dbPath);
-    const { containerId, parentRunId, parentSessionId } = await seedParent(fake.host.db, opts.label);
+    const parent = await seedParent(fake.host.db, opts.label);
+    const { containerId, parentRunId, parentSessionId } = parent;
     let closed = false;
+    let finished = false;
+    const finish = async (outcome: ParentOutcome) => {
+      if (finished) return;
+      finished = true;
+      await finishParent(fake.host.db, parent, outcome);
+    };
     return {
       kernel: fake.kernel,
       engine: "fake",
@@ -200,11 +227,12 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
       parentSessionId,
       classifier: fake.classifier,
       doctor: () => runDoctor(fake.host.db),
-      async close() {
+      finish,
+      async close(outcome = "done") {
         if (closed) return;
         closed = true;
         try {
-          await finishParent(fake.host.db, parentRunId);
+          await finish(outcome);
           await fake.dispose();
         } finally {
           await fake.host.close();
@@ -229,8 +257,15 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
     const runtime = await getDefaultMeleeKernelRuntime({ database: { stateDir: dirname(dbPath) } });
     if (!kernel || !runtime) throw new Error("the node kernel is unavailable (kernel runtime disabled?)");
     if (runtime.databasePath !== dbPath) throw new Error(`the node kernel opened ${runtime.databasePath}, not ${dbPath}`);
-    const { containerId, parentRunId, parentSessionId } = await seedParent(runtime.db, opts.label);
+    const parent = await seedParent(runtime.db, opts.label);
+    const { containerId, parentRunId, parentSessionId } = parent;
     let closed = false;
+    let finished = false;
+    const finish = async (outcome: ParentOutcome) => {
+      if (finished) return;
+      finished = true;
+      await finishParent(runtime.db, parent, outcome);
+    };
     return {
       kernel,
       engine: "live",
@@ -239,11 +274,12 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
       parentRunId,
       parentSessionId,
       doctor: () => runDoctor(runtime.db),
-      async close() {
+      finish,
+      async close(outcome = "done") {
         if (closed) return;
         closed = true;
         try {
-          await finishParent(runtime.db, parentRunId);
+          await finish(outcome);
         } finally {
           try {
             await closeNodeKernel();

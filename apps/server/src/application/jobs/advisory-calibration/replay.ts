@@ -8,7 +8,12 @@
 // - `fake`: the deterministic note reader extracts, the fake classifier
 //   answers its default p = 0.5 (so every decided advisory abstains).
 // - `live`: the production node kernel (codex-lb extraction, Jev decisions).
-// The fixture's digests are verified first; the trace doctor runs last.
+// The fixture's digests are verified first. When the command ends, its parent
+// run, session and container are marked terminal (done/ended, or error when
+// the adjudication errored or the replay threw), then the trace doctor runs.
+// Replaying into an existing `--db` reuses that database's prior results: every
+// node carries a requestId (`replay:<fixture>:…`), so a repeated replay returns
+// the recorded extraction and decisions without new engine requests.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
@@ -28,7 +33,7 @@ import type { AdvisoryFindingRef, CheckpointKnowledge } from "@server/generated/
 import { assertKnownFlags, engineFlag, requiredFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { fakeExtractCheckpointKnowledge } from "./fake-extractor.js";
 import { REPLAY_FIXTURE_FILES, type FixtureProbabilityRow, type ReplayFixtureManifest } from "./freeze-replay.js";
-import { openCalibrationKernel, type FakeEngineScript } from "./kernels.js";
+import { openCalibrationKernel, type FakeEngineScript, type ParentOutcome } from "./kernels.js";
 import { readJsonl, sha256Hex } from "./store.js";
 import type { CalibrationEngine } from "./types.js";
 
@@ -114,16 +119,21 @@ export interface ReplayResult {
   adjudication: AdvisoryAdjudication;
   doctor: DoctorReport;
   dbPath: string;
+  /** True when `--db` already existed: nodes with the same requestId replayed prior results. */
+  reusedDb: boolean;
 }
 
 export async function runReplay(opts: { fixtureDir: string; engine: CalibrationEngine; dbPath?: string; config?: AdvisoryAdjudicationConfig }): Promise<ReplayResult> {
   const fixture = loadReplayFixture(opts.fixtureDir);
+  const reusedDb = opts.dbPath !== undefined && existsSync(resolve(opts.dbPath));
   const handle = await openCalibrationKernel({
     engine: opts.engine === "live" ? "live" : "fake",
     label: "replay",
     ...(opts.dbPath !== undefined && { dbPath: opts.dbPath }),
     ...(opts.engine !== "live" && { fake: fakeScript(fixture, opts.engine) }),
   });
+  // Any throw before the adjudication returns leaves the parent marked as failed.
+  let outcome: ParentOutcome = "error";
   try {
     const shipped = opts.config ?? readAdvisoryAdjudicationConfig();
     let config = shipped;
@@ -142,10 +152,12 @@ export async function runReplay(opts: { fixtureDir: string; engine: CalibrationE
       requestIdPrefix: `replay:${fixture.name}`,
       config,
     });
+    outcome = adjudication.verdict === "error" ? "error" : "done";
+    await handle.finish(outcome);
     const doctor = await handle.doctor();
-    return { adjudication, doctor, dbPath: handle.dbPath };
+    return { adjudication, doctor, dbPath: handle.dbPath, reusedDb };
   } finally {
-    await handle.close();
+    await handle.close(outcome);
   }
 }
 
@@ -158,6 +170,9 @@ export async function replayCommand(args: CalibrationArgs, print: (line: string)
   print(JSON.stringify(adjudication, null, 2));
   const results = adjudication.advisories.map((a) => `${a.file}:${a.line} ${a.result}${a.probability !== undefined ? ` p=${a.probability}` : ""}`);
   print(`replay: ${adjudication.advisories.length} advisories adjudicated, verdict ${adjudication.verdict} (${results.join("; ")})`);
+  if (result.reusedDb) {
+    print(`replay: --db ${result.dbPath} already existed: nodes with the same requestId reused its prior results (no new engine requests)`);
+  }
   const kept = engine === "live" || dbPath !== undefined ? `; kernel DB ${result.dbPath}` : "";
   print(`replay: extraction ${adjudication.extraction.status}; doctor ${doctor.ok ? "ok" : `${doctor.violations.length} violations`}${kept}`);
   if (adjudication.verdict === "error") throw new Error(`replay: adjudication failed: ${adjudication.error ?? "unknown error"}`);
