@@ -143,9 +143,15 @@ describe("adjudicateAdvisories", () => {
            WHERE run_id = ? AND type IN ('gate_start', 'gate_end', 'step_start') ORDER BY timestamp, type`,
         )
         .all(h.parentRunId);
-      const gateEnd = spans.find((s) => s.type === "gate_end")!;
-      expect(gateEnd.span_id).toBe(result.gate_span_id!);
-      expect(JSON.parse(gateEnd.data)).toMatchObject({ gate_name: "llm-review-advisories", verdict: "pass" });
+      const gateEnds = spans.filter((s) => s.type === "gate_end").map((s) => ({ spanId: s.span_id, data: JSON.parse(s.data) }));
+      const adviseGate = gateEnds.find((g) => g.data.gate_name === "llm-review-advisories")!;
+      expect(adviseGate.spanId).toBe(result.gate_span_id!);
+      expect(adviseGate.data).toMatchObject({ verdict: "pass" });
+      // The fold is an acknowledged record: the verdict gate's one check carries it.
+      expect(gateEnds.find((g) => g.data.gate_name === "advisory-verdict")!.data).toMatchObject({
+        verdict: "pass",
+        checks: [{ name: "fold-advisory-verdicts", result: "pass", value: "pass" }],
+      });
       const stepNames = spans.filter((s) => s.type === "step_start").map((s) => JSON.parse(s.data).step_name);
       expect(stepNames).toEqual(["justification:A1", "justification:A2", "fold-advisory-verdicts"]);
       // Decisions fold under the gate.

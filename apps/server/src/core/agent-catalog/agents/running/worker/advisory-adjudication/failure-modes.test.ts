@@ -20,6 +20,7 @@ import {
 } from "./__fixtures__/adjudication.js";
 import { foldVerdicts } from "./fold.js";
 import {
+  ADVISORY_VERDICT_GATE_NAME,
   adjudicateAdvisories,
   failClosedAdjudication,
   type AdjudicateAdvisoriesParams,
@@ -241,6 +242,65 @@ describe("§6.7 failure modes", () => {
     expect(result.advisories.filter((a) => a.severity === "warning").map((a) => a.abstain_reason)).toEqual(["kernel-error", "kernel-error"]);
   });
 
+  test.each(["gate_start", "gate_end"])(
+    "passing decisions, then a fold %s write failure: nothing accepted, retryable",
+    async (eventType) => {
+      const h = await setup();
+      const db = new Database(h.temp.tempDb.path);
+      db.run(
+        `CREATE TRIGGER fail_fold BEFORE INSERT ON trace_events WHEN NEW.type = '${eventType}' ` +
+          `AND json_extract(NEW.event_data, '$.gate_name') = '${ADVISORY_VERDICT_GATE_NAME}' ` +
+          "BEGIN SELECT RAISE(ABORT, 'injected fold write failure'); END",
+      );
+      db.close();
+      const result = await run(h, { candidate: { mode: "enforce" }, requestIdPrefix: "attempt:ws-1:1" });
+
+      // Both decisions passed and the advisory gate was recorded; only the fold record failed.
+      expect(h.classifier.calls).toHaveLength(2);
+      expectFailClosed(result);
+      expect(result).toMatchObject({ verdict: "error", retryable: true, accepted_fingerprints: [] });
+      expect(result.error).toStartWith("KernelNodeError:");
+      expect(result.advisories.some((a) => a.result === "pass")).toBe(false);
+    },
+  );
+
+  test("a fold step that rejects: nothing accepted, retryable", async () => {
+    const h = await setup();
+    const real = h.temp.kernel;
+    const kernel: AdjudicationKernel = {
+      call: ((...args: Parameters<AdjudicationKernel["call"]>) => real.call(...args)) as AdjudicationKernel["call"],
+      decide: ((...args: Parameters<AdjudicationKernel["decide"]>) => real.decide(...args)) as AdjudicationKernel["decide"],
+      step: ((...args: Parameters<AdjudicationKernel["step"]>) => real.step(...args)) as AdjudicationKernel["step"],
+      gate: (async (...args: Parameters<AdjudicationKernel["gate"]>) => {
+        if (args[0] === ADVISORY_VERDICT_GATE_NAME) throw new Error("fold write failed");
+        return real.gate(...args);
+      }) as AdjudicationKernel["gate"],
+    };
+    const result = await run(h, { kernel });
+
+    expectFailClosed(result);
+    expect(result).toMatchObject({ verdict: "error", retryable: true, error: "Error: fold write failed", accepted_fingerprints: [] });
+  });
+
+  test("an earlier pass never survives a later decision's kernel failure", async () => {
+    const h = await setup();
+    const db = new Database(h.temp.tempDb.path);
+    db.run(
+      "CREATE TRIGGER fail_second_decision BEFORE INSERT ON trace_events WHEN NEW.type = 'decision_made' " +
+        "AND json_extract(NEW.event_data, '$.decision_name') = 'JudgeAdvisory:A2' " +
+        "BEGIN SELECT RAISE(ABORT, 'injected decision_made failure'); END",
+    );
+    db.close();
+    const result = await run(h);
+
+    expectFailClosed(result);
+    expect(result).toMatchObject({ verdict: "error", retryable: true, accepted_fingerprints: [] });
+    expect(result.advisories.filter((a) => a.severity === "warning").map((a) => [a.result, a.abstain_reason])).toEqual([
+      ["abstain", "kernel-error"],
+      ["abstain", "kernel-error"],
+    ]);
+  });
+
   test("a decision whose completion write fails: the gate records it, skips the rest, and the result is retryable", async () => {
     const h = await setup();
     const db = new Database(h.temp.tempDb.path);
@@ -382,6 +442,57 @@ describe("§6.7 failure modes", () => {
 });
 
 describe("cancellation (§6.6)", () => {
+  /** Fail closed after a cancellation: no pass, nothing accepted, the cancellation named. */
+  function expectCancelled(result: AdvisoryAdjudication): void {
+    expectFailClosed(result);
+    expect(result.verdict).toBe("error");
+    expect(result.error).toBe("reviewer-unavailable: aborted");
+    expect(result.advisories.some((a) => a.result === "pass")).toBe(false);
+  }
+
+  /** The harness kernel with a hook around the fold's verdict gate. */
+  function withFoldHook(h: AdjudicationHarness, hook: { before?: () => void; after?: () => void }): AdjudicationKernel {
+    const real = h.temp.kernel;
+    return {
+      call: ((...args: Parameters<AdjudicationKernel["call"]>) => real.call(...args)) as AdjudicationKernel["call"],
+      decide: ((...args: Parameters<AdjudicationKernel["decide"]>) => real.decide(...args)) as AdjudicationKernel["decide"],
+      step: ((...args: Parameters<AdjudicationKernel["step"]>) => real.step(...args)) as AdjudicationKernel["step"],
+      gate: (async (...args: Parameters<AdjudicationKernel["gate"]>) => {
+        const fold = args[0] === ADVISORY_VERDICT_GATE_NAME;
+        if (fold) hook.before?.();
+        const result = await real.gate(...args);
+        if (fold) hook.after?.();
+        return result;
+      }) as AdjudicationKernel["gate"],
+    };
+  }
+
+  test("a signal fired right after the final passing decision accepts nothing", async () => {
+    const controller = new AbortController();
+    const h = await setup({
+      decisions: (line) => {
+        if (line === 1864) controller.abort();
+        return bool(0.93);
+      },
+    });
+    const result = await run(h, { candidate: { mode: "enforce" }, signal: controller.signal, requestIdPrefix: "attempt:ws-1:1" });
+
+    expect(h.classifier.calls).toHaveLength(2);
+    expectCancelled(result);
+  });
+
+  test("a signal fired as the fold is recorded, or just after, accepts nothing", async () => {
+    for (const when of ["before", "after"] as const) {
+      const controller = new AbortController();
+      const h = await setup();
+      const kernel = withFoldHook(h, { [when]: () => controller.abort() });
+      const result = await run(h, { kernel, candidate: { mode: "enforce" }, signal: controller.signal, requestIdPrefix: "attempt:ws-1:1" });
+      expectCancelled(result);
+      h.cleanup();
+      harness = null;
+    }
+  });
+
   test("a hanging extraction is cancelled when the signal fires and resolves fail closed promptly", async () => {
     const h = await setup({
       calls: async (req) => {

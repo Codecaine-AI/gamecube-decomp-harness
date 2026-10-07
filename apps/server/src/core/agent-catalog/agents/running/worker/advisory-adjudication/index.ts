@@ -8,7 +8,8 @@
 //      configured bars; info advisories are noted, never decided;
 //   3. enforce with escalateLowConfidence only: JudgeAdvisoryWithRationale
 //      for low-confidence abstains;
-//   4. kernel.step "fold-advisory-verdicts" records the fold.
+//   4. the fold, recorded as the step check "fold-advisory-verdicts" of the
+//      acknowledged gate "advisory-verdict" (a step write is only logged).
 // Every node nests under the worker's kernel run and carries a requestId
 // derived from `requestIdPrefix`, so a retry replays instead of re-paying.
 //
@@ -16,10 +17,11 @@
 // every node, and if something ignores it the result is still returned, fail
 // closed, `abortGraceMs` after the abort (the late result is discarded).
 // Every ambiguity fails closed: only a pass decided by the calibrated model on
-// a readable flagged line accepts a warning.
+// a readable flagged line, with every node persisted and the signal never
+// fired, accepts a warning.
 import { createHash } from "node:crypto";
 
-import type { DecisionOutcome, GateCheckResult, GateCheckSpec, GateResult } from "@agent-kernel/kernel/model-nodes";
+import type { DecisionOutcome, GateCheckResult, GateCheckSpec, GateResult, GateStepOutcome } from "@agent-kernel/kernel/model-nodes";
 import type { AdvisoryCase, AdvisoryFindingRef, AdvisoryJudgement, CheckpointKnowledge } from "@server/generated/baml_client";
 import {
   advisoryFingerprint,
@@ -62,6 +64,8 @@ export type AdjudicationKernel = WorkerNodeKernel;
 export const EXTRACTION_FUNCTION = "ExtractCheckpointKnowledge";
 export const JUDGE_FUNCTION = "JudgeAdvisoryWithRationale";
 export const ADVISORY_GATE_NAME = "llm-review-advisories";
+/** The acknowledged gate that records the fold; its one step check is FOLD_STEP_NAME. */
+export const ADVISORY_VERDICT_GATE_NAME = "advisory-verdict";
 export const FOLD_STEP_NAME = "fold-advisory-verdicts";
 export const DEFAULT_ABORT_GRACE_MS = 2_000;
 /** Longer notes keep their head and tail (kept_advisories sits near the end). */
@@ -511,6 +515,7 @@ async function runAdjudication(
       retryable: !isCallError(failure),
       parentRunId,
       prefix,
+      signal,
     });
   }
 
@@ -523,6 +528,7 @@ async function runAdjudication(
       error: `reviewer-unavailable: ${abortKind(signal)}`,
       parentRunId,
       prefix,
+      signal,
     });
   }
 
@@ -572,7 +578,11 @@ async function runAdjudication(
       if (item.severity === "info") return base;
       return resolveWarning(base, byName.get(justificationCheckName(item.id)), byName.get(judgeDecisionName(item.id)), gate!, thresholds);
     });
-    if (gate.aborted && error === undefined) error = `reviewer-unavailable: ${abortKind(signal)}`;
+  }
+  // A cancelled gate never accepts, even for decisions that finished before the signal fired.
+  if (gate?.aborted || signal?.aborted) {
+    advisories = invalidateAcceptance(advisories, "aborted");
+    error ??= `reviewer-unavailable: ${abortKind(signal)}`;
   }
 
   // Decision provenance: replay each answered decision (a done run: no engine request, no write) for
@@ -580,6 +590,7 @@ async function runAdjudication(
   // when it was served by the model the thresholds were calibrated for.
   let served: string | undefined;
   for (const [index, item] of items.entries()) {
+    if (signal?.aborted) break;
     const advisory = advisories[index]!;
     const state = states.get(item.id);
     if (!state || !advisory.decision || !answered(advisory)) continue;
@@ -640,7 +651,32 @@ async function runAdjudication(
     retryable,
     parentRunId,
     prefix,
+    signal,
   });
+}
+
+/** Every accepted warning back to undecided for `reason`; rejections and info advisories stay as they are. */
+function invalidateAcceptance(advisories: AdjudicatedAdvisory[], reason: AdvisoryAbstainReason): AdjudicatedAdvisory[] {
+  return advisories.map((advisory) => (advisory.severity === "warning" && advisory.result === "pass" ? undecided(advisory, reason) : advisory));
+}
+
+/**
+ * The last word on every record: a fired signal, an error, or an
+ * infrastructure failure never coexists with an acceptance, whatever
+ * finished in between (fail closed, §6.6, §6.7).
+ */
+function sealRecord(record: AdvisoryAdjudication, signal: AbortSignal | undefined): AdvisoryAdjudication {
+  const cancelled = signal?.aborted === true;
+  if (!cancelled && record.error === undefined && record.retryable !== true) return record;
+  const advisories = invalidateAcceptance(record.advisories, cancelled ? "aborted" : "kernel-error");
+  const fold = foldVerdicts(advisories);
+  return {
+    ...record,
+    advisories,
+    verdict: fold.verdict,
+    accepted_fingerprints: fold.acceptedFingerprints,
+    error: record.error ?? (cancelled ? `reviewer-unavailable: ${abortKind(signal)}` : "reviewer-unavailable: kernel-error"),
+  };
 }
 
 async function escalate(
@@ -692,11 +728,25 @@ async function escalate(
   }
 }
 
-/** Records the fold as a step (trace only: a failed step write keeps the computed fold) and builds the record. */
+function foldCheckOutcome(fold: FoldResult): Exclude<GateStepOutcome, boolean> {
+  const value = fold.verdict;
+  const reason = `${fold.acceptedFingerprints.length} accepted, ${fold.repairReasons.length} not accepted`;
+  if (fold.verdict === "pass") return { result: "pass", value, reason };
+  if (fold.verdict === "fail") return { result: "fail", value, reason };
+  return { result: "abstain", value, reason };
+}
+
+/**
+ * Records the fold and builds the record. The fold is the step check of an
+ * acknowledged gate (`advisory-verdict`): kernel.step only logs a failed
+ * write, and an acceptance must never rest on an unpersisted verdict. A fold
+ * that was not recorded, a gate that disagrees with it, or a signal that
+ * fired before or during it accepts nothing (retryable for write failures).
+ */
 async function finish(
   kernel: AdjudicationKernel,
   ctx: RecordContext,
-  advisories: AdjudicatedAdvisory[],
+  input: AdjudicatedAdvisory[],
   fields: {
     extraction: AdvisoryAdjudication["extraction"];
     gateSpanId?: string;
@@ -705,43 +755,65 @@ async function finish(
     retryable?: boolean;
     parentRunId: string;
     prefix: string;
+    signal: AbortSignal | undefined;
   },
 ): Promise<AdvisoryAdjudication> {
-  const warnings = advisories.filter((a) => a.severity === "warning").length;
-  let fold: FoldResult;
-  try {
-    fold = await kernel.step(
-      FOLD_STEP_NAME,
-      {
-        parentRunId: fields.parentRunId,
-        requestId: adjudicationRequestIds.fold(fields.prefix),
-        attributes: { advisories: advisories.length, warnings, mode: ctx.candidate.mode },
-        summarize: (result: FoldResult) => ({
-          verdict: result.verdict,
-          accepted: result.acceptedFingerprints.length,
-          rejected: result.repairReasons.length,
-        }),
-      },
-      (span) => {
-        const result = foldVerdicts(advisories);
-        span.setAttributes({
-          verdict: result.verdict,
-          accepted: result.acceptedFingerprints.length,
-          rejected: result.repairReasons.length,
-        });
-        return result;
-      },
-    );
-  } catch {
-    fold = foldVerdicts(advisories);
+  const { signal } = fields;
+  let advisories = input;
+  let error = fields.error;
+  let retryable = fields.retryable === true;
+  if (error !== undefined || retryable) advisories = invalidateAcceptance(advisories, "kernel-error");
+  if (signal?.aborted) {
+    advisories = invalidateAcceptance(advisories, "aborted");
+    error ??= `reviewer-unavailable: ${abortKind(signal)}`;
   }
+
+  const fold = foldVerdicts(advisories);
+  const warnings = advisories.filter((a) => a.severity === "warning").length;
+  let recorded: GateResult | null = null;
+  try {
+    recorded = await kernel.gate(
+      ADVISORY_VERDICT_GATE_NAME,
+      { parentRunId: fields.parentRunId, requestId: adjudicationRequestIds.fold(fields.prefix), ...(signal !== undefined && { signal }) },
+      [
+        {
+          kind: "step",
+          name: FOLD_STEP_NAME,
+          attributes: { advisories: advisories.length, warnings, mode: ctx.candidate.mode },
+          run: (span) => {
+            span.setAttributes({
+              verdict: fold.verdict,
+              accepted: fold.acceptedFingerprints.length,
+              rejected: fold.repairReasons.length,
+            });
+            return foldCheckOutcome(fold);
+          },
+        },
+      ],
+    );
+  } catch (failure) {
+    error ??= errorText(failure);
+    retryable = true;
+  }
+  const expected = foldCheckOutcome(fold).result;
+  if (recorded === null || recorded.aborted || recorded.verdict !== expected) {
+    advisories = invalidateAcceptance(advisories, recorded?.aborted || signal?.aborted ? "aborted" : "kernel-error");
+    if (recorded !== null && !recorded.aborted && recorded.verdict !== expected) {
+      error ??= `reviewer-unavailable: verdict-not-recorded`;
+      retryable = true;
+    }
+  }
+  if (signal?.aborted) {
+    advisories = invalidateAcceptance(advisories, "aborted");
+    error ??= `reviewer-unavailable: ${abortKind(signal)}`;
+  }
+
   return buildRecord(ctx, advisories, {
     extraction: fields.extraction,
     ...(fields.gateSpanId !== undefined && { gateSpanId: fields.gateSpanId }),
     ...(fields.served !== undefined && { served: fields.served }),
-    ...(fields.error !== undefined && { error: fields.error }),
-    ...(fields.retryable === true && { retryable: true }),
-    fold,
+    ...(error !== undefined && { error }),
+    ...(retryable && { retryable: true }),
   });
 }
 
@@ -797,7 +869,7 @@ export async function adjudicateAdvisories(params: AdjudicateAdvisoriesParams): 
 
     const work = runAdjudication(params, { ...ctx, config: ctx.config, thresholds: ctx.thresholds }, progress);
     const settled = await settleWithin(work, params.signal, params.abortGraceMs ?? DEFAULT_ABORT_GRACE_MS);
-    if (settled !== ABANDONED) return settled;
+    if (settled !== ABANDONED) return sealRecord(settled, params.signal);
     // Something ignored the signal: discard whatever it yields later and fail closed now.
     const extraction: AdvisoryAdjudication["extraction"] =
       progress.extraction.status === "skipped" && progress.extractionStarted

@@ -1077,7 +1077,7 @@ describe("advisory adjudication full worker cycles", () => {
       ["JudgeAdvisory:A1", "decision", "done"],
       ["JudgeAdvisory:A2", "decision", "done"],
     ]);
-    expect(gateVerdicts(harness)).toEqual(["llm-review-advisories:pass"]);
+    expect(gateVerdicts(harness).sort()).toEqual(["advisory-verdict:pass", "llm-review-advisories:pass"]);
     expect((await harness.temp.kernel.doctor()).ok).toBe(true);
   }, 30_000);
 
