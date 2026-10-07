@@ -14,13 +14,17 @@ export type MockResponsesReply =
       /** Copied into the response's `metadata.echo`, e.g. to echo a credential back. */
       echo?: string;
     }
-  | { kind: "status"; status: number; body: unknown };
+  | { kind: "status"; status: number; body: unknown }
+  /** Holds the request until the client closes it (then answers 500), or `maxMs` (default 5 s) passes. */
+  | { kind: "hold"; maxMs?: number };
 
 export interface MockResponsesRequest {
   method: string;
   path: string;
   headers: Record<string, string>;
   body: any;
+  /** Set when the client closed a held request before the server answered. */
+  clientClosed?: boolean;
 }
 
 export interface MockResponsesServer {
@@ -136,6 +140,17 @@ export function startMockResponsesServer(initial: MockResponsesReply = { kind: "
         return Response.json({ error: { message: `unexpected ${req.method} ${url.pathname}` } }, { status: 404 });
       }
       const reply = typeof next === "function" ? next(request) : next;
+      if (reply.kind === "hold") {
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(resolve, reply.maxMs ?? 5_000);
+          req.signal.addEventListener("abort", () => {
+            request.clientClosed = true;
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+        return Response.json({ error: { message: "held" } }, { status: 500 });
+      }
       if (reply.kind === "status") return Response.json(reply.body, { status: reply.status });
       const response = responseObject(request, reply);
       return body?.stream === true ? streamReply(response, reply.text) : Response.json(response);
