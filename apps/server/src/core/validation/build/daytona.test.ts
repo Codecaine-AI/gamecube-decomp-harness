@@ -142,6 +142,18 @@ describe("Daytona build execution", () => {
     expect(f.git(["for-each-ref", "refs/decomp-orchestrator/"])).toBe("");
     expect(f.deleted).toBe(1);
   });
+  test("drops baked untracked files after checkout, before host inputs, keeping ignored files", async () => {
+    const f = await fixture();
+    await f.run();
+    const at = (match: (command: string[]) => boolean) => f.commands.findIndex(match);
+    const checkout = at(command => command[0] === "git" && command[1] === "checkout");
+    const clean = at(command => command.join(" ") === "git clean -fd");
+    const add = at(command => command.join(" ") === "git add -A");
+    expect(checkout).toBeGreaterThanOrEqual(0);
+    expect(clean).toBe(checkout + 1);
+    expect(add).toBeGreaterThan(clean);
+    expect(f.commands.some(command => command[0] === "git" && command[1] === "clean" && command.some(arg => arg.includes("x")))).toBe(false);
+  });
   test("artifact traversal cannot write outside allowed outputs", async () => {
     const f = await fixture(); f.response = { value: {}, artifacts: ["/work/sms/build/../../../escape/report.json"] };
     await expect(f.run()).rejects.toThrow("Invalid build artifact"); expect(f.deleted).toBe(1);

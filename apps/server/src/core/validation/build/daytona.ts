@@ -140,6 +140,10 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     await exec(["git", "fetch", "/tmp/build-source.bundle", source.head]);
     if (baselineRef) await exec(["git", "fetch", "/tmp/build-source.bundle", `${baselineRef}:${baselineRef}`]);
     await exec(["git", "checkout", "--force", "--detach", source.head]);
+    // Snapshots can bake untracked junk (e.g. a macOS .DS_Store) that `git add -A`
+    // would fold into the remote tree. Drop untracked, non-ignored files only;
+    // ignored toolchains, orig assets, and build caches stay. Host inputs follow.
+    await exec(["git", "clean", "-fd"]);
     // Discard only artifacts in this disposable sandbox, retaining its Linux
     // compiler/tool/original assets. Never upload host build caches.
     await exec(["python3", "-c", "from pathlib import Path\nfor p in Path('build').rglob('*.json'):\n if p.name in ('report.json','report_changes.json','baseline.json'): p.unlink()"]);
