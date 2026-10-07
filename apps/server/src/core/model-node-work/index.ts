@@ -19,6 +19,7 @@ import {
   type ModelNodeJobHandler,
   type ModelNodeLaneOptions,
 } from "./lane.js";
+import { createAdjudicationHandler } from "./handlers/adjudication.js";
 
 export {
   CATCH_UP_BATCH_SIZE,
@@ -57,7 +58,7 @@ export type ModelNodeHandlerFactory = (globals: GlobalArgs) => ModelNodeJobHandl
  * that has the handler.
  */
 const MODEL_NODE_HANDLER_FACTORIES: Readonly<Record<ModelNodeJobKind, ModelNodeHandlerFactory | null>> = Object.freeze({
-  checkpoint_adjudication: null,
+  checkpoint_adjudication: createAdjudicationHandler,
   checkpoint_knowledge: null,
 });
 

@@ -512,7 +512,7 @@ describe("startModelNodeLanesIfEnabled", () => {
     expect(start).not.toHaveBeenCalled();
   });
 
-  test("starts the adjudication lane for shadow and enforce and the knowledge lane for the feed; unregistered handlers are null", () => {
+  test("starts the adjudication lane for shadow and enforce and the knowledge lane for the feed; the adjudication handler is registered, the knowledge handler is not yet", () => {
     const store = tempStore();
     seedRun(store, "run-a");
     const configs: unknown[] = [];
@@ -526,7 +526,8 @@ describe("startModelNodeLanesIfEnabled", () => {
         checkpointKnowledgeCap: 7,
         start: (params) => {
           configs.push(params.config);
-          expect(params.handlers).toEqual({ checkpoint_adjudication: null, checkpoint_knowledge: null });
+          expect(typeof params.handlers.checkpoint_adjudication).toBe("function");
+          expect(params.handlers.checkpoint_knowledge).toBeNull();
           return null as never;
         },
       });
@@ -536,7 +537,9 @@ describe("startModelNodeLanesIfEnabled", () => {
       { adjudication: true, knowledge: false, knowledgeCap: 7 },
       { adjudication: false, knowledge: true, knowledgeCap: 7 },
     ]);
-    expect(defaultModelNodeHandlers({} as never)).toEqual({ checkpoint_adjudication: null, checkpoint_knowledge: null });
+    const defaults = defaultModelNodeHandlers({} as never);
+    expect(typeof defaults.checkpoint_adjudication).toBe("function");
+    expect(defaults.checkpoint_knowledge).toBeNull();
   });
 
   test("without a registered handler, enqueued checkpoint_* jobs stay queued after a lane tick and after stop", async () => {
@@ -556,6 +559,7 @@ describe("startModelNodeLanesIfEnabled", () => {
       advisoryAdjudication: "shadow",
       checkpointKnowledgeFeed: true,
       checkpointKnowledgeCap: 50,
+      handlers: { checkpoint_adjudication: null, checkpoint_knowledge: null },
       start: (params) => startModelNodeLanes({ ...params, lane: { intervalMs: 10, leaseMs: 1 } }),
     })!;
     expect(lanes.kinds).toEqual(["checkpoint_adjudication", "checkpoint_knowledge"]);

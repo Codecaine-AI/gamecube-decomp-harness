@@ -39,6 +39,7 @@ import { regressionCheck } from "@server/core/validation/jobs/regression-check.j
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
+import { advisoryShadowReport } from "@server/application/jobs/advisory-shadow-report.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 
 function jobOwnsStorageMigrations(command: string): boolean {
@@ -64,6 +65,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   try {
     if (command === "validate-sandbox") await validateSandbox(globals, args);
     else if (command === "boundary-sync") await boundarySync(globals, args);
+    else if (command === "advisory-shadow-report") await advisoryShadowReport(globals, args);
     else if (command === "init-run") await initRun(globals, args);
     else if (command === "prepare-epoch") await prepareEpoch(globals, args);
     else if (command === "tick") await tick(globals, args);
