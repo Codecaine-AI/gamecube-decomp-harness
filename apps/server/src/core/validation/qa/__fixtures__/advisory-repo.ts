@@ -25,7 +25,13 @@ import {
   buildLlmReviewCandidate,
   type AdvisoryAdjudication,
 } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication";
-import type { AdjudicationHarness } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/__fixtures__/adjudication.js";
+import { disableNetwork, fakeOk } from "@agent-kernel/kernel/model-nodes/testing";
+import {
+  bool,
+  createAdjudicationHarness,
+  extractionAnswer,
+  type AdjudicationHarness,
+} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/__fixtures__/adjudication.js";
 import {
   applyQaLintToValidation,
   qaLintAdvisoryPartition,
@@ -63,6 +69,23 @@ export const UPSTREAM_ADVISORY_SOURCE = [
   "}",
   "",
 ].join("\n");
+
+export const ADVISORY_PREPARE_LINE = "    gmAdvisory_Prepare(gobj, slot);";
+
+/** The worker's version: the long cast line kept right after `gmAdvisory_Prepare` (line 10). */
+export const ACCEPTED_ADVISORY_SOURCE = UPSTREAM_ADVISORY_SOURCE.replace(
+  `${ADVISORY_PREPARE_LINE}\n`,
+  `${ADVISORY_PREPARE_LINE}\n${LONG_CAST_LINE}\n`,
+);
+
+export const ADVISORY_JUSTIFICATION = "MWCC emits lbz r0 only through the u8 cast; objdiff 98.1% -> 100%.";
+
+/** The worker's final note keeps the cast; the fake extraction maps it to finding A1. */
+export const KEPT_ADVISORY_NOTE = JSON.stringify({
+  status: "validation_ready",
+  summary: "typed the table load through the cast the original binary needs",
+  kept_advisories: [{ rule_id: "type_erasing_cast", file: ADVISORY_FILE, line: 10, justification: ADVISORY_JUSTIFICATION }],
+});
 
 export interface L1Acceptance {
   /** The id recordWorkerCheckpoint gave the attempt's checkpoint. */
@@ -124,8 +147,33 @@ const localProcessRunner: QaScanProcessRunner = async (cwd, command, env) => {
   return { exitCode, stdout, stderr };
 };
 
+/**
+ * The temp root is registered for removal before any setup step runs: a
+ * failing step closes whatever store was opened, removes the root, and
+ * rethrows. `close()` is idempotent.
+ */
 export function createAdvisoryRepo(): AdvisoryRepo {
   const root = mkdtempSync(join(tmpdir(), "advisory-repo-"));
+  let openedStore: StateStore | null = null;
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    try {
+      openedStore?.db.close();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+  try {
+    return buildAdvisoryRepo(root, (store) => { openedStore = store; }, close);
+  } catch (error) {
+    close();
+    throw error;
+  }
+}
+
+function buildAdvisoryRepo(root: string, onStoreOpened: (store: StateStore) => void, close: () => void): AdvisoryRepo {
   const repoRoot = join(root, "repo");
   const stateDir = join(root, "state");
   mkdirSync(repoRoot, { recursive: true });
@@ -155,6 +203,7 @@ export function createAdvisoryRepo(): AdvisoryRepo {
   const baseRev = commit("upstream base");
 
   const store = openState(stateDir);
+  onStoreOpened(store);
   seedRunHarness(store, "melee", baseRev, repoRoot);
   const runId = createRun(store, "matched_code_percent", 100, 1, { gameId: "melee", repoRoot }, { baseRevision: baseRev }).id;
 
@@ -287,9 +336,52 @@ export function createAdvisoryRepo(): AdvisoryRepo {
       recordIntegration(accepted.checkpointId, integratedRev, preApplyRev);
       return { ...accepted, integratedRev };
     },
-    close() {
-      store.db.close();
-      rmSync(root, { recursive: true, force: true });
-    },
+    close,
   };
+}
+
+export interface AcceptedAdvisoryScenario {
+  repo: AdvisoryRepo;
+  adjudicator: AdjudicationHarness;
+  /** Epoch 1: the long cast line accepted at L1 through enforce (p = 0.93) and integrated as one commit. */
+  accepted: WorkerChangeResult;
+  /** Idempotent: closes the repo, then the adjudication kernel, and restores the network guard last. */
+  teardown(): void;
+}
+
+/**
+ * `createAdvisoryRepo` plus an enforce adjudication harness, with epoch 1
+ * already integrated. The network is disabled for the scenario's lifetime;
+ * a failing setup step tears down whatever was created and rethrows.
+ */
+export async function createAcceptedAdvisoryScenario(): Promise<AcceptedAdvisoryScenario> {
+  const restoreNetwork = disableNetwork();
+  let repo: AdvisoryRepo | undefined;
+  let adjudicator: AdjudicationHarness | undefined;
+  let tornDown = false;
+  const teardown = (): void => {
+    if (tornDown) return;
+    tornDown = true;
+    try {
+      repo?.close();
+    } finally {
+      try {
+        adjudicator?.cleanup();
+      } finally {
+        restoreNetwork();
+      }
+    }
+  };
+  try {
+    repo = createAdvisoryRepo();
+    adjudicator = await createAdjudicationHarness({
+      calls: () => fakeOk(extractionAnswer({ A1: ADVISORY_JUSTIFICATION })),
+      decisions: () => bool(0.93),
+    });
+    const accepted = await repo.integrateWorkerChange({ rel: ADVISORY_FILE, after: ACCEPTED_ADVISORY_SOURCE, noteText: KEPT_ADVISORY_NOTE, adjudicator });
+    return { repo, adjudicator, accepted, teardown };
+  } catch (error) {
+    teardown();
+    throw error;
+  }
 }

@@ -190,71 +190,28 @@ describe("L2 run selection", () => {
     return { f, integrated, scan: warningScan([advisory(6)]) };
   }
 
-  test("regression-check with no run id: today's verdict plus the operator message when accepted rows exist, no message when none exist", async () => {
+  // The command-level rows (no run id, unknown run id, explicit runs A and B)
+  // run the real regression-check in regression-check.test.ts.
+  test("run selection never creates a missing store; the notice counts rows across every run", async () => {
     const { f, integrated, scan } = await acceptedFixture();
     const select = (stateDir: string, requestedRunId: string | null) =>
       l2AcceptedAdvisoryOptions({ stateDir, requestedRunId, repoRoot: f.repo, headRev: integrated, findings: scan.result!.findings });
 
     const noStore = tempDir("accepted-advisory-nostore-");
     expect(await select(noStore, null)).toBeUndefined();
+    expect(await select(noStore, "run-a")).toBeUndefined();
     expect(existsSync(resolve(noStore, "orchestrator.sqlite"))).toBe(false);
-    expect(await select(f.stateDir, null)).toBeUndefined();
 
     f.integration("run-a", "cp-a", "applied", integrated);
     f.accept("run-a", "cp-a", 1);
     f.accept("run-b", "cp-b", 1);
-    const message =
-      "2 accepted llm_review advisories exist (runs: run-a, run-b). No harness run was selected, so they are not honoured. " +
-      "Rerun with RUN_ID=<run> make regression-check (or --run-id <run>).";
     for (const requestedRunId of [null, "manual"]) {
-      const opts = await select(f.stateDir, requestedRunId);
-      expect(opts).toEqual({ operatorMessage: message });
-      expect(evaluateQaGate(scan, false, opts)).toEqual({ ...evaluateQaGate(scan, false), operatorMessage: message });
-    }
-  });
-
-  test("regression-check with an unknown run id behaves like no run id", async () => {
-    const { f, integrated, scan } = await acceptedFixture();
-    f.integration("run-a", "cp-a", "applied", integrated);
-    f.accept("run-a", "cp-a", 1);
-    const opts = await l2AcceptedAdvisoryOptions({
-      stateDir: f.stateDir,
-      requestedRunId: "run-missing",
-      repoRoot: f.repo,
-      headRev: integrated,
-      findings: scan.result!.findings,
-    });
-    expect(opts?.acceptedAdvisories).toBeUndefined();
-    expect(opts?.operatorMessage).toStartWith("1 accepted llm_review advisories exist (runs: run-a). No harness run was selected");
-    expect(evaluateQaGate(scan, false, opts).qaGatePassed).toBe(false);
-  });
-
-  test("regression-check with an explicit run id uses only that run's records", async () => {
-    const { f, integrated, scan } = await acceptedFixture();
-    f.integration("run-a", "cp-a", "applied", integrated);
-    f.accept("run-a", "cp-a", 1);
-    f.integration("run-b", "cp-b", "conflict", integrated);
-    f.accept("run-b", "cp-b", 1);
-    const gateFor = async (requestedRunId: string) => {
-      const opts = await l2AcceptedAdvisoryOptions({
-        stateDir: f.stateDir,
-        requestedRunId,
-        repoRoot: f.repo,
-        headRev: integrated,
-        findings: scan.result!.findings,
+      expect(await select(f.stateDir, requestedRunId)).toEqual({
+        operatorMessage:
+          "2 accepted llm_review advisories exist (runs: run-a, run-b). No harness run was selected, so they are not honoured. " +
+          "Rerun with RUN_ID=<run> make regression-check (or --run-id <run>).",
       });
-      return evaluateQaGate(scan, false, opts);
-    };
-
-    const runA = await gateFor("run-a");
-    expect(runA.qaGatePassed).toBe(true);
-    expect(runA.exemptedAdvisories?.map(({ checkpointId, fingerprint }) => [checkpointId, fingerprint])).toEqual([["cp-a", FINGERPRINT]]);
-    expect(runA.operatorMessage).toBeUndefined();
-
-    const runB = await gateFor("run-b");
-    expect(runB.qaGatePassed).toBe(false);
-    expect(runB.exemptedAdvisories).toEqual([]);
-    expect(runB.blockingAdvisories?.map(({ reason }) => reason)).toEqual(["not-integrated"]);
+    }
   });
 
   test("a file that was dirty before the scan, or rewritten while it ran, is never exempt even if clean at resolution", async () => {

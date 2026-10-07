@@ -1,26 +1,37 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
+import { lstatSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { boundaryDeferredFindings, epochQaGateSummary, type RegressionRepairPlan } from "@server/core/harness-runtime/phases/running/epochs/settlement.js";
 import { evaluateQaGate } from "@server/core/validation/jobs/qa-gate.js";
-import { NO_RUN_SELECTED_RUN_ID, gitHeadRev, l2AcceptedAdvisoryOptions, resolveAcceptedAdvisories } from "./accepted-advisories.js";
-import { disableNetwork, fakeOk } from "@agent-kernel/kernel/model-nodes/testing";
 import {
-  bool,
-  createAdjudicationHarness,
-  extractionAnswer,
-  type AdjudicationHarness,
-} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/__fixtures__/adjudication.js";
+  NO_RUN_SELECTED_RUN_ID,
+  captureQaScanGuard,
+  gitHeadRev,
+  l2AcceptedAdvisoryOptions,
+  resolveAcceptedAdvisories,
+} from "./accepted-advisories.js";
+import type { AdjudicationHarness } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/__fixtures__/adjudication.js";
 import { advisoryFingerprint, normalizeAdvisoryCode } from "./advisory-fingerprint.js";
-import { ADVISORY_FILE, LONG_CAST_LINE, UPSTREAM_ADVISORY_SOURCE, createAdvisoryRepo, type AdvisoryRepo, type WorkerChangeResult } from "./__fixtures__/advisory-repo.js";
+import {
+  ACCEPTED_ADVISORY_SOURCE,
+  ADVISORY_FILE,
+  ADVISORY_PREPARE_LINE,
+  KEPT_ADVISORY_NOTE,
+  LONG_CAST_LINE,
+  UPSTREAM_ADVISORY_SOURCE,
+  createAcceptedAdvisoryScenario,
+  type AcceptedAdvisoryScenario,
+  type AdvisoryRepo,
+  type WorkerChangeResult,
+} from "./__fixtures__/advisory-repo.js";
 import type { QaScanFinding } from "./scan-diff.js";
 
 // Plan §6.10 S13: an advisory accepted at L1 travels through integration to
 // L2 and the epoch scan, and is honoured only while the same physical line,
 // unchanged, still blames to the accepted integration commit.
 
-const PREPARE_LINE = "    gmAdvisory_Prepare(gobj, slot);";
-const ACCEPTED_SOURCE = UPSTREAM_ADVISORY_SOURCE.replace(`${PREPARE_LINE}\n`, `${PREPARE_LINE}\n${LONG_CAST_LINE}\n`);
+const PREPARE_LINE = ADVISORY_PREPARE_LINE;
+const ACCEPTED_SOURCE = ACCEPTED_ADVISORY_SOURCE;
 /** Seven new lines above the accepted line. */
 const SHIFT_BLOCK = [
   "void gmAdvisory_Reset(HSD_GObj* gobj)",
@@ -40,17 +51,12 @@ const NO_REGRESSIONS: RegressionRepairPlan = {
   summary: { brokenMatches: 0, fuzzyRegressions: 0, metricRegressions: 0, regressedFunctions: 0, regressedSections: 0 },
 };
 
-const JUSTIFICATION = "MWCC emits lbz r0 only through the u8 cast; objdiff 98.1% -> 100%.";
-/** The worker's final note keeps the cast; the fake extraction maps it to finding A1. */
-const KEPT_NOTE = JSON.stringify({
-  status: "validation_ready",
-  summary: "typed the table load through the cast the original binary needs",
-  kept_advisories: [{ rule_id: "type_erasing_cast", file: ADVISORY_FILE, line: 10, justification: JUSTIFICATION }],
-});
+const KEPT_NOTE = KEPT_ADVISORY_NOTE;
 
+/** Set once setup completes; teardown tolerates a partial setup. */
+let scenario: AcceptedAdvisoryScenario | undefined;
 let repo: AdvisoryRepo;
 let adjudicator: AdjudicationHarness;
-let restoreNetwork: () => void;
 let epoch1: WorkerChangeResult;
 /** The af2 fingerprint L1 recorded for the accepted line. */
 let acceptedFingerprint: string;
@@ -69,13 +75,34 @@ function castWarnings(findings: QaScanFinding[]): QaScanFinding[] {
   return findings.filter((finding) => finding.rule_id === "type_erasing_cast" && finding.severity === "warning").sort((left, right) => left.line - right.line);
 }
 
-/** regression-check's L2 QA gate: HEAD before the scan, scan (worktree included), run selection, verdict. */
+/**
+ * The scan guard refuses a file written within 1 s of the scan, so a step
+ * that just wrote the advisory file waits until the tree is quiet, as an
+ * operator's L2 run long after integration would find it.
+ */
+async function quietTree(): Promise<void> {
+  try {
+    const stats = lstatSync(join(repo.repoRoot, ADVISORY_FILE));
+    const wait = Math.max(stats.ctimeMs, stats.mtimeMs) + 1_100 - Date.now();
+    if (wait > 0) await Bun.sleep(wait);
+  } catch {
+    // A missing file has nothing to settle.
+  }
+}
+
+/**
+ * regression-check's L2 QA gate as the command runs it: the scan guard and
+ * HEAD before the scan, the scan (worktree included), run selection with the
+ * guard, the verdict. The command itself is covered in regression-check.test.ts.
+ */
 async function l2(runIdArg: string) {
   const requestedRunId = runIdArg === NO_RUN_SELECTED_RUN_ID ? null : runIdArg;
+  if (requestedRunId !== null) await quietTree();
+  const scanGuard = requestedRunId === null ? undefined : await captureQaScanGuard(repo.repoRoot);
   const headRev = requestedRunId === null ? null : await gitHeadRev(repo.repoRoot);
   const invocation = await repo.scanL2();
   const findings = invocation.result?.findings ?? [];
-  const opts = await l2AcceptedAdvisoryOptions({ stateDir: repo.stateDir, requestedRunId, repoRoot: repo.repoRoot, headRev, findings });
+  const opts = await l2AcceptedAdvisoryOptions({ stateDir: repo.stateDir, requestedRunId, repoRoot: repo.repoRoot, headRev, findings, scanGuard });
   return { invocation, findings, opts, resolution: opts?.acceptedAdvisories, gate: evaluateQaGate(invocation, false, opts) };
 }
 
@@ -85,15 +112,11 @@ function commitFile(text: string, message: string): string {
 }
 
 beforeAll(async () => {
-  restoreNetwork = disableNetwork();
-  repo = createAdvisoryRepo();
-  // Inline enforce adjudication: the extraction finds the note's justification, the judge decides p = 0.93 (passAt 0.85).
-  adjudicator = await createAdjudicationHarness({
-    calls: () => fakeOk(extractionAnswer({ A1: JUSTIFICATION })),
-    decisions: () => bool(0.93),
-  });
-  // Epoch 1: the worker keeps the long cast line; enforce accepts it at L1; apply-on-accept commits it as R.
-  epoch1 = await repo.integrateWorkerChange({ rel: ADVISORY_FILE, after: ACCEPTED_SOURCE, noteText: KEPT_NOTE, adjudicator });
+  // Epoch 1: the worker keeps the long cast line; enforce accepts it at L1
+  // (the extraction finds the note's justification, the judge decides
+  // p = 0.93, passAt 0.85); apply-on-accept commits it as R.
+  scenario = await createAcceptedAdvisoryScenario();
+  ({ repo, adjudicator, accepted: epoch1 } = scenario);
   acceptedFingerprint = epoch1.acceptedFingerprints[0]!;
   // Epoch 2: seven lines above the accepted line and an edit elsewhere in its hunk.
   step2Rev = commitFile(`${SHIFT_BLOCK}${ACCEPTED_SOURCE.replace("(HSD_GObj* gobj, s32 slot)", "(HSD_GObj* gobj, s32 slot, s32 mode)")}`, "epoch 2: shift and nearby edit");
@@ -101,6 +124,7 @@ beforeAll(async () => {
 }, 30_000);
 
 afterEach(() => {
+  if (scenario === undefined) return;
   repo.git("reset", "-q", "--hard");
   repo.git("clean", "-fdq");
   repo.git("stash", "clear");
@@ -110,9 +134,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  repo.close();
-  adjudicator.cleanup();
-  restoreNetwork();
+  scenario?.teardown();
 });
 
 describe("L1 to integration to L2 advisory replay (S13)", () => {
