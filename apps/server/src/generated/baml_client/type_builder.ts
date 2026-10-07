@@ -27,25 +27,127 @@ export { FieldType, EnumBuilder, ClassBuilder }
 export default class TypeBuilder {
     private tb: _TypeBuilder;
     
+    AdvisoryCase: ClassViewer<'AdvisoryCase', "finding" | "detail" | "hunk" | "justification" | "code_facts">;
+    
+    AdvisoryFindingRef: ClassViewer<'AdvisoryFindingRef', "id" | "rule_id" | "severity" | "file" | "line" | "excerpt" | "message">;
+    
+    AdvisoryJudgement: ClassViewer<'AdvisoryJudgement', "verdict" | "rationale" | "confidence">;
+    
+    AdvisoryJustification: ClassViewer<'AdvisoryJustification', "finding_id" | "kept" | "justification" | "evidence">;
+    
+    AdvisoryLabelProposal: ClassViewer<'AdvisoryLabelProposal', "label" | "rationale">;
+    
+    CheckpointKnowledge: ClassViewer<'CheckpointKnowledge', "advisories" | "structured_field_used">;
+    
+    CodeFacts: ClassViewer<'CodeFacts', "exact" | "old_score" | "new_score">;
+    
+    CodegenQuirk: ClassViewer<'CodegenQuirk', "compiler_behavior" | "source_shape" | "evidence">;
+    
+    ConfirmedCheckpointInput: ClassViewer<'ConfirmedCheckpointInput', "unit" | "function_name" | "target_key" | "old_score" | "new_score" | "exact" | "note" | "hunks" | "advisories" | "prior_adjudication">;
+    
+    ConfirmedCheckpointKnowledge: ClassViewer<'ConfirmedCheckpointKnowledge', "tactics" | "codegen_quirks" | "type_facts" | "idioms" | "kept_advisories">;
+    
+    Idiom: ClassViewer<'Idiom', "pattern" | "produced_match" | "evidence">;
+    
     ProbeResult: ClassViewer<'ProbeResult', "ok">;
     
+    SynthesizedJustification: ClassViewer<'SynthesizedJustification', "justification" | "rationale">;
+    
+    Tactic: ClassViewer<'Tactic', "name" | "description" | "applies_when" | "evidence">;
+    
+    TypeFact: ClassViewer<'TypeFact', "subject" | "fact" | "evidence">;
+    
+    
+    JustificationLabel: EnumViewer<'JustificationLabel', "JUSTIFIED" | "UNJUSTIFIED" | "UNCLEAR">;
+    
+    JustificationQuality: EnumViewer<'JustificationQuality', "GOOD" | "BAD">;
+    
+    Verdict: EnumViewer<'Verdict', "ACCEPTED" | "REJECTED" | "NEEDS_INFO">;
     
 
     constructor() {
         this.tb = new _TypeBuilder({
           classes: new Set([
-            "ProbeResult",
+            "AdvisoryCase","AdvisoryFindingRef","AdvisoryJudgement","AdvisoryJustification","AdvisoryLabelProposal","CheckpointKnowledge","CodeFacts","CodegenQuirk","ConfirmedCheckpointInput","ConfirmedCheckpointKnowledge","Idiom","ProbeResult","SynthesizedJustification","Tactic","TypeFact",
           ]),
           enums: new Set([
-            
+            "JustificationLabel","JustificationQuality","Verdict",
           ]),
           runtime: DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME
         });
+        
+        this.AdvisoryCase = this.tb.classViewer("AdvisoryCase", [
+          "finding","detail","hunk","justification","code_facts",
+        ]);
+        
+        this.AdvisoryFindingRef = this.tb.classViewer("AdvisoryFindingRef", [
+          "id","rule_id","severity","file","line","excerpt","message",
+        ]);
+        
+        this.AdvisoryJudgement = this.tb.classViewer("AdvisoryJudgement", [
+          "verdict","rationale","confidence",
+        ]);
+        
+        this.AdvisoryJustification = this.tb.classViewer("AdvisoryJustification", [
+          "finding_id","kept","justification","evidence",
+        ]);
+        
+        this.AdvisoryLabelProposal = this.tb.classViewer("AdvisoryLabelProposal", [
+          "label","rationale",
+        ]);
+        
+        this.CheckpointKnowledge = this.tb.classViewer("CheckpointKnowledge", [
+          "advisories","structured_field_used",
+        ]);
+        
+        this.CodeFacts = this.tb.classViewer("CodeFacts", [
+          "exact","old_score","new_score",
+        ]);
+        
+        this.CodegenQuirk = this.tb.classViewer("CodegenQuirk", [
+          "compiler_behavior","source_shape","evidence",
+        ]);
+        
+        this.ConfirmedCheckpointInput = this.tb.classViewer("ConfirmedCheckpointInput", [
+          "unit","function_name","target_key","old_score","new_score","exact","note","hunks","advisories","prior_adjudication",
+        ]);
+        
+        this.ConfirmedCheckpointKnowledge = this.tb.classViewer("ConfirmedCheckpointKnowledge", [
+          "tactics","codegen_quirks","type_facts","idioms","kept_advisories",
+        ]);
+        
+        this.Idiom = this.tb.classViewer("Idiom", [
+          "pattern","produced_match","evidence",
+        ]);
         
         this.ProbeResult = this.tb.classViewer("ProbeResult", [
           "ok",
         ]);
         
+        this.SynthesizedJustification = this.tb.classViewer("SynthesizedJustification", [
+          "justification","rationale",
+        ]);
+        
+        this.Tactic = this.tb.classViewer("Tactic", [
+          "name","description","applies_when","evidence",
+        ]);
+        
+        this.TypeFact = this.tb.classViewer("TypeFact", [
+          "subject","fact","evidence",
+        ]);
+        
+        
+        this.JustificationLabel = this.tb.enumViewer("JustificationLabel", [
+          "JUSTIFIED","UNJUSTIFIED","UNCLEAR",
+        ]);
+        
+        this.JustificationQuality = this.tb.enumViewer("JustificationQuality", [
+          "GOOD","BAD",
+        ]);
+        
+        this.Verdict = this.tb.enumViewer("Verdict", [
+          "ACCEPTED","REJECTED","NEEDS_INFO",
+        ]);
         
     }
 

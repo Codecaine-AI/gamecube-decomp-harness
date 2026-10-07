@@ -47,7 +47,136 @@ export function all_succeeded<CheckName extends string>(checks: Record<CheckName
 export function get_checks<CheckName extends string>(checks: Record<CheckName, Check>): Check[] {
     return Object.values(checks)
 }
+export enum JustificationLabel {
+  JUSTIFIED = "JUSTIFIED",
+  UNJUSTIFIED = "UNJUSTIFIED",
+  UNCLEAR = "UNCLEAR",
+}
+
+export enum JustificationQuality {
+  GOOD = "GOOD",
+  BAD = "BAD",
+}
+
+export enum Verdict {
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  NEEDS_INFO = "NEEDS_INFO",
+}
+
+export interface AdvisoryCase {
+  finding: AdvisoryFindingRef
+  detail?: string | null
+  hunk?: string | null
+  justification?: string | null
+  code_facts: CodeFacts
+  
+}
+
+export interface AdvisoryFindingRef {
+  id: string
+  rule_id: string
+  severity: "warning" | "info"
+  file: string
+  line: number
+  excerpt: string
+  message: string
+  
+}
+
+export interface AdvisoryJudgement {
+  verdict: Verdict
+  rationale: string
+  confidence: Checked<number,"in_range">
+  
+}
+
+export interface AdvisoryJustification {
+  finding_id: string
+  kept: boolean
+  justification?: string | null
+  evidence: string[]
+  
+}
+
+export interface AdvisoryLabelProposal {
+  label: JustificationLabel
+  rationale: string
+  
+}
+
+export interface CheckpointKnowledge {
+  advisories: AdvisoryJustification[]
+  structured_field_used: boolean
+  
+}
+
+export interface CodeFacts {
+  exact: boolean
+  old_score?: number | null
+  new_score?: number | null
+  
+}
+
+export interface CodegenQuirk {
+  compiler_behavior: string
+  source_shape: string
+  evidence: string[]
+  
+}
+
+export interface ConfirmedCheckpointInput {
+  unit: string
+  function_name: string
+  target_key: string
+  old_score?: number | null
+  new_score?: number | null
+  exact: boolean
+  note: string
+  hunks: string[]
+  advisories: AdvisoryFindingRef[]
+  prior_adjudication?: string | null
+  
+}
+
+export interface ConfirmedCheckpointKnowledge {
+  tactics: Tactic[]
+  codegen_quirks: CodegenQuirk[]
+  type_facts: TypeFact[]
+  idioms: Idiom[]
+  kept_advisories: AdvisoryJustification[]
+  
+}
+
+export interface Idiom {
+  pattern: string
+  produced_match: boolean
+  evidence: string[]
+  
+}
+
 export interface ProbeResult {
   ok: boolean
+  
+}
+
+export interface SynthesizedJustification {
+  justification: string
+  rationale: string
+  
+}
+
+export interface Tactic {
+  name: string
+  description: string
+  applies_when: string
+  evidence: string[]
+  
+}
+
+export interface TypeFact {
+  subject: string
+  fact: string
+  evidence: string[]
   
 }

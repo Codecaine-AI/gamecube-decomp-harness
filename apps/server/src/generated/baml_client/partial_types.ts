@@ -20,7 +20,7 @@ $ pnpm add @boundaryml/baml
 
 import type { Image, Audio, Pdf, Video } from "@boundaryml/baml"
 import type { Checked, Check } from "./types.js"
-import type {  ProbeResult } from "./types.js"
+import type {  AdvisoryCase,  AdvisoryFindingRef,  AdvisoryJudgement,  AdvisoryJustification,  AdvisoryLabelProposal,  CheckpointKnowledge,  CodeFacts,  CodegenQuirk,  ConfirmedCheckpointInput,  ConfirmedCheckpointKnowledge,  Idiom,  JustificationLabel,  JustificationQuality,  ProbeResult,  SynthesizedJustification,  Tactic,  TypeFact,  Verdict } from "./types.js"
 import type * as types from "./types.js"
 
 /******************************************************************************
@@ -36,7 +36,91 @@ export interface StreamState<T> {
 }
 
 export namespace partial_types {
+    export interface AdvisoryCase {
+      finding?: AdvisoryFindingRef | null
+      detail?: string | null
+      hunk?: string | null
+      justification?: string | null
+      code_facts?: CodeFacts | null
+    }
+    export interface AdvisoryFindingRef {
+      id?: string | null
+      rule_id?: string | null
+      severity?: "warning" | "info" | null
+      file?: string | null
+      line?: number | null
+      excerpt?: string | null
+      message?: string | null
+    }
+    export interface AdvisoryJudgement {
+      verdict?: types.Verdict | null
+      rationale?: string | null
+      confidence?: types.Checked<number,"in_range"> | null
+    }
+    export interface AdvisoryJustification {
+      finding_id?: string | null
+      kept?: boolean | null
+      justification?: string | null
+      evidence: string[]
+    }
+    export interface AdvisoryLabelProposal {
+      label?: types.JustificationLabel | null
+      rationale?: string | null
+    }
+    export interface CheckpointKnowledge {
+      advisories: AdvisoryJustification[]
+      structured_field_used?: boolean | null
+    }
+    export interface CodeFacts {
+      exact?: boolean | null
+      old_score?: number | null
+      new_score?: number | null
+    }
+    export interface CodegenQuirk {
+      compiler_behavior?: string | null
+      source_shape?: string | null
+      evidence: string[]
+    }
+    export interface ConfirmedCheckpointInput {
+      unit?: string | null
+      function_name?: string | null
+      target_key?: string | null
+      old_score?: number | null
+      new_score?: number | null
+      exact?: boolean | null
+      note?: string | null
+      hunks: string[]
+      advisories: AdvisoryFindingRef[]
+      prior_adjudication?: string | null
+    }
+    export interface ConfirmedCheckpointKnowledge {
+      tactics: Tactic[]
+      codegen_quirks: CodegenQuirk[]
+      type_facts: TypeFact[]
+      idioms: Idiom[]
+      kept_advisories: AdvisoryJustification[]
+    }
+    export interface Idiom {
+      pattern?: string | null
+      produced_match?: boolean | null
+      evidence: string[]
+    }
     export interface ProbeResult {
       ok?: boolean | null
+    }
+    export interface SynthesizedJustification {
+      justification?: string | null
+      rationale?: string | null
+    }
+    export interface Tactic {
+      name?: string | null
+      description?: string | null
+      applies_when?: string | null
+      evidence: string[]
+    }
+    export interface TypeFact {
+      subject?: string | null
+      fact?: string | null
+      evidence: string[]
     }
 }

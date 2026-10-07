@@ -24,7 +24,7 @@ import { toBamlError, BamlStream, BamlAbortError, Collector, ClientRegistry } fr
 import type { Checked, Check, RecursivePartialNull as MovedRecursivePartialNull } from "./types.js"
 import type { partial_types } from "./partial_types.js"
 import type * as types from "./types.js"
-import type {ProbeResult} from "./types.js"
+import type {AdvisoryCase, AdvisoryFindingRef, AdvisoryJudgement, AdvisoryJustification, AdvisoryLabelProposal, CheckpointKnowledge, CodeFacts, CodegenQuirk, ConfirmedCheckpointInput, ConfirmedCheckpointKnowledge, Idiom, JustificationLabel, JustificationQuality, ProbeResult, SynthesizedJustification, Tactic, TypeFact, Verdict} from "./types.js"
 import type TypeBuilder from "./type_builder.js"
 import { AsyncHttpRequest, AsyncHttpStreamRequest } from "./async_request.js"
 import { LlmResponseParser, LlmStreamParser } from "./parser.js"
@@ -153,6 +153,286 @@ export type RecursivePartialNull<T> = MovedRecursivePartialNull<T>
             }
             }
             
+        async ExtractCheckpointKnowledge(
+        note: string,findings: types.AdvisoryFindingRef[],
+        __baml_options__?: BamlCallOptions<never>
+        ): Promise<types.CheckpointKnowledge> {
+          try {
+          const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+          const __signal__ = __options__.signal;
+
+          if (__signal__?.aborted) {
+          throw new BamlAbortError('Operation was aborted', __signal__.reason);
+          }
+
+          // Check if onTick is provided - route through streaming if so
+          if (__options__.onTick) {
+          const __stream__ = this.stream.ExtractCheckpointKnowledge(
+          note,findings,
+          __baml_options__
+          );
+
+          return await __stream__.getFinalResponse();
+          }
+
+          const __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+          [__options__.collector]) : [];
+          const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+          const __env__: Record<string, string> = Object.fromEntries(
+            Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+            );
+
+            // Resolve client option to clientRegistry (client takes precedence)
+            let __clientRegistry__ = __options__.clientRegistry;
+            if (__options__.client) {
+              __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+              __clientRegistry__.setPrimary(__options__.client);
+            }
+
+            const __raw__ = await this.runtime.callFunction(
+            "ExtractCheckpointKnowledge",
+            {
+            "note": note,"findings": findings
+            },
+            this.ctxManager.cloneContext(),
+            __options__.tb?.__tb(),
+            __clientRegistry__,
+            __collector__,
+            __options__.tags || {},
+            __env__,
+            __signal__,
+            __options__.watchers,
+            )
+            return __raw__.parsed(false) as types.CheckpointKnowledge
+            } catch (error) {
+            throw toBamlError(error);
+            }
+            }
+            
+        async ExtractConfirmedCheckpointKnowledge(
+        input: types.ConfirmedCheckpointInput,
+        __baml_options__?: BamlCallOptions<never>
+        ): Promise<types.ConfirmedCheckpointKnowledge> {
+          try {
+          const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+          const __signal__ = __options__.signal;
+
+          if (__signal__?.aborted) {
+          throw new BamlAbortError('Operation was aborted', __signal__.reason);
+          }
+
+          // Check if onTick is provided - route through streaming if so
+          if (__options__.onTick) {
+          const __stream__ = this.stream.ExtractConfirmedCheckpointKnowledge(
+          input,
+          __baml_options__
+          );
+
+          return await __stream__.getFinalResponse();
+          }
+
+          const __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+          [__options__.collector]) : [];
+          const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+          const __env__: Record<string, string> = Object.fromEntries(
+            Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+            );
+
+            // Resolve client option to clientRegistry (client takes precedence)
+            let __clientRegistry__ = __options__.clientRegistry;
+            if (__options__.client) {
+              __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+              __clientRegistry__.setPrimary(__options__.client);
+            }
+
+            const __raw__ = await this.runtime.callFunction(
+            "ExtractConfirmedCheckpointKnowledge",
+            {
+            "input": input
+            },
+            this.ctxManager.cloneContext(),
+            __options__.tb?.__tb(),
+            __clientRegistry__,
+            __collector__,
+            __options__.tags || {},
+            __env__,
+            __signal__,
+            __options__.watchers,
+            )
+            return __raw__.parsed(false) as types.ConfirmedCheckpointKnowledge
+            } catch (error) {
+            throw toBamlError(error);
+            }
+            }
+            
+        async JudgeAdvisoryWithRationale(
+        advisory: types.AdvisoryCase,
+        __baml_options__?: BamlCallOptions<never>
+        ): Promise<types.AdvisoryJudgement> {
+          try {
+          const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+          const __signal__ = __options__.signal;
+
+          if (__signal__?.aborted) {
+          throw new BamlAbortError('Operation was aborted', __signal__.reason);
+          }
+
+          // Check if onTick is provided - route through streaming if so
+          if (__options__.onTick) {
+          const __stream__ = this.stream.JudgeAdvisoryWithRationale(
+          advisory,
+          __baml_options__
+          );
+
+          return await __stream__.getFinalResponse();
+          }
+
+          const __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+          [__options__.collector]) : [];
+          const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+          const __env__: Record<string, string> = Object.fromEntries(
+            Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+            );
+
+            // Resolve client option to clientRegistry (client takes precedence)
+            let __clientRegistry__ = __options__.clientRegistry;
+            if (__options__.client) {
+              __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+              __clientRegistry__.setPrimary(__options__.client);
+            }
+
+            const __raw__ = await this.runtime.callFunction(
+            "JudgeAdvisoryWithRationale",
+            {
+            "advisory": advisory
+            },
+            this.ctxManager.cloneContext(),
+            __options__.tb?.__tb(),
+            __clientRegistry__,
+            __collector__,
+            __options__.tags || {},
+            __env__,
+            __signal__,
+            __options__.watchers,
+            )
+            return __raw__.parsed(false) as types.AdvisoryJudgement
+            } catch (error) {
+            throw toBamlError(error);
+            }
+            }
+            
+        async LabelAdvisoryJustification(
+        advisory: types.AdvisoryCase,
+        __baml_options__?: BamlCallOptions<never>
+        ): Promise<types.AdvisoryLabelProposal> {
+          try {
+          const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+          const __signal__ = __options__.signal;
+
+          if (__signal__?.aborted) {
+          throw new BamlAbortError('Operation was aborted', __signal__.reason);
+          }
+
+          // Check if onTick is provided - route through streaming if so
+          if (__options__.onTick) {
+          const __stream__ = this.stream.LabelAdvisoryJustification(
+          advisory,
+          __baml_options__
+          );
+
+          return await __stream__.getFinalResponse();
+          }
+
+          const __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+          [__options__.collector]) : [];
+          const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+          const __env__: Record<string, string> = Object.fromEntries(
+            Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+            );
+
+            // Resolve client option to clientRegistry (client takes precedence)
+            let __clientRegistry__ = __options__.clientRegistry;
+            if (__options__.client) {
+              __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+              __clientRegistry__.setPrimary(__options__.client);
+            }
+
+            const __raw__ = await this.runtime.callFunction(
+            "LabelAdvisoryJustification",
+            {
+            "advisory": advisory
+            },
+            this.ctxManager.cloneContext(),
+            __options__.tb?.__tb(),
+            __clientRegistry__,
+            __collector__,
+            __options__.tags || {},
+            __env__,
+            __signal__,
+            __options__.watchers,
+            )
+            return __raw__.parsed(false) as types.AdvisoryLabelProposal
+            } catch (error) {
+            throw toBamlError(error);
+            }
+            }
+            
+        async SynthesizeJustification(
+        advisory: types.AdvisoryCase,quality: types.JustificationQuality,
+        __baml_options__?: BamlCallOptions<never>
+        ): Promise<types.SynthesizedJustification> {
+          try {
+          const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+          const __signal__ = __options__.signal;
+
+          if (__signal__?.aborted) {
+          throw new BamlAbortError('Operation was aborted', __signal__.reason);
+          }
+
+          // Check if onTick is provided - route through streaming if so
+          if (__options__.onTick) {
+          const __stream__ = this.stream.SynthesizeJustification(
+          advisory,quality,
+          __baml_options__
+          );
+
+          return await __stream__.getFinalResponse();
+          }
+
+          const __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+          [__options__.collector]) : [];
+          const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+          const __env__: Record<string, string> = Object.fromEntries(
+            Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+            );
+
+            // Resolve client option to clientRegistry (client takes precedence)
+            let __clientRegistry__ = __options__.clientRegistry;
+            if (__options__.client) {
+              __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+              __clientRegistry__.setPrimary(__options__.client);
+            }
+
+            const __raw__ = await this.runtime.callFunction(
+            "SynthesizeJustification",
+            {
+            "advisory": advisory,"quality": quality
+            },
+            this.ctxManager.cloneContext(),
+            __options__.tb?.__tb(),
+            __clientRegistry__,
+            __collector__,
+            __options__.tags || {},
+            __env__,
+            __signal__,
+            __options__.watchers,
+            )
+            return __raw__.parsed(false) as types.SynthesizedJustification
+            } catch (error) {
+            throw toBamlError(error);
+            }
+            }
+            
             }
 
             class BamlStreamClient {
@@ -233,6 +513,376 @@ export type RecursivePartialNull<T> = MovedRecursivePartialNull<T>
                   __raw__,
                   (a): partial_types.ProbeResult => a,
                   (a): types.ProbeResult => a,
+                  this.ctxManager.cloneContext(),
+                  __options__.signal,
+                  )
+                  } catch (error) {
+                  throw toBamlError(error);
+                  }
+                  }
+                  
+            ExtractCheckpointKnowledge(
+            note: string,findings: types.AdvisoryFindingRef[],
+            __baml_options__?: BamlCallOptions<never>
+            ): BamlStream<partial_types.CheckpointKnowledge, types.CheckpointKnowledge>
+              {
+              try {
+              const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+              const __signal__ = __options__.signal;
+
+              if (__signal__?.aborted) {
+              throw new BamlAbortError('Operation was aborted', __signal__.reason);
+              }
+
+              let __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+              [__options__.collector]) : [];
+
+              let __onTickWrapper__: (() => void) | undefined;
+
+              // Create collector and wrap onTick if provided
+              if (__options__.onTick) {
+              const __tickCollector__ = new Collector("on-tick-collector");
+              __collector__ = [...__collector__, __tickCollector__];
+
+              __onTickWrapper__ = () => {
+              const __log__ = __tickCollector__.last;
+              if (__log__) {
+              try {
+              __options__.onTick!("Unknown", __log__);
+              } catch (error) {
+              console.error("Error in onTick callback for ExtractCheckpointKnowledge", error);
+              }
+              }
+              };
+              }
+
+              const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+              const __env__: Record<string, string> = Object.fromEntries(
+                Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+                );
+
+                // Resolve client option to clientRegistry (client takes precedence)
+                let __clientRegistry__ = __options__.clientRegistry;
+                if (__options__.client) {
+                  __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+                  __clientRegistry__.setPrimary(__options__.client);
+                }
+
+                const __raw__ = this.runtime.streamFunction(
+                "ExtractCheckpointKnowledge",
+                {
+                "note": note,"findings": findings
+                },
+                undefined,
+                this.ctxManager.cloneContext(),
+                __options__.tb?.__tb(),
+                __clientRegistry__,
+                __collector__,
+                __options__.tags || {},
+                __env__,
+                __signal__,
+                __onTickWrapper__,
+                )
+                return new BamlStream<partial_types.CheckpointKnowledge, types.CheckpointKnowledge>(
+                  __raw__,
+                  (a): partial_types.CheckpointKnowledge => a,
+                  (a): types.CheckpointKnowledge => a,
+                  this.ctxManager.cloneContext(),
+                  __options__.signal,
+                  )
+                  } catch (error) {
+                  throw toBamlError(error);
+                  }
+                  }
+                  
+            ExtractConfirmedCheckpointKnowledge(
+            input: types.ConfirmedCheckpointInput,
+            __baml_options__?: BamlCallOptions<never>
+            ): BamlStream<partial_types.ConfirmedCheckpointKnowledge, types.ConfirmedCheckpointKnowledge>
+              {
+              try {
+              const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+              const __signal__ = __options__.signal;
+
+              if (__signal__?.aborted) {
+              throw new BamlAbortError('Operation was aborted', __signal__.reason);
+              }
+
+              let __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+              [__options__.collector]) : [];
+
+              let __onTickWrapper__: (() => void) | undefined;
+
+              // Create collector and wrap onTick if provided
+              if (__options__.onTick) {
+              const __tickCollector__ = new Collector("on-tick-collector");
+              __collector__ = [...__collector__, __tickCollector__];
+
+              __onTickWrapper__ = () => {
+              const __log__ = __tickCollector__.last;
+              if (__log__) {
+              try {
+              __options__.onTick!("Unknown", __log__);
+              } catch (error) {
+              console.error("Error in onTick callback for ExtractConfirmedCheckpointKnowledge", error);
+              }
+              }
+              };
+              }
+
+              const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+              const __env__: Record<string, string> = Object.fromEntries(
+                Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+                );
+
+                // Resolve client option to clientRegistry (client takes precedence)
+                let __clientRegistry__ = __options__.clientRegistry;
+                if (__options__.client) {
+                  __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+                  __clientRegistry__.setPrimary(__options__.client);
+                }
+
+                const __raw__ = this.runtime.streamFunction(
+                "ExtractConfirmedCheckpointKnowledge",
+                {
+                "input": input
+                },
+                undefined,
+                this.ctxManager.cloneContext(),
+                __options__.tb?.__tb(),
+                __clientRegistry__,
+                __collector__,
+                __options__.tags || {},
+                __env__,
+                __signal__,
+                __onTickWrapper__,
+                )
+                return new BamlStream<partial_types.ConfirmedCheckpointKnowledge, types.ConfirmedCheckpointKnowledge>(
+                  __raw__,
+                  (a): partial_types.ConfirmedCheckpointKnowledge => a,
+                  (a): types.ConfirmedCheckpointKnowledge => a,
+                  this.ctxManager.cloneContext(),
+                  __options__.signal,
+                  )
+                  } catch (error) {
+                  throw toBamlError(error);
+                  }
+                  }
+                  
+            JudgeAdvisoryWithRationale(
+            advisory: types.AdvisoryCase,
+            __baml_options__?: BamlCallOptions<never>
+            ): BamlStream<partial_types.AdvisoryJudgement, types.AdvisoryJudgement>
+              {
+              try {
+              const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+              const __signal__ = __options__.signal;
+
+              if (__signal__?.aborted) {
+              throw new BamlAbortError('Operation was aborted', __signal__.reason);
+              }
+
+              let __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+              [__options__.collector]) : [];
+
+              let __onTickWrapper__: (() => void) | undefined;
+
+              // Create collector and wrap onTick if provided
+              if (__options__.onTick) {
+              const __tickCollector__ = new Collector("on-tick-collector");
+              __collector__ = [...__collector__, __tickCollector__];
+
+              __onTickWrapper__ = () => {
+              const __log__ = __tickCollector__.last;
+              if (__log__) {
+              try {
+              __options__.onTick!("Unknown", __log__);
+              } catch (error) {
+              console.error("Error in onTick callback for JudgeAdvisoryWithRationale", error);
+              }
+              }
+              };
+              }
+
+              const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+              const __env__: Record<string, string> = Object.fromEntries(
+                Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+                );
+
+                // Resolve client option to clientRegistry (client takes precedence)
+                let __clientRegistry__ = __options__.clientRegistry;
+                if (__options__.client) {
+                  __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+                  __clientRegistry__.setPrimary(__options__.client);
+                }
+
+                const __raw__ = this.runtime.streamFunction(
+                "JudgeAdvisoryWithRationale",
+                {
+                "advisory": advisory
+                },
+                undefined,
+                this.ctxManager.cloneContext(),
+                __options__.tb?.__tb(),
+                __clientRegistry__,
+                __collector__,
+                __options__.tags || {},
+                __env__,
+                __signal__,
+                __onTickWrapper__,
+                )
+                return new BamlStream<partial_types.AdvisoryJudgement, types.AdvisoryJudgement>(
+                  __raw__,
+                  (a): partial_types.AdvisoryJudgement => a,
+                  (a): types.AdvisoryJudgement => a,
+                  this.ctxManager.cloneContext(),
+                  __options__.signal,
+                  )
+                  } catch (error) {
+                  throw toBamlError(error);
+                  }
+                  }
+                  
+            LabelAdvisoryJustification(
+            advisory: types.AdvisoryCase,
+            __baml_options__?: BamlCallOptions<never>
+            ): BamlStream<partial_types.AdvisoryLabelProposal, types.AdvisoryLabelProposal>
+              {
+              try {
+              const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+              const __signal__ = __options__.signal;
+
+              if (__signal__?.aborted) {
+              throw new BamlAbortError('Operation was aborted', __signal__.reason);
+              }
+
+              let __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+              [__options__.collector]) : [];
+
+              let __onTickWrapper__: (() => void) | undefined;
+
+              // Create collector and wrap onTick if provided
+              if (__options__.onTick) {
+              const __tickCollector__ = new Collector("on-tick-collector");
+              __collector__ = [...__collector__, __tickCollector__];
+
+              __onTickWrapper__ = () => {
+              const __log__ = __tickCollector__.last;
+              if (__log__) {
+              try {
+              __options__.onTick!("Unknown", __log__);
+              } catch (error) {
+              console.error("Error in onTick callback for LabelAdvisoryJustification", error);
+              }
+              }
+              };
+              }
+
+              const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+              const __env__: Record<string, string> = Object.fromEntries(
+                Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+                );
+
+                // Resolve client option to clientRegistry (client takes precedence)
+                let __clientRegistry__ = __options__.clientRegistry;
+                if (__options__.client) {
+                  __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+                  __clientRegistry__.setPrimary(__options__.client);
+                }
+
+                const __raw__ = this.runtime.streamFunction(
+                "LabelAdvisoryJustification",
+                {
+                "advisory": advisory
+                },
+                undefined,
+                this.ctxManager.cloneContext(),
+                __options__.tb?.__tb(),
+                __clientRegistry__,
+                __collector__,
+                __options__.tags || {},
+                __env__,
+                __signal__,
+                __onTickWrapper__,
+                )
+                return new BamlStream<partial_types.AdvisoryLabelProposal, types.AdvisoryLabelProposal>(
+                  __raw__,
+                  (a): partial_types.AdvisoryLabelProposal => a,
+                  (a): types.AdvisoryLabelProposal => a,
+                  this.ctxManager.cloneContext(),
+                  __options__.signal,
+                  )
+                  } catch (error) {
+                  throw toBamlError(error);
+                  }
+                  }
+                  
+            SynthesizeJustification(
+            advisory: types.AdvisoryCase,quality: types.JustificationQuality,
+            __baml_options__?: BamlCallOptions<never>
+            ): BamlStream<partial_types.SynthesizedJustification, types.SynthesizedJustification>
+              {
+              try {
+              const __options__ = { ...this.bamlOptions, ...(__baml_options__ || {}), env: { ...(this.bamlOptions.env || {}), ...(__baml_options__?.env || {}) } }
+              const __signal__ = __options__.signal;
+
+              if (__signal__?.aborted) {
+              throw new BamlAbortError('Operation was aborted', __signal__.reason);
+              }
+
+              let __collector__ = __options__.collector ? (Array.isArray(__options__.collector) ? __options__.collector :
+              [__options__.collector]) : [];
+
+              let __onTickWrapper__: (() => void) | undefined;
+
+              // Create collector and wrap onTick if provided
+              if (__options__.onTick) {
+              const __tickCollector__ = new Collector("on-tick-collector");
+              __collector__ = [...__collector__, __tickCollector__];
+
+              __onTickWrapper__ = () => {
+              const __log__ = __tickCollector__.last;
+              if (__log__) {
+              try {
+              __options__.onTick!("Unknown", __log__);
+              } catch (error) {
+              console.error("Error in onTick callback for SynthesizeJustification", error);
+              }
+              }
+              };
+              }
+
+              const __rawEnv__ = __options__.env ? { ...process.env, ...__options__.env } : { ...process.env };
+              const __env__: Record<string, string> = Object.fromEntries(
+                Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+                );
+
+                // Resolve client option to clientRegistry (client takes precedence)
+                let __clientRegistry__ = __options__.clientRegistry;
+                if (__options__.client) {
+                  __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+                  __clientRegistry__.setPrimary(__options__.client);
+                }
+
+                const __raw__ = this.runtime.streamFunction(
+                "SynthesizeJustification",
+                {
+                "advisory": advisory,"quality": quality
+                },
+                undefined,
+                this.ctxManager.cloneContext(),
+                __options__.tb?.__tb(),
+                __clientRegistry__,
+                __collector__,
+                __options__.tags || {},
+                __env__,
+                __signal__,
+                __onTickWrapper__,
+                )
+                return new BamlStream<partial_types.SynthesizedJustification, types.SynthesizedJustification>(
+                  __raw__,
+                  (a): partial_types.SynthesizedJustification => a,
+                  (a): types.SynthesizedJustification => a,
                   this.ctxManager.cloneContext(),
                   __options__.signal,
                   )

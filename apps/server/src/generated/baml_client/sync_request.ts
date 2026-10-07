@@ -22,7 +22,7 @@ import type { BamlRuntime, BamlCtxManager, Image, Audio, Pdf, Video } from "@bou
 import { toBamlError, HTTPRequest, ClientRegistry } from "@boundaryml/baml"
 import type { Checked, Check } from "./types.js"
 import type * as types from "./types.js"
-import type {ProbeResult} from "./types.js"
+import type {AdvisoryCase, AdvisoryFindingRef, AdvisoryJudgement, AdvisoryJustification, AdvisoryLabelProposal, CheckpointKnowledge, CodeFacts, CodegenQuirk, ConfirmedCheckpointInput, ConfirmedCheckpointKnowledge, Idiom, JustificationLabel, JustificationQuality, ProbeResult, SynthesizedJustification, Tactic, TypeFact, Verdict} from "./types.js"
 import type TypeBuilder from "./type_builder.js"
 import type * as events from "./events.js"
 
@@ -71,6 +71,171 @@ export class HttpRequest {
     }
   }
   
+  ExtractCheckpointKnowledge(
+      note: string,findings: types.AdvisoryFindingRef[],
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "ExtractCheckpointKnowledge",
+        {
+          "note": note,"findings": findings
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  ExtractConfirmedCheckpointKnowledge(
+      input: types.ConfirmedCheckpointInput,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "ExtractConfirmedCheckpointKnowledge",
+        {
+          "input": input
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  JudgeAdvisoryWithRationale(
+      advisory: types.AdvisoryCase,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "JudgeAdvisoryWithRationale",
+        {
+          "advisory": advisory
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  LabelAdvisoryJustification(
+      advisory: types.AdvisoryCase,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "LabelAdvisoryJustification",
+        {
+          "advisory": advisory
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SynthesizeJustification(
+      advisory: types.AdvisoryCase,quality: types.JustificationQuality,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "SynthesizeJustification",
+        {
+          "advisory": advisory,"quality": quality
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        false,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
 }
 
 export class HttpStreamRequest {
@@ -98,6 +263,171 @@ export class HttpStreamRequest {
         "ContractProbe",
         {
           "text": text
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  ExtractCheckpointKnowledge(
+      note: string,findings: types.AdvisoryFindingRef[],
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "ExtractCheckpointKnowledge",
+        {
+          "note": note,"findings": findings
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  ExtractConfirmedCheckpointKnowledge(
+      input: types.ConfirmedCheckpointInput,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "ExtractConfirmedCheckpointKnowledge",
+        {
+          "input": input
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  JudgeAdvisoryWithRationale(
+      advisory: types.AdvisoryCase,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "JudgeAdvisoryWithRationale",
+        {
+          "advisory": advisory
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  LabelAdvisoryJustification(
+      advisory: types.AdvisoryCase,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "LabelAdvisoryJustification",
+        {
+          "advisory": advisory
+        },
+        this.ctxManager.cloneContext(),
+        __baml_options__?.tb?.__tb(),
+        __clientRegistry__,
+        true,
+        __env__,
+      )
+    } catch (error) {
+      throw toBamlError(error);
+    }
+  }
+  
+  SynthesizeJustification(
+      advisory: types.AdvisoryCase,quality: types.JustificationQuality,
+      __baml_options__?: BamlCallOptions<never>
+  ): HTTPRequest {
+    try {
+      const __rawEnv__ = __baml_options__?.env ? { ...process.env, ...__baml_options__.env } : { ...process.env };
+      const __env__: Record<string, string> = Object.fromEntries(
+        Object.entries(__rawEnv__).filter(([_, value]) => value !== undefined) as [string, string][]
+      );
+
+      // Resolve client option to clientRegistry (client takes precedence)
+      let __clientRegistry__ = __baml_options__?.clientRegistry;
+      if (__baml_options__?.client) {
+        __clientRegistry__ = __clientRegistry__ || new ClientRegistry();
+        __clientRegistry__.setPrimary(__baml_options__.client);
+      }
+
+      return this.runtime.buildRequestSync(
+        "SynthesizeJustification",
+        {
+          "advisory": advisory,"quality": quality
         },
         this.ctxManager.cloneContext(),
         __baml_options__?.tb?.__tb(),
