@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { packageRoot } from "@server/core/knowledge";
 import type { WorkerCycleResult } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
-import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
+import type { AdvisoryAdjudicationMode, GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 import { baseConfigureCommand, configureCommandWithWrapper } from "@server/core/game-registry/configure-command.js";
 import {
   isHostToolPlatform,
@@ -59,6 +59,7 @@ export function workerCommand(
     graphDbPath: string;
     leaseId: string;
     writeSetFlags: WriteSetIntegrationFlags;
+    advisoryAdjudication: AdvisoryAdjudicationMode;
   },
 ): string[] {
   const bin = resolve(orchestratorRoot(), "apps/server/src/job-runner.ts");
@@ -77,6 +78,7 @@ export function workerCommand(
   command.push("--lease-id", params.leaseId);
   command.push("--graph-db", params.graphDbPath);
   command.push("--write-set-widening", params.writeSetFlags.writeSetWidening);
+  command.push("--advisory-adjudication", params.advisoryAdjudication);
   return command;
 }
 
@@ -93,6 +95,7 @@ export async function runWorkerProcess(
     graphDbPath: string;
     leaseId: string;
     writeSetFlags: WriteSetIntegrationFlags;
+    advisoryAdjudication: AdvisoryAdjudicationMode;
   },
   procRegistry?: Set<{ kill: (signal?: number) => void; exited: Promise<number> }>,
 ): Promise<WorkerCycleResult> {

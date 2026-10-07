@@ -42,6 +42,32 @@ export interface WriteSetIntegrationFlags {
   writeSetWidening: WriteSetWideningMode;
 }
 
+export const ADVISORY_ADJUDICATION_MODES = ["off", "shadow", "enforce"] as const;
+export type AdvisoryAdjudicationMode = (typeof ADVISORY_ADJUDICATION_MODES)[number];
+/**
+ * Shadow by default: the worker only records a data-only review candidate and
+ * the orchestrator adjudicates it later, out of band. `off` is the worker
+ * exactly as before; `enforce` adjudicates inline before the checkpoint passes.
+ */
+export const DEFAULT_ADVISORY_ADJUDICATION_MODE: AdvisoryAdjudicationMode = "shadow";
+/** Wins over `--advisory-adjudication` when set; `off` is the kill switch. */
+export const ADVISORY_ADJUDICATION_ENV = "ORCH_ADVISORY_ADJUDICATION";
+export const CHECKPOINT_KNOWLEDGE_FEED_MODES = ["on", "off"] as const;
+export type CheckpointKnowledgeFeedMode = (typeof CHECKPOINT_KNOWLEDGE_FEED_MODES)[number];
+export const DEFAULT_CHECKPOINT_KNOWLEDGE_FEED: CheckpointKnowledgeFeedMode = "on";
+/** Wins over `--checkpoint-knowledge-feed` when set. */
+export const CHECKPOINT_KNOWLEDGE_FEED_ENV = "ORCH_CHECKPOINT_KNOWLEDGE_FEED";
+/** Confirmed-good checkpoints fed to the librarian per settled epoch. */
+export const DEFAULT_CHECKPOINT_KNOWLEDGE_CAP = 50;
+const MODEL_NODE_FLAGS = ["--advisory-adjudication", "--checkpoint-knowledge-feed", "--checkpoint-knowledge-cap"] as const;
+
+export interface ModelNodeFlags {
+  /** Threaded to workers through the task file; the feed flags stay in the run-loop process. */
+  advisoryAdjudication: AdvisoryAdjudicationMode;
+  checkpointKnowledgeFeed: CheckpointKnowledgeFeedMode;
+  checkpointKnowledgeCap: number;
+}
+
 function readFlag(argv: string[], index: number): string {
   const value = argv[index + 1];
   if (!value || value.startsWith("--")) throw new Error(`Missing value for ${argv[index]}`);
@@ -84,6 +110,14 @@ export function parse(argv: string[]): ParsedArgs {
       const value = arg.slice("--sync-merge-policy=".length);
       if (!value) throw new Error("Missing value for --sync-merge-policy");
       args.set("--sync-merge-policy", value);
+      continue;
+    }
+
+    const modelNodeFlag = MODEL_NODE_FLAGS.find((flag) => arg.startsWith(`${flag}=`));
+    if (modelNodeFlag) {
+      const value = arg.slice(modelNodeFlag.length + 1);
+      if (!value) throw new Error(`Missing value for ${modelNodeFlag}`);
+      args.set(modelNodeFlag, value);
       continue;
     }
 
@@ -214,4 +248,69 @@ export function syncMergePolicyArg(args: Map<string, string | true>): SyncMergeP
 
 export function writeSetIntegrationFlags(args: Map<string, string | true>): WriteSetIntegrationFlags {
   return { writeSetWidening: writeSetWideningArg(args) };
+}
+
+type EnvSource = Record<string, string | undefined>;
+
+// Error messages name the source and the allowed modes, never the rejected value.
+function modeValue<T extends string>(raw: unknown, modes: readonly T[], source: string): T {
+  if (raw === true) throw new Error(`Missing value for ${source}`);
+  const value = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (!modes.includes(value as T)) throw new Error(`${source} must be one of: ${modes.join(", ")}`);
+  return value as T;
+}
+
+/** The flag is validated even when the env var overrides it. */
+function modeArg<T extends string>(
+  args: Map<string, string | true>,
+  flag: string,
+  envName: string,
+  env: EnvSource,
+  modes: readonly T[],
+  fallback: T,
+): T {
+  const raw = args.get(flag);
+  const fromFlag = raw === undefined ? fallback : modeValue(raw, modes, flag);
+  const fromEnv = env[envName];
+  return fromEnv === undefined ? fromFlag : modeValue(fromEnv, modes, envName);
+}
+
+export function parseAdvisoryAdjudicationMode(raw: unknown, source: string): AdvisoryAdjudicationMode {
+  return modeValue(raw, ADVISORY_ADJUDICATION_MODES, source);
+}
+
+export function advisoryAdjudicationArg(
+  args: Map<string, string | true>,
+  env: EnvSource = process.env,
+): AdvisoryAdjudicationMode {
+  return modeArg(
+    args, "--advisory-adjudication", ADVISORY_ADJUDICATION_ENV, env,
+    ADVISORY_ADJUDICATION_MODES, DEFAULT_ADVISORY_ADJUDICATION_MODE,
+  );
+}
+
+export function checkpointKnowledgeFeedArg(
+  args: Map<string, string | true>,
+  env: EnvSource = process.env,
+): CheckpointKnowledgeFeedMode {
+  return modeArg(
+    args, "--checkpoint-knowledge-feed", CHECKPOINT_KNOWLEDGE_FEED_ENV, env,
+    CHECKPOINT_KNOWLEDGE_FEED_MODES, DEFAULT_CHECKPOINT_KNOWLEDGE_FEED,
+  );
+}
+
+export function checkpointKnowledgeCapArg(args: Map<string, string | true>): number {
+  const raw = args.get("--checkpoint-knowledge-cap");
+  if (raw === undefined) return DEFAULT_CHECKPOINT_KNOWLEDGE_CAP;
+  const value = typeof raw === "string" && raw.trim() ? Number(raw) : Number.NaN;
+  if (!Number.isInteger(value) || value < 1) throw new Error("--checkpoint-knowledge-cap must be a positive integer");
+  return value;
+}
+
+export function modelNodeFlags(args: Map<string, string | true>, env: EnvSource = process.env): ModelNodeFlags {
+  return {
+    advisoryAdjudication: advisoryAdjudicationArg(args, env),
+    checkpointKnowledgeFeed: checkpointKnowledgeFeedArg(args, env),
+    checkpointKnowledgeCap: checkpointKnowledgeCapArg(args),
+  };
 }

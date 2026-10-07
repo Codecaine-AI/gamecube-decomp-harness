@@ -33,6 +33,7 @@ import {
   stringArg,
   syncMergePolicyArg,
   librarianConsumerFlag,
+  modelNodeFlags,
   workerSummaryFlag,
   writeSetIntegrationFlags,
   type GlobalArgs,
@@ -63,6 +64,7 @@ import {
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { startWorkerSummaryProcessor } from "@server/core/knowledge-v2/summarizer-job/index.js";
 import { startLibrarianConsumerLane } from "@server/core/knowledge-v2/librarian/lane.js";
+import { startModelNodeLanesIfEnabled, type ModelNodeLanes } from "@server/core/model-node-work/index.js";
 import { recoverActiveClaims } from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/harness-runtime/phases/running/worker-ttl.js";
 import { runEpochBoundary } from "./epoch-boundary.js";
@@ -612,6 +614,7 @@ export async function runRunLoop(
   let abandonedBackgroundBorrowers = 0;
   let stopWorkerSummary: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
   let stopLibrarianConsumer: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
+  let modelNodeLanes: ModelNodeLanes | null = null;
   let runLoopWakeResolve: (() => void) | null = null;
   const stop = () => {
     stopRequested = true;
@@ -683,11 +686,15 @@ export async function runRunLoop(
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const writeSetFlags = writeSetIntegrationFlags(args);
+    const nodeFlags = modelNodeFlags(args);
     {
-      // Always record the effective mode so a run's widening policy is auditable
-      // even when it is the default.
+      // Always record the effective modes so a run's widening and model-node
+      // policies are auditable even when they are the defaults.
       const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
         write_set_widening: writeSetFlags.writeSetWidening,
+        advisory_adjudication: nodeFlags.advisoryAdjudication,
+        checkpoint_knowledge_feed: nodeFlags.checkpointKnowledgeFeed,
+        checkpoint_knowledge_cap: nodeFlags.checkpointKnowledgeCap,
         created_by: "run-loop",
       });
       markEventHandled(store, flagEvent);
@@ -711,6 +718,21 @@ export async function runRunLoop(
       globals,
       gameId,
       shouldClaim: () => !providerCircuit.isOpen() && getDispatchState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+    });
+    // Out-of-band model-node work (shadow adjudication, checkpoint knowledge):
+    // durable jobs on their own lanes, never counted toward drain or idle exit.
+    modelNodeLanes = startModelNodeLanesIfEnabled({
+      store: borrowedStore,
+      runId,
+      globals,
+      advisoryAdjudication: nodeFlags.advisoryAdjudication,
+      checkpointKnowledgeFeed: nodeFlags.checkpointKnowledgeFeed === "on",
+      checkpointKnowledgeCap: nodeFlags.checkpointKnowledgeCap,
+      shouldClaim: () => !providerCircuit.isOpen() && getDispatchState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+      onFatalError: onFatalStateError,
+      onShutdownAbandoned: (count) => {
+        abandonedBackgroundBorrowers = Math.max(abandonedBackgroundBorrowers, count);
+      },
     });
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
@@ -778,6 +800,7 @@ export async function runRunLoop(
       workerConfigureCommand,
       graphDbPath,
       writeSetFlags,
+      advisoryAdjudication: nodeFlags.advisoryAdjudication,
       workerIdPrefix: "runloop",
     };
     const handleWorkerJobSettled = (
@@ -795,6 +818,8 @@ export async function runRunLoop(
       const summaryError = summary.error && typeof summary.error === "object" ? summary.error as Record<string, unknown> : undefined;
       const errorKind = typeof summaryError?.kind === "string" ? summaryError.kind : undefined;
       providerCircuit.recordClosure(errorKind);
+      // Durable source enqueue (SQL only) so the loop can exit right after this worker.
+      if (workerStateId) modelNodeLanes?.afterWorkerSettled(workerStateId);
       const error = settle.error ?? (typeof row?.error_summary === "string" ? row.error_summary : undefined);
       workerResults.push({
         workerStateId,
@@ -992,6 +1017,9 @@ export async function runRunLoop(
           reportKnowledgeProgress: knowledgeProgressReporter,
         })
           .then((outcome) => {
+            // Fresh or reconciled: enqueue this epoch's knowledge jobs now (SQL
+            // only); the lane's catch-up reads stored rows, so it is idempotent.
+            modelNodeLanes?.afterEpochBoundary(schedulerEpochId);
             // Workers base new worktrees on the latest epoch boundary commit.
             // Compare-and-set: the boundary sha was captured at snapshot time,
             // so if an integration drain or resolver advanced baseRev during
@@ -1311,6 +1339,8 @@ export async function runRunLoop(
     if (runningProviderProbe) await runningProviderProbe;
     if (stopWorkerSummary) await stopWorkerSummary({ maxWaitMs: 15_000 });
     if (stopLibrarianConsumer) await stopLibrarianConsumer({ maxWaitMs: 15_000 });
+    // Final synchronous catch-up of both kinds, then stop the lanes.
+    if (modelNodeLanes) await modelNodeLanes.stop({ maxWaitMs: 15_000 });
     const closed = stateStoreCloseInfo(store);
     if (observedRunId && !closed) {
       try {

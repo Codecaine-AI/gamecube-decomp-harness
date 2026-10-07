@@ -138,7 +138,7 @@ test("explicit reconciliation preserves original heads and cancels only the pinn
   expect(read.query("SELECT status FROM sync_state").get()).toEqual({ status: "cancelled" });
   expect(read.query("SELECT active_workflow_json FROM dispatch_state").get()).toEqual({ active_workflow_json: null });
   expect(read.query("SELECT COUNT(*) AS count FROM game_events").get()).toEqual({ count: 2 });
-  expect(read.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 10 });
+  expect(read.query("SELECT MAX(version) AS version FROM schema_migrations").get()).toEqual({ version: 11 });
   const evidence = read.query("SELECT evidence_json FROM historical_cutover_reconciliations").get() as any;
   expect(JSON.parse(evidence.evidence_json).plan).toEqual(plan); read.close();
   expect(runLegacyImport({ ...options, mode: "apply", reconciliationFile })).toMatchObject({ alreadyMigrated: true, state: result.state });

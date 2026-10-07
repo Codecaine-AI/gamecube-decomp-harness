@@ -12,7 +12,7 @@ import {
 } from "@server/core/harness-runtime/run-state";
 import { recoverActiveClaims } from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
 import { captureSandboxProvenance, readSandboxProvenance } from "@server/core/game-registry/sandbox-provenance.js";
-import type { GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
+import type { AdvisoryAdjudicationMode, GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
 import {
   attachJobPayload,
@@ -71,6 +71,7 @@ export interface WorkerJobRunContext {
   workerConfigureCommand: string;
   graphDbPath: string;
   writeSetFlags: WriteSetIntegrationFlags;
+  advisoryAdjudication: AdvisoryAdjudicationMode;
   workerIdPrefix?: string;
 }
 
@@ -315,6 +316,7 @@ export function buildWorkerTask(
         worker_configure_command: ctx.workerConfigureCommand,
         graph_db_path: ctx.graphDbPath,
         write_set_flags: ctx.writeSetFlags,
+        advisory_adjudication: ctx.advisoryAdjudication,
         execution_class: "sandbox",
         sandbox_id: provisionedSandbox.sandboxId,
         sandbox_provenance: sandbox,

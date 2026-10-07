@@ -10,6 +10,7 @@ import { retireCycleOwnershipMigration } from "./007-retire-cycle-ownership.js";
 import { harnessKernelTracesMigration } from "./008-harness-kernel-traces.js";
 import { canonicalSyncStagingMigration } from "./009-canonical-sync-staging.js";
 import { harnessStateNamesMigration } from "./010-harness-state-names.js";
+import { acceptedAdvisoryMigration } from "./011-accepted-advisory.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -26,6 +27,7 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   harnessKernelTracesMigration,
   canonicalSyncStagingMigration,
   harnessStateNamesMigration,
+  acceptedAdvisoryMigration,
 ]);
 
 interface AppliedMigrationRow {

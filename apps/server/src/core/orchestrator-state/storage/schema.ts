@@ -778,7 +778,34 @@ export const runRecoveryJournal = sqliteTable(
   ],
 );
 
+/** Enforce-mode advisory acceptances; written after recordWorkerCheckpoint (migration 011). */
+export const acceptedAdvisory = sqliteTable(
+  "accepted_advisory",
+  {
+    fingerprint: text("fingerprint").notNull(),
+    checkpointId: text("checkpoint_id").notNull(),
+    runId: text("run_id").notNull(),
+    ruleId: text("rule_id").notNull(),
+    file: text("file").notNull(),
+    fullLine: text("full_line").notNull(),
+    occurrences: integer("occurrences").notNull(),
+    decisionRunId: text("decision_run_id"),
+    probability: real("probability"),
+    servedModel: text("served_model"),
+    thresholdsJson: text("thresholds_json").notNull(),
+    acceptedAt: text("accepted_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.fingerprint, table.checkpointId] })],
+);
+
+/** First-enabled time per model-node lane kind; catch-up never reaches before it (migration 011). */
+export const modelNodeLaneState = sqliteTable("model_node_lane_state", {
+  kind: text("kind").primaryKey(),
+  enabledSince: text("enabled_since").notNull(),
+});
+
 export const orchestratorStateSchema = {
+  acceptedAdvisory,
   campaigns,
   checkpointItems,
   dashboardArtifacts,
@@ -813,6 +840,7 @@ export const orchestratorStateSchema = {
   targets,
   workerCheckpoints,
   integrationOutcomes,
+  modelNodeLaneState,
   workerState,
   writeSetWidenings,
 };
@@ -862,3 +890,6 @@ export type PendingIntegrationRow = typeof pendingIntegrations.$inferSelect;
 export type NewPendingIntegrationRow = typeof pendingIntegrations.$inferInsert;
 export type RunRecoveryJournalRow = typeof runRecoveryJournal.$inferSelect;
 export type NewRunRecoveryJournalRow = typeof runRecoveryJournal.$inferInsert;
+export type AcceptedAdvisoryRow = typeof acceptedAdvisory.$inferSelect;
+export type NewAcceptedAdvisoryRow = typeof acceptedAdvisory.$inferInsert;
+export type ModelNodeLaneStateRow = typeof modelNodeLaneState.$inferSelect;

@@ -40,7 +40,7 @@ describe("openState migration mode", () => {
     initialized.db.close();
 
     expect(() => openState(dir, { migrate: false })).toThrow(
-      "schema is behind this process: applied through v1, this build requires v10",
+      "schema is behind this process: applied through v1, this build requires v11",
     );
 
     const db = new Database(join(dir, "orchestrator.sqlite"));

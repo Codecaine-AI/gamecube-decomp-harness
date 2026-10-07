@@ -78,9 +78,12 @@ import type { WorkerOutputIntegrationApplyResult } from "@server/core/harness-ru
 import type { PiRunResult } from "@server/core/shared/types";
 import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
 import {
+  DEFAULT_ADVISORY_ADJUDICATION_MODE,
   gameMetadata,
+  parseAdvisoryAdjudicationMode,
   stringArg,
   writeSetIntegrationFlags,
+  type AdvisoryAdjudicationMode,
   type GlobalArgs,
   type WriteSetWideningMode,
 } from "@server/core/game-registry/runtime-options.js";
@@ -1168,6 +1171,7 @@ interface WorkerTaskFileBase {
   worker_configure_command: string;
   graph_db_path: string;
   write_set_flags: ReturnType<typeof writeSetIntegrationFlags>;
+  advisory_adjudication: AdvisoryAdjudicationMode;
 }
 
 interface WorkerTaskFile extends WorkerTaskFileBase {
@@ -1243,6 +1247,10 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
     worker_configure_command: row.worker_configure_command,
     graph_db_path: requiredTaskString(row.graph_db_path, "graph_db_path"),
     write_set_flags: row.write_set_flags as ReturnType<typeof writeSetIntegrationFlags>,
+    // Task files written before the flag existed carry no key and read as the default.
+    advisory_adjudication: row.advisory_adjudication === undefined
+      ? DEFAULT_ADVISORY_ADJUDICATION_MODE
+      : parseAdvisoryAdjudicationMode(row.advisory_adjudication, "Worker task advisory_adjudication"),
   };
   return {
     ...common,

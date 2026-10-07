@@ -2,7 +2,9 @@ import { remoteBuildsEnabled } from "@server/core/validation/build/execution.js"
 import { basename, dirname } from "node:path";
 
 import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
+import { closeNodeKernel } from "@server/infrastructure/kernel/nodes/node-kernel";
 import { loadLocalEnv } from "@server/infrastructure/env";
+import { loadCodecaineEnv } from "@server/infrastructure/env/codecaine-env";
 import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
 import { parse } from "@server/core/game-registry/runtime-options.js";
 import { kg2Backfill } from "@server/core/knowledge-v2/backfill/cli.js";
@@ -45,6 +47,7 @@ function jobOwnsStorageMigrations(command: string): boolean {
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
+  loadCodecaineEnv();
   const { command, globals, args } = parse(argv);
   if (globals.game) {
     loadLocalEnv({
@@ -94,8 +97,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   } finally {
     if (previousMigrationMode === undefined) delete process.env[STATE_MIGRATION_MODE_ENV];
     else process.env[STATE_MIGRATION_MODE_ENV] = previousMigrationMode;
-    await closeDefaultMeleeKernelRuntime();
-    resetDefaultMeleeKernelRuntimeForTests();
+    try {
+      // The node kernel writes through the melee kernel runtime's DB: flush it first.
+      await closeNodeKernel();
+    } finally {
+      await closeDefaultMeleeKernelRuntime();
+      resetDefaultMeleeKernelRuntimeForTests();
+    }
   }
 
   if (command === "worker-task") {
