@@ -281,6 +281,10 @@ export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
       `advisory-calibration freeze-replay --source-root ${source.root} --game ${source.game} --run ${runId} --worker-state ${workerStateId} --attempt ${attempt} --out ${opts.outDir}`,
   );
   const sourcePaths = { summary: shown(summaryPath), patch: shown(patchPath), note: shown(outputPath ?? `${row.id}:metadata.agent_note`) };
+  const manifestSource = sanitizeDeep(
+    { game: source.game, run_id: runId, worker_state_id: workerStateId, attempt, checkpoint_id: row.id, target_key: targetKey },
+    sanitize,
+  );
   // Nothing is written when a short secret-looking value occurred anywhere above.
   assertNoShortSecrets(sanitize, "freeze-replay");
   mkdirSync(opts.outDir, { recursive: true });
@@ -291,7 +295,7 @@ export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
   }
   const manifest: ReplayFixtureManifest = {
     schema: "advisory_replay_fixture_v1",
-    source: { game: source.game, run_id: runId, worker_state_id: workerStateId, attempt, checkpoint_id: row.id, target_key: targetKey },
+    source: manifestSource,
     files,
     sources: {
       summary: { path: sourcePaths.summary, sha256: sha256Hex(summaryText) },

@@ -18,7 +18,7 @@ import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 
 import { assertKnownFlags, requiredFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { baseGroupKey } from "./groups.js";
-import { assertNoShortSecrets, createSanitizer, sanitizeNoteText, type Sanitize } from "./sanitize.js";
+import { assertNoShortSecrets, createSanitizer, sanitizeDeep, sanitizeNoteText, type Sanitize } from "./sanitize.js";
 import { assertOutputOutsideSource, openSourceRoot, type SourceRoot } from "./source-root.js";
 import { calibrationPaths, DEFAULT_CALIBRATION_DIR, readJsonl, sha256Hex, writeJson, writeJsonl } from "./store.js";
 import type { CalibrationFinding, CalibrationItem, CodeFacts, NoteRecord } from "./types.js";
@@ -193,16 +193,13 @@ export function noteRecord(
   note: { source: NoteRecord["source"]; text: string },
   sanitize: Sanitize,
 ): NoteRecord {
+  // Every field from history is scrubbed once; the digest is of the scrubbed text.
   const text = sanitizeNoteText(note.text, sanitize);
-  return {
-    key,
-    checkpoint_id: row.checkpointId,
-    worker_state_id: row.workerStateId,
-    attempt_index: row.attempt,
-    source: note.source,
-    sha256: sha256Hex(text),
-    text,
-  };
+  const fields = sanitizeDeep(
+    { key, checkpoint_id: row.checkpointId, worker_state_id: row.workerStateId, attempt_index: row.attempt, source: note.source },
+    sanitize,
+  );
+  return { ...fields, sha256: sha256Hex(text), text };
 }
 
 export function codeFactsOfRow(row: Pick<CheckpointRow, "exact_match" | "old_score" | "new_score">): CodeFacts {
@@ -332,8 +329,9 @@ export function buildHistoryDataset(opts: { source: SourceRoot; sanitize: Saniti
         const id = calibrationItemId(fingerprint, checkpointKey);
         produced = true;
         if (items.has(id)) continue;
-        const hunk = extractHunk(patch!, finding.file, finding.line);
-        items.set(id, {
+        // Identity (fingerprint, id, group) comes from the original evidence; every exported field is scrubbed once.
+        items.set(id, sanitizeDeep<CalibrationItem>(
+          {
           schema: "advisory_calibration_item_v1",
           id,
           source: "history",
@@ -346,11 +344,13 @@ export function buildHistoryDataset(opts: { source: SourceRoot; sanitize: Saniti
           target_key: targetKey,
           finding: calibrationFinding(finding),
           full_line: fullLine,
-          hunk: hunk === null ? null : sanitize(hunk),
+          hunk: extractHunk(patch!, finding.file, finding.line),
           note_key: noteKey,
           code_facts: codeFacts,
           group_key: baseGroupKey(targetKey, finding.rule_id, fullLine),
-        });
+          },
+          sanitize,
+        ));
       }
       if (produced && row && note && noteKey) {
         notes.set(noteKey, noteRecord(noteKey, { checkpointId: row.id, workerStateId: summary.workerStateId, attempt: summary.attempt }, note, sanitize));

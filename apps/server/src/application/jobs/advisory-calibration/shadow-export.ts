@@ -33,7 +33,7 @@ import {
   type CheckpointRow,
 } from "./build-dataset.js";
 import { baseGroupKey } from "./groups.js";
-import { assertNoShortSecrets, createSanitizer, type Sanitize } from "./sanitize.js";
+import { assertNoShortSecrets, createSanitizer, sanitizeDeep, type Sanitize } from "./sanitize.js";
 import { openSourceRoot, type SourceRoot } from "./source-root.js";
 import { appendJsonl, calibrationPaths, DEFAULT_CALIBRATION_DIR, latestById, readJsonl, writeJsonl } from "./store.js";
 import type { CalibrationItem, CodeFacts, ExtractionRecord, NoteRecord, ProbabilityRow } from "./types.js";
@@ -187,7 +187,8 @@ export function collectShadowResults(opts: { source: SourceRoot; sanitize: Sanit
           message: scanned?.message ?? "",
           ...(scanned?.detail !== undefined && { detail: scanned.detail }),
         });
-        items.set(id, {
+        // Identity (fingerprint, id, group) comes from the original evidence; every exported field is scrubbed once.
+        items.set(id, sanitizeDeep<CalibrationItem>({
           schema: "advisory_calibration_item_v1",
           id,
           source: "shadow",
@@ -200,29 +201,30 @@ export function collectShadowResults(opts: { source: SourceRoot; sanitize: Sanit
           target_key: targetKey,
           finding,
           full_line: fullLine,
-          hunk: typeof advisory.hunk === "string" ? sanitize(advisory.hunk) : null,
+          hunk: typeof advisory.hunk === "string" ? advisory.hunk : null,
           note_key: note ? row.id : null,
           code_facts: codeFacts,
           group_key: baseGroupKey(targetKey, advisory.rule_id, fullLine),
-        });
+        }, sanitize));
         // An extraction that failed says nothing about the note, so only a successful one is recorded.
         if (extractionOk) {
-          const justification = typeof advisory.justification === "string" && advisory.justification.trim() ? sanitize(advisory.justification) : null;
-          extractions.set(id, {
+          const justification = typeof advisory.justification === "string" && advisory.justification.trim() ? advisory.justification : null;
+          extractions.set(id, sanitizeDeep<ExtractionRecord>({
             id,
             justification,
-            evidence: Array.isArray(advisory.evidence) ? advisory.evidence.filter((e) => typeof e === "string").map(sanitize) : [],
+            evidence: Array.isArray(advisory.evidence) ? advisory.evidence.filter((e) => typeof e === "string") : [],
             kept: justification !== null,
             structured_field_used: adjudication.extraction.structured_field_used === true,
             source: "shadow",
             ...(adjudication.extraction.run_id !== undefined && { run_id: adjudication.extraction.run_id }),
             extracted_at: now,
-          });
+          }, sanitize));
         }
-        const probability = probabilityRow(id, advisory, adjudication);
-        if (probability && !seenRows.has(id)) {
+        const recorded = probabilityRow(id, advisory, adjudication);
+        if (recorded && !seenRows.has(id)) {
           seenRows.add(id);
-          const model = probability.served_model ?? (adjudication.model?.requested || "unknown");
+          const probability = sanitizeDeep(recorded, sanitize);
+          const model = probability.served_model ?? sanitize(adjudication.model?.requested || "unknown");
           let list = runs.get(model);
           if (!list) runs.set(model, (list = []));
           list.push(probability);

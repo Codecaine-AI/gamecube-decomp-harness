@@ -3,9 +3,12 @@
 // root the history recorded) become `<source-root>/…`, the home directory
 // becomes `<home>`, values of secret-looking environment variables and any
 // token-like string are replaced. Credentials are located on the original text
-// in one pass (redactSecrets), so a secret inside a token never splits it. Structured data is scrubbed key by key and
-// value by value before it is serialized (sanitizeDeep), so a pattern never
-// eats JSON punctuation. Every non-empty value of a secret-looking variable is
+// in one pass (redactSecrets), so a secret inside a token never splits it; each
+// long secret is also matched in its URL-encoded and base64 forms, and token
+// schemes match in any case. Structured data is scrubbed after decoding, key by
+// key and value by value (numbers, booleans and null by their text form), and
+// serialized afterwards (sanitizeDeep), so a pattern never eats JSON
+// punctuation and no escape sequence hides a secret. Every non-empty value of a secret-looking variable is
 // a secret, whatever it looks like ("1" and "true" included); only the
 // variables in NOT_CREDENTIALS are known not to be. A value too short to scrub
 // without mangling unrelated text is never replaced: the sanitizer records
@@ -16,8 +19,8 @@ import { homedir } from "node:os";
 
 import { LEGACY_HARNESS_ROOT } from "./source-root.js";
 
-/** `sk-…` keys and bearer credentials (plan §6.9). */
-export const TOKEN_LIKE = /sk-[A-Za-z0-9-]{8,}|Bearer\s+\S+/g;
+/** `sk-…` keys and bearer credentials (plan §6.9), in any case (HTTP auth schemes are case-insensitive). */
+export const TOKEN_LIKE = /sk-[A-Za-z0-9-]{8,}|Bearer\s+\S+/gi;
 export const SECRET_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|COOKIE|AUTH/i;
 /**
  * Variables whose names match SECRET_ENV_NAME but hold no credential: the ssh
@@ -119,13 +122,23 @@ function redactSecrets(text: string, secrets: ReadonlyArray<[string, string]>): 
   return pieces;
 }
 
+/** A secret as written, URL-encoded, and in standard and URL-safe base64 (padded and unpadded). */
+export function encodedForms(value: string): string[] {
+  const base64 = Buffer.from(value, "utf8").toString("base64");
+  const base64Url = Buffer.from(value, "utf8").toString("base64url");
+  return [...new Set([value, encodeURIComponent(value), base64, base64.replace(/=+$/, ""), base64Url, base64Url.replace(/=+$/, "")])];
+}
+
 export function createSanitizer(opts: SanitizerOptions): Sanitize {
   const env = opts.env ?? process.env;
   const sensitive = Object.entries(env).filter(
     (entry): entry is [string, string] =>
       SECRET_ENV_NAME.test(entry[0]) && !NOT_CREDENTIALS.has(entry[0]) && typeof entry[1] === "string" && entry[1].length > 0,
   );
-  const secrets = sensitive.filter(([, value]) => value.length >= MIN_SECRET_LENGTH).sort((a, b) => b[1].length - a[1].length);
+  const secrets = sensitive
+    .filter(([, value]) => value.length >= MIN_SECRET_LENGTH)
+    .flatMap(([name, value]) => encodedForms(value).map((form): [string, string] => [name, form]))
+    .sort((a, b) => b[1].length - a[1].length);
   const shortSecrets = sensitive.filter(([, value]) => value.length < MIN_SECRET_LENGTH);
   const seen = new Set<string>();
   // Longest prefix first, so the source root wins over the home directory that contains it.
@@ -151,13 +164,20 @@ export function createSanitizer(opts: SanitizerOptions): Sanitize {
 
 /**
  * Every string scrubbed, keys included, structure kept; serialize afterwards.
- * Two keys of one object that scrub to the same name are kept apart
- * explicitly: the later ones get `#2`, `#3`, … in key order.
+ * A number, boolean or null is checked by its text form: when that form holds
+ * a secret it is replaced by the scrubbed string (a short secret is recorded
+ * for refusal like any text). Two keys of one object that scrub to the same
+ * name are kept apart explicitly: the later ones get `#2`, `#3`, … in key order.
  */
 export function sanitizeDeep<T>(value: T, sanitize: (text: string) => string): T {
   if (typeof value === "string") return sanitize(value) as T;
+  if (typeof value === "number" || typeof value === "boolean" || value === null) {
+    const text = String(value);
+    const scrubbed = sanitize(text);
+    return (scrubbed === text ? value : scrubbed) as T;
+  }
   if (Array.isArray(value)) return value.map((entry) => sanitizeDeep(entry, sanitize)) as T;
-  if (value !== null && typeof value === "object") {
+  if (typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
       const scrubbed = sanitize(key);
@@ -172,9 +192,11 @@ export function sanitizeDeep<T>(value: T, sanitize: (text: string) => string): T
 }
 
 /**
- * A worker note: most are JSON, so they are scrubbed key by key and value by
- * value and re-serialized only when something was replaced (formatting kept otherwise);
- * prose is scrubbed as text.
+ * A worker note. JSON (object, array or scalar) is scrubbed after decoding,
+ * so an escape sequence (`\u0061…`) or a duplicated key never hides a secret.
+ * The raw text is kept only when nothing was replaced AND it is already the
+ * plain serialization of what it decodes to; otherwise the scrubbed value is
+ * re-serialized. Prose is scrubbed as text.
  */
 export function sanitizeNoteText(text: string, sanitize: (text: string) => string): string {
   let parsed: unknown;
@@ -183,9 +205,11 @@ export function sanitizeNoteText(text: string, sanitize: (text: string) => strin
   } catch {
     return sanitize(text);
   }
-  if (parsed === null || typeof parsed !== "object") return sanitize(text);
   const scrubbed = sanitizeDeep(parsed, sanitize);
-  return JSON.stringify(scrubbed) === JSON.stringify(parsed) ? text : `${JSON.stringify(scrubbed, null, 2)}${text.endsWith("\n") ? "\n" : ""}`;
+  const body = text.endsWith("\n") ? text.slice(0, -1) : text;
+  const plain = body === JSON.stringify(parsed, null, 2) || body === JSON.stringify(parsed);
+  if (plain && JSON.stringify(scrubbed) === JSON.stringify(parsed)) return text;
+  return `${JSON.stringify(scrubbed, null, 2)}${text.endsWith("\n") ? "\n" : ""}`;
 }
 
 /** Refuses to write history-derived files when a short secret-looking value occurred in them (names only, never values). */

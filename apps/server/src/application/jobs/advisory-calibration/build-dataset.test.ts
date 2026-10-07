@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { Database } from "bun:sqlite";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -265,5 +266,56 @@ describe("advisory-calibration history datasets", () => {
     // A history rebuild keeps the shadow rows.
     await buildDataset(history.root, dir);
     expect(readJsonl<CalibrationItem>(paths.candidates).filter((item) => item.source === "shadow")).toHaveLength(4);
+  });
+
+  test("every exported finding field is scrubbed, identity kept from the original evidence (F14)", async () => {
+    const history = tree();
+    const token = "Bearer abcdefgh-tail-private";
+    // History: a summary finding with a token in its message and in detail keys and array values.
+    const summary = JSON.parse(readFileSync(history.paths.summary, "utf8"));
+    const original = summary.qaLint.findings[0];
+    summary.qaLint.findings[0] = { ...original, message: `${original.message} ${token}`, detail: { ...original.detail, [token]: [token, "sk-abcdefgh-zzz"] } };
+    writeFileSync(history.paths.summary, JSON.stringify(summary, null, 2));
+    // Shadow: an adjudicated advisory whose excerpt (and so full_line) and candidate finding carry the token.
+    const db = new Database(history.paths.orchestratorDb);
+    try {
+      const row = db.query("SELECT metadata_json FROM worker_checkpoints WHERE id = ?").get(FIXTURE_CASES.shadow.checkpointId) as { metadata_json: string };
+      const metadata = JSON.parse(row.metadata_json);
+      const advisory = metadata.llm_review_adjudication.advisories[0];
+      advisory.excerpt = `x = 1; // ${token}`;
+      advisory.line = 9999;
+      for (const entry of metadata.llm_review_candidate.advisories) {
+        if (entry.finding.rule_id === advisory.rule_id && entry.finding.file === advisory.file) {
+          entry.finding = { ...entry.finding, line: 9999, excerpt: advisory.excerpt, message: `rule ${token}`, detail: { ...entry.finding.detail, [token]: [token] } };
+        }
+      }
+      db.run("UPDATE worker_checkpoints SET metadata_json = ? WHERE id = ?", [JSON.stringify(metadata), FIXTURE_CASES.shadow.checkpointId]);
+    } finally {
+      db.close();
+    }
+    const saved = process.env.LONG_TOKEN;
+    process.env.LONG_TOKEN = "abcdefgh";
+    try {
+      const dir = outDir();
+      await buildDataset(history.root, dir);
+      await shadowExport(history.root, dir);
+      const written = readdirSync(dir, { recursive: true })
+        .map((name) => join(dir, String(name)))
+        .filter((path) => path.endsWith(".json") || path.endsWith(".jsonl"))
+        .map((path) => readFileSync(path, "utf8"))
+        .join("\n");
+      for (const leaked of ["abcdefgh", "tail-private", "sk-abcdefgh"]) expect(written).not.toContain(leaked);
+      const items = readJsonl<CalibrationItem>(calibrationPaths(dir).candidates);
+      const history0 = items.find((item) => item.source === "history" && item.finding.message.endsWith("<redacted:token>"))!;
+      expect(history0.finding.detail).toMatchObject({ "<redacted:token>": ["<redacted:token>", "<redacted:token>"] });
+      // The id and fingerprint were computed from the original finding, then the fields were scrubbed.
+      expect(history0.fingerprint).toBe(advisoryFingerprint(summary.qaLint.findings[0], history0.full_line));
+      const shadow0 = items.find((item) => item.source === "shadow" && item.full_line.includes("<redacted:token>"))!;
+      expect(shadow0.finding.excerpt).toBe("x = 1; // <redacted:token>");
+      expect(shadow0.finding.message).toBe("rule <redacted:token>");
+    } finally {
+      if (saved === undefined) delete process.env.LONG_TOKEN;
+      else process.env.LONG_TOKEN = saved;
+    }
   });
 });

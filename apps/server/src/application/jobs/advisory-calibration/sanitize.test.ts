@@ -85,6 +85,61 @@ describe("history sanitizer", () => {
     expect(sanitize.shortSecretsSeen()).toEqual([]);
   });
 
+  test("escaped JSON notes are scrubbed after decoding (F12)", () => {
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh", PASSWORD: "p4s" } });
+    // A JSON string note and an object note whose secret is spelled with escapes.
+    expect(sanitizeNoteText('"\\u0061bcdefgh"', sanitize)).toBe('"<redacted:env:LONG_TOKEN>"');
+    expect(JSON.parse(sanitizeNoteText('{"k\\u0065y": "x \\u0061bcdefgh y"}\n', sanitize))).toEqual({ key: "x <redacted:env:LONG_TOKEN> y" });
+    // A duplicated key: the raw text holds a value JSON.parse dropped, so the decoded value is what is written.
+    const duplicated = sanitizeNoteText('{"a": "abcdefgh", "a": "x"}', sanitize);
+    expect(duplicated).not.toContain("abcdefgh");
+    expect(sanitize.shortSecretsSeen()).toEqual([]);
+    sanitizeNoteText('{"note": "\\u00704s"}', sanitize);
+    expect(sanitize.shortSecretsSeen()).toEqual(["PASSWORD"]);
+  });
+
+  test("numbers, booleans and null are checked by their text form (F13)", () => {
+    const long = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { PASSWORD: "12345678" } });
+    expect(JSON.stringify(sanitizeDeep({ credential: 12345678, line: 42, list: [12345678] }, long))).toBe(
+      '{"credential":"<redacted:env:PASSWORD>","line":42,"list":["<redacted:env:PASSWORD>"]}',
+    );
+    expect(JSON.parse(sanitizeNoteText('{"credential": 12345678}', long))).toEqual({ credential: "<redacted:env:PASSWORD>" });
+    expect(long.shortSecretsSeen()).toEqual([]);
+    for (const [value, scalar] of [["true", true], ["null", null], ["7", 7]] as const) {
+      const short = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { PASSWORD: value } });
+      sanitizeDeep({ credential: scalar }, short);
+      expect(short.shortSecretsSeen()).toEqual(["PASSWORD"]);
+    }
+  });
+
+  test("token schemes match in any case and remove the whole token (F15)", () => {
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh" } });
+    for (const token of ["bearer abcdefgh-tail-private", "BEARER abcdefgh-tail-private", "BeArEr x-tail-private", "SK-abcdefgh-tail-private"]) {
+      expect(sanitize(`auth ${token} end`)).toBe("auth <redacted:token> end");
+      const scrubbed = JSON.stringify(sanitizeDeep({ [token]: { value: `Authorization: ${token} sent`, list: [token] } }, sanitize));
+      expect(scrubbed).toBe('{"<redacted:token>":{"value":"Authorization: <redacted:token> sent","list":["<redacted:token>"]}}');
+      expect(scrubbed).not.toContain("tail-private");
+    }
+  });
+
+  test("URL-encoded and base64 forms of a secret are scrubbed (F16)", () => {
+    const secret = "abc/def+ghi";
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SERVICE_PASSWORD: secret } });
+    const forms = [
+      encodeURIComponent(secret),
+      Buffer.from(secret).toString("base64"),
+      Buffer.from(secret).toString("base64").replace(/=+$/, ""),
+      Buffer.from(secret).toString("base64url"),
+    ];
+    expect(forms).toContain("abc%2Fdef%2Bghi");
+    expect(forms).toContain("YWJjL2RlZitnaGk=");
+    for (const form of forms) {
+      expect(sanitize(`https://svc:${form}@host/x?p=${form}`)).toBe("https://svc:<redacted:env:SERVICE_PASSWORD>@host/x?p=<redacted:env:SERVICE_PASSWORD>");
+      const scrubbed = JSON.stringify(sanitizeDeep({ [form]: form, list: [`basic ${form}`] }, sanitize));
+      expect(scrubbed).toBe('{"<redacted:env:SERVICE_PASSWORD>":"<redacted:env:SERVICE_PASSWORD>","list":["basic <redacted:env:SERVICE_PASSWORD>"]}');
+    }
+  });
+
   test("keys are scrubbed like values, and keys that scrub to one name are kept apart", () => {
     const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SECRET_TOKEN: "abcdefgh" } });
     const scrubbed = sanitizeDeep(
@@ -107,6 +162,9 @@ describe("history sanitizer", () => {
     expect(JSON.stringify(proto)).toBe('{"__proto__":{"<redacted:env:SECRET_TOKEN>":1}}');
     // A JSON note is re-serialized when a key changed, and kept byte for byte when nothing did.
     expect(JSON.parse(sanitizeNoteText('{"abcdefgh": "x"}\n', sanitize)) as unknown).toEqual({ "<redacted:env:SECRET_TOKEN>": "x" });
-    expect(sanitizeNoteText('{ "kept":   "as is" }\n', sanitize)).toBe('{ "kept":   "as is" }\n');
+    const plain = `${JSON.stringify({ kept: "as is" }, null, 2)}\n`;
+    expect(sanitizeNoteText(plain, sanitize)).toBe(plain);
+    // Any other spelling of the same JSON is re-serialized from what it decodes to.
+    expect(sanitizeNoteText('{ "kept":   "as is" }\n', sanitize)).toBe(plain);
   });
 });
