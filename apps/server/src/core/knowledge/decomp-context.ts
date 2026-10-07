@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import { gameKnowledgeRoot, globalSourceRoot, globalSourceStorageRoot, packageRoot } from "./paths.js";
 import {
   readComposedSliceRecords,
@@ -32,6 +33,11 @@ export interface StandardExampleSelector {
 export interface StandardsSelection {
   gameId?: string;
   knowledgeRoot?: string;
+}
+
+export interface StandardsPromptOptions {
+  /** Shadow and enforce point kept advisories at the `kept_advisories` note field; omitted renders `off`, today's text. */
+  advisoryAdjudication?: AdvisoryAdjudicationMode;
 }
 
 /**
@@ -173,7 +179,10 @@ export function standardExamplesPromptXml(
   return lines.join("\n");
 }
 
-export function globalStandardsPromptXml(selection: StandardsSelection = {}): string {
+export function globalStandardsPromptXml(
+  selection: StandardsSelection = {},
+  options: StandardsPromptOptions = {},
+): string {
   const scoped = loadScopedStandards(selection);
   const records = scoped.filter(
     ({ record }) => record.status === "accepted" && record.worker_facing !== false,
@@ -190,7 +199,9 @@ export function globalStandardsPromptXml(selection: StandardsSelection = {}): st
     "        Read each description and its bad/preferred code pair, apply the required transformation, and repair every finding before an attempt is accepted.",
     gameScoped
       ? "        Follow each rule's declared lint or review mechanism. Accepted rules do not imply an automated check exists."
-      : "        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error.",
+      : (options.advisoryAdjudication ?? "off") === "off"
+        ? "        Two rules are llm_review advisories (a type_erasing_cast surface and the authored-style pre-ship check): if either is kept, justify it in the attempt summary. Every other rule is a hard error."
+        : "        Findings marked `llm_review` are advisories: if you keep one, justify it in `kept_advisories`. Every other finding is a hard error.",
     "    </instruction>",
   ];
 

@@ -8,6 +8,7 @@ import {
   section,
   usesContext,
 } from "@server/core/agent-catalog/prompt-kit-compat";
+import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import {
   buildWorkerKernelContext,
@@ -26,6 +27,61 @@ function agentFilePath(): string {
 
 function promptFilePath(): string {
   return fileURLToPath(new URL("./prompt.ts", import.meta.url));
+}
+
+// `off` keeps today's submission text byte for byte; shadow and enforce add the
+// `kept_advisories` note field that advisory adjudication reads.
+const KEPT_ADVISORIES_LEAD = {
+  shadow: "Advisory (`llm_review`) findings still block acceptance today. If you keep one anyway, record it in `kept_advisories`.",
+  enforce: "An `llm_review` advisory may be kept when the original binary requires it. Record each one in `kept_advisories`. A reviewer judges each justification; an unjustified or unclear one fails the attempt like any other QA finding.",
+} as const;
+
+function keptAdvisoriesItem(mode: keyof typeof KEPT_ADVISORIES_LEAD) {
+  return item(KEPT_ADVISORIES_LEAD[mode], [
+    bulletList([
+      "`kept_advisories`: array of `{ rule_id, file, line, justification }`.",
+      "Write one entry per finding, copying its `rule_id`, `file`, and `line`. Each entry is matched only to the finding at its own `file` and `line`, so when one reason covers several findings, repeat it in each entry.",
+      "`justification`: why the original binary requires the flagged code. Cite concrete evidence: objdiff result, instruction, register or stack offset.",
+    ]),
+  ]);
+}
+
+function submissionSection(mode: AdvisoryAdjudicationMode) {
+  return section("submission", [
+    "Submit when you have a verified improvement or an exact match: end your turn with a JSON note. The runner validates the submission against the target and its neighbors, checkpoints it, and returns control to you to continue toward 100%.",
+    "Also submit when you are stopped: the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever. Put the diagnosis in the note.",
+    "When you discover a required path outside your approved write set, call `request_write_set_widening` with `paths`, `reason`, and optional `evidence` before editing it. The tool immediately returns `approved_paths`, denials with guidance, `write_set_after`, and the mode. Continue only with approved paths present in `write_set_after`; a shadow-mode decision is not applied.",
+    "The note is not a report; it is the validation input. Use plain fields such as `summary`: Here is what I tried.",
+    bulletList([
+      item("Also include these fields; they are joined into the target's history and shown to whoever works on this target next:", [
+        bulletList([
+          "`residual`: `{ class, rows, mechanism, resolved }` — the residual class from your classification, the mismatching rows, the compiler mechanism you named (or `unknown`), and whether it is resolved.",
+          "`tried_shapes`: array of `{ family, variants, effect }` — each variant family you exhausted and what it did to the residual.",
+          "`untried_leads`: string array — what the next worker should try first.",
+          "`best_checkpoint`: `{ score, description }` — the state worth restoring.",
+          "`evidence_locators`: string array — the `attempt://`, `pr://`, and `code://` locators your diagnosis rests on.",
+        ]),
+      ]),
+      ...(mode === "off" ? [] : [keptAdvisoriesItem(mode)]),
+      item("When widening is enabled and the approved write set is insufficient, add a `widening_request` object to the submission JSON with this shape:", [
+        bulletList([
+          "`schema_version`: `write_set_widening_request_v1`",
+          "`paths`: repo-relative string array containing paths from one requested category",
+          "`category`: `config-metadata`, `owning-header`, or `foreign-source`",
+          "`rung`: `2`, `3`, or `4`, matching the requested category",
+          item("`evidence`:", [
+            bulletList([
+              "`mismatched_declaration`: `{ symbol, current, required, expected_owner }`",
+              "`objdiff`: `{ unit, score_without, score_with, artifact_path? }`, where `score_with` may be null when it could not be measured",
+              "`ladder_evidence`: `{ rung1_in_slice, rung2_config?, rung3_header? }`, explaining what each lower rung tried and why it failed",
+            ]),
+          ]),
+        ]),
+      ]),
+    ]),
+    "A `widening_request` is only honored when write-set widening is enabled. Requested paths remain unauthorized unless the runner approves them.",
+    "After a submission, the runner tells you what it established: validated and checkpointed, or rejected with reasons. A repair request only comes for validation/lint failures or for an exact match that failed hard gates.",
+  ]);
 }
 
 export const prompt = definePrompt({
@@ -353,40 +409,7 @@ export const prompt = definePrompt({
       ),
     ]),
 
-    section("submission", [
-      "Submit when you have a verified improvement or an exact match: end your turn with a JSON note. The runner validates the submission against the target and its neighbors, checkpoints it, and returns control to you to continue toward 100%.",
-      "Also submit when you are stopped: the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever. Put the diagnosis in the note.",
-      "When you discover a required path outside your approved write set, call `request_write_set_widening` with `paths`, `reason`, and optional `evidence` before editing it. The tool immediately returns `approved_paths`, denials with guidance, `write_set_after`, and the mode. Continue only with approved paths present in `write_set_after`; a shadow-mode decision is not applied.",
-      "The note is not a report; it is the validation input. Use plain fields such as `summary`: Here is what I tried.",
-      bulletList([
-        item("Also include these fields; they are joined into the target's history and shown to whoever works on this target next:", [
-          bulletList([
-            "`residual`: `{ class, rows, mechanism, resolved }` — the residual class from your classification, the mismatching rows, the compiler mechanism you named (or `unknown`), and whether it is resolved.",
-            "`tried_shapes`: array of `{ family, variants, effect }` — each variant family you exhausted and what it did to the residual.",
-            "`untried_leads`: string array — what the next worker should try first.",
-            "`best_checkpoint`: `{ score, description }` — the state worth restoring.",
-            "`evidence_locators`: string array — the `attempt://`, `pr://`, and `code://` locators your diagnosis rests on.",
-          ]),
-        ]),
-        item("When widening is enabled and the approved write set is insufficient, add a `widening_request` object to the submission JSON with this shape:", [
-          bulletList([
-            "`schema_version`: `write_set_widening_request_v1`",
-            "`paths`: repo-relative string array containing paths from one requested category",
-            "`category`: `config-metadata`, `owning-header`, or `foreign-source`",
-            "`rung`: `2`, `3`, or `4`, matching the requested category",
-            item("`evidence`:", [
-              bulletList([
-                "`mismatched_declaration`: `{ symbol, current, required, expected_owner }`",
-                "`objdiff`: `{ unit, score_without, score_with, artifact_path? }`, where `score_with` may be null when it could not be measured",
-                "`ladder_evidence`: `{ rung1_in_slice, rung2_config?, rung3_header? }`, explaining what each lower rung tried and why it failed",
-              ]),
-            ]),
-          ]),
-        ]),
-      ]),
-      "A `widening_request` is only honored when write-set widening is enabled. Requested paths remain unauthorized unless the runner approves them.",
-      "After a submission, the runner tells you what it established: validated and checkpointed, or rejected with reasons. A repair request only comes for validation/lint failures or for an exact match that failed hard gates.",
-    ]),
+    submissionSection("off"),
     section("contracted_in_rules", [
       orderedList([
         "Work only on the current claimed target; the target translation unit is your motivation and review scope.",
@@ -491,6 +514,21 @@ export function renderSystemPrompt(): string {
   return renderXmlMarkdown(prompt);
 }
 
+const advisoryPrompts = {
+  off: prompt,
+  shadow: withSubmissionSection("shadow"),
+  enforce: withSubmissionSection("enforce"),
+} as const satisfies Record<AdvisoryAdjudicationMode, typeof prompt>;
+
+function withSubmissionSection(mode: AdvisoryAdjudicationMode): typeof prompt {
+  return {
+    ...prompt,
+    nodes: prompt.nodes.map((node) =>
+      node.type === "section" && node.tag === "submission" ? submissionSection(mode) : node,
+    ),
+  };
+}
+
 function isSectionTarget(packet: Record<string, unknown>): boolean {
   const target = packet.target;
   if (!target || typeof target !== "object" || Array.isArray(target)) return false;
@@ -502,7 +540,11 @@ function isSectionTarget(packet: Record<string, unknown>): boolean {
 
 export function workerPrompt(options: WorkerPromptOptions): PiPromptBundle {
   return {
-    systemPrompt: renderXmlMarkdown(isSectionTarget(options.packet) ? sectionTargetPrompt : prompt),
+    systemPrompt: renderXmlMarkdown(
+      isSectionTarget(options.packet)
+        ? sectionTargetPrompt
+        : advisoryPrompts[options.advisoryAdjudication ?? "off"],
+    ),
     userPrompt: "",
     systemTemplatePath: agentFilePath(),
     userTemplatePath: promptFilePath(),

@@ -15,6 +15,8 @@ import {
   WORKER_TARGET_FILE_INLINE_CHAR_LIMIT,
 } from "./context.js";
 import { renderKernelContextInputsPreview } from "../../../kernel-context.js";
+import { parseWorkerCheckpointNote } from "./checkpoint-note.js";
+import type { AdvisoryAdjudicationMode } from "../../../../game-registry/runtime-options.js";
 
 function sampleWorkerPrompt() {
   return workerPrompt({
@@ -625,5 +627,139 @@ describe("workerPrompt", () => {
     expect(nameTheMechanism).toBeGreaterThan(exactSymbolHistory);
     expect(oneEditThenDiff).toBeGreaterThan(nameTheMechanism);
     expect(escalate).toBeGreaterThan(oneEditThenDiff);
+  });
+});
+
+describe("kept_advisories prompt contract", () => {
+  const advisoryPacket = {
+    target: {
+      unit: "GALE01:advisory",
+      symbol: "advisory_symbol",
+      source_path: "src/melee/test/advisory.c",
+      fuzzy_match_percent: 97.5,
+      size: 64,
+    },
+    baseline: { fuzzy_match_percent: 97.5 },
+    first_diff: {
+      status: "available",
+      score: 97.5,
+      rows: [{ side: "left", address: "16", kind: "DIFF_ARG_MISMATCH", text: "lwz r3, 0x8(r31)" }],
+      row_counts_by_kind: { DIFF_ARG_MISMATCH: 1 },
+      truncated: false,
+    },
+    knowledge_context: {
+      file_card: {
+        editability: { mode: "editable", reason: "Target source is in the approved write set." },
+        functions: [{ symbol: "advisory_symbol" }, { symbol: "advisory_neighbor" }],
+      },
+      knowledge_card_v2: {
+        stable_key: "GALE01:advisory:advisory_symbol",
+        target: { kind: "function", unit: "GALE01:advisory", symbol: "advisory_symbol", identity_status: "current" },
+        ledger: { runs: [], entries: [] },
+        facts: { naming_note: "fixture", by_type: {} },
+        links: [],
+      },
+    },
+  };
+
+  function advisoryPrompt(contextBudget: "full" | "compact" | "minimal", advisoryAdjudication?: AdvisoryAdjudicationMode) {
+    return workerPrompt({
+      packet: advisoryPacket,
+      repoRoot: "/repo",
+      stateDir: "/state",
+      initialBoardPath: "/state/board.json",
+      workerLogDir: "/state/workers",
+      contextBudget,
+      targetSourceText: "void advisory_symbol(void) {\n    int value = (int)gObject;\n}\n",
+      sourceNames: [],
+      ...(advisoryAdjudication ? { advisoryAdjudication } : {}),
+    });
+  }
+
+  function sectionPrompt(advisoryAdjudication?: AdvisoryAdjudicationMode) {
+    return workerPrompt({
+      packet: { target: { unit: "GALE01:advisory", symbol: ".sdata2", kind: "section" } },
+      repoRoot: "/repo",
+      stateDir: "/state",
+      initialBoardPath: "/state/board.json",
+      workerLogDir: "/state/workers",
+      ...(advisoryAdjudication ? { advisoryAdjudication } : {}),
+    }).systemPrompt;
+  }
+
+  function contexts(advisoryAdjudication?: AdvisoryAdjudicationMode) {
+    return (["full", "compact", "minimal"] as const).map(
+      (budget) => advisoryPrompt(budget, advisoryAdjudication).kernelContext?.renderedContext ?? "",
+    );
+  }
+
+  function submission(systemPrompt: string): string {
+    return systemPrompt.match(/<submission>[\s\S]*?<\/submission>/)?.[0] ?? "";
+  }
+
+  function standardsInstruction(renderedContext: string): string {
+    return renderedContext.match(/<decomp_standards[^>]*>\s*<instruction>[\s\S]*?<\/instruction>/)?.[0] ?? "";
+  }
+
+  // The snapshots were recorded from the prompt before kept_advisories existed.
+  test("off prompt is byte-identical", () => {
+    const full = advisoryPrompt("full");
+    const [fullContext, compactContext, minimalContext] = contexts();
+    expect(full.systemPrompt).toBe(renderSystemPrompt());
+    expect(full.systemPrompt).toMatchSnapshot("function system prompt");
+    expect(sectionPrompt()).toMatchSnapshot("section system prompt");
+    expect(standardsInstruction(fullContext!)).toMatchSnapshot("full standards instruction");
+    expect(compactContext).toMatchSnapshot("compact context");
+    expect(minimalContext).toMatchSnapshot("minimal context");
+
+    expect(advisoryPrompt("full", "off").systemPrompt).toBe(full.systemPrompt);
+    expect(sectionPrompt("off")).toBe(sectionPrompt());
+    expect(contexts("off")).toEqual(contexts());
+  });
+
+  test("shadow and enforce mention kept_advisories", () => {
+    const offPrompt = advisoryPrompt("full", "off").systemPrompt;
+    const offContexts = contexts("off");
+    for (const mode of ["shadow", "enforce"] as const) {
+      const systemPrompt = advisoryPrompt("full", mode).systemPrompt;
+      const text = submission(systemPrompt);
+      expect(text).toContain("`kept_advisories`: array of `{ rule_id, file, line, justification }`");
+      expect(text).toContain("Write one entry per finding");
+      expect(text).toContain("when one reason covers several findings, repeat it in each entry");
+      expect(text).toContain("Cite concrete evidence: objdiff result, instruction, register or stack offset.");
+      expect(systemPrompt.replace(text, "")).toBe(offPrompt.replace(submission(offPrompt), ""));
+      expect(sectionPrompt(mode)).toBe(sectionPrompt("off"));
+
+      const modeContexts = contexts(mode);
+      modeContexts.forEach((context, index) => {
+        const instruction = standardsInstruction(context);
+        expect(instruction).toContain("justify it in `kept_advisories`");
+        expect(instruction).not.toContain("attempt summary");
+        expect(instruction).not.toContain("type_erasing_cast surface");
+        expect(context.replace(instruction, "")).toBe(offContexts[index]!.replace(standardsInstruction(offContexts[index]!), ""));
+      });
+    }
+
+    const shadow = submission(advisoryPrompt("full", "shadow").systemPrompt);
+    const enforce = submission(advisoryPrompt("full", "enforce").systemPrompt);
+    expect(shadow).toContain("Advisory (`llm_review`) findings still block acceptance today. If you keep one anyway, record it in `kept_advisories`.");
+    expect(shadow).not.toContain("A reviewer judges each justification");
+    expect(enforce).toContain("An `llm_review` advisory may be kept when the original binary requires it. Record each one in `kept_advisories`.");
+    expect(enforce).toContain("A reviewer judges each justification; an unjustified or unclear one fails the attempt like any other QA finding.");
+    expect(enforce).not.toContain("still block acceptance today");
+  });
+
+  test("the note parse keeps kept_advisories beside the existing fields", () => {
+    const note = {
+      summary: "Kept two casts the binary needs.",
+      residual: { class: "instruction shape", rows: [], mechanism: "unknown", resolved: true },
+      kept_advisories: [
+        { rule_id: "type_erasing_cast", file: "src/melee/test/advisory.c", line: 12, justification: "Without the cast objdiff drops to 97.5%: lwz r3, 0x8(r31) becomes lhz." },
+        { rule_id: "type_erasing_cast", file: "src/melee/test/advisory.c", line: 14, justification: "Same load width as line 12; removing it moves the store to sp+0x10." },
+      ],
+    };
+    const parsed = parseWorkerCheckpointNote(`Submitting.\n\`\`\`json\n${JSON.stringify(note, null, 2)}\n\`\`\``);
+    expect(parsed.error).toBeUndefined();
+    expect(parsed.note).toEqual(note);
   });
 });
