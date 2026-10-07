@@ -12,16 +12,18 @@
 // advisory-repo.ts, the knowledge store is a temp game knowledge root (also
 // set as ORCH_GAME_KNOWLEDGE_ROOT so the librarian's tools read it), and the
 // kernel database and Pi sessions live in the temp state directory. Never part
-// of verify; skipped with a printed reason when codex-lb or the Pi route is
-// missing.
+// of verify; skipped with a printed reason when codex-lb is down or Pi cannot
+// resolve a model or credential for its routes.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { copyFileSync, existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { runTraceDoctor } from "@agent-kernel/kernel/doctor";
+import { disableNetwork } from "@agent-kernel/kernel/model-nodes/testing";
+import { ModelRegistry, ModelRuntime } from "@agent-kernel/kernel/pi-sdk";
 
 import { DEFAULT_PI_MODEL, DEFAULT_PI_PROVIDER, DEFAULT_PI_THINKING_LEVEL } from "@server/core/game-registry/runtime-defaults.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
@@ -33,6 +35,7 @@ import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { runMeleeKernelPiAgent } from "@server/infrastructure/agent-runtime/kernel-pi-runner";
 import { loadCodecaineEnv } from "@server/infrastructure/env/codecaine-env";
 import { closeDefaultMeleeKernelRuntime, getDefaultMeleeKernelRuntime } from "@server/infrastructure/kernel/bridge/runtime.js";
+import { NODE_CALL_MANIFESTS, NODE_CALL_MODEL } from "@server/infrastructure/kernel/nodes/functions.js";
 import {
   closeNodeKernel,
   getNodeKernel,
@@ -107,29 +110,80 @@ async function codexLbReachable(): Promise<boolean> {
   }
 }
 
-/** The Pi route the node kernel and the librarian resolve: a codex-lb provider with a key. Booleans only. */
-function piRouteMissing(): string | null {
-  const path = join(piAgentDir(), "models.json");
-  if (!existsSync(path)) return `no Pi models.json at ${path}`;
+/** The routes this smoke sends through: the extraction's call model and the librarian's Pi model. */
+const LIVE_MODEL_REFS = [
+  ...new Set([
+    NODE_CALL_MANIFESTS.ExtractConfirmedCheckpointKnowledge.model ?? NODE_CALL_MODEL,
+    `${DEFAULT_PI_PROVIDER}/${DEFAULT_PI_MODEL}`,
+  ]),
+];
+
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** Pi's resolution error, reduced to provider and variable names: a skip reason never carries a value or a command. */
+function boundedCredentialReason(ref: string, provider: string, error: string): string {
+  const names = /environment variables?: (.+)$/.exec(error)?.[1]?.split(", ").filter((name) => ENV_NAME.test(name)) ?? [];
+  if (names.length > 0) return `Pi cannot resolve the ${provider} credential for ${ref}: ${names.join(", ")} is unset`;
+  if (/shell command/i.test(error)) return `Pi cannot resolve the ${provider} credential for ${ref}: its command produced no value`;
+  return `Pi has no credential for ${provider} (${ref})`;
+}
+
+/**
+ * Resolves each model ref and its credential the way the kernel does at run
+ * time (Pi's ModelRuntime and ModelRegistry over the agent dir's auth.json and
+ * models.json; `$VAR` references read the process env). Null when every route
+ * resolves to a credential; otherwise a bounded skip reason. No network.
+ */
+async function piCredentialMissing(agentDir: string, refs: readonly string[]): Promise<string | null> {
+  let registry: ModelRegistry;
   try {
-    const provider = (JSON.parse(readFileSync(path, "utf8")) as { providers?: Record<string, { apiKey?: unknown; models?: unknown }> })
-      .providers?.["codex-lb"];
-    if (!provider) return `Pi models.json has no codex-lb provider`;
-    if (typeof provider.apiKey !== "string" || provider.apiKey === "") return "Pi codex-lb provider has no apiKey";
-    return null;
+    const runtime = await ModelRuntime.create({
+      authPath: join(agentDir, "auth.json"),
+      modelsPath: join(agentDir, "models.json"),
+      refreshOnCreate: false,
+    });
+    registry = new ModelRegistry(runtime);
   } catch {
-    return "Pi models.json is not valid JSON";
+    return `Pi could not load its models and credentials from ${agentDir}`;
   }
+  for (const ref of refs) {
+    const slash = ref.indexOf("/");
+    const provider = ref.slice(0, slash);
+    const model = registry.find(provider, ref.slice(slash + 1));
+    if (!model) return `Pi has no model ${ref} in ${join(agentDir, "models.json")}`;
+    const auth = await registry.getApiKeyAndHeaders(model);
+    if (!auth.ok) return boundedCredentialReason(ref, provider, auth.error);
+    if (!auth.apiKey) return `Pi has no credential for ${provider} (${ref})`;
+  }
+  return null;
+}
+
+/** Env vars the permitted env file added; removed again when the smoke ends or skips. */
+const savedEnv = new Map<string, string | undefined>();
+
+function restoreEnv(): void {
+  for (const [name, value] of savedEnv) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+  savedEnv.clear();
 }
 
 async function liveSkipReason(): Promise<string | null> {
   if (!LIVE) return "MODEL_NODES_LIVE is not 1";
   if (!(await codexLbReachable())) return `codex-lb is not reachable at ${CODEX_LB.hostname}:${CODEX_LB.port}`;
-  return piRouteMissing();
+  // Only the Codecaine env file (TYPESAFE_API_KEY and friends), in-process; never printed.
+  const before = new Set(Object.keys(process.env));
+  loadCodecaineEnv();
+  for (const name of Object.keys(process.env)) if (!before.has(name)) savedEnv.set(name, undefined);
+  return piCredentialMissing(piAgentDir(), LIVE_MODEL_REFS);
 }
 
 const skipReason = await liveSkipReason();
-if (skipReason !== null) console.log(`[checkpoint-feed live.smoke] skipped: ${skipReason}`);
+if (skipReason !== null) {
+  restoreEnv();
+  console.log(`[checkpoint-feed live.smoke] skipped: ${skipReason}`);
+}
 
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 async function waitFor(condition: () => boolean, timeoutMs: number, what: string, pollMs = 500): Promise<void> {
@@ -368,14 +422,8 @@ function readJsonLines(path: string): Array<Record<string, unknown>> {
 let repo: AdvisoryRepo | null = null;
 let modelLanes: ModelNodeLanes | null = null;
 let stopLibrarian: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
-const savedEnv = new Map<string, string | undefined>();
-
 beforeAll(() => {
   if (skipReason !== null) return;
-  const before = new Set(Object.keys(process.env));
-  // TYPESAFE_API_KEY and friends, in-process only; never printed. Keys the file added are removed afterwards.
-  loadCodecaineEnv();
-  for (const name of Object.keys(process.env)) if (!before.has(name)) savedEnv.set(name, undefined);
   // Isolated stores: the kernel DB follows the temp state dir, the knowledge root is the temp one.
   for (const name of [...DB_ENV, ...KNOWLEDGE_ROOT_ENV]) {
     if (!savedEnv.has(name)) savedEnv.set(name, process.env[name]);
@@ -392,10 +440,40 @@ afterAll(async () => {
   await closeNodeKernel();
   await closeDefaultMeleeKernelRuntime();
   repo?.close();
-  for (const [name, value] of savedEnv) {
-    if (value === undefined) delete process.env[name];
-    else process.env[name] = value;
-  }
+  restoreEnv();
+});
+
+// Offline: the preflight resolves credentials through Pi, so an unset `$VAR` reference skips instead of running keyless.
+describe("live smoke preflight", () => {
+  test("an apiKey referencing an unset variable is a bounded skip reason; once set, the route resolves", async () => {
+    const restoreNetwork = disableNetwork();
+    const agentDir = mkdtempSync(join(tmpdir(), "mn-live-preflight-"));
+    const variable = `MN_LIVE_SMOKE_UNSET_${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
+    const value = `fixture-credential-${randomUUID()}`;
+    try {
+      writeFileSync(join(agentDir, "auth.json"), "{}\n");
+      writeFileSync(join(agentDir, "models.json"), JSON.stringify({
+        providers: {
+          "codex-lb": {
+            baseUrl: "http://127.0.0.1:9/backend-api/codex",
+            api: "openai-responses",
+            apiKey: `$${variable}`,
+            models: [{ id: "gpt-5.6-sol", name: "gpt-5.6-sol", reasoning: true, input: ["text"], contextWindow: 200_000, maxTokens: 32_000 }],
+          },
+        },
+      }));
+      const reason = await piCredentialMissing(agentDir, ["codex-lb/gpt-5.6-sol"]);
+      expect(reason).toBe(`Pi cannot resolve the codex-lb credential for codex-lb/gpt-5.6-sol: ${variable} is unset`);
+      expect(await piCredentialMissing(agentDir, ["codex-lb/gpt-5.5"])).toBe(`Pi has no model codex-lb/gpt-5.5 in ${join(agentDir, "models.json")}`);
+
+      process.env[variable] = value;
+      expect(await piCredentialMissing(agentDir, ["codex-lb/gpt-5.6-sol"])).toBeNull();
+    } finally {
+      delete process.env[variable];
+      rmSync(agentDir, { recursive: true, force: true });
+      restoreNetwork();
+    }
+  });
 });
 
 describe.skipIf(skipReason !== null)("checkpoint feed live smoke", () => {
