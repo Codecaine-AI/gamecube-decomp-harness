@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { initializeDispatchState, requestDispatch } from "@server/core/harness-state";
 import { openState } from "@server/core/orchestrator-state";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
-import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, prepareBoundaryBuildFixer, propagateBoundaryBuildFixer, runEpochSettlement, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./settlement.js";
+import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, epochQaGateSummary, prepareBoundaryBuildFixer, propagateBoundaryBuildFixer, runEpochSettlement, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./settlement.js";
 
 const cleanup: string[] = [];
 
@@ -806,6 +806,31 @@ describe("boundaryDeferredFindings", () => {
     expect(findings.map((finding) => finding.reason)).toEqual(["boundary_regression_deferred", "boundary_qa_deferred"]);
     expect(findings[0]).toMatchObject({ unit: "src/unit.c", symbol: "fn", sourcePath: "src/unit.c" });
     expect(findings[1]).toMatchObject({ sourcePath: "src/unit.c" });
+  });
+});
+
+describe("epochQaGateSummary", () => {
+  test("a run with no accepted advisories keeps today's raw summary byte for byte", async () => {
+    const value = setupEpochHarness("epoch-qa-summary-");
+    try {
+      const advisory = {
+        rule_id: "type_erasing_cast", severity: "warning" as const, file: "src/a.c", line: 1, excerpt: "value = (u8*) other;",
+        message: "cast", standard_id: null, detail: { cast: "(u8*)", llm_review: true },
+      };
+      const result = {
+        tool: "review_lint" as const, operation: "review_lint:scan_diff" as const, status: "warned" as const,
+        repo: value.worktreeDir, base: null, findings: [advisory], counts: { errors: 0, warnings: 1 },
+      };
+      const summary = await epochQaGateSummary({
+        store: value.store,
+        runId: value.runId,
+        worktreeDir: value.repoRoot,
+        settledHead: git(value.repoRoot, ["rev-parse", "HEAD"]),
+        invocation: { exitCode: 2, result, stdout: "", stderr: "", toolError: null, command: [] },
+      });
+
+      expect(JSON.stringify(summary)).toBe(JSON.stringify({ exitCode: 2, status: "warned", errors: 0, warnings: 1, findings: [advisory] }));
+    } finally { value.store.db.close(); }
   });
 });
 

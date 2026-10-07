@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync
 import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
-import { runQaScanDiff, type QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
+import { runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
+import { resolveAcceptedAdvisories, type AcceptedAdvisoryResolution } from "@server/core/validation/qa/accepted-advisories.js";
 import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
 import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import { forceReportRun, trustedReportFromRegressionReport, type ReportRunResult } from "@server/core/validation/report";
@@ -117,11 +118,21 @@ export interface BoundaryBuildFixerBaseline {
 }
 
 export interface BoundaryDeferredFinding {
-  reason: "boundary_regression_deferred" | "boundary_qa_deferred";
+  reason: "boundary_regression_deferred" | "boundary_qa_deferred" | "boundary_qa_adjudicated";
   unit?: string;
   symbol?: string;
   sourcePath?: string;
   detail: string;
+  /** Acceptance evidence; present only on `boundary_qa_adjudicated` (informational, nothing to re-admit). */
+  adjudication?: BoundaryAdvisoryAdjudication;
+}
+
+export interface BoundaryAdvisoryAdjudication {
+  ruleId: string;
+  file: string;
+  /** af2 fingerprint of the complete flagged line. */
+  fingerprint: string;
+  checkpointIds: string[];
 }
 
 export interface EpochQaGateSummary {
@@ -129,7 +140,13 @@ export interface EpochQaGateSummary {
   status: string;
   errors: number;
   warnings: number;
+  /** Raw scanner findings; accepted advisories stay in this list and in the counts. */
   findings: QaScanFinding[];
+  /**
+   * Advisory warnings this settlement's run accepted, resolved at the settled
+   * head (§6.10). Present only when at least one finding is exempt.
+   */
+  adjudicated?: AcceptedAdvisoryResolution["exempt"];
 }
 
 export interface EpochRegressionSummary {
@@ -549,14 +566,94 @@ export function boundaryDeferredFindings(
     sourcePath: candidate.sourcePath,
     detail: `epoch regression repair: ${candidate.size} bytes at ${candidate.fuzzy.toFixed(2)}%`,
   }));
+  const adjudicated = new Map<string, NonNullable<EpochQaGateSummary["adjudicated"]>>();
+  for (const exempt of qaGate?.adjudicated ?? []) {
+    const key = JSON.stringify(exempt.finding);
+    adjudicated.set(key, [...(adjudicated.get(key) ?? []), exempt]);
+  }
   for (const finding of qaGate?.findings ?? []) {
+    const detail = JSON.stringify(finding);
+    // Each exemption covers one physical finding; identical findings beyond
+    // the exempt count stay deferred.
+    const exempt = adjudicated.get(detail)?.shift();
+    if (exempt) {
+      findings.push({
+        reason: "boundary_qa_adjudicated",
+        sourcePath: finding.file,
+        detail,
+        adjudication: {
+          ruleId: finding.rule_id,
+          file: finding.file,
+          fingerprint: exempt.fingerprint,
+          checkpointIds: [exempt.checkpointId],
+        },
+      });
+      continue;
+    }
     findings.push({
       reason: "boundary_qa_deferred",
       sourcePath: finding.file,
-      detail: JSON.stringify(finding),
+      detail,
     });
   }
   return findings;
+}
+
+function runHasAcceptedAdvisories(store: StateStore, runId: string): boolean {
+  try {
+    return store.db.query("SELECT 1 FROM accepted_advisory WHERE run_id = ? LIMIT 1").get(runId) !== null;
+  } catch {
+    // A store without the accepted_advisory table has nothing to honour.
+    return false;
+  }
+}
+
+/**
+ * The epoch QA observability summary for one scan of the settled head. The
+ * raw scanner verdict is kept as is. When the settlement's run has accepted
+ * advisories, its advisory warnings are resolved against that run's records
+ * at the settled head (clean files, full line, af2, integration, blame);
+ * exempt ones are listed under `adjudicated`. Every doubt (tool error, a
+ * worktree not at the settled head, a resolver failure) leaves the findings
+ * out of `adjudicated`, so they are deferred exactly as before.
+ */
+export async function epochQaGateSummary(params: {
+  store: StateStore;
+  runId: string;
+  worktreeDir: string;
+  /** The settlement's committed epoch head the worktree was checked out at. */
+  settledHead: string | null;
+  invocation: QaScanInvocation;
+}): Promise<EpochQaGateSummary> {
+  const { invocation } = params;
+  const summary: EpochQaGateSummary = {
+    exitCode: invocation.exitCode,
+    status: invocation.toolError !== null ? "tool_error" : (invocation.result?.status ?? "unknown"),
+    errors: invocation.result?.counts.errors ?? 0,
+    warnings: invocation.result?.counts.warnings ?? 0,
+    findings: invocation.result?.findings ?? [],
+  };
+  if (invocation.toolError !== null || summary.findings.length === 0) return summary;
+  if (!params.settledHead || !runHasAcceptedAdvisories(params.store, params.runId)) return summary;
+  try {
+    // The scan read the worktree's committed HEAD; only the settled head itself is resolvable.
+    const head = await git(params.worktreeDir, ["rev-parse", "HEAD"]);
+    if (!head.ok || head.text !== params.settledHead) {
+      console.error(`[epoch] qa scan worktree is not at the settled head ${params.settledHead}; accepted advisories are not honoured`);
+      return summary;
+    }
+    const resolution = await resolveAcceptedAdvisories({
+      store: params.store,
+      runId: params.runId,
+      repoRoot: params.worktreeDir,
+      headRev: params.settledHead,
+      findings: summary.findings,
+    });
+    if (resolution.exempt.length > 0) summary.adjudicated = resolution.exempt;
+  } catch (error) {
+    console.error(`[epoch] accepted-advisory resolution failed; every QA finding stays deferred: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return summary;
 }
 
 /**
@@ -1462,13 +1559,13 @@ async function runEpochSettlementInnerTracked(
         baseRef: options.baseRef ?? "origin/master",
         addressNamedStaticDataAllowlist: options.qaScan.addressNamedStaticDataAllowlist,
       });
-      qaGate = {
-        exitCode: qaInvocation.exitCode,
-        status: qaInvocation.toolError !== null ? "tool_error" : (qaInvocation.result?.status ?? "unknown"),
-        errors: qaInvocation.result?.counts.errors ?? 0,
-        warnings: qaInvocation.result?.counts.warnings ?? 0,
-        findings: qaInvocation.result?.findings ?? [],
-      };
+      qaGate = await epochQaGateSummary({
+        store,
+        runId,
+        worktreeDir: options.worktreeDir,
+        settledHead: snapshot.commitSha,
+        invocation: qaInvocation,
+      });
       await writeFile(
         resolve(artifactDir, "qa_scan.json"),
         qaInvocation.stdout || `${JSON.stringify({ tool_error: qaInvocation.toolError }, null, 2)}\n`,
@@ -1483,6 +1580,7 @@ async function runEpochSettlementInnerTracked(
         qa_status: qaGate.status,
         qa_errors: qaGate.errors,
         qa_warnings: qaGate.warnings,
+        ...(qaGate.adjudicated ? { qa_adjudicated: qaGate.adjudicated.length } : {}),
       });
     } catch (error) {
       console.error(`[epoch] qa scan failed: ${error instanceof Error ? error.message : String(error)}`);

@@ -78,7 +78,7 @@ export interface BoundaryBreakageDeferral {
 }
 type WriteBoundaryBreakageDeferrals = (input: BoundaryBreakageDeferral) => void | Promise<void>;
 
-interface BoundaryKnowledgeEvent {
+export interface BoundaryKnowledgeEvent {
   id: string;
   stableKey?: string;
   sourcePath?: string;
@@ -259,6 +259,31 @@ function writeBoundaryBreakageDeferralsDefault(input: BoundaryBreakageDeferral):
   writeBoundaryKnowledgeEvents(input.gameId, events);
 }
 
+/**
+ * The knowledge note for one boundary finding. Deferred findings keep the
+ * re-admission instruction; an adjudicated advisory only records the
+ * acceptance evidence, because there is nothing to re-admit or repair.
+ */
+export function boundaryFindingKnowledgeEvent(
+  harnessId: string | null,
+  upstreamSha: string | null,
+  finding: BoundaryDeferredFinding,
+): BoundaryKnowledgeEvent {
+  const target = [finding.unit, finding.symbol].filter(Boolean).join("::") || finding.sourcePath || "unknown target";
+  const id = createHash("sha256").update(`${harnessId ?? "no-harness"}:${finding.reason}:${target}:${finding.detail}`).digest("hex");
+  const adjudication = finding.reason === "boundary_qa_adjudicated" ? finding.adjudication : undefined;
+  return {
+    id: `boundary-${id}`,
+    stableKey: finding.unit && finding.symbol ? `${finding.unit}:${finding.symbol}` : undefined,
+    sourcePath: finding.sourcePath,
+    symbol: finding.symbol,
+    summary: adjudication
+      ? `Accepted llm_review advisory ${adjudication.ruleId} at ${adjudication.file} (fingerprint ${adjudication.fingerprint}, checkpoints ${adjudication.checkpointIds.join(", ")}); no action needed.`
+      : `${finding.reason}: ${target}. ${finding.detail}${upstreamSha ? ` Upstream revision: ${upstreamSha}.` : ""} Re-admit through next-epoch admission; do not repair at the boundary.`,
+    refs: upstreamSha ? [{ refKind: "commit" as const, refId: upstreamSha }] : [],
+  };
+}
+
 function writeBoundaryFindingsDefault(
   gameId: string,
   harnessId: string | null,
@@ -266,18 +291,7 @@ function writeBoundaryFindingsDefault(
   findings: BoundaryDeferredFinding[],
 ): void {
   if (findings.length === 0) return;
-  writeBoundaryKnowledgeEvents(gameId, findings.map((finding) => {
-    const target = [finding.unit, finding.symbol].filter(Boolean).join("::") || finding.sourcePath || "unknown target";
-    const id = createHash("sha256").update(`${harnessId ?? "no-harness"}:${finding.reason}:${target}:${finding.detail}`).digest("hex");
-    return {
-      id: `boundary-${id}`,
-      stableKey: finding.unit && finding.symbol ? `${finding.unit}:${finding.symbol}` : undefined,
-      sourcePath: finding.sourcePath,
-      symbol: finding.symbol,
-      summary: `${finding.reason}: ${target}. ${finding.detail}${upstreamSha ? ` Upstream revision: ${upstreamSha}.` : ""} Re-admit through next-epoch admission; do not repair at the boundary.`,
-      refs: upstreamSha ? [{ refKind: "commit" as const, refId: upstreamSha }] : [],
-    };
-  }));
+  writeBoundaryKnowledgeEvents(gameId, findings.map((finding) => boundaryFindingKnowledgeEvent(harnessId, upstreamSha, finding)));
 }
 
 async function productionBoundarySync(
