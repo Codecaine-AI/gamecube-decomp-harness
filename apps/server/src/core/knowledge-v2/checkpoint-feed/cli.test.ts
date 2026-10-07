@@ -22,6 +22,7 @@ import {
 } from "./cli.js";
 
 const fixtures: FeedFixture[] = [];
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 afterEach(() => {
   for (const fixture of fixtures.splice(0)) fixture.cleanup();
@@ -142,6 +143,55 @@ describe("checkpoint-knowledge CLI", () => {
       expect(row).toMatchObject({ status: "waiting", attempts: 1, result_ref: null });
       expect(Date.parse(row.next_attempt_at!)).toBeGreaterThan(Date.now());
     }
+  });
+
+  test("a handler that outlives the lease keeps its claim by heartbeat", async () => {
+    const f = historyFixture("backfill-slow");
+    const leases: string[] = [];
+    // Well past the 150 ms lease, as a full-length extraction is past the 120 s production lease.
+    const slow: ModelNodeJobHandler = async (job, ctx) => {
+      for (let tick = 0; tick < 10; tick += 1) {
+        await sleep(60);
+        leases.push(String(f.store.db.query<{ lease: string }, [string]>("SELECT lease_expires_at AS lease FROM jobs WHERE job_id = ?").get(job.jobId)?.lease));
+      }
+      ctx.ensureClaim();
+      return { resultRef: `task:checkpoint_confirmed:${job.dedupeKey}`, detail: { status: "enqueued" } };
+    };
+
+    const report = await backfillCheckpointKnowledge(
+      f.store, { epochIds: ["epoch-history"], cap: 50, enqueueOnly: false }, slow, undefined, { leaseMs: 150, intervalMs: 20 },
+    );
+
+    expect(report.jobs.map((job) => [job.checkpoint_id, job.job_status, job.outcome])).toEqual([
+      ["cp-h1", "succeeded", "enqueued"],
+      ["cp-h2", "succeeded", "enqueued"],
+    ]);
+    // The lease kept moving forward while each handler ran.
+    expect(new Set(leases).size).toBeGreaterThan(10);
+  });
+
+  test("a claim lost on one job leaves it to its new owner, and the backfill continues with the next", async () => {
+    const f = historyFixture("backfill-lease-lost");
+    const handler: ModelNodeJobHandler = async (job, ctx) => {
+      if (job.dedupeKey === "cp-h1") {
+        // Another consumer took the job over (as after an expired lease): every write of ours is now stale.
+        f.store.db.query("UPDATE jobs SET lease_id = 'lease-of-another-consumer' WHERE job_id = ?").run(job.jobId);
+        await sleep(80);
+        ctx.ensureClaim();
+      }
+      return { resultRef: `task:checkpoint_confirmed:${job.dedupeKey}`, detail: { status: "enqueued" } };
+    };
+
+    const report = await backfillCheckpointKnowledge(
+      f.store, { epochIds: ["epoch-history"], cap: 50, enqueueOnly: false }, handler, undefined, { leaseMs: 150, intervalMs: 20 },
+    );
+
+    const [lost, next] = report.jobs;
+    expect(lost).toMatchObject({ checkpoint_id: "cp-h1", job_status: "claimed" });
+    expect(lost!.outcome).toContain("stale claim token");
+    expect(next).toEqual({ checkpoint_id: "cp-h2", epoch_id: "epoch-history", job_status: "succeeded", outcome: "enqueued" });
+    // The new owner's claim is untouched.
+    expect(f.store.db.query("SELECT lease_id FROM jobs WHERE dedupe_key = 'cp-h1'").get()).toEqual({ lease_id: "lease-of-another-consumer" });
   });
 
   test("checkpointKnowledge opens its own store, prints the report, and with --dry-run-agents only enqueues", async () => {

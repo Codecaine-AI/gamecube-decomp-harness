@@ -46,8 +46,10 @@ import {
 } from "./__fixtures__/feed-fixture.js";
 import { sha256Hex } from "./confirmed-good.js";
 import {
+  CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS,
   checkpointKnowledgeRetry,
   createCheckpointKnowledgeHandler,
+  extractionBinding,
   SUBMISSION_RETRY,
   submissionRetryBackoffMs,
   SubmissionNotYetIngested,
@@ -108,15 +110,19 @@ interface NodeHarness {
   temp: TempKernel<NodeCalls>;
   kernel: WorkerNodeKernel;
   inputs: ConfirmedCheckpointInput[];
+  /** The operation deadline each engine invocation received. */
+  timeouts: number[];
 }
 
 async function nodeHarness(respond: (input: ConfirmedCheckpointInput) => FakeCallResponse = (input) => fakeOk(extracted(input))): Promise<NodeHarness> {
   const inputs: ConfirmedCheckpointInput[] = [];
+  const timeouts: number[] = [];
   const engine = createFakeCallEngine<NodeCalls>({
     functions: Object.keys(NODE_CALL_MANIFESTS) as NodeFunctionName[],
     respond: (request) => {
       const input = (request.args as unknown[])[0] as ConfirmedCheckpointInput;
       inputs.push(input);
+      timeouts.push(request.timeoutMs);
       return respond(input);
     },
   });
@@ -126,7 +132,7 @@ async function nodeHarness(respond: (input: ConfirmedCheckpointInput) => FakeCal
     models: { defaults: { call: FAKE_CALL_MODEL_REF } },
   });
   cleanups.push(() => temp.cleanup());
-  return { temp, kernel: temp.kernel, inputs };
+  return { temp, kernel: temp.kernel, inputs, timeouts };
 }
 
 function deps(f: FeedFixture, harness: NodeHarness, overrides: CheckpointKnowledgeHandlerDeps = {}): CheckpointKnowledgeHandlerDeps {
@@ -235,6 +241,9 @@ describe("checkpoint_knowledge handler", () => {
 
     // The extraction saw the target, the raw note, bounded hunks of the target's source and every advisory, info included.
     expect(harness.inputs).toHaveLength(1);
+    // The out-of-band extraction gets its own deadline, not the node kernel's 60 s default.
+    expect(harness.timeouts).toEqual([CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS]);
+    expect(CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS).toBe(180_000);
     const input = harness.inputs[0]!;
     expect(input).toMatchObject({ unit: UNIT, function_name: SYMBOL, target_key: `${UNIT}::${SYMBOL}`, exact: true, note: NOTE });
     expect(input.hunks).toHaveLength(1);
@@ -463,21 +472,27 @@ describe("checkpoint_knowledge handler", () => {
     seedConfirmed(f);
     const handler = createCheckpointKnowledgeHandler(f.globals, deps(f, harness));
 
-    // Attempt 1 loses its claim right before the knowledge write: nothing is written.
+    // Attempt 1 extracts, then loses its claim right before the knowledge write: nothing is written.
     let lost = true;
     const first = claimed(f, "cp-1", () => {
-      if (lost) throw new Error("claim lost");
+      if (lost && harness.inputs.length > 0) throw new Error("claim lost");
     });
     await expect(handler(first.job, first.ctx)).rejects.toThrow("claim lost");
     expect(tasks(f)).toEqual([]);
     expect(recordedOutcome(f, "cp-1")).toBeNull();
+    const binding = extractionBinding(f.store, "cp-1")!;
+    expect(binding).toMatchObject({ request_id: "checkpoint_confirmed:cp-1" });
+    expect(typeof binding.kernel_run_id).toBe("string");
 
-    // Attempt 2 replays the finished extraction by request id (no second engine call) and enqueues once.
+    // Attempt 2 replays the finished extraction by request id (no second engine call) and enqueues once,
+    // citing the bound attempt's kernel run, which a replay does not report.
     lost = false;
     const second = await handler(first.job, first.ctx);
-    expect(second.detail).toMatchObject({ status: "enqueued", task_id: "task:checkpoint_confirmed:cp-1" });
+    expect(second.detail).toMatchObject({ status: "enqueued", task_id: "task:checkpoint_confirmed:cp-1", kernel_run_id: binding.kernel_run_id });
     expect(harness.inputs).toHaveLength(1);
     expect(tasks(f).map((task) => task.id)).toEqual(["task:checkpoint_confirmed:cp-1"]);
+    expect(tasks(f)[0]!.payload.extraction.kernel_run_id).toBe(binding.kernel_run_id);
+    expect(tasks(f)[0]!.payload.sources).toEqual(binding.sources);
     const traceDb = new Database(harness.temp.tempDb.path, { readonly: true });
     try {
       expect(traceDb.query(`SELECT COUNT(*) AS count FROM agent_runs r
@@ -494,6 +509,53 @@ describe("checkpoint_knowledge handler", () => {
     expect(tasks(f)).toEqual(before);
     expect(recordedOutcome(f, "cp-1")).toEqual(recorded);
     expect(harness.inputs).toHaveLength(1);
+  });
+
+  test("a retry whose evidence changed after the bound extraction skips with evidence-changed and enqueues nothing stale", async () => {
+    const f = fixture("rebind");
+    const harness = await nodeHarness();
+    const { checkpoint } = seedConfirmed(f);
+    const handler = createCheckpointKnowledgeHandler(f.globals, deps(f, harness));
+
+    // Attempt 1: the extraction succeeds on the original patch, then the enqueue loses its claim.
+    let lost = true;
+    const first = claimed(f, "cp-1", () => {
+      if (lost && harness.inputs.length > 0) throw new Error("claim lost");
+    });
+    await expect(handler(first.job, first.ctx)).rejects.toThrow("claim lost");
+    const bound = extractionBinding(f.store, "cp-1")!;
+    expect(bound.sources.patch_sha256).toBe(sha256Hex(PATCH));
+
+    // Between attempts the patch changes. A replay would return attempt 1's facts for the old patch.
+    writeFileSync(checkpoint.patchPath!, `${PATCH}\n# rewritten between attempts\n`);
+    lost = false;
+    const second = await handler(first.job, first.ctx);
+    // A line outside every hunk: the patch digest moved, the extraction input did not.
+    expect(second.detail).toMatchObject({ status: "skipped", reason: "evidence-changed", changed: ["patch_sha256"] });
+    expect(recordedOutcome(f, "cp-1")).toMatchObject({ status: "skipped", reason: "evidence-changed" });
+    expect(tasks(f)).toEqual([]);
+    expect(harness.inputs).toHaveLength(1);
+    // The binding stands as attempt 1 wrote it.
+    expect(extractionBinding(f.store, "cp-1")).toEqual(bound);
+
+    // The input is bound too: a score that moved between attempts is a different extraction.
+    const other = seedCheckpoint(f, { id: "cp-2", epochId: "epoch-1", runId: "run-a", symbol: "fn_two" });
+    const knowledge = f.openKnowledge();
+    try {
+      seedKnowledgeSubmission(knowledge, { checkpointId: "cp-2", workerStateId: other.workerStateId, symbol: "fn_two" });
+    } finally {
+      knowledge.close();
+    }
+    lost = true;
+    const retry = claimed(f, "cp-2", () => {
+      if (lost && harness.inputs.length > 1) throw new Error("claim lost");
+    });
+    await expect(handler(retry.job, retry.ctx)).rejects.toThrow("claim lost");
+    f.store.db.query("UPDATE worker_checkpoints SET new_score = 99 WHERE id = 'cp-2'").run();
+    lost = false;
+    expect((await handler(retry.job, retry.ctx)).detail).toMatchObject({ status: "skipped", reason: "evidence-changed", changed: ["input_sha256"] });
+    expect(tasks(f)).toEqual([]);
+    expect(harness.inputs).toHaveLength(2);
   });
 
   test("an extraction failure is recorded, enqueues nothing and completes the job", async () => {

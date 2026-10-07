@@ -15,6 +15,7 @@ import {
 } from "@server/core/harness-runtime/run-state";
 import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
 import { claimJobByDedupeKey, completeJob, failJob } from "@server/core/job-queue/kernel.js";
+import { STRANDED_SCAN_LIMIT } from "@server/core/model-node-work/catch-up.js";
 import { catchUpKnowledge, startModelNodeLanes, type ModelNodeJobHandler } from "@server/core/model-node-work/index.js";
 
 import {
@@ -347,5 +348,42 @@ describe("knowledge catch-up over settled epochs", () => {
     })).toBe(1);
     expect(logged).toEqual(["[model-node-lanes] checkpoint_knowledge submission lookup failed for melee: knowledge store unreadable"]);
     expect(status()).toMatchObject({ "cp-new": "queued", "cp-still-missing": "failed" });
+  });
+
+  test("stranded-job recovery rotates past the scan limit, so a newer recoverable job is not starved", () => {
+    const f = fixture("stranded-rotation");
+    enableKnowledgeLane(f.store);
+    // 1,001 terminal submission-not-found jobs, oldest first; only the newest one's submission exists.
+    const insert = f.store.db.query(`INSERT INTO jobs (job_id, kind, dedupe_key, game_id, status, attempts, payload_json, error_json,
+        created_at, updated_at, completed_at)
+      VALUES (?, 'checkpoint_knowledge', ?, 'melee', 'failed', 17, ?, ?, ?, ?, ?)`);
+    const base = Date.parse("2026-10-01T00:00:00.000Z");
+    const ids = Array.from({ length: STRANDED_SCAN_LIMIT + 1 }, (_, index) => `cp-${String(index).padStart(4, "0")}`);
+    f.store.db.transaction(() => {
+      ids.forEach((id, index) => {
+        const at = new Date(base + index * 1_000).toISOString();
+        insert.run(`job-${id}`, id, JSON.stringify({ checkpointId: id, epochId: "epoch-1", integrationId: `integration-${id}` }),
+          JSON.stringify({ message: `submission-not-found: no knowledge submission records checkpoint ${id} yet` }), at, at, at);
+      });
+    })();
+    const newest = ids.at(-1)!;
+    const examined: string[] = [];
+    const ingested = (_gameId: string, checkpointIds: readonly string[]) => {
+      examined.push(...checkpointIds);
+      return new Set(checkpointIds.filter((id) => id === newest));
+    };
+
+    // The first scan examines the oldest 1,000, none recoverable; the next continues after them.
+    expect(catchUpKnowledge(f.store, { ingestedSubmissions: ingested })).toBe(0);
+    expect(examined).toHaveLength(STRANDED_SCAN_LIMIT);
+    expect(examined).not.toContain(newest);
+    expect(catchUpKnowledge(f.store, { ingestedSubmissions: ingested })).toBe(1);
+    expect(examined.at(-1)).toBe(newest);
+    expect(new Set(examined).size).toBe(ids.length);
+    expect(knowledgeJobs(f.store).find((job) => job.checkpointId === newest)?.status).toBe("queued");
+    // That batch was short, so the rotation wraps to the oldest again.
+    examined.length = 0;
+    expect(catchUpKnowledge(f.store, { ingestedSubmissions: ingested })).toBe(0);
+    expect(examined[0]).toBe(ids[0]);
   });
 });

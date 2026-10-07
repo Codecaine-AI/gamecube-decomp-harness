@@ -17,7 +17,7 @@ import {
   type ValidatedReportChanges,
 } from "./report-schema.js";
 
-/** "bisect" when the confirmation pass recorded a verdict for the checkpoint (rule 5), else "epoch-settled". */
+/** "bisect" when the confirmation pass ran for the checkpoint's epoch (rule 5), else "epoch-settled". */
 export type ConfirmationSource = "bisect" | "epoch-settled";
 export type ConfirmedGoodRule = 1 | 2 | 3 | 4 | 5;
 
@@ -238,6 +238,30 @@ function confirmationState(metadata: Record<string, unknown>): string | null {
   return typeof state === "string" ? state : null;
 }
 
+/**
+ * Whether the confirmation pass ran at the epoch's settlement, from what the
+ * settlement records for that epoch: its `confirmation_pass` progress
+ * (labelled `epoch-<ordinal>` in the epoch's run) started, finished or
+ * warned (an unattributed pass leaves checkpoints tentative and writes no
+ * checkpoint metadata), or the settled-evidence event carries a pass result.
+ * A pass that only waited for a baseline (`skipped`) did not run.
+ */
+export function confirmationPassRanForEpoch(store: StateStore, epochId: string): boolean {
+  return store.db.query<{ ran: number }, [string, string]>(`
+    SELECT 1 AS ran
+    FROM epochs e
+    JOIN events ev ON ev.run_id = e.run_id AND ev.event_type = 'epoch_checkpoint_progress'
+    WHERE e.id = ?1 AND json_valid(ev.payload_json) AND (
+      (json_extract(ev.payload_json, '$.phase') = 'confirmation_pass'
+        AND json_extract(ev.payload_json, '$.label') = 'epoch-' || e.ordinal
+        AND json_extract(ev.payload_json, '$.status') IN ('started', 'finished', 'warning'))
+      OR (json_extract(ev.payload_json, '$.phase') = 'epoch_settled_evidence'
+        AND json_extract(ev.payload_json, '$.epoch_id') = ?2
+        AND COALESCE(json_extract(ev.payload_json, '$.result.confirmation.status'), 'disabled') <> 'disabled')
+    )
+    LIMIT 1`).get(epochId, epochId) !== null;
+}
+
 function targetOf(row: CheckpointRow, integration: IntegrationRow): CheckpointTarget | null {
   if (row.et_target_key && row.et_unit && row.et_symbol) {
     return { key: row.et_target_key, unit: row.et_unit, function: row.et_symbol, sourcePath: row.source_path };
@@ -332,15 +356,20 @@ export async function evaluateConfirmedGood(
     });
   }
 
-  // Rule 5: when the confirmation pass recorded a verdict, it must be "confirmed".
+  // Rule 5: when the confirmation pass ran for the epoch, worker_checkpoints.validation_state must be
+  // "confirmed". Any recorded pass state of the checkpoint or its integration also counts as a run
+  // (fail closed), and every recorded state must agree.
   const metadata = jsonObject(row.metadata_json);
-  const passStates = [
-    row.validation_state === "tentative" ? null : row.validation_state,
-    confirmationState(metadata),
-    confirmationState(integrationMetadata),
-  ].filter((state): state is string => state !== null);
-  if (passStates.some((state) => state !== "confirmed")) {
-    return notConfirmed(5, "not-confirmed-by-confirmation-pass", { validation_state: row.validation_state });
+  const recordedStates = [confirmationState(metadata), confirmationState(integrationMetadata)]
+    .filter((state): state is string => state !== null);
+  const passRan = confirmationPassRanForEpoch(store, epochId)
+    || row.validation_state !== "tentative"
+    || recordedStates.length > 0;
+  if (passRan && (row.validation_state !== "confirmed" || recordedStates.some((state) => state !== "confirmed"))) {
+    return notConfirmed(5, "not-confirmed-by-confirmation-pass", {
+      validation_state: row.validation_state,
+      recorded_states: recordedStates,
+    });
   }
 
   return {
@@ -356,7 +385,7 @@ export async function evaluateConfirmedGood(
       savePointCommit,
       reportChangesPath: evidence.path,
       reportChangesSha256: evidence.sha256,
-      confirmation: passStates.length > 0 ? "bisect" : "epoch-settled",
+      confirmation: passRan ? "bisect" : "epoch-settled",
       target,
       scores: { old: row.old_score, new: row.new_score, exact: Number(row.exact_match) === 1 },
       patchPath: row.patch_path,

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { planRegressionRepair } from "@server/core/harness-runtime/phases/running/epochs/settlement.js";
+import { addEvent } from "@server/core/harness-runtime/run-state";
 import { readRegressionReport } from "@server/core/validation/objdiff/report.js";
 
 import {
@@ -16,7 +17,7 @@ import {
   writeJson,
   type FeedFixture,
 } from "./__fixtures__/feed-fixture.js";
-import { evaluateConfirmedGood, sha256Hex, type ConfirmedGoodVerdict } from "./confirmed-good.js";
+import { confirmationPassRanForEpoch, evaluateConfirmedGood, sha256Hex, type ConfirmedGoodVerdict } from "./confirmed-good.js";
 
 const fixtures: FeedFixture[] = [];
 afterEach(() => {
@@ -292,7 +293,57 @@ describe("confirmed-good selection", () => {
     expect(confirmed.confirmed && confirmed.checkpoint.confirmation).toBe("bisect");
     expect(rejection(await evaluate(f, "cp-regressed"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
     expect(rejection(await evaluate(f, "cp-unattributed"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+    // Nothing records a pass for this epoch or this checkpoint: settled without a pass.
     const noPass = await evaluate(f, "cp-no-pass");
     expect(noPass.confirmed && noPass.checkpoint.confirmation).toBe("epoch-settled");
+  });
+
+  test("confirmed-good: an unattributed confirmation pass of the epoch excludes its tentative checkpoints", async () => {
+    const f = fixture("unattributed");
+    // The settlement's own progress for the epoch, labelled by its ordinal: the pass started, then warned unattributed.
+    const { ordinal } = seedSettledEpoch(f, { id: "epoch-pass", runId: "run-a" });
+    seedCheckpoint(f, { id: "cp-left-tentative", epochId: "epoch-pass", runId: "run-a" });
+    seedCheckpoint(f, { id: "cp-confirmed-by-pass", epochId: "epoch-pass", runId: "run-a", symbol: "fn_confirmed", validationState: "confirmed" });
+    const progress = (label: string, status: string, extra: Record<string, unknown> = {}) =>
+      addEvent(f.store, "run-a", "epoch_checkpoint_progress", "epoch-cycle", { label, phase: "confirmation_pass", status, message: "", ...extra });
+    progress(`epoch-${ordinal}`, "started");
+    progress(`epoch-${ordinal}`, "warning", { confirmation: { status: "unattributed", confirmedIds: [], regressedId: null } });
+    expect(confirmationPassRanForEpoch(f.store, "epoch-pass")).toBe(true);
+    expect(rejection(await evaluate(f, "cp-left-tentative"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+    const confirmed = await evaluate(f, "cp-confirmed-by-pass");
+    expect(confirmed.confirmed && confirmed.checkpoint.confirmation).toBe("bisect");
+
+    // The next epoch of the same run: its pass only waited for a baseline, and the earlier epoch's events are not its own.
+    const next = seedSettledEpoch(f, { id: "epoch-waited", runId: "run-a" });
+    seedCheckpoint(f, { id: "cp-waited", epochId: "epoch-waited", runId: "run-a", symbol: "fn_waited" });
+    progress(`epoch-${next.ordinal}`, "skipped");
+    progress(`epoch-${next.ordinal}-pr-sync`, "started");
+    expect(confirmationPassRanForEpoch(f.store, "epoch-waited")).toBe(false);
+    const waited = await evaluate(f, "cp-waited");
+    expect(waited.confirmed && waited.checkpoint.confirmation).toBe("epoch-settled");
+
+    // The settled-evidence record of a Sync boundary carries the pass result too.
+    const synced = seedSettledEpoch(f, { id: "epoch-synced", runId: "run-b" });
+    seedCheckpoint(f, { id: "cp-synced", epochId: "epoch-synced", runId: "run-b", symbol: "fn_synced" });
+    addEvent(f.store, "run-b", "epoch_checkpoint_progress", "run-loop", {
+      phase: "epoch_settled_evidence", epoch_id: "epoch-synced", attempt: 1, result: { confirmation: { status: "unattributed" } },
+    });
+    expect(synced.ordinal).toBe(1);
+    expect(rejection(await evaluate(f, "cp-synced"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+  });
+
+  test("confirmed-good: inconsistent stored confirmation states fail closed", async () => {
+    const f = fixture("inconsistent");
+    seedSettledEpoch(f, { id: "epoch-1", runId: "run-a" });
+    const state = (validation_state: string) => ({ confirmation: { validation_state } });
+    // The integration says confirmed, the checkpoint row is still tentative.
+    seedCheckpoint(f, { id: "cp-row-tentative", epochId: "epoch-1", runId: "run-a", integrationMetadata: state("confirmed") });
+    // The checkpoint row says confirmed, its integration was recorded regressed.
+    seedCheckpoint(f, { id: "cp-integration-regressed", epochId: "epoch-1", runId: "run-a", symbol: "fn_b", validationState: "confirmed", integrationMetadata: state("regressed") });
+    // The checkpoint metadata says confirmed, the row says tentative.
+    seedCheckpoint(f, { id: "cp-metadata-only", epochId: "epoch-1", runId: "run-a", symbol: "fn_c", metadata: state("confirmed") });
+    for (const id of ["cp-row-tentative", "cp-integration-regressed", "cp-metadata-only"]) {
+      expect({ id, ...rejection(await evaluate(f, id)) }).toEqual({ id, rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+    }
   });
 });

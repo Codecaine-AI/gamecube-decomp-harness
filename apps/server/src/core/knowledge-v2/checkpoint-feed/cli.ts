@@ -3,17 +3,29 @@
 // reaches epochs settled before the kind's `enabled_since`; this command
 // names epochs explicitly, enqueues their `checkpoint_knowledge` jobs (same
 // selection, ordering and per-epoch cap as the lane's catch-up), then runs
-// them in this process, one at a time, unless `--enqueue-only` leaves them
-// for the next lane start.
+// them in this process, one at a time, through the queue's inline consumer
+// (claim, heartbeat, lease-loss handling and cleanup as in the lane), unless
+// `--enqueue-only` leaves them for the next lane start.
 import { checkpointKnowledgeCapArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import type { JsonObject } from "@server/core/harness-state/events.js";
 import { openState, type StateStore } from "@server/core/harness-runtime/run-state";
-import { claimJobByDedupeKey, completeJob, failJob, verifyClaimToken } from "@server/core/job-queue/kernel.js";
-import type { JobRecord } from "@server/core/job-queue/types.js";
+import { startJobConsumer } from "@server/core/job-queue/consumer.js";
+import {
+  claimJobByDedupeKey,
+  completeJob,
+  failJob,
+  getJob,
+  heartbeatJob,
+  verifyClaimToken,
+} from "@server/core/job-queue/kernel.js";
+import type { JobKindDescriptor, JobQueueKernelOps } from "@server/core/job-queue/types.js";
 import { catchUpKnowledge } from "@server/core/model-node-work/catch-up.js";
-import { MODEL_NODE_LANE_DEFAULTS, type ModelNodeJobHandler } from "@server/core/model-node-work/lane.js";
+import {
+  MODEL_NODE_LANE_DEFAULTS,
+  type ModelNodeJobHandler,
+  type ModelNodeRetryDecision,
+} from "@server/core/model-node-work/lane.js";
 
-import { createCheckpointKnowledgeHandler } from "./handler.js";
+import { checkpointKnowledgeRetry, createCheckpointKnowledgeHandler } from "./handler.js";
 
 export const CHECKPOINT_KNOWLEDGE_USAGE =
   "Usage: checkpoint-knowledge backfill --epochs <id>[,<id>...] [--cap <n>] [--enqueue-only]";
@@ -41,12 +53,26 @@ export interface CheckpointKnowledgeBackfillReport {
   }>;
 }
 
+/** How the backfill runs its jobs; the lease is renewed by heartbeat every `intervalMs` while a handler runs. */
+export interface BackfillRunOptions {
+  leaseMs?: number;
+  intervalMs?: number;
+  maxAttempts?: number;
+}
+
+export const BACKFILL_RUN_DEFAULTS = Object.freeze({
+  leaseMs: MODEL_NODE_LANE_DEFAULTS.leaseMs,
+  intervalMs: 250,
+  maxAttempts: MODEL_NODE_LANE_DEFAULTS.maxAttempts,
+});
+
 export interface CheckpointKnowledgeCliDeps {
   openState?: (stateDir: string) => StateStore;
   /** Default: the production `checkpoint_knowledge` handler for `globals`. */
   handler?: ModelNodeJobHandler;
   print?: (report: CheckpointKnowledgeBackfillReport) => void;
   signal?: AbortSignal;
+  run?: BackfillRunOptions;
 }
 
 /** The subcommand: the first non-flag argument after `checkpoint-knowledge` (when `parse` did not record it as `--subcommand`). */
@@ -94,33 +120,94 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-/** Runs one claimable job through the handler with the lane's lease and attempt limit. */
-async function runJob(store: StateStore, dedupeKey: string, handler: ModelNodeJobHandler, signal: AbortSignal): Promise<{ job: JobRecord | null; outcome: string | null }> {
-  const claimed = claimJobByDedupeKey(store, {
+/**
+ * Runs the jobs named by `dedupeKeys`, each claimable one once, through the
+ * queue's inline consumer with concurrency 1: the claim is heartbeat while the
+ * handler runs, a claim lost to another consumer is dropped with a warning
+ * (its late writes fail the claim-token check), and the run continues with
+ * the next job. Failures retry like the lane's: the submission schedule for
+ * a submission not ingested yet, else terminal after `maxAttempts`. Returns
+ * each run job's outcome.
+ */
+async function runBackfillJobs(
+  store: StateStore,
+  dedupeKeys: readonly string[],
+  handler: ModelNodeJobHandler,
+  signal: AbortSignal,
+  run: BackfillRunOptions,
+): Promise<Map<string, string | null>> {
+  const leaseMs = run.leaseMs ?? BACKFILL_RUN_DEFAULTS.leaseMs;
+  const intervalMs = run.intervalMs ?? BACKFILL_RUN_DEFAULTS.intervalMs;
+  const maxAttempts = run.maxAttempts ?? BACKFILL_RUN_DEFAULTS.maxAttempts;
+  const pending = [...dedupeKeys];
+  const outcomes = new Map<string, string | null>();
+  const retryDecisions = new Map<string, ModelNodeRetryDecision>();
+  const ops: JobQueueKernelOps = {
+    claimNextJob: (claimStore, input) => {
+      while (pending.length > 0 && !signal.aborted) {
+        const claimed = claimJobByDedupeKey(claimStore, {
+          kind: "checkpoint_knowledge",
+          dedupeKey: pending.shift()!,
+          leaseMs: input.leaseMs,
+          ...(input.at !== undefined ? { at: input.at } : {}),
+          ...(input.actor !== undefined ? { actor: input.actor } : {}),
+        });
+        if (claimed) return claimed;
+      }
+      return null;
+    },
+    completeJob,
+    failJob: (failStore, token, error, input = {}) => {
+      const decision = retryDecisions.get(token.jobId);
+      retryDecisions.delete(token.jobId);
+      if (decision) {
+        return failJob(failStore, token, error, { ...input, backoffMs: decision.backoffMs, terminal: Boolean(input.terminal) || decision.terminal });
+      }
+      const attempts = getJob(failStore, token.jobId)?.attempts ?? 0;
+      return failJob(failStore, token, error, { ...input, terminal: Boolean(input.terminal) || attempts >= maxAttempts });
+    },
+    markJobRunning: () => { throw new Error("checkpoint_knowledge jobs execute inline"); },
+    heartbeatJob,
+  };
+  const descriptor: JobKindDescriptor = {
     kind: "checkpoint_knowledge",
-    dedupeKey,
-    leaseMs: MODEL_NODE_LANE_DEFAULTS.leaseMs,
+    concurrencyLimit: 1,
+    leaseMs,
+    execution: {
+      mode: "inline",
+      handler: async (job, ctx) => {
+        retryDecisions.delete(job.jobId);
+        try {
+          const result = await handler(job, { ...ctx, signal, ensureClaim: () => { verifyClaimToken(store, ctx.token); } });
+          const status = result.detail?.status;
+          outcomes.set(job.dedupeKey, typeof status === "string" ? status : null);
+          return result;
+        } catch (cause) {
+          outcomes.set(job.dedupeKey, errorMessage(cause));
+          const decision = checkpointKnowledgeRetry(job, cause);
+          if (decision) retryDecisions.set(job.jobId, decision);
+          throw cause;
+        }
+      },
+    },
+  };
+  const consumer = startJobConsumer(store, descriptor, ops, {
+    intervalMs,
     actor: "operator",
+    shouldClaim: () => !signal.aborted,
+    // A completion that lost its claim settles as failed: report why.
+    onJobSettled: (job, settle) => {
+      if (settle.status === "failed" && settle.error) outcomes.set(job.dedupeKey, settle.error);
+    },
   });
-  if (!claimed) return { job: null, outcome: null };
   try {
-    const result = await handler(claimed.job, {
-      store,
-      token: claimed.token,
-      signal,
-      ensureClaim: () => { verifyClaimToken(store, claimed.token); },
-    });
-    const job = completeJob(store, claimed.token, result, { actor: "operator" });
-    const status = (result.detail as JsonObject | undefined)?.status;
-    return { job, outcome: typeof status === "string" ? status : null };
-  } catch (cause) {
-    const message = errorMessage(cause);
-    const job = failJob(store, claimed.token, message, {
-      terminal: claimed.job.attempts >= MODEL_NODE_LANE_DEFAULTS.maxAttempts,
-      actor: "operator",
-    });
-    return { job, outcome: message };
+    while ((pending.length > 0 && !signal.aborted) || consumer.inFlight() > 0) {
+      await new Promise<void>((resolveTick) => setTimeout(resolveTick, intervalMs));
+    }
+  } finally {
+    await consumer.stop();
   }
+  return outcomes;
 }
 
 /**
@@ -134,18 +221,16 @@ export async function backfillCheckpointKnowledge(
   options: CheckpointKnowledgeBackfillOptions,
   handler: ModelNodeJobHandler,
   signal: AbortSignal = new AbortController().signal,
+  run: BackfillRunOptions = {},
 ): Promise<CheckpointKnowledgeBackfillReport> {
   const statuses = options.epochIds.map((id) => ({ id, status: epochStatus(store, id) }));
   const enqueued = catchUpKnowledge(store, { epochIds: options.epochIds, includeHistory: true, cap: options.cap });
-  const outcomes = new Map<string, { status: string; outcome: string | null }>();
-  if (!options.enqueueOnly) {
-    for (const row of backfillJobs(store, options.epochIds)) {
-      if (signal.aborted) break;
-      if (row.status !== "queued" && row.status !== "waiting") continue;
-      const ran = await runJob(store, row.dedupe_key, handler, signal);
-      if (ran.job) outcomes.set(row.dedupe_key, { status: ran.job.status, outcome: ran.outcome });
-    }
-  }
+  const runnable = backfillJobs(store, options.epochIds)
+    .filter((row) => row.status === "queued" || row.status === "waiting")
+    .map((row) => row.dedupe_key);
+  const outcomes = options.enqueueOnly || runnable.length === 0
+    ? new Map<string, string | null>()
+    : await runBackfillJobs(store, runnable, handler, signal, run);
   const jobs = backfillJobs(store, options.epochIds);
   return {
     schema: "checkpoint_knowledge_backfill_v1",
@@ -157,7 +242,7 @@ export async function backfillCheckpointKnowledge(
       checkpoint_id: job.dedupe_key,
       epoch_id: job.epoch_id,
       job_status: job.status,
-      outcome: outcomes.get(job.dedupe_key)?.outcome ?? null,
+      outcome: outcomes.get(job.dedupe_key) ?? null,
     })),
   };
 }
@@ -179,7 +264,7 @@ export async function checkpointKnowledge(
   const store = (deps.openState ?? openState)(globals.stateDir);
   try {
     const handler = deps.handler ?? createCheckpointKnowledgeHandler(globals);
-    const report = await backfillCheckpointKnowledge(store, options, handler, deps.signal);
+    const report = await backfillCheckpointKnowledge(store, options, handler, deps.signal, deps.run);
     (deps.print ?? ((value) => console.log(JSON.stringify(value, null, 2))))(report);
     return report;
   } finally {

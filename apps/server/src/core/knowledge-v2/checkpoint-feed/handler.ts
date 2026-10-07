@@ -31,18 +31,40 @@ import { getNodeKernel, type WorkerNodeKernel } from "@server/infrastructure/ker
 import { enqueueIndexTask } from "../records/index.js";
 import { openKnowledgeStore as realOpenKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { immediateTransaction } from "../storage/transaction.js";
-import { evaluateConfirmedGood, type ConfirmedCheckpoint, type ConfirmedGoodDeps } from "./confirmed-good.js";
+import { evaluateConfirmedGood, sha256Hex, type ConfirmedCheckpoint, type ConfirmedGoodDeps } from "./confirmed-good.js";
 import {
   CHECKPOINT_CONFIRMED_PATHWAY,
   checkpointConfirmedPayload,
   checkpointConfirmedTaskId,
   extractionInput,
 } from "./payload.js";
-import { assembleSources, changedSources, currentDigests } from "./sources.js";
+import { assembleSources, canonicalJson, changedSources, currentDigests, type SourceDigests } from "./sources.js";
 
 export const EXTRACTION_FUNCTION = "ExtractConfirmedCheckpointKnowledge" as const;
+/**
+ * Operation deadline of the extraction. Out of band, so longer than the node
+ * kernel's 60 s default, which bounds the worker's inline enforce path: a live
+ * extraction takes about 30 s and can exceed 60 s. The lane and the backfill
+ * keep the claim alive by heartbeat for the whole call.
+ */
+export const CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS = 180_000;
 /** Where every outcome is recorded on the checkpoint. */
 export const CHECKPOINT_KNOWLEDGE_RESULT_KEY = "checkpoint_knowledge";
+/**
+ * Where the first extraction attempt binds its evidence: the digests and the
+ * input it was invoked with, and its kernel run. A retry replays that call by
+ * request id, and the kernel replays without comparing arguments, so a retry
+ * whose evidence no longer matches the binding is `evidence-changed`.
+ */
+export const CHECKPOINT_KNOWLEDGE_BINDING_KEY = "checkpoint_knowledge_extraction";
+
+export interface ExtractionBinding {
+  request_id: string;
+  input_sha256: string;
+  sources: SourceDigests;
+  kernel_run_id: string | null;
+  bound_at: string;
+}
 
 /** Kernel request id of the extraction, so a retried job replays a finished call instead of re-paying. */
 export function checkpointConfirmedRequestId(checkpointId: string): string {
@@ -186,6 +208,51 @@ function currentMetadata(store: StateStore, checkpointId: string): Record<string
   }
 }
 
+function isDigests(value: unknown): value is SourceDigests {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    && typeof (value as Record<string, unknown>).note_sha256 === "string";
+}
+
+/** The extraction binding recorded for the checkpoint, or null. */
+export function extractionBinding(store: StateStore, checkpointId: string): ExtractionBinding | null {
+  const value = currentMetadata(store, checkpointId)[CHECKPOINT_KNOWLEDGE_BINDING_KEY];
+  if (typeof value !== "object" || value === null) return null;
+  const binding = value as Partial<ExtractionBinding>;
+  if (typeof binding.request_id !== "string" || typeof binding.input_sha256 !== "string" || !isDigests(binding.sources)) return null;
+  return {
+    request_id: binding.request_id,
+    input_sha256: binding.input_sha256,
+    sources: binding.sources,
+    kernel_run_id: typeof binding.kernel_run_id === "string" ? binding.kernel_run_id : null,
+    bound_at: typeof binding.bound_at === "string" ? binding.bound_at : "",
+  };
+}
+
+/** Write-once: the first attempt's binding stands; a later attempt is compared against it. */
+function bindExtraction(store: StateStore, checkpointId: string, binding: ExtractionBinding): void {
+  store.db.query(`
+    UPDATE worker_checkpoints
+    SET metadata_json = json_set(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}', json(?))
+    WHERE id = ? AND json_valid(metadata_json)
+      AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}') IS NULL`)
+    .run(JSON.stringify(binding), checkpointId);
+}
+
+/** Records the bound call's kernel run once it is known; never throws into the kernel. */
+function bindKernelRun(store: StateStore, checkpointId: string, runId: string): void {
+  try {
+    store.db.query(`
+      UPDATE worker_checkpoints
+      SET metadata_json = json_set(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.kernel_run_id', ?)
+      WHERE id = ? AND json_valid(metadata_json)
+        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}') IS NOT NULL
+        AND json_extract(metadata_json, '$.${CHECKPOINT_KNOWLEDGE_BINDING_KEY}.kernel_run_id') IS NULL`)
+      .run(runId, checkpointId);
+  } catch {
+    // The run id is a convenience for the payload; the binding's digests are what guard a replay.
+  }
+}
+
 /** One atomic json_set (§6.3); `onlyIfUnset` keeps an outcome a replay must not overwrite. */
 function recordOutcome(store: StateStore, checkpointId: string, outcome: JsonObject, onlyIfUnset = false): void {
   store.db.query(`
@@ -268,12 +335,40 @@ export function createCheckpointKnowledgeHandler(
       const kernel = await nodeKernel();
       if (!kernel) throw new Error(`checkpoint_knowledge ${checkpointId}: node kernel unavailable`);
       const extraction = extractionInput(checkpoint, sources);
+      const requestId = checkpointConfirmedRequestId(checkpointId);
+      const inputSha256 = sha256Hex(canonicalJson(extraction.input));
+
+      // The request id replays the first attempt's call whatever its arguments: bind them before
+      // the first call, and refuse a retry whose evidence or input moved since.
+      ctx.ensureClaim();
+      bindExtraction(ctx.store, checkpointId, {
+        request_id: requestId,
+        input_sha256: inputSha256,
+        sources: sources.digests,
+        kernel_run_id: null,
+        bound_at: now(),
+      });
+      const binding = extractionBinding(ctx.store, checkpointId);
+      if (!binding) throw new Error(`checkpoint_knowledge ${checkpointId}: extraction binding was not recorded`);
+      const unbound = [
+        ...changedSources(binding.sources, sources.digests),
+        ...(binding.input_sha256 !== inputSha256 ? ["input_sha256"] : []),
+        ...(binding.request_id !== requestId ? ["request_id"] : []),
+      ];
+      if (unbound.length > 0) {
+        return done({ status: "skipped", reason: "evidence-changed", changed: unbound, bound_at: binding.bound_at });
+      }
+
       let kernelRunId: string | null = null;
       const callOptions = {
         trigger: "post-run" as const,
-        requestId: checkpointConfirmedRequestId(checkpointId),
+        requestId,
+        timeoutMs: CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS,
         signal: ctx.signal,
-        onNodeStarted: (ids: { runId: string }) => { kernelRunId = ids.runId; },
+        onNodeStarted: (ids: { runId: string }) => {
+          kernelRunId = ids.runId;
+          bindKernelRun(ctx.store, checkpointId, ids.runId);
+        },
       };
       const container = () => (deps.callContainer ?? defaultCallContainer(globals, ctx.store))(job, checkpoint);
       const parentRunId = workerKernelRunId(checkpoint.metadata);
@@ -297,6 +392,8 @@ export function createCheckpointKnowledgeHandler(
           kernel_run_id: kernelRunId ?? failure.runId,
         });
       }
+      // A replay starts no node: the run is the bound attempt's.
+      const extractionRunId = kernelRunId ?? binding.kernel_run_id;
 
       // 5. Every source unchanged since step 2.
       const after = await currentDigests(checkpoint, currentMetadata(ctx.store, checkpointId), globals.repoRoot);
@@ -311,7 +408,7 @@ export function createCheckpointKnowledgeHandler(
         knowledge: knowledgeOut,
         refs: extraction.refs,
         digests: sources.digests,
-        extraction: { kernelRunId, requestedModel },
+        extraction: { kernelRunId: extractionRunId, requestedModel },
       });
       ctx.ensureClaim();
       const inserted = immediateTransaction(knowledge.db, () => {
@@ -337,7 +434,7 @@ export function createCheckpointKnowledgeHandler(
         advisories: extraction.refs.length,
         note_truncated: extraction.noteTruncated,
         hunks_truncated: extraction.hunksTruncated,
-        kernel_run_id: kernelRunId,
+        kernel_run_id: extractionRunId,
         sources: { ...sources.digests },
       }, taskId);
     } finally {

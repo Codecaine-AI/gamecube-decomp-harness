@@ -149,8 +149,22 @@ export interface KnowledgeCatchUpOptions extends CatchUpOptions {
 
 /** The error prefix of a `checkpoint_knowledge` attempt whose submission was not ingested yet. */
 export const SUBMISSION_NOT_FOUND = "submission-not-found";
-/** Most terminal submission-not-found jobs one scan looks at. */
-const STRANDED_SCAN_LIMIT = 1_000;
+/** Most terminal submission-not-found jobs one scan looks at; the next scan continues after them. */
+export const STRANDED_SCAN_LIMIT = 1_000;
+
+interface StrandedCursor {
+  completedAt: string;
+  dedupeKey: string;
+}
+
+/**
+ * Where the next stranded-job scan of a store resumes, per scan scope. Each
+ * scan examines the next STRANDED_SCAN_LIMIT candidates in (completed_at,
+ * dedupe_key) order and wraps to the oldest after a short batch, so every
+ * candidate is examined within a bounded number of scans however many stay
+ * missing. Kept per process: a restart begins a new rotation.
+ */
+const strandedCursors = new WeakMap<object, Map<string, StrandedCursor>>();
 
 export type IngestedSubmissions = (gameId: string, checkpointIds: readonly string[]) => ReadonlySet<string>;
 
@@ -197,16 +211,25 @@ function jobErrorMessage(errorJson: string | null): string {
  * finds nothing.
  */
 function requeueIngestedSubmissions(store: StateStore, options: KnowledgeCatchUpOptions, epochFilter: string | null): number {
-  const rows = store.db
-    .query<{ dedupe_key: string; game_id: string; error_json: string | null }, [string | null, number]>(`
-      SELECT dedupe_key, game_id, error_json FROM jobs
+  const cursors = strandedCursors.get(store.db) ?? new Map<string, StrandedCursor>();
+  strandedCursors.set(store.db, cursors);
+  const scope = epochFilter ?? "*";
+  const cursor = cursors.get(scope) ?? null;
+  const batch = store.db
+    .query<{ dedupe_key: string; game_id: string; error_json: string | null; completed_at: string }, [string | null, string | null, string | null, number]>(`
+      SELECT dedupe_key, game_id, error_json, completed_at FROM jobs
       WHERE kind = 'checkpoint_knowledge' AND status = 'failed' AND completed_at IS NOT NULL
         AND error_json LIKE '%${SUBMISSION_NOT_FOUND}%'
         AND (?1 IS NULL OR json_extract(payload_json, '$.epochId') IN (SELECT value FROM json_each(?1)))
+        AND (?2 IS NULL OR completed_at > ?2 OR (completed_at = ?2 AND dedupe_key > ?3))
       ORDER BY completed_at, dedupe_key
-      LIMIT ?2`)
-    .all(epochFilter, STRANDED_SCAN_LIMIT)
-    .filter((row) => jobErrorMessage(row.error_json).startsWith(SUBMISSION_NOT_FOUND));
+      LIMIT ?4`)
+    .all(epochFilter, cursor?.completedAt ?? null, cursor?.dedupeKey ?? null, STRANDED_SCAN_LIMIT);
+  const last = batch.at(-1);
+  // A full batch continues after its last row next time; a short one has reached the end and wraps.
+  if (batch.length === STRANDED_SCAN_LIMIT && last) cursors.set(scope, { completedAt: last.completed_at, dedupeKey: last.dedupe_key });
+  else cursors.delete(scope);
+  const rows = batch.filter((row) => jobErrorMessage(row.error_json).startsWith(SUBMISSION_NOT_FOUND));
   if (rows.length === 0) return 0;
   const byGame = new Map<string, string[]>();
   for (const row of rows) byGame.set(row.game_id, [...(byGame.get(row.game_id) ?? []), row.dedupe_key]);

@@ -146,11 +146,15 @@ export function improvingReport(unit = UNIT, symbol = SYMBOL): Record<string, un
   };
 }
 
-export function seedSettledEpoch(f: FeedFixture, seed: EpochSeed): { reportChangesPath: string | null } {
+/** Seeds the epoch (the run's next ordinal, as `startSchedulerEpoch` numbers them) and, by default, its save point. */
+export function seedSettledEpoch(f: FeedFixture, seed: EpochSeed): { reportChangesPath: string | null; ordinal: number } {
   seedRun(f.store, seed.runId);
   const closedAt = seed.closedAt === undefined ? ago(60_000) : seed.closedAt;
+  const ordinal = f.store.db.query<{ ordinal: number }, [string]>(
+    "SELECT COALESCE(MAX(ordinal), 0) + 1 AS ordinal FROM epochs WHERE run_id = ?",
+  ).get(seed.runId)!.ordinal;
   f.store.db.query(`INSERT INTO epochs (id, run_id, ordinal, worker_pool_size, status, created_at, closed_at)
-    VALUES (?, ?, 1, 1, ?, ?, ?)`).run(seed.id, seed.runId, seed.status ?? "completed", ago(3_600_000), closedAt);
+    VALUES (?, ?, ?, 1, ?, ?, ?)`).run(seed.id, seed.runId, ordinal, seed.status ?? "completed", ago(3_600_000), closedAt);
   const reportChangesPath = seed.reportChangesPath === undefined
     ? writeJson(join(f.root, "epochs", seed.id), "report_changes.json", improvingReport())
     : seed.reportChangesPath;
@@ -161,7 +165,7 @@ export function seedSettledEpoch(f: FeedFixture, seed: EpochSeed): { reportChang
       reportChangesPath, closedAt ?? ago(60_000),
     );
   }
-  return { reportChangesPath };
+  return { reportChangesPath, ordinal };
 }
 
 export interface CheckpointSeed {

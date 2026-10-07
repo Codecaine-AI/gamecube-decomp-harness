@@ -36,7 +36,6 @@ import { closeDefaultMeleeKernelRuntime, getDefaultMeleeKernelRuntime } from "@s
 import {
   closeNodeKernel,
   getNodeKernel,
-  NODE_CALL_TIMEOUT_MS,
   type WorkerNodeKernel,
 } from "@server/infrastructure/kernel/nodes/node-kernel.js";
 
@@ -45,20 +44,20 @@ import { startLibrarianConsumerLane } from "../librarian/lane.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { enableKnowledgeLane, metrics, seedCheckpoint, seedSettledEpoch, writeJson, type FeedFixture } from "./__fixtures__/feed-fixture.js";
 import { sha256Hex } from "./confirmed-good.js";
-import { createCheckpointKnowledgeHandler } from "./handler.js";
+import { CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS, createCheckpointKnowledgeHandler } from "./handler.js";
 import type { CheckpointConfirmedPayload } from "./payload.js";
 
 const LIVE = process.env.MODEL_NODES_LIVE === "1";
 const CODEX_LB = { hostname: "127.0.0.1", port: 2455 };
 /**
  * Diagnostic only: MODEL_NODES_LIVE_CALL_TIMEOUT_MS gives the extraction a
- * per-call timeout other than the node kernel's production default
- * (NODE_CALL_TIMEOUT_MS). Unset, the handler runs on the production config.
+ * per-call timeout other than the extraction's production default
+ * (CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS). Unset, the handler runs on the production config.
  */
 const CALL_TIMEOUT_OVERRIDE_MS = Number(process.env.MODEL_NODES_LIVE_CALL_TIMEOUT_MS) > 0
   ? Number(process.env.MODEL_NODES_LIVE_CALL_TIMEOUT_MS)
   : null;
-const EXTRACTION_WAIT_MS = 2 * (CALL_TIMEOUT_OVERRIDE_MS ?? NODE_CALL_TIMEOUT_MS) + 60_000;
+const EXTRACTION_WAIT_MS = 2 * (CALL_TIMEOUT_OVERRIDE_MS ?? CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS) + 60_000;
 /** Plan M11-C step 4: claimed and finished, or five minutes pass. */
 const LIBRARIAN_WAIT_MS = 300_000;
 const DB_ENV = ["ORCH_AGENT_KERNEL_DB_PATH", "AGENT_KERNEL_DB_PATH", "ORCH_AGENT_KERNEL_DATABASE_URL", "AGENT_KERNEL_DATABASE_URL"];
@@ -325,10 +324,10 @@ function seedLiveFixture(repo: AdvisoryRepo): LiveFixture {
   };
 }
 
-/** The node kernel with a per-call timeout, unless the caller passes one (MODEL_NODES_LIVE_CALL_TIMEOUT_MS). */
+/** The node kernel with the MODEL_NODES_LIVE_CALL_TIMEOUT_MS per-call timeout, which overrides the handler's own. */
 function withCallTimeout(kernel: WorkerNodeKernel | null, timeoutMs: number): WorkerNodeKernel | null {
   if (!kernel) return null;
-  const call = ((name, args, options) => kernel.call(name, args, { timeoutMs, ...options })) as WorkerNodeKernel["call"];
+  const call = ((name, args, options) => kernel.call(name, args, { ...options, timeoutMs })) as WorkerNodeKernel["call"];
   return {
     call,
     decide: kernel.decide.bind(kernel),
@@ -425,7 +424,7 @@ describe.skipIf(skipReason !== null)("checkpoint feed live smoke", () => {
           ? {}
           : { nodeKernel: async () => withCallTimeout(await getNodeKernel({ stateDir: feed.stateDir }), CALL_TIMEOUT_OVERRIDE_MS) }),
       });
-      console.log(`[checkpoint-feed live.smoke] extraction call timeout: ${CALL_TIMEOUT_OVERRIDE_MS ?? NODE_CALL_TIMEOUT_MS} ms (${CALL_TIMEOUT_OVERRIDE_MS === null ? "production default" : "MODEL_NODES_LIVE_CALL_TIMEOUT_MS override"})`);
+      console.log(`[checkpoint-feed live.smoke] extraction call timeout: ${CALL_TIMEOUT_OVERRIDE_MS ?? CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS} ms (${CALL_TIMEOUT_OVERRIDE_MS === null ? "production default" : "MODEL_NODES_LIVE_CALL_TIMEOUT_MS override"})`);
       const extractionStarted = Date.now();
       modelLanes = startModelNodeLanes({
         store: feed.store,
@@ -600,6 +599,6 @@ describe.skipIf(skipReason !== null)("checkpoint feed live smoke", () => {
       expect(leaked).toBe(0);
       expect(leakedKnowledge).toBe(0);
     },
-    660_000,
+    900_000,
   );
 });
