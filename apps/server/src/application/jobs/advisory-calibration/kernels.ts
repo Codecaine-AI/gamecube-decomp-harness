@@ -8,7 +8,7 @@
 // Every node nests under one seeded parent run; close() ends that run, its
 // session and its container (done/ended, or error), so the trace doctor and
 // the viewer see a finished command rather than a pending one.
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -102,6 +102,25 @@ export interface ParentIds {
   containerId: string;
   parentRunId: string;
   parentSessionId: string;
+}
+
+function seededUuid(seed: string): string {
+  const hex = createHash("sha256").update(seed).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+/**
+ * Parent ids fixed by a seed (the command's inputs and engine): a repeat
+ * command into the same database nests under the same parent, so its nodes'
+ * requestIds replay (the kernel compares the parent scope too).
+ */
+export function seededParentIds(label: string, seed: string): ParentIds {
+  const base = `advisory-calibration ${label}\n${seed}`;
+  return {
+    containerId: `melee:advisory-calibration-${label}-${createHash("sha256").update(base).digest("hex").slice(0, 12)}`,
+    parentRunId: seededUuid(`${base}\nrun`),
+    parentSessionId: seededUuid(`${base}\nsession`),
+  };
 }
 
 async function seedParent(db: unknown, label: string, fixed?: ParentIds): Promise<ParentIds & { reused: boolean }> {

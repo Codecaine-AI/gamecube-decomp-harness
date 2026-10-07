@@ -36,7 +36,7 @@ import type { AdvisoryFindingRef, CheckpointKnowledge } from "@server/generated/
 import { assertKnownFlags, engineFlag, requiredFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { fakeExtractCheckpointKnowledge } from "./fake-extractor.js";
 import { REPLAY_FIXTURE_FILES, type FixtureProbabilityRow, type ReplayFixtureManifest } from "./freeze-replay.js";
-import { openCalibrationKernel, type FakeEngineScript, type ParentIds, type ParentOutcome } from "./kernels.js";
+import { openCalibrationKernel, seededParentIds, type FakeEngineScript, type ParentIds, type ParentOutcome } from "./kernels.js";
 import { canonicalJson, readJsonl, sha256Hex } from "./store.js";
 import type { CalibrationEngine } from "./types.js";
 
@@ -99,20 +99,9 @@ function candidateOf(fixture: ReplayFixture, kernel: { run_id: string; container
   };
 }
 
-/** A uuid-shaped id from a seed. */
-function seededId(seed: string): string {
-  const hex = sha256Hex(seed);
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-
 /** The replay parent's ids: fixed per fixture content and engine, so a replay into the same --db reopens it. */
 export function replayParentIds(fixture: ReplayFixture, engine: CalibrationEngine): ParentIds {
-  const seed = `advisory-calibration replay\n${fixture.name}\n${canonicalJson(fixture.manifest.files)}\n${engine}`;
-  return {
-    containerId: `melee:advisory-calibration-replay-${fixture.name}-${engine}-${sha256Hex(seed).slice(0, 12)}`,
-    parentRunId: seededId(`${seed}\nrun`),
-    parentSessionId: seededId(`${seed}\nsession`),
-  };
+  return seededParentIds(`replay-${fixture.name}-${engine}`, `${canonicalJson(fixture.manifest.files)}\n${engine}`);
 }
 
 function fakeScript(fixture: ReplayFixture, engine: "replay" | "fake"): FakeEngineScript {

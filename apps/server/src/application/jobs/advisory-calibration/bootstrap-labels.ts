@@ -7,6 +7,8 @@
 //   hunks come from selection groups first and never from held-out groups, so
 //   no held-out hunk shapes threshold selection.
 // Proposals only help the human reviewer; they never count as labels.
+import { resolve } from "node:path";
+
 import type { FakeCallRequest } from "@agent-kernel/kernel/model-nodes/testing";
 import type {
   AdvisoryCase,
@@ -19,12 +21,15 @@ import type { NodeCalls } from "@server/infrastructure/kernel/nodes/node-kernel.
 
 import { advisoryCaseOf } from "./advisory-case.js";
 import { assertKnownFlags, engineFlag, integerFlag, stringFlag, type CalibrationArgs } from "./args.js";
-import { openCalibrationKernel, type CalibrationKernel } from "./kernels.js";
+import { openCalibrationKernel, seededParentIds, type CalibrationKernel } from "./kernels.js";
+import { callRequestId, nodePromptHash } from "./request-ids.js";
 import { appendJsonl, DEFAULT_CALIBRATION_DIR, justificationOf, loadDataset, sha256Hex, type CalibrationDataset } from "./store.js";
 import type { CalibrationItem, ProposalRecord, ProposedLabel } from "./types.js";
 
 const LABEL_FUNCTION = "LabelAdvisoryJustification";
 const SYNTHESIZE_FUNCTION = "SynthesizeJustification";
+/** The kernel's default call reasoning, passed explicitly so the requestId digest names it. */
+const SYNTHESIZE_REASONING = "low";
 export const NO_JUSTIFICATION_RATIONALE = "No justification was extracted from the note.";
 /** `model` of a proposal made without a model call. */
 const NO_MODEL = "none";
@@ -168,6 +173,7 @@ export async function bootstrapLabelsCommand(args: CalibrationArgs, print: (line
       engine,
       label: "bootstrap-labels",
       ...(dbPath !== undefined && { dbPath }),
+      parent: seededParentIds("bootstrap-labels", `${resolve(dataset.paths.dir)}\n${engine}`),
       ...(engine === "fake" && { fake: { respond: await fakeRespond() } }),
     });
     try {
@@ -177,12 +183,19 @@ export async function bootstrapLabelsCommand(args: CalibrationArgs, print: (line
         let runId: string | undefined;
         let proposal: AdvisoryLabelProposal;
         calls += 1;
+        const args: [AdvisoryCase] = [advisoryCaseOf(item, justification)];
         try {
-          proposal = await calibration.kernel.call(LABEL_FUNCTION, [advisoryCaseOf(item, justification)], {
+          proposal = await calibration.kernel.call(LABEL_FUNCTION, args, {
             parentRunId: calibration.parentRunId,
             trigger: "system",
             reasoning: LABEL_ADVISORY_REASONING,
-            requestId: `calibration-label:${item.id}:${sha256Hex(justification)}`,
+            requestId: callRequestId("calibration-label", item.id, {
+              engine,
+              name: LABEL_FUNCTION,
+              args,
+              reasoning: LABEL_ADVISORY_REASONING,
+              promptHash: await nodePromptHash(),
+            }),
             onNodeStarted: (ids) => {
               runId = ids.runId;
             },
@@ -212,15 +225,19 @@ export async function bootstrapLabelsCommand(args: CalibrationArgs, print: (line
         let generated: SynthesizedJustification;
         calls += 1;
         try {
-          generated = await calibration.kernel.call(
-            SYNTHESIZE_FUNCTION,
-            [advisoryCaseOf(item, null), quality.toUpperCase() as unknown as JustificationQuality],
-            {
-              parentRunId: calibration.parentRunId,
-              trigger: "system",
-              requestId: `calibration-synthesize:${item.id}:${quality}`,
-            },
-          );
+          const args: [AdvisoryCase, JustificationQuality] = [advisoryCaseOf(item, null), quality.toUpperCase() as unknown as JustificationQuality];
+          generated = await calibration.kernel.call(SYNTHESIZE_FUNCTION, args, {
+            parentRunId: calibration.parentRunId,
+            trigger: "system",
+            reasoning: SYNTHESIZE_REASONING,
+            requestId: callRequestId("calibration-synthesize", `${item.id}:${quality}`, {
+              engine,
+              name: SYNTHESIZE_FUNCTION,
+              args,
+              reasoning: SYNTHESIZE_REASONING,
+              promptHash: await nodePromptHash(),
+            }),
+          });
         } catch (error) {
           if (!isCallError(error)) throw error;
           report(`synthesize ${id} (${quality}, from ${item.id})`, error);

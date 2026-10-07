@@ -35,8 +35,9 @@ import {
   type CalibrationArgs,
 } from "./args.js";
 import { evaluateHeldout, qualify, selectThresholds, type EvaluationItem, type HeldoutResult, type SelectionResult } from "./evaluate.js";
-import { openCalibrationKernel } from "./kernels.js";
+import { openCalibrationKernel, seededParentIds } from "./kernels.js";
 import { renderCalibrationReport } from "./report.js";
+import { decisionRequestId } from "./request-ids.js";
 import { computeGroups } from "./groups.js";
 import { splitHash } from "./split.js";
 import {
@@ -283,7 +284,15 @@ export function isoStamp(date = new Date()): string {
 /** Scores items through a kernel: one decision per item on the adjudication's state and question. */
 async function scoreWithKernel(
   scorable: readonly Scorable[],
-  opts: { engine: "live" | "fake"; model: string; thresholds: Pick<AdvisoryThresholds, "passAt" | "failAt">; dbPath?: string; print: (line: string) => void },
+  opts: {
+    engine: "live" | "fake";
+    model: string;
+    thresholds: Pick<AdvisoryThresholds, "passAt" | "failAt">;
+    /** The dataset directory: with the engine, it fixes the parent, so a repeat run into the same --db replays. */
+    datasetDir: string;
+    dbPath?: string;
+    print: (line: string) => void;
+  },
 ): Promise<ProbabilityRow[]> {
   const fixtureP = new Map(scorable.map((entry) => [entry.item.id, entry.item.fixture_p]));
   let current: string | null = null;
@@ -291,8 +300,10 @@ async function scoreWithKernel(
     engine: opts.engine,
     label: "calibrate",
     ...(opts.dbPath !== undefined && { dbPath: opts.dbPath }),
+    parent: seededParentIds("calibrate", `${resolve(opts.datasetDir)}\n${opts.engine}`),
     fake: { probability: () => fixtureP.get(current ?? "") ?? 0.5 },
   });
+  const questions = justifiedQuestions(opts.thresholds);
   const rows: ProbabilityRow[] = [];
   let failed = true;
   try {
@@ -305,12 +316,13 @@ async function scoreWithKernel(
         justification: entry.justification,
         facts: entry.item.code_facts,
       });
-      const outcome = await handle.kernel.decide(`JudgeAdvisory:${entry.item.id}`, state, {
-        questions: justifiedQuestions(opts.thresholds),
+      const name = `JudgeAdvisory:${entry.item.id}`;
+      const outcome = await handle.kernel.decide(name, state, {
+        questions,
         model: opts.model,
         parentRunId: handle.parentRunId,
         trigger: "judge",
-        requestId: `calibration:${opts.model}:${entry.item.id}:${sha256Hex(canonicalJson(state)).slice(0, 16)}`,
+        requestId: decisionRequestId({ engine: opts.engine, model: opts.model, itemId: entry.item.id, name, state, questions }),
       });
       const answer = outcome.answers[JUSTIFIED_QUESTION_ID]!;
       const answered = typeof answer.probability === "number" && answer.abstainReason !== "engine-error" && answer.abstainReason !== "refusal";
@@ -400,7 +412,7 @@ export async function calibrateCommand(args: CalibrationArgs, print: (line: stri
     const toScore = limit === undefined ? scorable : scorable.slice(0, limit);
     const thresholds = config.thresholds[model] ?? { passAt: 0.85, failAt: 0.15 };
     const dbPath = stringFlag(args, "--db");
-    scoredRows = await scoreWithKernel(toScore, { engine, model, thresholds, ...(dbPath !== undefined && { dbPath }), print });
+    scoredRows = await scoreWithKernel(toScore, { engine, model, thresholds, datasetDir: dataset.paths.dir, ...(dbPath !== undefined && { dbPath }), print });
     probabilities = new Map(scoredRows.map((row) => [row.id, row]));
   }
 

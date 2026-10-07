@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -119,4 +120,36 @@ test("extract --engine fake writes one extraction per item and resumes", async (
   // Nothing left: no call, nothing written.
   expect(await run("--engine", "fake")).toEqual({ extracted: 5, missing: 0, calls: 0, failed: 0, written: 0 });
   expect(readJsonl<ExtractionRecord>(paths.extractions)).toEqual(second);
+});
+
+test("a repeat extraction into the same --db replays the call; a changed note calls afresh", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "advisory-extract-replay-"));
+  dirs.push(dir);
+  const paths = calibrationPaths(dir);
+  const dbPath = join(dir, "kernel.db");
+  const callRuns = () => {
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      return (db.query("SELECT COUNT(*) AS n FROM pi_agent_sessions WHERE kind = 'call'").get() as { n: number }).n;
+    } finally {
+      db.close();
+    }
+  };
+  writeJsonl(paths.notes, [note("note-b", JSON.stringify({ review_justification: LEGACY }))]);
+  writeJsonl(paths.candidates, [item("adv-b1", "note-b", 11)]);
+  const run = () => extractCommand(parseCalibrationArgs(["extract", "--dir", dir, "--engine", "fake", "--db", dbPath]), () => {});
+
+  expect(await run()).toMatchObject({ calls: 1, written: 1 });
+  expect(callRuns()).toBe(1);
+  // Forget the record: the same request replays from the kernel database (no new call run).
+  rmSync(paths.extractions);
+  expect(await run()).toMatchObject({ calls: 1, written: 1, failed: 0 });
+  expect(callRuns()).toBe(1);
+  expect(readJsonl<ExtractionRecord>(paths.extractions)[0]).toMatchObject({ id: "adv-b1", justification: LEGACY });
+  // A changed note is a different request: a new id and a fresh call, not invalid-request.
+  rmSync(paths.extractions);
+  writeJsonl(paths.notes, [note("note-b", JSON.stringify({ review_justification: KEPT }))]);
+  expect(await run()).toMatchObject({ calls: 1, written: 1, failed: 0 });
+  expect(callRuns()).toBe(2);
+  expect(readJsonl<ExtractionRecord>(paths.extractions)[0]).toMatchObject({ id: "adv-b1", justification: KEPT });
 });

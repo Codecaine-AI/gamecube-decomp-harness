@@ -3,6 +3,8 @@
 // call per checkpoint. Items without a note get a null justification and no
 // call. Each finished checkpoint is appended to extractions.jsonl at once and
 // a failed call records nothing, so a rerun resumes where the last one stopped.
+import { resolve } from "node:path";
+
 import type { FakeCallRequest } from "@agent-kernel/kernel/model-nodes/testing";
 import type { CheckpointKnowledge } from "@server/generated/baml_client/types";
 import { NODE_CALL_MANIFESTS, NODE_CALL_MODEL } from "@server/infrastructure/kernel/nodes/functions.js";
@@ -11,11 +13,14 @@ import type { NodeCalls } from "@server/infrastructure/kernel/nodes/node-kernel.
 import { findingRefOf } from "./advisory-case.js";
 import { assertKnownFlags, engineFlag, integerFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { fakeExtractCheckpointKnowledge } from "./fake-extractor.js";
-import { openCalibrationKernel, type CalibrationKernel } from "./kernels.js";
-import { appendJsonl, DEFAULT_CALIBRATION_DIR, loadDataset, sha256Hex } from "./store.js";
+import { openCalibrationKernel, seededParentIds, type CalibrationKernel } from "./kernels.js";
+import { callRequestId, nodePromptHash } from "./request-ids.js";
+import { appendJsonl, DEFAULT_CALIBRATION_DIR, loadDataset } from "./store.js";
 import type { CalibrationItem, ExtractionRecord, NoteRecord } from "./types.js";
 
 const EXTRACT_FUNCTION = "ExtractCheckpointKnowledge";
+/** The kernel's default call reasoning, passed explicitly so the requestId digest names it. */
+const EXTRACT_REASONING = "low";
 
 export interface ExtractSummary {
   /** Real items with an extraction after the run. */
@@ -109,6 +114,7 @@ export async function extractCommand(args: CalibrationArgs, print: (line: string
       engine,
       label: "extract",
       ...(dbPath !== undefined && { dbPath }),
+      parent: seededParentIds("extract", `${resolve(dataset.paths.dir)}\n${engine}`),
       ...(engine === "fake" && { fake: { respond: await fakeRespond() } }),
     });
     // The live kernel has no aliases, so the manifest's model is the one the call runs on.
@@ -116,15 +122,22 @@ export async function extractCommand(args: CalibrationArgs, print: (line: string
     try {
       for (const [index, { note, items }] of planned.entries()) {
         const sorted = [...items].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-        const ids = sorted.map((item) => item.id);
         let runId: string | undefined;
         let knowledge: CheckpointKnowledge;
         calls += 1;
+        const args: [string, ReturnType<typeof findingRefOf>[]] = [note.text, sorted.map(findingRefOf)];
         try {
-          knowledge = await calibration.kernel.call(EXTRACT_FUNCTION, [note.text, sorted.map(findingRefOf)], {
+          knowledge = await calibration.kernel.call(EXTRACT_FUNCTION, args, {
             parentRunId: calibration.parentRunId,
             trigger: "post-run",
-            requestId: `calibration-extract:${note.sha256}:${sha256Hex(ids.join("\n"))}`,
+            reasoning: EXTRACT_REASONING,
+            requestId: callRequestId("calibration-extract", note.key, {
+              engine,
+              name: EXTRACT_FUNCTION,
+              args,
+              reasoning: EXTRACT_REASONING,
+              promptHash: await nodePromptHash(),
+            }),
             onNodeStarted: (nodeIds) => {
               runId = nodeIds.runId;
             },

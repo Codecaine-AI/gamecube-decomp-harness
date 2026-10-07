@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -111,6 +112,31 @@ describe("advisory calibration", () => {
   test("calibrate --engine fake on sample runs the kernel decision path and matches the replay report", async () => {
     const { report } = await calibrate(["--dir", SAMPLE, "--engine", "fake", "--dry-run"]);
     expect({ ...report, engine: "replay" }).toEqual(expectedReport(SAMPLE));
+  });
+
+  test("a repeat calibration into the same --db replays its decisions; a changed question set decides afresh", async () => {
+    const dbPath = join(tempDir(), "calibrate.db");
+    const decisionRuns = () => {
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        return (db.query("SELECT COUNT(*) AS n FROM pi_agent_sessions WHERE kind = 'decision'").get() as { n: number }).n;
+      } finally {
+        db.close();
+      }
+    };
+    const first = await calibrate(["--dir", SAMPLE, "--engine", "fake", "--dry-run", "--db", dbPath]);
+    expect(decisionRuns()).toBe(24);
+    // Same requests: every decision replays (no new run) and the report is unchanged.
+    const second = await calibrate(["--dir", SAMPLE, "--engine", "fake", "--dry-run", "--db", dbPath]);
+    expect(decisionRuns()).toBe(24);
+    expect(second.report).toEqual(first.report);
+    // Other bars in the question set: new requestIds, fresh decisions, no invalid-request.
+    const configPath = join(tempDir(), "config.json");
+    const shipped = JSON.parse(readFileSync(ADVISORY_ADJUDICATION_CONFIG_PATH, "utf8")) as { thresholds: Record<string, object> };
+    writeFileSync(configPath, JSON.stringify({ ...shipped, thresholds: { ...shipped.thresholds, [JEV]: { passAt: 0.9, failAt: 0.1, qualification: "exploratory" } } }));
+    const third = await calibrate(["--dir", SAMPLE, "--engine", "fake", "--dry-run", "--db", dbPath, "--config", configPath]);
+    expect(decisionRuns()).toBe(48);
+    expect({ ...third.report, engine: "replay" }).toEqual(expectedReport(SAMPLE));
   });
 
   test("29 negative items from one group stay exploratory", async () => {
