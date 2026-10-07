@@ -4,6 +4,13 @@
 // server, cancelled while BAML's request is in flight and while its
 // KernelCallRetry policy (one retry after 500 ms) is backing off. Prints
 // exactly one line: `RESULT <json>`.
+//
+// The backoff barrier is client side. BAML exposes no retry or backoff event,
+// so the engine's own Collector is observed live: once it has recorded the
+// first attempt with the server's 500 response while the server has seen no
+// second request, the client has finished that attempt and the only thing left
+// before the retry is the policy's 500 ms wait. An attempt cancelled in flight
+// never records a response.
 import { Database } from "bun:sqlite";
 import * as baml from "@boundaryml/baml";
 import { createKernel, KernelCallError } from "@agent-kernel/kernel";
@@ -28,11 +35,13 @@ export interface CancelScenarioResult {
   /** The mock saw the client close a held request. */
   clientClosed: boolean;
   /**
-   * The first request's 500 reached the client before the cancel: the cancel
-   * found the call past its request, in the retry policy's backoff (it fired
-   * while no request was open, and no retry followed).
+   * Before the cancel, the engine's Collector had recorded the first attempt
+   * with its 500 response while the server had seen only that one request:
+   * the client had received and recorded the first response and had not sent
+   * the retry. With `requests` still 1 after the settle wait, the cancel landed
+   * between the first attempt and the retry, that is, in the backoff.
    */
-  firstAnsweredBeforeCancel: boolean;
+  firstAttemptRecordedBeforeCancel: boolean;
   /** From the cancel (abort or deadline) to the call settling. */
   settleMs: number;
   doctorOk: boolean;
@@ -41,11 +50,33 @@ export interface CancelScenarioResult {
 /** Longer than KernelCallRetry's 500 ms backoff, so a retry that was not cancelled would land. */
 const SETTLE_WAIT_MS = 1_000;
 
+/** Every Collector the engine creates (one per call), so a scenario can watch its call's attempts live. */
+const collectors: baml.Collector[] = [];
+const observedBaml = {
+  ...baml,
+  Collector: function ObservedCollector(name?: string | null) {
+    const collector = new baml.Collector(name);
+    collectors.push(collector);
+    return collector;
+  },
+} as unknown as typeof baml;
+
+/** The call's first attempt is recorded with a 500 response, and no second request has reached the server. */
+function firstAttemptRecorded(collector: baml.Collector | undefined): boolean {
+  if (!collector || server.requests.length !== 1) return false;
+  try {
+    const calls = collector.last?.calls ?? [];
+    return calls.length === 1 && calls[0]!.httpResponse?.status === 500;
+  } catch {
+    return false;
+  }
+}
+
 const server = startMockResponsesServer();
 const temp = await createTempKernelDb();
 const engine = bamlEngine({
   client: b,
-  baml,
+  baml: observedBaml,
   sources: getBamlFiles(),
   manifests: NODE_CALL_MANIFESTS,
   retryPolicy: NODE_CALL_RETRY_POLICY,
@@ -55,12 +86,17 @@ async function scenario(
   name: string,
   opts: {
     hold: boolean;
+    /** Abort this long after the server receives the (held, still open) first request. */
     abortAfterFirstRequestMs?: number;
+    /** Abort as soon as the client has recorded the first attempt's 500 (the backoff barrier above). */
+    abortWhenFirstAttemptRecorded?: boolean;
     timeoutMs: number;
     /**
-     * Hold the first request and answer it 500 this long before the deadline,
-     * so the deadline lands in the 500 ms backoff however long the request
-     * took to arrive; the result proves it with `firstAnsweredBeforeCancel`.
+     * Hold the first request and answer it 500 this long before the deadline.
+     * At 450 ms, under the 500 ms backoff, the retry would only be due after
+     * the deadline, so the deadline cannot pass the retry. Whether the client
+     * recorded the attempt before the deadline is observed, not assumed
+     * (`firstAttemptRecordedBeforeCancel`).
      */
     answerFirstBeforeDeadlineMs?: number;
   },
@@ -69,7 +105,7 @@ async function scenario(
   const controller = new AbortController();
   let cancelledAt = 0;
   let startedAt = 0;
-  let firstAnsweredAt = 0;
+  let firstAttemptRecordedAt = 0;
   server.reply(() => {
     const first = server.requests.length === 1;
     if (opts.abortAfterFirstRequestMs !== undefined && first) {
@@ -79,11 +115,8 @@ async function scenario(
       }, opts.abortAfterFirstRequestMs);
     }
     if (opts.answerFirstBeforeDeadlineMs !== undefined && first) {
-      const holdMs = Math.max(0, startedAt + opts.timeoutMs - opts.answerFirstBeforeDeadlineMs - Date.now());
-      setTimeout(() => { firstAnsweredAt = Date.now(); }, holdMs);
-      return { kind: "hold", maxMs: holdMs };
+      return { kind: "hold", maxMs: Math.max(0, startedAt + opts.timeoutMs - opts.answerFirstBeforeDeadlineMs - Date.now()) };
     }
-    if (first && !opts.hold) firstAnsweredAt = Date.now();
     return opts.hold ? { kind: "hold" } : { kind: "status", status: 500, body: { error: { message: "overloaded" } } };
   });
   const kernel = createKernel({
@@ -92,6 +125,17 @@ async function scenario(
     calls: { engine },
     nodes: { piModels: fakePiModels({ baseUrl: server.url("/v1") }) },
   });
+
+  // This call's Collector is the next one the engine creates; watch it until the call settles.
+  const collectorIndex = collectors.length;
+  const watch = setInterval(() => {
+    if (firstAttemptRecordedAt !== 0 || !firstAttemptRecorded(collectors[collectorIndex])) return;
+    firstAttemptRecordedAt = Date.now();
+    if (opts.abortWhenFirstAttemptRecorded) {
+      cancelledAt = firstAttemptRecordedAt;
+      controller.abort();
+    }
+  }, 2);
 
   startedAt = Date.now();
   let outcome = "ok";
@@ -113,6 +157,8 @@ async function scenario(
     }
   }
   const settledAt = Date.now();
+  clearInterval(watch);
+  // The kernel starts its deadline clock just after `startedAt`, so this is no later than the real deadline.
   if (cancelledAt === 0) cancelledAt = startedAt + opts.timeoutMs;
   await Bun.sleep(SETTLE_WAIT_MS);
 
@@ -131,8 +177,7 @@ async function scenario(
       endKind: endData?.error?.kind ?? null,
       requests: server.requests.length,
       clientClosed: server.requests.some((request) => request.clientClosed === true),
-      firstAnsweredBeforeCancel: firstAnsweredAt > 0 && firstAnsweredAt < cancelledAt
-        && server.requests[0]?.clientClosed !== true,
+      firstAttemptRecordedBeforeCancel: firstAttemptRecordedAt > 0 && firstAttemptRecordedAt <= cancelledAt,
       settleMs: settledAt - cancelledAt,
       doctorOk: (await kernel.doctor()).ok,
     };
@@ -147,8 +192,8 @@ try {
     // Control: without a cancel, KernelCallRetry retries the 500 once.
     await scenario("retry-control", { hold: false, timeoutMs: 10_000 }),
     await scenario("abort-during-request", { hold: true, abortAfterFirstRequestMs: 150, timeoutMs: 10_000 }),
-    await scenario("abort-during-backoff", { hold: false, abortAfterFirstRequestMs: 100, timeoutMs: 10_000 }),
-    await scenario("deadline-during-backoff", { hold: false, timeoutMs: 3_000, answerFirstBeforeDeadlineMs: 300 }),
+    await scenario("abort-during-backoff", { hold: false, abortWhenFirstAttemptRecorded: true, timeoutMs: 10_000 }),
+    await scenario("deadline-during-backoff", { hold: false, timeoutMs: 3_000, answerFirstBeforeDeadlineMs: 450 }),
   ];
   console.log(`RESULT ${JSON.stringify(results)}`);
 } finally {
