@@ -139,6 +139,31 @@ describe("advisory calibration", () => {
     expect({ ...third.report, engine: "replay" }).toEqual(expectedReport(SAMPLE));
   });
 
+  test("two copies of the sample calibrate into one --db without colliding; a repeat in either replays", async () => {
+    const root = tempDir();
+    const dbPath = join(root, "calibrate.db");
+    const decisionRuns = () => {
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        return (db.query("SELECT COUNT(*) AS n FROM pi_agent_sessions WHERE kind = 'decision'").get() as { n: number }).n;
+      } finally {
+        db.close();
+      }
+    };
+    const copies = ["a", "b"].map((name) => {
+      const dir = join(root, name, "sample");
+      cpSync(SAMPLE, dir, { recursive: true });
+      return dir;
+    });
+    for (const [index, dir] of copies.entries()) {
+      const { report } = await calibrate(["--dir", dir, "--engine", "fake", "--dry-run", "--db", dbPath]);
+      expect({ ...report, engine: "replay" }).toEqual(expectedReport(SAMPLE));
+      expect(decisionRuns()).toBe(24 * (index + 1));
+    }
+    for (const dir of copies) await calibrate(["--dir", dir, "--engine", "fake", "--dry-run", "--db", dbPath]);
+    expect(decisionRuns()).toBe(48);
+  });
+
   test("29 negative items from one group stay exploratory", async () => {
     const { report } = await calibrate(["--dir", SAMPLE_CORRELATED, "--engine", "replay", "--dry-run"]);
     expect(report).toEqual(expectedReport(SAMPLE_CORRELATED));

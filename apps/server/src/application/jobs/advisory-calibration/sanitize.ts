@@ -8,8 +8,9 @@
 // a secret, whatever it looks like ("1" and "true" included); only the
 // variables in NOT_CREDENTIALS are known not to be. A value too short to scrub
 // without mangling unrelated text is never replaced: the sanitizer records
-// that it remains in the output (generated markers aside), and callers refuse
-// to write (assertNoShortSecrets).
+// that it remains in the output, and callers refuse to write
+// (assertNoShortSecrets). Only the replacements the sanitizer itself wrote are
+// exempt from that scan; marker-shaped text in the input is input like any other.
 import { homedir } from "node:os";
 
 import { LEGACY_HARNESS_ROOT } from "./source-root.js";
@@ -25,8 +26,47 @@ export const SECRET_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|COOK
 export const NOT_CREDENTIALS: ReadonlySet<string> = new Set(["SSH_AUTH_SOCK", "XAUTHORITY", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE"]);
 /** Shorter values are too likely to occur by chance to replace everywhere; the kernel refuses credentials this short anyway. */
 const MIN_SECRET_LENGTH = 8;
-/** What the sanitizer itself writes; never scanned for short secrets. */
-const GENERATED_MARKER = /<redacted:env:[A-Za-z0-9_]+>|<redacted:token>|<source-root>|<home>/g;
+/** Text as pieces: input the sanitizer kept, and replacements it generated (never rewritten or scanned again). */
+interface Piece {
+  text: string;
+  generated: boolean;
+}
+
+/** Replaces every occurrence of `needle` in the input pieces. */
+function replaceLiteral(pieces: Piece[], needle: string, replacement: string): Piece[] {
+  const out: Piece[] = [];
+  for (const piece of pieces) {
+    if (piece.generated || !piece.text.includes(needle)) {
+      out.push(piece);
+      continue;
+    }
+    const parts = piece.text.split(needle);
+    for (const [index, part] of parts.entries()) {
+      if (part) out.push({ text: part, generated: false });
+      if (index < parts.length - 1) out.push({ text: replacement, generated: true });
+    }
+  }
+  return out;
+}
+
+/** Replaces every match of a global `pattern` in the input pieces. */
+function replacePattern(pieces: Piece[], pattern: RegExp, replacement: string): Piece[] {
+  const out: Piece[] = [];
+  for (const piece of pieces) {
+    if (piece.generated) {
+      out.push(piece);
+      continue;
+    }
+    let last = 0;
+    for (const match of piece.text.matchAll(pattern)) {
+      if (match.index > last) out.push({ text: piece.text.slice(last, match.index), generated: false });
+      out.push({ text: replacement, generated: true });
+      last = match.index + match[0].length;
+    }
+    if (last < piece.text.length) out.push({ text: piece.text.slice(last), generated: false });
+  }
+  return out;
+}
 
 export interface SanitizerOptions {
   sourceRoot: string;
@@ -62,16 +102,16 @@ export function createSanitizer(opts: SanitizerOptions): Sanitize {
     .filter((root) => root.prefix.length > 1)
     .sort((a, b) => b.prefix.length - a.prefix.length);
   const sanitize = (text: string) => {
-    let out = text;
-    for (const [name, value] of secrets) out = out.split(value).join(`<redacted:env:${name}>`);
-    out = out.replace(TOKEN_LIKE, "<redacted:token>");
-    for (const root of roots) out = out.split(root.prefix).join(root.replacement);
+    let pieces: Piece[] = [{ text, generated: false }];
+    for (const [name, value] of secrets) pieces = replaceLiteral(pieces, value, `<redacted:env:${name}>`);
+    pieces = replacePattern(pieces, TOKEN_LIKE, "<redacted:token>");
+    for (const root of roots) pieces = replaceLiteral(pieces, root.prefix, root.replacement);
     if (shortSecrets.length > 0) {
-      // What remains in the written text, minus the markers generated above (`<redacted:env:…>` holds "env").
-      const remaining = out.replace(GENERATED_MARKER, "\u0000");
-      for (const [name, value] of shortSecrets) if (remaining.includes(value)) seen.add(name);
+      // Every kept input piece, scanned on its own: only the replacements generated above are exempt.
+      const kept = pieces.filter((piece) => !piece.generated).map((piece) => piece.text);
+      for (const [name, value] of shortSecrets) if (kept.some((part) => part.includes(value))) seen.add(name);
     }
-    return out;
+    return pieces.map((piece) => piece.text).join("");
   };
   return Object.assign(sanitize, { shortSecretsSeen: () => [...seen].sort() });
 }

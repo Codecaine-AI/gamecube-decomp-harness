@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -152,4 +152,36 @@ test("a repeat extraction into the same --db replays the call; a changed note ca
   expect(await run()).toMatchObject({ calls: 1, written: 1, failed: 0 });
   expect(callRuns()).toBe(2);
   expect(readJsonl<ExtractionRecord>(paths.extractions)[0]).toMatchObject({ id: "adv-b1", justification: KEPT });
+});
+
+test("two copies of one dataset extract into one --db without colliding; a repeat in either replays", async () => {
+  const root = mkdtempSync(join(tmpdir(), "advisory-extract-shared-"));
+  dirs.push(root);
+  const dbPath = join(root, "kernel.db");
+  const callRuns = () => {
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      return (db.query("SELECT COUNT(*) AS n FROM pi_agent_sessions WHERE kind = 'call'").get() as { n: number }).n;
+    } finally {
+      db.close();
+    }
+  };
+  const copies = ["a", "b"].map((name) => {
+    const dir = join(root, name, "dataset");
+    mkdirSync(dir, { recursive: true });
+    const paths = calibrationPaths(dir);
+    writeJsonl(paths.notes, [note("note-b", JSON.stringify({ review_justification: LEGACY }))]);
+    writeJsonl(paths.candidates, [item("adv-b1", "note-b", 11)]);
+    return { dir, paths };
+  });
+  const run = (dir: string) => extractCommand(parseCalibrationArgs(["extract", "--dir", dir, "--engine", "fake", "--db", dbPath]), () => {});
+  for (const [index, { dir }] of copies.entries()) {
+    expect(await run(dir)).toMatchObject({ calls: 1, written: 1, failed: 0 });
+    expect(callRuns()).toBe(index + 1);
+  }
+  for (const { dir, paths } of copies) {
+    rmSync(paths.extractions);
+    expect(await run(dir)).toMatchObject({ calls: 1, written: 1, failed: 0 });
+  }
+  expect(callRuns()).toBe(2);
 });

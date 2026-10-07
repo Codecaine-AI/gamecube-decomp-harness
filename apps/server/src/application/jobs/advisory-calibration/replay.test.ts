@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -155,6 +156,44 @@ describe("advisory replay", () => {
       if (saved === undefined) delete process.env.MODEL_NODES_LIVE;
       else process.env.MODEL_NODES_LIVE = saved;
     }
+  });
+
+  test("same-named fixtures with different content replay into one --db without colliding; repeats replay", async () => {
+    const root = tempDir();
+    const dbPath = join(root, "replay.db");
+    // The same basename twice; the second fixture records other probabilities (its digest updated).
+    const fixtures = ["x", "y"].map((name) => {
+      const dir = join(root, name, "4a45af8a-attempt-2");
+      cpSync(FIXTURE, dir, { recursive: true });
+      return dir;
+    });
+    const probabilities = readFileSync(join(fixtures[1]!, "fixture-probabilities.jsonl"), "utf8").replaceAll('"probability":0.9', '"probability":0.1');
+    writeFileSync(join(fixtures[1]!, "fixture-probabilities.jsonl"), probabilities);
+    const manifestPath = join(fixtures[1]!, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.files["fixture-probabilities.jsonl"] = createHash("sha256").update(probabilities).digest("hex");
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    const decisionRuns = () => {
+      const db = new Database(dbPath, { readonly: true });
+      try {
+        return (db.query("SELECT COUNT(*) AS n FROM pi_agent_sessions WHERE kind = 'decision'").get() as { n: number }).n;
+      } finally {
+        db.close();
+      }
+    };
+
+    const first = await runReplay({ fixtureDir: fixtures[0]!, engine: "replay", dbPath });
+    const second = await runReplay({ fixtureDir: fixtures[1]!, engine: "replay", dbPath });
+    expect(first.adjudication.verdict).toBe("pass");
+    expect(second.adjudication.verdict).toBe("fail");
+    expect(second.reusedDb).toBe(false);
+    expect(decisionRuns()).toBe(8);
+    for (const [index, dir] of fixtures.entries()) {
+      const again = await runReplay({ fixtureDir: dir, engine: "replay", dbPath });
+      expect(again.reusedDb).toBe(true);
+      expect(again.adjudication.verdict).toBe(index === 0 ? "pass" : "fail");
+    }
+    expect(decisionRuns()).toBe(8);
   });
 
   test("replay --engine fake extracts from the note and abstains at the fake classifier's p = 0.5", async () => {

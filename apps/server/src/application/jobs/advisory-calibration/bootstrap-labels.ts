@@ -191,6 +191,7 @@ export async function bootstrapLabelsCommand(args: CalibrationArgs, print: (line
             reasoning: LABEL_ADVISORY_REASONING,
             requestId: callRequestId("calibration-label", item.id, {
               engine,
+              parentRunId: calibration.parentRunId,
               name: LABEL_FUNCTION,
               args,
               reasoning: LABEL_ADVISORY_REASONING,
@@ -232,6 +233,7 @@ export async function bootstrapLabelsCommand(args: CalibrationArgs, print: (line
             reasoning: SYNTHESIZE_REASONING,
             requestId: callRequestId("calibration-synthesize", `${item.id}:${quality}`, {
               engine,
+              parentRunId: calibration.parentRunId,
               name: SYNTHESIZE_FUNCTION,
               args,
               reasoning: SYNTHESIZE_REASONING,

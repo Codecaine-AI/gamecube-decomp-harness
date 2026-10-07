@@ -133,6 +133,7 @@ export async function extractCommand(args: CalibrationArgs, print: (line: string
             reasoning: EXTRACT_REASONING,
             requestId: callRequestId("calibration-extract", note.key, {
               engine,
+              parentRunId: calibration.parentRunId,
               name: EXTRACT_FUNCTION,
               args,
               reasoning: EXTRACT_REASONING,

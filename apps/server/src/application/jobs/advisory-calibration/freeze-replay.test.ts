@@ -196,12 +196,33 @@ describe("freeze-replay", () => {
         expect(text).not.toContain(secret);
         expect(text).not.toContain(history.root);
       }
-      const expectedKeys = { "<redacted:env:FIXTURE_SECRET_TOKEN>": "safe value", "<redacted:token>": { "<source-root>/games": true } };
+      const expectedKeys = { "<redacted:env:FIXTURE_SECRET_TOKEN>": "safe value", "Bearer <redacted:env:FIXTURE_SECRET_TOKEN>x": { "<source-root>/games": true } };
       expect(JSON.parse(readFileSync(join(out, "note.txt"), "utf8"))).toMatchObject(expectedKeys);
       expect(JSON.parse(readFileSync(join(out, "checkpoint.json"), "utf8")).agent_note).toMatchObject(expectedKeys);
     } finally {
       if (saved === undefined) delete process.env.FIXTURE_SECRET_TOKEN;
       else process.env.FIXTURE_SECRET_TOKEN = saved;
+    }
+  });
+
+  test("freeze-replay refuses a short credential hidden in marker-shaped note keys and values", async () => {
+    const history = tree();
+    const note = { ...JSON.parse(history.noteText), "<redacted:env:p4s>": "<redacted:env:p4s>" };
+    writeFileSync(history.paths.note, JSON.stringify(note, null, 2));
+    const saved = process.env.FIXTURE_PASSWORD;
+    process.env.FIXTURE_PASSWORD = "p4s";
+    try {
+      const out = outDir();
+      const failure = await freeze(history, out).then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+      expect(failure?.message).toContain("FIXTURE_PASSWORD");
+      expect(failure?.message).not.toContain("p4s");
+      expect(existsSync(out)).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.FIXTURE_PASSWORD;
+      else process.env.FIXTURE_PASSWORD = saved;
     }
   });
 

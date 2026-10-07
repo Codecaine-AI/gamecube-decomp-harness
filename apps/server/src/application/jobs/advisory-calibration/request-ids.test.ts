@@ -6,6 +6,7 @@ import { bamlPromptHash, callRequestId, decisionRequestId, nodePromptHash } from
 
 const decision = {
   engine: "live" as const,
+  parentRunId: "parent-a",
   model: "typesafe/jev-1.13.0",
   itemId: "adv-1",
   name: "JudgeAdvisory:adv-1",
@@ -15,6 +16,7 @@ const decision = {
 
 const call = {
   engine: "live" as const,
+  parentRunId: "parent-a",
   name: "LabelAdvisoryJustification" as const,
   args: [{ finding: { id: "adv-1" }, justification: "objdiff 100%" }],
   reasoning: "high" as const,
@@ -32,6 +34,8 @@ describe("calibration request ids", () => {
     expect(decisionRequestId({ ...decision, state: { ...decision.state, justification: "style" } })).not.toBe(id);
     expect(decisionRequestId({ ...decision, model: "typesafe/jev-latest" })).not.toBe(id);
     expect(decisionRequestId({ ...decision, engine: "fake" })).not.toBe(id);
+    // Another dataset (another fixed parent) in the same database never shares an id.
+    expect(decisionRequestId({ ...decision, parentRunId: "parent-b" })).not.toBe(id);
   });
 
   test("a changed prompt, argument or reasoning gives a new call id; an unchanged request keeps its id", () => {
@@ -42,6 +46,7 @@ describe("calibration request ids", () => {
     expect(callRequestId("calibration-label", "adv-1", { ...call, reasoning: "low" })).not.toBe(id);
     // The manifest model is part of the digest: another function's manifest names another model.
     expect(callRequestId("calibration-label", "adv-1", { ...call, name: "SynthesizeJustification" })).not.toBe(id);
+    expect(callRequestId("calibration-label", "adv-1", { ...call, parentRunId: "parent-b" })).not.toBe(id);
   });
 
   test("the prompt hash follows the kernel's rule: prompt sources only, order-free", async () => {

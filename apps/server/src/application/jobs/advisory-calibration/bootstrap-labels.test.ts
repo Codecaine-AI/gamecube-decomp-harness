@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { Database } from "bun:sqlite";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -134,4 +135,35 @@ test("bootstrap-labels --engine fake proposes labels and synthesizes only from s
   expect(await run("--synthesize", "5")).toEqual({ proposals: 0, synthetic: 2, calls: 2, failed: 0 });
   const sources = new Set(readJsonl<CalibrationItem>(paths.synthetic).map((row) => row.source_item_id));
   expect([...sources].sort()).toEqual(["adv-3-sel", "adv-4-sel", "adv-6-new"]);
+});
+
+test("two copies of one dataset label into one --db without colliding; a repeat in either replays", async () => {
+  const root = mkdtempSync(join(tmpdir(), "advisory-bootstrap-shared-"));
+  dirs.push(root);
+  const dbPath = join(root, "kernel.db");
+  const callRuns = () => {
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      return (db.query("SELECT COUNT(*) AS n FROM pi_agent_sessions WHERE kind = 'call'").get() as { n: number }).n;
+    } finally {
+      db.close();
+    }
+  };
+  const copies = ["a", "b"].map((name) => {
+    const dir = join(root, name, "dataset");
+    mkdirSync(dir, { recursive: true });
+    const paths = calibrationPaths(dir);
+    writeJsonl(paths.candidates, [item("adv-1")]);
+    writeJsonl(paths.extractions, [extraction("adv-1", "objdiff: the cast keeps lwz r3 at 0x1C.")]);
+    return { dir, paths };
+  });
+  const run = (dir: string) => bootstrapLabelsCommand(parseCalibrationArgs(["bootstrap-labels", "--dir", dir, "--engine", "fake", "--db", dbPath]), () => {});
+  for (const [index, { dir }] of copies.entries()) {
+    expect(await run(dir)).toMatchObject({ proposals: 1, calls: 1, failed: 0 });
+    expect(callRuns()).toBe(index + 1);
+  }
+  // Forget a proposal: the same request under the same parent replays (no new call run).
+  rmSync(copies[0]!.paths.proposals);
+  expect(await run(copies[0]!.dir)).toMatchObject({ proposals: 1, calls: 1, failed: 0 });
+  expect(callRuns()).toBe(2);
 });

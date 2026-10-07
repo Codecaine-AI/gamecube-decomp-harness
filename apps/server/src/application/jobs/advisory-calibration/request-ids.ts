@@ -3,10 +3,12 @@
 // reasoning, prompt hash and parent scope, and a decision's name, state,
 // questions with their effective thresholds, model and parent scope; the same
 // requestId with a different request is rejected (`invalid-request`). So
-// every id here digests everything its fingerprint covers except the scope,
-// which kernels.ts keeps fixed per command, dataset and engine (seededParent).
-// An unchanged request keeps its id and replays; an edited prompt, question
-// set, model or argument gets a new id and a fresh run.
+// every id here digests everything its fingerprint covers, the parent scope
+// included: kernels.ts fixes the parent per command, dataset and engine
+// (seededParentIds), and the id carries that parent run id. An unchanged
+// request under the same parent keeps its id and replays; an edited prompt,
+// question set, model or argument, or another dataset (another parent) in the
+// same database, gets a new id and a fresh run.
 import type { DecisionQuestion } from "@agent-kernel/kernel/model-nodes";
 import { NODE_CALL_MANIFESTS, NODE_CALL_MODEL, type NodeFunctionName } from "@server/infrastructure/kernel/nodes/functions.js";
 
@@ -41,26 +43,42 @@ function digest(parts: unknown): string {
 
 export interface CallRequestParts {
   engine: CalibrationEngine;
+  /** The fixed parent run the call nests under (the dataset's namespace). */
+  parentRunId: string;
   name: NodeFunctionName;
   args: readonly unknown[];
   reasoning: CallReasoning;
   promptHash: string;
 }
 
-/** `<prefix>:<engine>:<label>:<digest of function, args, manifest model, reasoning, prompt hash>`. */
+/** `<prefix>:<engine>:<label>:<digest of parent run, function, args, manifest model, reasoning, prompt hash>`. */
 export function callRequestId(prefix: string, label: string, parts: CallRequestParts): string {
   const model = NODE_CALL_MANIFESTS[parts.name].model ?? NODE_CALL_MODEL;
-  return `${prefix}:${parts.engine}:${label}:${digest({ name: parts.name, args: parts.args, model, reasoning: parts.reasoning, prompt: parts.promptHash })}`;
+  return `${prefix}:${parts.engine}:${label}:${digest({
+    parent: parts.parentRunId,
+    name: parts.name,
+    args: parts.args,
+    model,
+    reasoning: parts.reasoning,
+    prompt: parts.promptHash,
+  })}`;
 }
 
-/** `calibration:<engine>:<model>:<item>:<digest of decision name, state, question set incl. thresholds>`. */
+/** `calibration:<engine>:<model>:<item>:<digest of parent run, decision name, state, question set incl. thresholds>`. */
 export function decisionRequestId(parts: {
   engine: CalibrationEngine;
+  /** The fixed parent run the decision nests under (the dataset's namespace). */
+  parentRunId: string;
   model: string;
   itemId: string;
   name: string;
   state: unknown;
   questions: Record<string, DecisionQuestion>;
 }): string {
-  return `calibration:${parts.engine}:${parts.model}:${parts.itemId}:${digest({ name: parts.name, state: parts.state, questions: parts.questions })}`;
+  return `calibration:${parts.engine}:${parts.model}:${parts.itemId}:${digest({
+    parent: parts.parentRunId,
+    name: parts.name,
+    state: parts.state,
+    questions: parts.questions,
+  })}`;
 }

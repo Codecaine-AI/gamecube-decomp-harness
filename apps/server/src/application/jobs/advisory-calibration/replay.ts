@@ -13,7 +13,7 @@
 // the adjudication errored or the replay threw), then the trace doctor runs.
 // Replaying into an existing `--db` reuses that database's prior results: the
 // parent run has fixed ids per fixture and engine, and every node carries a
-// requestId (`replay:<fixture>:<engine>:…`), so a repeated replay reopens the
+// requestId (`replay:<fixture>:<engine>:<parent run>:…`), so a repeated replay reopens the
 // same parent and returns the recorded extraction and decisions without new
 // engine requests (the kernel replays a requestId only for the same request,
 // parent included).
@@ -157,7 +157,8 @@ export async function runReplay(opts: { fixtureDir: string; engine: CalibrationE
       candidate: candidateOf(fixture, { run_id: handle.parentRunId, container_id: handle.containerId, pi_session_id: handle.parentSessionId }),
       noteText: fixture.noteText,
       patchText: fixture.patchText,
-      requestIdPrefix: `replay:${fixture.name}:${opts.engine}`,
+      // The parent id is fixed by the fixture's content and engine: same-named fixtures with other content never share ids.
+      requestIdPrefix: `replay:${fixture.name}:${opts.engine}:${handle.parentRunId}`,
       config,
     });
     outcome = adjudication.verdict === "error" ? "error" : "done";

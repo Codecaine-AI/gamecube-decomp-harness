@@ -322,7 +322,7 @@ async function scoreWithKernel(
         model: opts.model,
         parentRunId: handle.parentRunId,
         trigger: "judge",
-        requestId: decisionRequestId({ engine: opts.engine, model: opts.model, itemId: entry.item.id, name, state, questions }),
+        requestId: decisionRequestId({ engine: opts.engine, parentRunId: handle.parentRunId, model: opts.model, itemId: entry.item.id, name, state, questions }),
       });
       const answer = outcome.answers[JUSTIFIED_QUESTION_ID]!;
       const answered = typeof answer.probability === "number" && answer.abstainReason !== "engine-error" && answer.abstainReason !== "refusal";

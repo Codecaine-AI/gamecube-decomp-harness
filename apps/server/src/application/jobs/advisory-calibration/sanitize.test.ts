@@ -50,6 +50,28 @@ describe("history sanitizer", () => {
     expect(sanitize.shortSecretsSeen()).toEqual(["SHORT_TOKEN"]);
   });
 
+  test("marker-shaped text in the input is input: a short secret inside it still refuses", () => {
+    const prose = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { PASSWORD: "p4s" } });
+    expect(prose("see <redacted:env:p4s> and <home>")).toBe("see <redacted:env:p4s> and <home>");
+    expect(prose.shortSecretsSeen()).toEqual(["PASSWORD"]);
+
+    const keyed = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { PASSWORD: "p4s" } });
+    sanitizeDeep({ "<redacted:env:p4s>": "safe" }, keyed);
+    expect(keyed.shortSecretsSeen()).toEqual(["PASSWORD"]);
+    const valued = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { PASSWORD: "p4s" } });
+    sanitizeDeep({ note: ["<redacted:token> <redacted:env:p4s>"] }, valued);
+    expect(valued.shortSecretsSeen()).toEqual(["PASSWORD"]);
+    expect(() => assertNoShortSecrets(valued, "freeze-replay")).toThrow("PASSWORD");
+
+    // Replacements the sanitizer wrote stay exempt, and are never rewritten by a later pattern.
+    const generated = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh", SHORT_TOKEN: "Bear" } });
+    expect(generated("Bearer abcdefgh")).toBe("Bearer <redacted:env:LONG_TOKEN>");
+    expect(generated.shortSecretsSeen()).toEqual(["SHORT_TOKEN"]);
+    const generatedOnly = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { LONG_TOKEN: "abcdefgh", SHORT_TOKEN: "red" } });
+    expect(generatedOnly("x abcdefgh y")).toBe("x <redacted:env:LONG_TOKEN> y");
+    expect(generatedOnly.shortSecretsSeen()).toEqual([]);
+  });
+
   test("keys are scrubbed like values, and keys that scrub to one name are kept apart", () => {
     const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SECRET_TOKEN: "abcdefgh" } });
     const scrubbed = sanitizeDeep(
