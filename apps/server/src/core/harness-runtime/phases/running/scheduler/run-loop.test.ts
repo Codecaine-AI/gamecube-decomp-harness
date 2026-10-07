@@ -27,6 +27,7 @@ import {
   createKnowledgeMaintenanceClock,
   createProviderCircuitBreaker,
   providerCircuitConfigFromArgs,
+  recordRunLoopFlags,
   sandboxSleepConfigFromArgs,
   selectRunLoopSchedulerCondition,
   startLibrarianConsumerIfEnabled,
@@ -36,6 +37,11 @@ import {
   workerJobClaimRecoveryFilters,
 } from "./run-loop.js";
 import { resolveBaseRev } from "../workers/worker-cycle.js";
+import type { AdvisoryAdjudicationMode, ModelNodeFlags } from "@server/core/game-registry/runtime-options.js";
+import {
+  shippedAdvisoryAdjudicationConfig,
+  type AdvisoryAdjudicationConfig,
+} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/config.js";
 
 describe("provider circuit breaker", () => {
   test("defaults and explicit run-loop flags", () => {
@@ -585,5 +591,92 @@ describe("boundary retry resting wake", () => {
     } finally {
       store.db.close();
     }
+  });
+});
+
+describe("recordRunLoopFlags", () => {
+  const nodeFlags = (advisoryAdjudication: AdvisoryAdjudicationMode): ModelNodeFlags => ({
+    advisoryAdjudication,
+    checkpointKnowledgeFeed: "on",
+    checkpointKnowledgeCap: 50,
+  });
+
+  /** The shipped config with its model's thresholds carrying every §6.9 qualification bar. */
+  function qualifiedConfig(): AdvisoryAdjudicationConfig {
+    const shipped = shippedAdvisoryAdjudicationConfig();
+    return {
+      ...shipped,
+      thresholds: {
+        [shipped.model]: {
+          passAt: 0.85,
+          failAt: 0.15,
+          qualification: "enforcement-qualified",
+          labelSetHash: "labels",
+          splitHash: "split",
+          heldout: { negatives: 29, positives: 10, falseAccepts: 0, upper95: 0.0981 },
+          calibratedAt: "2026-10-07T00:00:00.000Z",
+        },
+      },
+    };
+  }
+
+  function recorded(advisoryAdjudication: AdvisoryAdjudicationMode, advisoryConfig?: AdvisoryAdjudicationConfig) {
+    const { store } = tempState();
+    try {
+      seedRunHarness(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      const warnings: string[] = [];
+      recordRunLoopFlags(
+        store,
+        run.id,
+        { writeSetFlags: { writeSetWidening: "header" }, nodeFlags: nodeFlags(advisoryAdjudication) },
+        { ...(advisoryConfig && { advisoryConfig }), warn: (message) => warnings.push(message) },
+      );
+      const row = store.db.query<{ payload_json: string; handled_at: string | null }, [string]>(
+        "SELECT payload_json, handled_at FROM events WHERE run_id = ? AND event_type = 'write_set_integration_flags'",
+      ).get(run.id)!;
+      expect(row.handled_at).toEqual(expect.any(String));
+      return { payload: JSON.parse(row.payload_json) as Record<string, unknown>, warnings };
+    } finally {
+      store.db.close();
+    }
+  }
+
+  const unchangedPayload = (advisoryAdjudication: AdvisoryAdjudicationMode) => ({
+    write_set_widening: "header",
+    advisory_adjudication: advisoryAdjudication,
+    checkpoint_knowledge_feed: "on",
+    checkpoint_knowledge_cap: 50,
+    created_by: "run-loop",
+  });
+
+  test("off and shadow record exactly the existing payload and print nothing", () => {
+    for (const mode of ["off", "shadow"] as const) {
+      const { payload, warnings } = recorded(mode);
+      expect(Object.keys(payload)).toEqual(Object.keys(unchangedPayload(mode)));
+      expect(payload).toEqual(unchangedPayload(mode));
+      expect(warnings).toEqual([]);
+    }
+  });
+
+  test("enforce with the shipped exploratory thresholds records the shadow downgrade and warns once", () => {
+    const { payload, warnings } = recorded("enforce");
+
+    expect(payload).toEqual({
+      ...unchangedPayload("enforce"),
+      advisory_adjudication_effective: "shadow",
+      advisory_adjudication_downgraded_reason: "not-enforcement-qualified",
+    });
+    expect(warnings).toEqual([
+      "[advisory-adjudication] enforce requested; running shadow (not-enforcement-qualified). "
+        + "Calibrate and write qualified thresholds to enable enforce.",
+    ]);
+  });
+
+  test("enforce with enforcement-qualified thresholds records enforce as effective and does not warn", () => {
+    const { payload, warnings } = recorded("enforce", qualifiedConfig());
+
+    expect(payload).toEqual({ ...unchangedPayload("enforce"), advisory_adjudication_effective: "enforce" });
+    expect(warnings).toEqual([]);
   });
 });

@@ -89,6 +89,8 @@ function seedCheckpoint(store: StateStore, input: {
   eligible?: boolean;
   postReturn?: Record<string, unknown> | null;
   adjudication?: Record<string, unknown>;
+  /** The run requested enforce and the worker ran shadow for this reason. */
+  downgradedReason?: string;
 }): void {
   const metadata = {
     agent_note: "kept",
@@ -97,6 +99,7 @@ function seedCheckpoint(store: StateStore, input: {
       schema: "llm_review_candidate_v1",
       mode: input.mode ?? "shadow",
       eligible: input.eligible ?? true,
+      ...(input.downgradedReason ? { requested_mode: "enforce", downgraded_reason: input.downgradedReason } : {}),
       post_return_check: "not-run",
     },
     ...(input.adjudication ? { llm_review_adjudication: input.adjudication } : {}),
@@ -270,6 +273,8 @@ describe("advisory-shadow-report", () => {
         unknown_served_model: 1, served_model_mismatch: 2,
       },
     ]);
+    // No run requested enforce, so the downgrade count is absent.
+    expect("enforce_downgraded" in result).toBe(false);
     // Read-only: the store's bytes are unchanged.
     expect(storeDigest(stateDir)).toEqual(before);
   });
@@ -279,6 +284,28 @@ describe("advisory-shadow-report", () => {
 
     expect({ eligible: result.eligible, adjudicated: result.adjudicated }).toEqual({ eligible: 11, adjudicated: 10 });
     expect(result.would_accept).toEqual([expect.objectContaining({ label: "configured", evaluated: 10, count: 3 })]);
+  });
+
+  test("enforce requests downgraded to shadow are counted by reason, eligible or not, within the filters", async () => {
+    const stateDir = tempDir("advisory-shadow-downgrades-");
+    const store = openState(stateDir);
+    try {
+      seedCheckpoint(store, { id: "cp-1", downgradedReason: "not-enforcement-qualified" });
+      seedCheckpoint(store, { id: "cp-2", downgradedReason: "not-enforcement-qualified", eligible: false, qaStatus: "clean" });
+      seedCheckpoint(store, { id: "cp-3", downgradedReason: "invalid-config" });
+      seedCheckpoint(store, { id: "cp-shadow" });
+      seedCheckpoint(store, { id: "cp-other-run", runId: "run-2", downgradedReason: "no-thresholds" });
+    } finally {
+      store.db.close();
+    }
+
+    const result = await report(stateDir, [["--run", "run-1"]]);
+
+    expect(result.enforce_downgraded).toEqual({
+      total: 3,
+      by_reason: { "invalid-config": 1, "not-enforcement-qualified": 2 },
+    });
+    expect({ eligible: result.eligible, pending: result.pending }).toEqual({ eligible: 3, pending: 3 });
   });
 
   test("threshold files: a pair, a labelled list, and invalid input", () => {

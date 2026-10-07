@@ -1167,7 +1167,7 @@ function mergeRunnerValidation(changeValidation: WorkerChangeValidation, postRet
   return { ...changeValidation, postReturnCheck: postReturnCheckSummary };
 }
 
-interface WorkerAdvisoryMode {
+export interface WorkerAdvisoryMode {
   requested: AdvisoryAdjudicationMode;
   /** What the worker runs: enforce without enforcement-qualified thresholds runs as shadow. */
   mode: AdvisoryAdjudicationMode;
@@ -1179,9 +1179,10 @@ interface WorkerAdvisoryMode {
 /**
  * The worker's advisory adjudication mode (plan §6.2, §6.5). An unreadable
  * config never fails the worker: enforce then runs as shadow (advisories keep
- * blocking, today's verdict), and shadow needs no config in the worker.
+ * blocking, today's verdict), and shadow needs no config in the worker. The
+ * run loop resolves enforce through this too, to report a downgrade at start.
  */
-function resolveWorkerAdvisoryMode(
+export function resolveWorkerAdvisoryMode(
   requested: AdvisoryAdjudicationMode,
   config?: AdvisoryAdjudicationConfig,
 ): WorkerAdvisoryMode {

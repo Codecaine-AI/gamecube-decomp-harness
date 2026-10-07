@@ -37,7 +37,10 @@ import {
   workerSummaryFlag,
   writeSetIntegrationFlags,
   type GlobalArgs,
+  type ModelNodeFlags,
+  type WriteSetIntegrationFlags,
 } from "@server/core/game-registry/runtime-options.js";
+import type { AdvisoryAdjudicationConfig } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/config.js";
 import { assertSchedulableRun } from "@server/core/harness-runtime/phases/running/jobs/shared.js";
 import { settleRunOnExit } from "@server/core/harness-runtime/phases/running/jobs/settle-supervised-run.js";
 import {
@@ -47,7 +50,7 @@ import {
   schedulerEpochConfigFromArgs,
   type SchedulerTickResult,
 } from "@server/core/harness-runtime/phases/running/scheduler/tick.js";
-import { resolveBaseRev } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
+import { resolveBaseRev, resolveWorkerAdvisoryMode } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { startJobConsumer, type JobConsumerHandle } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
 import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
@@ -248,6 +251,42 @@ export function createProviderCircuitBreaker(
       } finally { probing = false; }
     },
   };
+}
+
+/**
+ * Records the run's widening and model-node policies (always, so they are
+ * auditable even at their defaults). An enforce request also records the
+ * mode workers will run, resolved by the worker's own rule, and warns once
+ * when it is downgraded to shadow. Off and shadow record exactly as before.
+ */
+export function recordRunLoopFlags(
+  store: StateStore,
+  runId: string,
+  flags: { writeSetFlags: WriteSetIntegrationFlags; nodeFlags: ModelNodeFlags },
+  options: { advisoryConfig?: AdvisoryAdjudicationConfig; warn?: (message: string) => void } = {},
+): void {
+  const { writeSetFlags, nodeFlags } = flags;
+  const enforce = nodeFlags.advisoryAdjudication === "enforce"
+    ? resolveWorkerAdvisoryMode("enforce", options.advisoryConfig)
+    : null;
+  const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
+    write_set_widening: writeSetFlags.writeSetWidening,
+    advisory_adjudication: nodeFlags.advisoryAdjudication,
+    ...(enforce && {
+      advisory_adjudication_effective: enforce.mode,
+      ...(enforce.downgradedReason && { advisory_adjudication_downgraded_reason: enforce.downgradedReason }),
+    }),
+    checkpoint_knowledge_feed: nodeFlags.checkpointKnowledgeFeed,
+    checkpoint_knowledge_cap: nodeFlags.checkpointKnowledgeCap,
+    created_by: "run-loop",
+  });
+  markEventHandled(store, flagEvent);
+  if (enforce?.downgradedReason) {
+    (options.warn ?? console.warn)(
+      `[advisory-adjudication] enforce requested; running shadow (${enforce.downgradedReason}). ` +
+        "Calibrate and write qualified thresholds to enable enforce.",
+    );
+  }
 }
 
 export function startWorkerSummaryIfEnabled(params: {
@@ -687,18 +726,7 @@ export async function runRunLoop(
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const writeSetFlags = writeSetIntegrationFlags(args);
     const nodeFlags = modelNodeFlags(args);
-    {
-      // Always record the effective modes so a run's widening and model-node
-      // policies are auditable even when they are the defaults.
-      const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
-        write_set_widening: writeSetFlags.writeSetWidening,
-        advisory_adjudication: nodeFlags.advisoryAdjudication,
-        checkpoint_knowledge_feed: nodeFlags.checkpointKnowledgeFeed,
-        checkpoint_knowledge_cap: nodeFlags.checkpointKnowledgeCap,
-        created_by: "run-loop",
-      });
-      markEventHandled(store, flagEvent);
-    }
+    recordRunLoopFlags(store, runId, { writeSetFlags, nodeFlags });
     stopWorkerSummary = startWorkerSummaryIfEnabled({
       args,
       store: borrowedStore,

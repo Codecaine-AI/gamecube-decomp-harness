@@ -57,6 +57,12 @@ export interface AdvisoryShadowReport {
   eligible: number;
   adjudicated: number;
   pending: number;
+  /**
+   * Attempts whose run requested enforce but ran shadow (the thresholds are
+   * not enforcement-qualified), by `downgraded_reason`, eligible or not.
+   * Absent when there are none.
+   */
+  enforce_downgraded?: { total: number; by_reason: Record<string, number> };
   extraction: Record<"ok" | "error" | "skipped" | "unknown", number>;
   verdicts: Record<"pass" | "fail" | "abstain" | "error" | "unknown", number>;
   decisions: {
@@ -273,6 +279,16 @@ export function buildAdvisoryShadowReport(
       AND (?2 IS NULL OR c.validation_time >= ?2)
     ORDER BY c.validation_time, c.id`).all(filters.runId ?? null, filters.since ?? null);
   const views = rows.map(checkpointView);
+  const downgrades = db.query<{ reason: string; count: number }, [string | null, string | null]>(`
+    SELECT reason, COUNT(*) AS count FROM (
+      SELECT CASE WHEN json_valid(c.metadata_json)
+          THEN json_extract(c.metadata_json, '$.llm_review_candidate.downgraded_reason') END AS reason
+      FROM worker_checkpoints c
+      WHERE (?1 IS NULL OR c.run_id = ?1) AND (?2 IS NULL OR c.validation_time >= ?2)
+    )
+    WHERE reason IS NOT NULL
+    GROUP BY reason ORDER BY reason`).all(filters.runId ?? null, filters.since ?? null);
+  const downgradedTotal = downgrades.reduce((sum, row) => sum + row.count, 0);
   const adjudications = views.flatMap((view) => (view.adjudication ? [view.adjudication] : []));
 
   const extraction = { ok: 0, error: 0, skipped: 0, unknown: 0 };
@@ -319,6 +335,12 @@ export function buildAdvisoryShadowReport(
     eligible: views.length,
     adjudicated: adjudications.length,
     pending: views.length - adjudications.length,
+    ...(downgradedTotal > 0 && {
+      enforce_downgraded: {
+        total: downgradedTotal,
+        by_reason: Object.fromEntries(downgrades.map((row) => [String(row.reason), row.count])),
+      },
+    }),
     extraction,
     verdicts,
     decisions: {
