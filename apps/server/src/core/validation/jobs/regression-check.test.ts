@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import type { QaScanFinding, QaScanInvocation, QaScanResult } from "@server/core/validation/qa";
+import type { AcceptedAdvisoryResolution } from "@server/core/validation/qa/accepted-advisories.js";
 import { regressionCheck } from "./regression-check.js";
 import { composeHandoffVerdict, evaluateQaGate } from "./qa-gate.js";
 
@@ -274,6 +275,127 @@ describe("evaluateQaGate", () => {
     expect(gate.qaGatePassed).toBe(true);
     expect(gate.qaGateSkipped).toBe(true);
     expect(gate.qaGateExitCode).toBeNull();
+  });
+});
+
+function advisory(overrides: Partial<QaScanFinding> = {}): QaScanFinding {
+  return finding({
+    rule_id: "type_erasing_cast",
+    severity: "warning",
+    line: 7,
+    excerpt: "lbSnap_Apply((void*)&fighter->mv, 0x24);",
+    message: "New type-erasing pointer cast.",
+    standard_id: "global_standard:typed-fields-over-pointer-math",
+    detail: { llm_review: true, cast: "void*" },
+    ...overrides,
+  });
+}
+
+/** Six invocations covering every evaluateQaGate branch; recorded before the accepted-advisory change. */
+function defaultPathInvocations(): Array<[string, QaScanInvocation | null, boolean]> {
+  const many = Array.from({ length: 10 }, (_, index) => finding({ line: 100 + index }));
+  return [
+    ["clean", invocation(), false],
+    ["advisory warning only", invocation({ exitCode: 2, result: scanResult([advisory()], "warned") }), false],
+    ["errors past the hint limit plus an advisory", invocation({ exitCode: 1, result: scanResult([...many, advisory()], "failed") }), false],
+    ["tool error", invocation({ exitCode: -1, result: null, stdout: "", toolError: "scan_diff.py not found at /nope/scan_diff.py" }), false],
+    ["unparseable stdout", invocation({ exitCode: 0, result: null, stdout: "not json", toolError: "scan_diff.py did not return parseable JSON (exit 0)" }), false],
+    ["skipped", null, true],
+  ];
+}
+
+describe("evaluateQaGate default path", () => {
+  test("evaluateQaGate without opts is byte-identical to today", () => {
+    const evaluations = defaultPathInvocations().map(([name, scan, skip]) =>
+      `${name}\n${JSON.stringify(evaluateQaGate(scan, skip), (_key, value: unknown) => (value === undefined ? "<undefined>" : value), 2)}`,
+    );
+    expect(evaluations.join("\n\n")).toMatchSnapshot();
+  });
+});
+
+function exemptAll(...findings: QaScanFinding[]): AcceptedAdvisoryResolution {
+  return {
+    runId: "run-a",
+    headRev: "f".repeat(40),
+    exempt: findings.map((entry, index) => ({
+      fingerprint: `af2:${String(index).repeat(64)}`,
+      finding: entry,
+      checkpointId: `cp-${index}`,
+      blame: { commit: "f".repeat(40), origLine: entry.line },
+    })),
+    blocking: [],
+  };
+}
+
+describe("evaluateQaGate with accepted advisories", () => {
+  test("tool error still fails closed with exemptions present", () => {
+    const accepted = advisory();
+    const scan = invocation({ exitCode: -1, result: null, stdout: "", toolError: "scan_diff.py failed with exit 3" });
+    const gate = evaluateQaGate(scan, false, { acceptedAdvisories: exemptAll(accepted) });
+    expect(gate).toEqual(evaluateQaGate(scan, false));
+    expect(gate.qaGatePassed).toBe(false);
+    expect(gate.effective).toBeUndefined();
+    expect(gate.hint).toContain("fails closed");
+  });
+
+  test("deterministic finding still blocks", () => {
+    const accepted = advisory();
+    const deterministicWarning = finding({ rule_id: "storage_widening", severity: "warning", line: 9 });
+    const error = finding({ line: 11 });
+    const warningsOnly = invocation({ exitCode: 2, result: scanResult([accepted, deterministicWarning], "warned") });
+    // Even a resolution that lists the deterministic warning and an error as exempt cannot remove them.
+    const warned = evaluateQaGate(warningsOnly, false, { acceptedAdvisories: exemptAll(accepted, deterministicWarning) });
+    expect(warned.qaGatePassed).toBe(false);
+    expect(warned.effective).toEqual({ exitCode: 2, counts: { errors: 0, warnings: 1 }, findings: [deterministicWarning] });
+    expect(warned.exemptedAdvisories?.map((entry) => entry.finding)).toEqual([accepted]);
+    expect(warned.hint).toContain("storage_widening at src/melee/ft/ftcoll.c:9");
+
+    const failed = evaluateQaGate(invocation({ exitCode: 1, result: scanResult([accepted, error], "failed") }), false, {
+      acceptedAdvisories: exemptAll(accepted, error),
+    });
+    expect(failed.qaGatePassed).toBe(false);
+    expect(failed.effective).toEqual({ exitCode: 1, counts: { errors: 1, warnings: 0 }, findings: [error] });
+  });
+
+  test("effective exit code 0 only when raw exit 2 and effective counts are 0", () => {
+    const accepted = advisory();
+    const other = advisory({ line: 30, excerpt: "f((void*)q);" });
+    const allAccepted = invocation({ exitCode: 2, result: scanResult([accepted], "warned") });
+    const passed = evaluateQaGate(allAccepted, false, { acceptedAdvisories: exemptAll(accepted) });
+    expect(passed).toMatchObject({
+      qaGatePassed: true,
+      hint: null,
+      effective: { exitCode: 0, counts: { errors: 0, warnings: 0 }, findings: [] },
+      // Raw scanner evidence is retained.
+      qaGateExitCode: 2,
+      qaCounts: { errors: 0, warnings: 1 },
+      qaFindings: [accepted],
+    });
+    expect(allAccepted.result?.findings).toEqual([accepted]);
+
+    const remaining = evaluateQaGate(invocation({ exitCode: 2, result: scanResult([accepted, other], "warned") }), false, {
+      acceptedAdvisories: { ...exemptAll(accepted), blocking: [{ fingerprint: null, finding: other, reason: "dirty-file" }] },
+    });
+    expect(remaining.qaGatePassed).toBe(false);
+    expect(remaining.effective?.exitCode).toBe(2);
+    expect(remaining.hint).toContain("QA gate failed: 1 QA finding(s) detected (0 error, 1 warning)");
+    expect(remaining.hint).toContain("exempted: type_erasing_cast at src/melee/ft/ftcoll.c:7 (fingerprint af2:0000");
+    expect(remaining.hint).toContain("checkpoint cp-0)");
+    expect(remaining.hint).toContain("not exempted: type_erasing_cast at src/melee/ft/ftcoll.c:30 (dirty-file)");
+
+    const nothingExempted = invocation({ exitCode: 2, result: { ...scanResult([], "warned"), counts: { errors: 0, warnings: 0 } } });
+    expect(evaluateQaGate(nothingExempted, false, { acceptedAdvisories: exemptAll() }).effective?.exitCode).toBe(2);
+
+    // A finding object that is not this scan's own, or raw counts that disagree with the findings, exempt nothing.
+    const copied = evaluateQaGate(allAccepted, false, { acceptedAdvisories: exemptAll({ ...accepted }) });
+    expect(copied.qaGatePassed).toBe(false);
+    expect(copied.exemptedAdvisories).toEqual([]);
+    const miscounted = invocation({ exitCode: 2, result: { ...scanResult([accepted], "warned"), counts: { errors: 0, warnings: 2 } } });
+    expect(evaluateQaGate(miscounted, false, { acceptedAdvisories: exemptAll(accepted) }).effective).toEqual({
+      exitCode: 2,
+      counts: { errors: 0, warnings: 2 },
+      findings: [accepted],
+    });
   });
 });
 

@@ -20,6 +20,8 @@ import { resolve } from "node:path";
 import type { RunGameMetadata } from "@server/core/shared/types";
 import type { AddressNamedStaticDataAllowlistEntry } from "@server/core/game-registry";
 import { resolveRegisteredTool } from "@server/core/tools/resolver";
+import type { AcceptedAdvisoryResolution } from "./accepted-advisories.js";
+import { isAdvisoryFinding } from "./advisory-fingerprint.js";
 
 /**
  * Environment variable the Python engine reads to compose the global
@@ -177,6 +179,42 @@ export function qaScanEnv(params: { orchestratorRoot: string; gameId: string; to
 
 export function qaGatePassed(invocation: QaScanInvocation): boolean {
   return invocation.toolError === null && invocation.result !== null && invocation.result.counts.errors === 0 && invocation.result.counts.warnings === 0 && invocation.exitCode === 0;
+}
+
+function severityCounts(findings: QaScanFinding[]): { errors: number; warnings: number } {
+  return {
+    errors: findings.filter((finding) => finding.severity === "error").length,
+    warnings: findings.filter((finding) => finding.severity === "warning").length,
+  };
+}
+
+/**
+ * The L2 verdict after accepted-advisory exemptions; the invocation itself
+ * (the raw scanner evidence) is never modified. Only exempt entries that are
+ * this invocation's own `llm_review` warning objects are removed; errors,
+ * deterministic findings, and info never are. Counts are recomputed from the
+ * remaining findings, and the exit code drops to 0 only when the raw exit code
+ * is 2 (warnings only), something was exempted, and nothing remains. With no
+ * exemption, or raw counts that disagree with the raw findings, the raw
+ * verdict is returned.
+ */
+export function effectiveQaVerdict(
+  invocation: QaScanInvocation,
+  resolution: AcceptedAdvisoryResolution,
+): { exitCode: number; counts: { errors: number; warnings: number }; findings: QaScanFinding[] } {
+  const rawFindings = invocation.result?.findings ?? [];
+  const rawCounts = invocation.result?.counts ?? severityCounts(rawFindings);
+  const raw = { exitCode: invocation.exitCode, counts: { errors: rawCounts.errors, warnings: rawCounts.warnings }, findings: [...rawFindings] };
+  const exempt = new Set(
+    resolution.exempt.map((entry) => entry.finding).filter((finding) => isAdvisoryFinding(finding) && finding.severity === "warning"),
+  );
+  const findings = rawFindings.filter((finding) => !exempt.has(finding));
+  if (findings.length === rawFindings.length) return raw;
+  const recomputedRaw = severityCounts(rawFindings);
+  if (recomputedRaw.errors !== rawCounts.errors || recomputedRaw.warnings !== rawCounts.warnings) return raw;
+  const counts = severityCounts(findings);
+  const exitCode = invocation.exitCode === 2 && counts.errors === 0 && counts.warnings === 0 ? 0 : invocation.exitCode;
+  return { exitCode, counts, findings };
 }
 
 export function parseQaScanResult(stdout: string): QaScanResult | null {
