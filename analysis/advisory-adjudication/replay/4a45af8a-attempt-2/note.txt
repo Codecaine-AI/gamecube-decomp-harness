@@ -1,0 +1,14 @@
+{
+  "summary": "Matched fn_8018F00C exactly by reading the four const pointer objects through pointer lvalues. This prevents MWCC from constant-folding their initializers while preserving the existing const definitions and exact .sdata/.sdata2 ownership and ordering.",
+  "validation": {
+    "checkdiff_run": "fn_8018F00C: PASS (100.00000%)",
+    "checkdiff_summary": "fn_8018F00C: PASS",
+    "git_diff_check": "Passed",
+    "review_lint": "Tool returned file_not_found because of its sandbox path binding; runner QA should scan the retained four-line change."
+  },
+  "retained_edits": [
+    "Changed the four template initializations in fn_8018F00C from direct reads to `*(char**) &symbol` reads."
+  ],
+  "review_justification": "The four type-erasing casts are intentionally surfaced for review. They read pointer-valued objects at their declared pointer width and do not perform byte-offset field access. They are required because the synchronized declarations are `char* const`, causing MWCC to fold three null initializers and break codegen. Making those definitions mutable also reaches the desired instruction shape, but regresses exact data sections and was rejected in the prior attempt. The localized reads preserve canonical data ownership and produce an exact target.",
+  "unresolved_regression_caused_by_edits": "None observed."
+}

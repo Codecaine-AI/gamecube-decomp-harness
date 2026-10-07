@@ -40,6 +40,7 @@ import { reportRun } from "@server/core/validation/jobs/report-run.js";
 import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
 import { advisoryShadowReport } from "@server/application/jobs/advisory-shadow-report.js";
+import { advisoryCalibration } from "@server/application/jobs/advisory-calibration/index.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 
 function jobOwnsStorageMigrations(command: string): boolean {
@@ -49,6 +50,17 @@ function jobOwnsStorageMigrations(command: string): boolean {
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
   loadCodecaineEnv();
+  if (argv[0] === "advisory-calibration") {
+    // Own positional-subcommand grammar; history is read only via --source-root.
+    try {
+      await advisoryCalibration(argv.slice(1));
+    } finally {
+      await closeNodeKernel();
+      await closeDefaultMeleeKernelRuntime();
+      resetDefaultMeleeKernelRuntimeForTests();
+    }
+    return;
+  }
   const { command, globals, args } = parse(argv);
   if (globals.game) {
     loadLocalEnv({
