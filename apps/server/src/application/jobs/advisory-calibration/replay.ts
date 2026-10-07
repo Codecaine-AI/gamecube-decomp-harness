@@ -11,9 +11,12 @@
 // The fixture's digests are verified first. When the command ends, its parent
 // run, session and container are marked terminal (done/ended, or error when
 // the adjudication errored or the replay threw), then the trace doctor runs.
-// Replaying into an existing `--db` reuses that database's prior results: every
-// node carries a requestId (`replay:<fixture>:…`), so a repeated replay returns
-// the recorded extraction and decisions without new engine requests.
+// Replaying into an existing `--db` reuses that database's prior results: the
+// parent run has fixed ids per fixture and engine, and every node carries a
+// requestId (`replay:<fixture>:<engine>:…`), so a repeated replay reopens the
+// same parent and returns the recorded extraction and decisions without new
+// engine requests (the kernel replays a requestId only for the same request,
+// parent included).
 import { existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
@@ -33,8 +36,8 @@ import type { AdvisoryFindingRef, CheckpointKnowledge } from "@server/generated/
 import { assertKnownFlags, engineFlag, requiredFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { fakeExtractCheckpointKnowledge } from "./fake-extractor.js";
 import { REPLAY_FIXTURE_FILES, type FixtureProbabilityRow, type ReplayFixtureManifest } from "./freeze-replay.js";
-import { openCalibrationKernel, type FakeEngineScript, type ParentOutcome } from "./kernels.js";
-import { readJsonl, sha256Hex } from "./store.js";
+import { openCalibrationKernel, type FakeEngineScript, type ParentIds, type ParentOutcome } from "./kernels.js";
+import { canonicalJson, readJsonl, sha256Hex } from "./store.js";
 import type { CalibrationEngine } from "./types.js";
 
 export interface ReplayFixture {
@@ -96,6 +99,22 @@ function candidateOf(fixture: ReplayFixture, kernel: { run_id: string; container
   };
 }
 
+/** A uuid-shaped id from a seed. */
+function seededId(seed: string): string {
+  const hex = sha256Hex(seed);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+/** The replay parent's ids: fixed per fixture content and engine, so a replay into the same --db reopens it. */
+export function replayParentIds(fixture: ReplayFixture, engine: CalibrationEngine): ParentIds {
+  const seed = `advisory-calibration replay\n${fixture.name}\n${canonicalJson(fixture.manifest.files)}\n${engine}`;
+  return {
+    containerId: `melee:advisory-calibration-replay-${fixture.name}-${engine}-${sha256Hex(seed).slice(0, 12)}`,
+    parentRunId: seededId(`${seed}\nrun`),
+    parentSessionId: seededId(`${seed}\nsession`),
+  };
+}
+
 function fakeScript(fixture: ReplayFixture, engine: "replay" | "fake"): FakeEngineScript {
   return {
     respond(request) {
@@ -119,16 +138,16 @@ export interface ReplayResult {
   adjudication: AdvisoryAdjudication;
   doctor: DoctorReport;
   dbPath: string;
-  /** True when `--db` already existed: nodes with the same requestId replayed prior results. */
+  /** True when `--db` already held this fixture's replay for this engine: its nodes replayed prior results. */
   reusedDb: boolean;
 }
 
 export async function runReplay(opts: { fixtureDir: string; engine: CalibrationEngine; dbPath?: string; config?: AdvisoryAdjudicationConfig }): Promise<ReplayResult> {
   const fixture = loadReplayFixture(opts.fixtureDir);
-  const reusedDb = opts.dbPath !== undefined && existsSync(resolve(opts.dbPath));
   const handle = await openCalibrationKernel({
     engine: opts.engine === "live" ? "live" : "fake",
     label: "replay",
+    parent: replayParentIds(fixture, opts.engine),
     ...(opts.dbPath !== undefined && { dbPath: opts.dbPath }),
     ...(opts.engine !== "live" && { fake: fakeScript(fixture, opts.engine) }),
   });
@@ -149,13 +168,13 @@ export async function runReplay(opts: { fixtureDir: string; engine: CalibrationE
       candidate: candidateOf(fixture, { run_id: handle.parentRunId, container_id: handle.containerId, pi_session_id: handle.parentSessionId }),
       noteText: fixture.noteText,
       patchText: fixture.patchText,
-      requestIdPrefix: `replay:${fixture.name}`,
+      requestIdPrefix: `replay:${fixture.name}:${opts.engine}`,
       config,
     });
     outcome = adjudication.verdict === "error" ? "error" : "done";
     await handle.finish(outcome);
     const doctor = await handle.doctor();
-    return { adjudication, doctor, dbPath: handle.dbPath, reusedDb };
+    return { adjudication, doctor, dbPath: handle.dbPath, reusedDb: handle.reusedParent };
   } finally {
     await handle.close(outcome);
   }
@@ -171,7 +190,7 @@ export async function replayCommand(args: CalibrationArgs, print: (line: string)
   const results = adjudication.advisories.map((a) => `${a.file}:${a.line} ${a.result}${a.probability !== undefined ? ` p=${a.probability}` : ""}`);
   print(`replay: ${adjudication.advisories.length} advisories adjudicated, verdict ${adjudication.verdict} (${results.join("; ")})`);
   if (result.reusedDb) {
-    print(`replay: --db ${result.dbPath} already existed: nodes with the same requestId reused its prior results (no new engine requests)`);
+    print(`replay: --db ${result.dbPath} already held this replay: its parent was reopened and nodes with the same requestId reused its prior results (no new engine requests)`);
   }
   const kept = engine === "live" || dbPath !== undefined ? `; kernel DB ${result.dbPath}` : "";
   print(`replay: extraction ${adjudication.extraction.status}; doctor ${doctor.ok ? "ok" : `${doctor.violations.length} violations`}${kept}`);

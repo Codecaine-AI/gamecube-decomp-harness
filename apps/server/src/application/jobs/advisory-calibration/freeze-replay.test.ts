@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -167,6 +168,40 @@ describe("freeze-replay", () => {
     } finally {
       if (saved === undefined) delete process.env.FIXTURE_SHORT_TOKEN;
       else process.env.FIXTURE_SHORT_TOKEN = saved;
+    }
+  });
+
+  test("freeze-replay scrubs credentials used as JSON keys in the note and the checkpoint's agent_note", async () => {
+    const history = tree();
+    const secret = "kq83Lm2Zp0Xw";
+    const keyed = { [secret]: "safe value", [`Bearer ${secret}x`]: { [`${history.root}/games`]: true } };
+    const note = { ...JSON.parse(history.noteText), ...keyed };
+    writeFileSync(history.paths.note, JSON.stringify(note, null, 2));
+    const db = new Database(history.paths.orchestratorDb);
+    try {
+      const row = db.query("SELECT metadata_json FROM worker_checkpoints WHERE id = ?").get(history.checkpointId) as { metadata_json: string };
+      const metadata = JSON.parse(row.metadata_json);
+      metadata.agent_note = { ...metadata.agent_note, ...keyed };
+      db.run("UPDATE worker_checkpoints SET metadata_json = ? WHERE id = ?", [JSON.stringify(metadata), history.checkpointId]);
+    } finally {
+      db.close();
+    }
+    const saved = process.env.FIXTURE_SECRET_TOKEN;
+    process.env.FIXTURE_SECRET_TOKEN = secret;
+    try {
+      const out = outDir();
+      await freeze(history, out);
+      for (const name of readdirSync(out)) {
+        const text = readFileSync(join(out, name), "utf8");
+        expect(text).not.toContain(secret);
+        expect(text).not.toContain(history.root);
+      }
+      const expectedKeys = { "<redacted:env:FIXTURE_SECRET_TOKEN>": "safe value", "<redacted:token>": { "<source-root>/games": true } };
+      expect(JSON.parse(readFileSync(join(out, "note.txt"), "utf8"))).toMatchObject(expectedKeys);
+      expect(JSON.parse(readFileSync(join(out, "checkpoint.json"), "utf8")).agent_note).toMatchObject(expectedKeys);
+    } finally {
+      if (saved === undefined) delete process.env.FIXTURE_SECRET_TOKEN;
+      else process.env.FIXTURE_SECRET_TOKEN = saved;
     }
   });
 

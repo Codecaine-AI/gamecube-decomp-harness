@@ -109,21 +109,25 @@ describe("advisory replay", () => {
       }
     };
 
-    for (const engine of ["replay", "fake"] as const) {
-      const dbPath = join(tempDir(), "replay.db");
+    // One database for both engines: each engine's replay has its own parent and requestIds, so they never cross.
+    const dbPath = join(tempDir(), "replay.db");
+    for (const [round, engine] of (["replay", "fake"] as const).entries()) {
       const first = await runReplay({ fixtureDir: FIXTURE, engine, dbPath });
       expect(first.reusedDb).toBe(false);
       expect(first.doctor.ok).toBe(true);
-      expect(parentStates(dbPath)).toEqual([done]);
+      expect(parentStates(dbPath)).toEqual(Array.from({ length: round + 1 }, () => done));
 
-      // Same --db: every node replays by requestId (no new call or decision run); the new parent is terminal too.
+      // Same --db: the parent is reopened and every node replays by requestId (no new call or decision run);
+      // the parent ends terminal again.
       const printed: string[] = [];
       const second = await replayCommand(parseCalibrationArgs(["replay", "--fixture", FIXTURE, "--engine", engine, "--db", dbPath]), (line) => printed.push(line));
       expect(second.reusedDb).toBe(true);
-      expect(printed.some((line) => line.includes("already existed") && line.includes("reused its prior results"))).toBe(true);
+      expect(printed.some((line) => line.includes("already held this replay") && line.includes("reused its prior results"))).toBe(true);
+      expect(second.doctor.ok).toBe(true);
+      expect(second.adjudication.verdict).toBe(first.adjudication.verdict);
       expect(second.adjudication.advisories.map((a) => a.decision?.run_id)).toEqual(first.adjudication.advisories.map((a) => a.decision?.run_id));
-      expect(nodeSessions(dbPath)).toEqual({ call: 1, decision: 4 });
-      expect(parentStates(dbPath)).toEqual([done, done]);
+      expect(nodeSessions(dbPath)).toEqual({ call: round + 1, decision: 4 * (round + 1) });
+      expect(parentStates(dbPath)).toEqual(Array.from({ length: round + 1 }, () => done));
     }
 
     // A replay that fails (here: an invalid config) still ends its parent, as an error.

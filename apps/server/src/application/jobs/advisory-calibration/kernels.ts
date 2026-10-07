@@ -59,6 +59,13 @@ export interface CalibrationKernelOptions {
   /** Names the seeded container and parent run, e.g. "replay" or "calibrate". */
   label: string;
   fake?: FakeEngineScript;
+  /**
+   * Fixed parent ids, so a later command into the same `dbPath` nests under the
+   * same parent: the kernel replays a requestId only for the same request,
+   * parent scope included. An existing parent is reopened (running/active)
+   * and ended again on close. Default: fresh ids.
+   */
+  parent?: ParentIds;
 }
 
 export interface CalibrationKernel {
@@ -68,6 +75,8 @@ export interface CalibrationKernel {
   containerId: string;
   parentRunId: string;
   parentSessionId: string;
+  /** True when `parent` named a parent this database already held (reopened, not created). */
+  reusedParent: boolean;
   /** Fake engines only. */
   classifier?: FakeClassifier;
   /** The trace doctor over this kernel's database. */
@@ -89,15 +98,18 @@ interface KernelDbHost {
   close(): Promise<void>;
 }
 
-interface ParentIds {
+export interface ParentIds {
   containerId: string;
   parentRunId: string;
   parentSessionId: string;
 }
 
-async function seedParent(db: unknown, label: string): Promise<ParentIds> {
-  const { setupPiSessionAndRun } = await import("@agent-kernel/kernel/spawn-pipeline/session");
-  const containerId = `melee:advisory-calibration-${label}-${randomUUID()}`;
+async function seedParent(db: unknown, label: string, fixed?: ParentIds): Promise<ParentIds & { reused: boolean }> {
+  const [{ setupPiSessionAndRun }, { getAgentRun, updateAgentRunStatus, updateContainerStatus, updatePiAgentSessionStatus }] = await Promise.all([
+    import("@agent-kernel/kernel/spawn-pipeline/session"),
+    import("@agent-kernel/db"),
+  ]);
+  const containerId = fixed?.containerId ?? `melee:advisory-calibration-${label}-${randomUUID()}`;
   const now = new Date().toISOString();
   await upsertMeleeContainer(db, {
     id: containerId,
@@ -114,8 +126,14 @@ async function seedParent(db: unknown, label: string): Promise<ParentIds> {
     createdAt: now,
     startedAt: now,
   });
-  const parentRunId = randomUUID();
-  const parentSessionId = randomUUID();
+  const parentRunId = fixed?.parentRunId ?? randomUUID();
+  const parentSessionId = fixed?.parentSessionId ?? randomUUID();
+  if (fixed && (await getAgentRun(db as KernelDatabase, parentRunId))) {
+    await updateContainerStatus(db as KernelDatabase, containerId, "active");
+    await updatePiAgentSessionStatus(db as KernelDatabase, parentSessionId, "active");
+    await updateAgentRunStatus(db as KernelDatabase, parentRunId, "running");
+    return { containerId, parentRunId, parentSessionId, reused: true };
+  }
   await setupPiSessionAndRun(db as KernelDatabase, {
     piSessionUuid: parentSessionId,
     containerId,
@@ -123,7 +141,7 @@ async function seedParent(db: unknown, label: string): Promise<ParentIds> {
     agentName: `advisory-calibration-${label}`,
     trigger: "operator",
   });
-  return { containerId, parentRunId, parentSessionId };
+  return { containerId, parentRunId, parentSessionId, reused: false };
 }
 
 /** The seeded parent run, its session and its container reach a terminal status together. */
@@ -213,7 +231,7 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
   const { path: dbPath, ownedDir } = resolveDbPath(opts.dbPath);
   if (opts.engine === "fake") {
     const fake = await openFakeKernel(opts, dbPath);
-    const parent = await seedParent(fake.host.db, opts.label);
+    const parent = await seedParent(fake.host.db, opts.label, opts.parent);
     const { containerId, parentRunId, parentSessionId } = parent;
     let closed = false;
     let finished = false;
@@ -229,6 +247,7 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
       containerId,
       parentRunId,
       parentSessionId,
+      reusedParent: parent.reused,
       classifier: fake.classifier,
       doctor: () => runDoctor(fake.host.db),
       finish,
@@ -261,7 +280,7 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
     const runtime = await getDefaultMeleeKernelRuntime({ database: { stateDir: dirname(dbPath) } });
     if (!kernel || !runtime) throw new Error("the node kernel is unavailable (kernel runtime disabled?)");
     if (runtime.databasePath !== dbPath) throw new Error(`the node kernel opened ${runtime.databasePath}, not ${dbPath}`);
-    const parent = await seedParent(runtime.db, opts.label);
+    const parent = await seedParent(runtime.db, opts.label, opts.parent);
     const { containerId, parentRunId, parentSessionId } = parent;
     let closed = false;
     let finished = false;
@@ -277,6 +296,7 @@ export async function openCalibrationKernel(opts: CalibrationKernelOptions): Pro
       containerId,
       parentRunId,
       parentSessionId,
+      reusedParent: parent.reused,
       doctor: () => runDoctor(runtime.db),
       finish,
       async close(outcome = "done") {

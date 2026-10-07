@@ -10,7 +10,8 @@
 //    is accepted, else abstain when any abstains, else reject — so a negative
 //    group is one false accept if any of its items is accepted.
 // Held-out units are human-labelled, non-synthetic items only; synthetic
-// items count for selection and are reported separately.
+// items count for selection and are reported separately. A group of either
+// side whose real members' human labels disagree is left out whole.
 import { clopperPearsonUpper } from "./statistics.js";
 import type { HumanLabel, SplitSide } from "./types.js";
 
@@ -46,6 +47,8 @@ export interface EvaluationItem {
 export interface SelectionResult {
   items: number;
   synthetic: number;
+  /** Selection groups whose real members' human labels disagree: excluded from the sweep. */
+  conflictingGroups: string[];
   thresholds: Thresholds | null;
   trueAccepts: number;
   falseAccepts: number;
@@ -103,7 +106,8 @@ function matrixOf(items: readonly EvaluationItem[], t: Thresholds): LabelledMatr
 
 const cents = (value: number) => Number((value / 100).toFixed(2));
 
-export function selectThresholds(selection: readonly EvaluationItem[]): SelectionResult {
+/** `conflictingGroups` (calibrate.ts) are listed only: the caller has already left their items out of `selection`. */
+export function selectThresholds(selection: readonly EvaluationItem[], conflictingGroups: readonly string[] = []): SelectionResult {
   const syntheticItems = selection.filter((item) => item.synthetic);
   let best: { passC: number; failC: number; trueAccepts: number; abstains: number } | null = null;
   for (let passC = 50; passC <= 99; passC += 1) {
@@ -132,6 +136,7 @@ export function selectThresholds(selection: readonly EvaluationItem[]): Selectio
     return {
       items: selection.length,
       synthetic: syntheticItems.length,
+      conflictingGroups: [...conflictingGroups],
       thresholds: null,
       trueAccepts: 0,
       falseAccepts: 0,
@@ -144,6 +149,7 @@ export function selectThresholds(selection: readonly EvaluationItem[]): Selectio
   return {
     items: selection.length,
     synthetic: syntheticItems.length,
+    conflictingGroups: [...conflictingGroups],
     thresholds,
     trueAccepts: best.trueAccepts,
     falseAccepts: 0,

@@ -68,12 +68,13 @@ function humanLabel(id: string, label: "justified" | "unjustified"): LabelRecord
 }
 
 /** A real item of the sample by its split side, and the side's group. */
-function sampleItem(dir: string, side: "selection" | "heldout", label?: "justified" | "unjustified"): { item: CalibrationItem; group: string } {
+function sampleItem(dir: string, side: "selection" | "heldout", label?: "justified" | "unjustified", notIn: readonly string[] = []): { item: CalibrationItem; group: string } {
   const dataset = loadDataset(dir);
   const labels = new Map(dataset.labels.map((record) => [record.id, record.label]));
-  const item = dataset.items.find(
-    (candidate) => !candidate.synthetic && dataset.split!.components[dataset.split!.items[candidate.id]!] === side && (label === undefined || labels.get(candidate.id) === label),
-  )!;
+  const item = dataset.items.find((candidate) => {
+    const group = dataset.split!.items[candidate.id]!;
+    return !candidate.synthetic && dataset.split!.components[group] === side && !notIn.includes(group) && (label === undefined || labels.get(candidate.id) === label);
+  })!;
   return { item, group: dataset.split!.items[item.id]! };
 }
 
@@ -221,6 +222,41 @@ describe("advisory calibration", () => {
     const { report } = await calibrate(["--dir", dir, "--engine", "replay", "--dry-run"]);
     // The merged group is forced to selection, so the held-out side loses that group.
     expect(report.heldout.negativeGroups + report.heldout.positiveGroups).toBe(11);
+
+    // Removing the bridge splits the saved group apart again: also stale.
+    writeJsonl(join(dir, "candidates.jsonl"), readJsonl<CalibrationItem>(join(dir, "candidates.jsonl")).filter((row) => row.id !== bridge.id));
+    await expect(calibrate(["--dir", dir, "--engine", "replay", "--dry-run"])).rejects.toThrow("1 saved group(s) no longer hold together");
+  });
+
+  test("a selection group with opposing human labels is left out of threshold selection and listed", async () => {
+    const dir = sampleCopy();
+    const expected = expectedReport(SAMPLE);
+    // The sample's own S3 group (one justified and one unjustified attempt of the same line) is such a group.
+    expect(expected.selection.conflictingGroups).toHaveLength(1);
+    const { item: justified, group } = sampleItem(dir, "selection", "justified", expected.selection.conflictingGroups);
+    // An opposing, unjustified member scored at p 0.99 would otherwise leave no feasible threshold pair.
+    const opposing: CalibrationItem = { ...justified, id: "adv-test-opposing-selection", checkpoint_id: "ckpt-test-opposing-selection", attempt_index: 9 };
+    addItem(dir, opposing);
+    appendJsonl(join(dir, "extractions.jsonl"), { ...readJsonl<{ id: string }>(join(dir, "extractions.jsonl")).find((row) => row.id === justified.id)!, id: opposing.id });
+    appendJsonl(join(dir, "labels.jsonl"), humanLabel(opposing.id, "unjustified"));
+    appendJsonl(join(dir, RUN_FILE), { id: opposing.id, probability: 0.99, served_model: JEV } satisfies ProbabilityRow);
+    await splitCommand(parseCalibrationArgs(["split", "--dir", dir]), () => {});
+
+    const { report } = await calibrate(["--dir", dir, "--engine", "replay", "--dry-run"]);
+    expect(report.selection.conflictingGroups).toEqual([...expected.selection.conflictingGroups, group].sort());
+    expect(report.selection.items).toBe(expected.selection.items - 1);
+    // Selection without that group: S4's justified 0.88 is gone too, so passAt rises to the next justified p.
+    expect(report.selection.thresholds).toEqual({ passAt: 0.91, failAt: 0.84 });
+    expect(report.selection.matrix.unjustified.accept).toBe(0);
+    expect(report.heldout.conflictingGroups).toEqual([]);
+    expect([report.heldout.negativeGroups, report.heldout.positiveGroups]).toEqual([8, 4]);
+
+    // The opposing member is caught even when it has no justification (and so is never scored).
+    appendJsonl(join(dir, "extractions.jsonl"), { id: opposing.id, justification: null, evidence: [], kept: false, structured_field_used: false, source: "extract", extracted_at: "2026-10-07T00:00:00.000Z" });
+    const { report: unscored } = await calibrate(["--dir", dir, "--engine", "replay", "--dry-run"]);
+    expect(unscored.items.excluded.noJustification).toBe(1);
+    expect(unscored.selection.conflictingGroups).toContain(group);
+    expect(unscored.selection).toEqual(report.selection);
   });
 
   test("a held-out group with opposing human labels is excluded even when the opposing member is never scored", async () => {

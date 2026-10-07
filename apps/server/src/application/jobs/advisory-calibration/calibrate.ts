@@ -163,18 +163,19 @@ export function staleSplitReasons(items: readonly CalibrationItem[], split: Spli
 }
 
 /**
- * Held-out groups whose human labels disagree, over every real (non-synthetic)
- * labelled member, before any member is dropped for a missing justification,
- * a missing or failed score, or a served-model mismatch.
+ * Groups (selection and held-out) whose human labels disagree, over every
+ * real (non-synthetic) labelled member, before any member is dropped for a
+ * missing justification, a missing or failed score, or a served-model
+ * mismatch. A synthetic item's label never makes a conflict.
  */
-export function heldoutLabelConflicts(dataset: CalibrationDataset): Set<string> {
+export function labelConflicts(dataset: CalibrationDataset): Set<string> {
   const split = dataset.split;
   const labels = new Map<string, Set<HumanLabel>>();
   if (!split) return new Set();
   for (const [id, label] of effectiveHumanLabels(dataset.labels)) {
     const item = dataset.byId.get(id);
     const group = split.items[id];
-    if (!item || item.synthetic || group === undefined || split.components[group] !== "heldout") continue;
+    if (!item || item.synthetic || group === undefined) continue;
     labels.set(group, (labels.get(group) ?? new Set()).add(label));
   }
   return new Set([...labels].filter(([, set]) => set.size > 1).map(([group]) => group));
@@ -222,11 +223,17 @@ export function buildCalibrationReport(input: {
       probability: row.probability,
     });
   }
-  const selection = selectThresholds(evaluated.filter((item) => item.side === "selection"));
+  // A group whose labels disagree is not evidence either way: out of both stages, listed in each.
+  const conflicts = labelConflicts(input.dataset);
+  const sideOf = (group: string) => input.dataset.split?.components[group];
+  const selection = selectThresholds(
+    evaluated.filter((item) => item.side === "selection" && !conflicts.has(item.group)),
+    [...conflicts].filter((group) => sideOf(group) === "selection").sort(),
+  );
   const heldout = evaluateHeldout(
     evaluated.filter((item) => item.side === "heldout"),
     selection.thresholds,
-    heldoutLabelConflicts(input.dataset),
+    new Set([...conflicts].filter((group) => sideOf(group) === "heldout")),
   );
   const hashes = { labelSetHash: labelSetHash(input.dataset), splitHash: input.dataset.split ? splitHash(input.dataset.split) : null };
   const { qualification, reasons } = qualify(
