@@ -8,6 +8,9 @@ import { ADVISORY_ADJUDICATION_CONFIG_PATH } from "@server/core/agent-catalog/ag
 import { parseCalibrationArgs } from "./args";
 import { applyCalibrationToConfig, calibrateCommand, type CalibrationReport } from "./calibrate";
 import { evaluateHeldout, qualify, selectThresholds, type EvaluationItem } from "./evaluate";
+import { splitCommand } from "./split";
+import { appendJsonl, loadDataset, readJsonl, writeJsonl } from "./store";
+import type { CalibrationItem, LabelRecord, ProbabilityRow, SplitFile } from "./types";
 
 const REPO_ROOT = join(import.meta.dir, "../../../../../..");
 const SAMPLE = join(REPO_ROOT, "analysis/advisory-adjudication/sample");
@@ -52,6 +55,31 @@ function item(id: string, group: string, label: "justified" | "unjustified", pro
 }
 
 const BARS = { minNegativeGroups: 29, minPositiveGroups: 10, maxFalseAcceptUpper: 0.1 };
+const RUN_FILE = "runs/typesafe/jev-1.13.0/2026-10-07T00-00-00Z.jsonl";
+
+function sampleCopy(): string {
+  const dir = join(tempDir(), "sample");
+  cpSync(SAMPLE, dir, { recursive: true });
+  return dir;
+}
+
+function humanLabel(id: string, label: "justified" | "unjustified"): LabelRecord {
+  return { id, label, labeler: "human", reviewer: "test", proposed_label: null, agreed: null, synthetic: false, group: null, labeled_at: "2026-10-07T00:00:00.000Z" };
+}
+
+/** A real item of the sample by its split side, and the side's group. */
+function sampleItem(dir: string, side: "selection" | "heldout", label?: "justified" | "unjustified"): { item: CalibrationItem; group: string } {
+  const dataset = loadDataset(dir);
+  const labels = new Map(dataset.labels.map((record) => [record.id, record.label]));
+  const item = dataset.items.find(
+    (candidate) => !candidate.synthetic && dataset.split!.components[dataset.split!.items[candidate.id]!] === side && (label === undefined || labels.get(candidate.id) === label),
+  )!;
+  return { item, group: dataset.split!.items[item.id]! };
+}
+
+function addItem(dir: string, item: CalibrationItem): void {
+  writeJsonl(join(dir, "candidates.jsonl"), [...readJsonl<CalibrationItem>(join(dir, "candidates.jsonl")), item]);
+}
 const HASHES = { labelSetHash: "labels", splitHash: "split" };
 
 describe("advisory calibration", () => {
@@ -165,6 +193,74 @@ describe("advisory calibration", () => {
     expect(chosen.thresholds).toEqual({ passAt: 0.72, failAt: 0.7 });
     expect(chosen.trueAccepts).toBe(2);
     expect(chosen.abstains).toBe(0);
+  });
+
+  test("calibrate refuses a stale split until split is rerun (an item bridging a selection and a held-out group)", async () => {
+    const dir = sampleCopy();
+    const selection = sampleItem(dir, "selection").item;
+    const heldout = sampleItem(dir, "heldout").item;
+    // Same worker state, rule and file as the held-out item, same flagged line as the selection item.
+    const bridge: CalibrationItem = {
+      ...selection,
+      id: "adv-test-bridge",
+      checkpoint_id: "ckpt-test-bridge",
+      worker_state_id: heldout.worker_state_id,
+      finding: { ...selection.finding, rule_id: heldout.finding.rule_id, file: heldout.finding.file },
+    };
+    addItem(dir, bridge);
+    await expect(calibrate(["--dir", dir, "--engine", "replay", "--dry-run"])).rejects.toThrow(
+      /split\.json is stale \(1 item\(s\) are not in split\.json; 1 group\(s\) now join saved groups that were split apart\); rerun `advisory-calibration split/,
+    );
+    // Even with the item assigned to its old selection group, the merge is caught.
+    const split = JSON.parse(readFileSync(join(dir, "split.json"), "utf8")) as SplitFile;
+    writeFileSync(join(dir, "split.json"), JSON.stringify({ ...split, items: { ...split.items, [bridge.id]: split.items[selection.id] } }));
+    await expect(calibrate(["--dir", dir, "--engine", "replay", "--dry-run"])).rejects.toThrow("now join saved groups");
+
+    writeFileSync(join(dir, "split.json"), JSON.stringify(split));
+    await splitCommand(parseCalibrationArgs(["split", "--dir", dir]), () => {});
+    const { report } = await calibrate(["--dir", dir, "--engine", "replay", "--dry-run"]);
+    // The merged group is forced to selection, so the held-out side loses that group.
+    expect(report.heldout.negativeGroups + report.heldout.positiveGroups).toBe(11);
+  });
+
+  test("a held-out group with opposing human labels is excluded even when the opposing member is never scored", async () => {
+    const dir = sampleCopy();
+    const { item: negative, group } = sampleItem(dir, "heldout", "unjustified");
+    const opposing: CalibrationItem = { ...negative, id: "adv-test-opposing", checkpoint_id: "ckpt-test-opposing", attempt_index: 9 };
+    addItem(dir, opposing);
+    appendJsonl(join(dir, "extractions.jsonl"), { ...readJsonl<{ id: string }>(join(dir, "extractions.jsonl")).find((row) => row.id === negative.id)!, id: opposing.id });
+    appendJsonl(join(dir, "labels.jsonl"), humanLabel(opposing.id, "justified"));
+    // The opposing member's decision failed: it is filtered out before evaluation.
+    appendJsonl(join(dir, RUN_FILE), { id: opposing.id, probability: null, served_model: JEV, abstain_reason: "engine-error" } satisfies ProbabilityRow);
+    await splitCommand(parseCalibrationArgs(["split", "--dir", dir]), () => {});
+
+    const { report } = await calibrate(["--dir", dir, "--engine", "replay", "--dry-run"]);
+    expect(report.items.excluded.engineError).toBe(1);
+    expect(report.heldout.conflictingGroups).toEqual([group]);
+    expect(report.heldout.negativeGroups).toBe(7);
+    expect(report.heldout.positiveGroups).toBe(4);
+    expect(report.heldout.groups).toBe(11);
+    // Labelling the opposing member without any justification at all is caught the same way.
+    appendJsonl(join(dir, "extractions.jsonl"), { id: opposing.id, justification: null, evidence: [], kept: false, structured_field_used: false, source: "extract", extracted_at: "2026-10-07T00:00:00.000Z" });
+    const { report: noJustification } = await calibrate(["--dir", dir, "--engine", "replay", "--dry-run"]);
+    expect(noJustification.items.excluded.noJustification).toBe(1);
+    expect(noJustification.heldout.conflictingGroups).toEqual([group]);
+    expect(noJustification.heldout.negativeGroups).toBe(7);
+  });
+
+  test("qualification compares the exact Clopper–Pearson bound, not the rounded one", () => {
+    const selection = selectThresholds([item("sj", "s1", "justified", 0.95, "selection"), item("su", "s2", "unjustified", 0.1, "selection")]);
+    const positives = Array.from({ length: 10 }, (_, i) => item(`p${i}`, `pg${i}`, "justified", 0.97));
+    const negatives = Array.from({ length: 46 }, (_, i) => item(`n${i}`, `ng${i}`, "unjustified", i === 0 ? 0.99 : 0.05));
+    const heldout = evaluateHeldout([...negatives, ...positives], selection.thresholds);
+    // x = 1, n = 46: exactly 0.09902431681989782, reported as 0.099024.
+    expect(heldout.falseAccepts).toBe(1);
+    expect(heldout.upper95).toBe(0.099024);
+    expect(qualify(selection, heldout, { ...BARS, maxFalseAcceptUpper: 0.099024 }, HASHES)).toEqual({
+      qualification: "exploratory",
+      reasons: ["Clopper–Pearson upper95 0.099024 > maxFalseAcceptUpper 0.099024"],
+    });
+    expect(qualify(selection, heldout, { ...BARS, maxFalseAcceptUpper: 0.099025 }, HASHES).qualification).toBe("enforcement-qualified");
   });
 
   test("calibrate never raises maxFalseAcceptUpper and keeps other models' entries on --write", async () => {

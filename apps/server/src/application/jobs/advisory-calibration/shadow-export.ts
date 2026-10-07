@@ -33,7 +33,7 @@ import {
   type CheckpointRow,
 } from "./build-dataset.js";
 import { baseGroupKey } from "./groups.js";
-import { createSanitizer, type Sanitize } from "./sanitize.js";
+import { assertNoShortSecrets, createSanitizer, type Sanitize } from "./sanitize.js";
 import { openSourceRoot, type SourceRoot } from "./source-root.js";
 import { appendJsonl, calibrationPaths, DEFAULT_CALIBRATION_DIR, latestById, readJsonl, writeJsonl } from "./store.js";
 import type { CalibrationItem, CodeFacts, ExtractionRecord, NoteRecord, ProbabilityRow } from "./types.js";
@@ -264,9 +264,11 @@ export async function shadowExportCommand(args: CalibrationArgs, print: (line: s
   assertKnownFlags(args, ["--source-root", "--game", "--dir"]);
   const source = openSourceRoot(requiredFlag(args, "--source-root"), stringFlag(args, "--game") ?? "melee");
   const paths = calibrationPaths(stringFlag(args, "--dir") ?? DEFAULT_CALIBRATION_DIR);
-  assertOutsideSourceRoot(paths.dir, source, args.command);
+  assertOutsideSourceRoot([paths.dir, paths.candidates, paths.notes, paths.extractions, paths.runs], source, args.command);
   const date = new Date();
-  const exported = collectShadowResults({ source, sanitize: createSanitizer({ sourceRoot: source.root }), now: date.toISOString() });
+  const sanitize = createSanitizer({ sourceRoot: source.root });
+  const exported = collectShadowResults({ source, sanitize, now: date.toISOString() });
+  assertNoShortSecrets(sanitize, `advisory-calibration ${args.command}`);
 
   // A history item for the same advisory and checkpoint wins: it carries the summary's finding and the attempt hunk.
   const merged = new Map<string, CalibrationItem>(readJsonl<CalibrationItem>(paths.candidates).map((row) => [row.id, row]));
@@ -287,6 +289,7 @@ export async function shadowExportCommand(args: CalibrationArgs, print: (line: s
   const runFiles: string[] = [];
   for (const [model, rows] of exported.runs) {
     const file = join(paths.runs, ...modelRunDir(model), `${stamp}.shadow.jsonl`);
+    assertOutsideSourceRoot(file, source, args.command);
     writeJsonl(file, rows);
     runFiles.push(file);
   }

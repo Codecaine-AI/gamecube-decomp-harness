@@ -71,11 +71,22 @@ export function numberFlag(args: CalibrationArgs, name: string): number | undefi
   return parsed;
 }
 
+/** Live model calls are opt-in (plan §6.9, §7.3): `--engine live` needs this set to 1. */
+export const LIVE_OPT_IN_ENV = "MODEL_NODES_LIVE";
+
+export function assertLiveOptIn(what: string, env: Record<string, string | undefined> = process.env): void {
+  if (env[LIVE_OPT_IN_ENV] !== "1") {
+    throw new Error(`${what}: --engine live makes model calls; set ${LIVE_OPT_IN_ENV}=1 to opt in`);
+  }
+}
+
+/** The engine; `live` is refused here, before anything is read or written, unless MODEL_NODES_LIVE=1. */
 export function engineFlag(args: CalibrationArgs, allowed: readonly CalibrationEngine[] = CALIBRATION_ENGINES): CalibrationEngine {
   const value = requiredFlag(args, "--engine");
   if (!allowed.includes(value as CalibrationEngine)) {
     throw new Error(`advisory-calibration ${args.command}: --engine must be ${allowed.join(" | ")}`);
   }
+  if (value === "live") assertLiveOptIn(`advisory-calibration ${args.command}`);
   return value as CalibrationEngine;
 }
 

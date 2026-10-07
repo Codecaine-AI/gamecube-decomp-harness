@@ -1,6 +1,6 @@
 // The node kernels calibration commands run on, each over its own kernel
 // database (never the harness's): a temp directory, or `--db <path>`.
-// - `live`: the production node kernel (BAML calls through codex-lb, Jev
+// - `live` (only with MODEL_NODES_LIVE=1): the production node kernel (BAML calls through codex-lb, Jev
 //   decisions through Pi), pointed at the dedicated database.
 // - `fake`: the kernel's offline fakes (plan §7.1): a scripted call engine and
 //   the fake classifier, with every production model ref aliased to them, so
@@ -39,6 +39,8 @@ import {
   type NodeCalls,
   type WorkerNodeKernel,
 } from "@server/infrastructure/kernel/nodes/node-kernel.js";
+
+import { assertLiveOptIn } from "./args.js";
 
 /** Pi's classifier request, as the kernel's fake classifier receives it (the harness never imports Pi itself). */
 type ClassifierContext = Parameters<FakeScript>[0];
@@ -206,6 +208,8 @@ async function openFakeKernel(opts: CalibrationKernelOptions, dbPath: string): P
 const LIVE_DB_ENV = "ORCH_AGENT_KERNEL_DB_PATH";
 
 export async function openCalibrationKernel(opts: CalibrationKernelOptions): Promise<CalibrationKernel> {
+  // Before any database or client exists.
+  if (opts.engine === "live") assertLiveOptIn("advisory-calibration");
   const { path: dbPath, ownedDir } = resolveDbPath(opts.dbPath);
   if (opts.engine === "fake") {
     const fake = await openFakeKernel(opts, dbPath);

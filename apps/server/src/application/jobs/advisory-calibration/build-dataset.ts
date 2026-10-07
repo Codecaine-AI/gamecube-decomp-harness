@@ -5,7 +5,7 @@
 // the normalized `qa_diff.raw.patch`), and the checkpoint row and worker note
 // from orchestrator.sqlite. One item per advisory fingerprint and checkpoint.
 import { readdirSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join } from "node:path";
 
 import { extractHunk } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/hunks.js";
 import {
@@ -18,8 +18,8 @@ import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 
 import { assertKnownFlags, requiredFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { baseGroupKey } from "./groups.js";
-import { createSanitizer, type Sanitize } from "./sanitize.js";
-import { openSourceRoot, type SourceRoot } from "./source-root.js";
+import { assertNoShortSecrets, createSanitizer, sanitizeNoteText, type Sanitize } from "./sanitize.js";
+import { assertOutputOutsideSource, openSourceRoot, type SourceRoot } from "./source-root.js";
 import { calibrationPaths, DEFAULT_CALIBRATION_DIR, readJsonl, sha256Hex, writeJson, writeJsonl } from "./store.js";
 import type { CalibrationFinding, CalibrationItem, CodeFacts, NoteRecord } from "./types.js";
 
@@ -193,7 +193,7 @@ export function noteRecord(
   note: { source: NoteRecord["source"]; text: string },
   sanitize: Sanitize,
 ): NoteRecord {
-  const text = sanitize(note.text);
+  const text = sanitizeNoteText(note.text, sanitize);
   return {
     key,
     checkpoint_id: row.checkpointId,
@@ -376,12 +376,9 @@ export function byKey(a: { key: string }, b: { key: string }): number {
   return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
 }
 
-/** Calibration output never lands under the history it was read from. */
-export function assertOutsideSourceRoot(dir: string, source: SourceRoot, command: string): void {
-  const rel = relative(source.root, resolve(dir));
-  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
-    throw new Error(`advisory-calibration ${command}: --dir ${dir} is inside --source-root; history is read-only`);
-  }
+/** Calibration output never lands under the history it was read from, symlinks resolved (source-root.ts). */
+export function assertOutsideSourceRoot(outputs: string | readonly string[], source: SourceRoot, command: string): void {
+  assertOutputOutsideSource(typeof outputs === "string" ? [outputs] : outputs, source, `advisory-calibration ${command}`);
 }
 
 /** notes.jsonl merged: produced notes replace their key; older notes stay while an item still points at them. */
@@ -410,8 +407,10 @@ export async function buildDatasetCommand(args: CalibrationArgs, print: (line: s
   assertKnownFlags(args, ["--source-root", "--game", "--dir"]);
   const source = openSourceRoot(requiredFlag(args, "--source-root"), stringFlag(args, "--game") ?? "melee");
   const paths = calibrationPaths(stringFlag(args, "--dir") ?? DEFAULT_CALIBRATION_DIR);
-  assertOutsideSourceRoot(paths.dir, source, args.command);
-  const dataset = buildHistoryDataset({ source, sanitize: createSanitizer({ sourceRoot: source.root }) });
+  assertOutsideSourceRoot([paths.dir, paths.candidates, paths.notes, paths.manifest], source, args.command);
+  const sanitize = createSanitizer({ sourceRoot: source.root });
+  const dataset = buildHistoryDataset({ source, sanitize });
+  assertNoShortSecrets(sanitize, `advisory-calibration ${args.command}`);
 
   // History is rebuilt whole: earlier history rows go, other sources stay unless re-produced here.
   const merged = new Map<string, CalibrationItem>();

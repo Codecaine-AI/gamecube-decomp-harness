@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -123,5 +123,46 @@ describe("advisory-calibration read-only history", () => {
       checkpoints_matched: 4,
     });
     expect(readJsonl<CalibrationItem>(calibrationPaths(snapshotDir).candidates)).toHaveLength(12);
+  });
+
+  test("symlinks never carry output into the history, in either direction", async () => {
+    const history = tree();
+    const outside = outDir();
+    const refused = /inside --source-root/;
+    const build = (root: string, dir: string) => buildDatasetCommand(parseCalibrationArgs(["build-dataset", "--source-root", root, "--dir", dir]), quiet);
+    const shadow = (root: string, dir: string) => shadowExportCommand(parseCalibrationArgs(["shadow-export", "--source-root", root, "--dir", dir]), quiet);
+    const freeze = (root: string, out: string) => freezeReplayCommand(parseCalibrationArgs(freezeArgs(root, out)), quiet);
+
+    // An output directory outside the history that links into it.
+    const linkedDir = join(outside, "linked-dir");
+    symlinkSync(history.paths.stateDir, linkedDir);
+    // A dangling link whose target would be created inside the history.
+    const dangling = join(outside, "dangling");
+    symlinkSync(join(history.paths.stateDir, "not-yet"), dangling);
+    // An existing output file that links to a history file.
+    const fileDir = join(outside, "files");
+    mkdirSync(fileDir);
+    symlinkSync(history.paths.summary, join(fileDir, "candidates.jsonl"));
+    const fixtureDir = join(outside, "fixture");
+    mkdirSync(fixtureDir);
+    symlinkSync(history.paths.note, join(fixtureDir, "note.txt"));
+    // The source root reached through a link, and an output path through the same link.
+    const rootLink = join(outside, "root-link");
+    symlinkSync(history.root, rootLink);
+
+    await expectUntouched(history.root, async () => {
+      for (const dir of [linkedDir, dangling, fileDir, join(rootLink, "analysis")]) {
+        await expect(build(history.root, dir)).rejects.toThrow(refused);
+        await expect(shadow(history.root, dir)).rejects.toThrow(refused);
+      }
+      await expect(freeze(history.root, join(linkedDir, "fixture"))).rejects.toThrow(refused);
+      await expect(freeze(history.root, fixtureDir)).rejects.toThrow(refused);
+      // A linked --source-root with an output lexically inside the real root.
+      await expect(build(rootLink, join(history.root, "analysis"))).rejects.toThrow(refused);
+      await expect(freeze(rootLink, join(history.root, "fixture"))).rejects.toThrow(refused);
+    });
+    // A plain outside directory still works through a linked source root.
+    await build(rootLink, join(outside, "plain"));
+    expect(readJsonl<CalibrationItem>(calibrationPaths(join(outside, "plain")).candidates)).toHaveLength(8);
   });
 });

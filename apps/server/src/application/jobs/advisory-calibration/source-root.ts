@@ -7,9 +7,21 @@
 // read immutably; it is snapshotted (database + WAL, read-only copies) into a
 // temp directory and read there.
 import { Database } from "bun:sqlite";
-import { closeSync, copyFileSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** The checkout root the history recorded in absolute paths before the move to `~/workspace`. */
 export const LEGACY_HARNESS_ROOT = "/Users/Ford/Github Repos/Codecaine/gamecube-decomp-harness/";
@@ -108,4 +120,49 @@ export function openSourceRoot(dir: string, game: string): SourceRoot {
     },
     openOrchestratorDb: () => openSqliteReadOnly(join(stateDir, "orchestrator.sqlite")),
   };
+}
+
+/**
+ * Where a path really lands: symlinks followed at every level, including a
+ * final symlink (dangling or not) and the not-yet-created tail, which is
+ * resolved against its nearest existing ancestor.
+ */
+export function canonicalTarget(path: string, depth = 0): string {
+  const absolute = resolve(path);
+  if (depth > 40) throw new Error(`too many symbolic links resolving ${path}`);
+  let link: boolean;
+  try {
+    link = lstatSync(absolute).isSymbolicLink();
+  } catch {
+    // Missing: canonicalize the parent, keep the name.
+    const parent = dirname(absolute);
+    return parent === absolute ? absolute : join(canonicalTarget(parent, depth + 1), basename(absolute));
+  }
+  if (!link) return realpathSync(absolute);
+  return canonicalTarget(resolve(dirname(absolute), readlinkSync(absolute)), depth + 1);
+}
+
+function within(child: string, parent: string): boolean {
+  const rel = relative(parent, child);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/**
+ * Refuses an output that would land inside the history (or contain it), with
+ * every symlink resolved on both sides: an output directory or file linked
+ * into the source, or a source root reached through a link, is caught the same
+ * as a plain path. Checked before anything is read or written.
+ */
+export function assertOutputOutsideSource(outputs: readonly string[], source: Pick<SourceRoot, "root">, what: string): void {
+  const roots = [...new Set([resolve(source.root), canonicalTarget(source.root)])];
+  for (const output of outputs) {
+    const targets = [...new Set([resolve(output), canonicalTarget(output)])];
+    for (const target of targets) {
+      for (const root of roots) {
+        if (within(target, root) || within(root, target)) {
+          throw new Error(`${what}: ${output} is inside --source-root ${source.root} (or contains it) once symlinks are resolved; history is read-only`);
+        }
+      }
+    }
+  }
 }

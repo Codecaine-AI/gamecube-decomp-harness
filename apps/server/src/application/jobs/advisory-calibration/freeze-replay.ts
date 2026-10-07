@@ -11,15 +11,15 @@
 // Absolute paths become `<source-root>/…`, secret-looking environment values
 // and token-like strings are replaced. History is read only (source-root.ts).
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 
 import { isAdvisoryFinding } from "@server/core/validation/qa/advisory-fingerprint.js";
 import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 
 import { assertKnownFlags, integerFlag, numberFlag, requiredFlag, stringFlag, type CalibrationArgs } from "./args.js";
 import { fakeExtractCheckpointKnowledge } from "./fake-extractor.js";
-import { createSanitizer, type Sanitize } from "./sanitize.js";
-import { openSourceRoot, type SourceRoot } from "./source-root.js";
+import { assertNoShortSecrets, createSanitizer, sanitizeDeep, sanitizeNoteText, type Sanitize } from "./sanitize.js";
+import { assertOutputOutsideSource, openSourceRoot, type SourceRoot } from "./source-root.js";
 import { sha256Hex } from "./store.js";
 
 export const REPLAY_FIXTURE_FILES = [
@@ -167,10 +167,11 @@ export interface FreezeReplayOptions {
 
 export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
   const { source, runId, workerStateId, attempt } = opts;
-  const outRel = relative(source.root, resolve(opts.outDir));
-  if (outRel === "" || (!outRel.startsWith("..") && !isAbsolute(outRel))) {
-    throw new Error(`freeze-replay: --out ${opts.outDir} is inside --source-root; history is read-only`);
-  }
+  assertOutputOutsideSource(
+    [opts.outDir, ...REPLAY_FIXTURE_FILES.map((name) => join(opts.outDir, name)), join(opts.outDir, "manifest.json")],
+    source,
+    "freeze-replay",
+  );
   const sanitize = opts.sanitize ?? createSanitizer({ sourceRoot: source.root });
   const runDir = join(source.runsDir, runId);
   const workerDir = join(runDir, "worker_state", workerStateId);
@@ -226,31 +227,31 @@ export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
     patchOut = cap(trimPatchToFindings(patchOut, findings));
     trimmed.push("qa_diff.patch");
   }
-  let noteOut = sanitize(noteRaw);
+  let noteOut = sanitizeNoteText(noteRaw, sanitize);
   if (Buffer.byteLength(noteOut) > MAX_FIXTURE_FILE_BYTES) {
     noteOut = cap(noteOut);
     trimmed.push("note.txt");
   }
-  const findingsOut = JSON.parse(sanitize(JSON.stringify(findings))) as QaScanFinding[];
-  const checkpointOut = JSON.parse(
-    sanitize(
-      JSON.stringify({
-        id: row.id,
-        run_id: row.run_id,
-        worker_state_id: row.worker_state_id,
-        attempt_index: row.attempt_index,
-        target_key: targetKey,
-        old_score: row.old_score,
-        new_score: row.new_score,
-        delta: row.delta,
-        exact_match: row.exact_match === 1,
-        qa_status: row.qa_status,
-        validation_status: row.validation_status,
-        agent_note: metadata.agent_note ?? null,
-        metadata_keys: Object.keys(metadata).sort(),
-      }),
-    ),
-  ) as Record<string, unknown>;
+  // Values are scrubbed before serialization, so a token pattern never eats JSON punctuation.
+  const findingsOut = sanitizeDeep(findings, sanitize);
+  const checkpointOut = sanitizeDeep(
+    {
+      id: row.id,
+      run_id: row.run_id,
+      worker_state_id: row.worker_state_id,
+      attempt_index: row.attempt_index,
+      target_key: targetKey,
+      old_score: row.old_score,
+      new_score: row.new_score,
+      delta: row.delta,
+      exact_match: row.exact_match === 1,
+      qa_status: row.qa_status,
+      validation_status: row.validation_status,
+      agent_note: metadata.agent_note ?? null,
+      metadata_keys: Object.keys(metadata).sort(),
+    },
+    sanitize,
+  );
   const refs = findingsOut.map((f, index) => ({
     id: fixtureAdvisoryId(index),
     rule_id: f.rule_id,
@@ -274,28 +275,32 @@ export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
     "fixture-extraction.json": `${JSON.stringify(extraction, null, 2)}\n`,
     "fixture-probabilities.jsonl": probabilities.map((r) => `${JSON.stringify(r)}\n`).join(""),
   };
+  const shown = (path: string) => sanitize(path);
+  const command = sanitize(
+    opts.command ??
+      `advisory-calibration freeze-replay --source-root ${source.root} --game ${source.game} --run ${runId} --worker-state ${workerStateId} --attempt ${attempt} --out ${opts.outDir}`,
+  );
+  const sourcePaths = { summary: shown(summaryPath), patch: shown(patchPath), note: shown(outputPath ?? `${row.id}:metadata.agent_note`) };
+  // Nothing is written when a short secret-looking value occurred anywhere above.
+  assertNoShortSecrets(sanitize, "freeze-replay");
   mkdirSync(opts.outDir, { recursive: true });
   const files: Record<string, string> = {};
   for (const name of REPLAY_FIXTURE_FILES) {
     writeFileSync(join(opts.outDir, name), contents[name]);
     files[name] = sha256Hex(contents[name]);
   }
-  const shown = (path: string) => sanitize(path);
   const manifest: ReplayFixtureManifest = {
     schema: "advisory_replay_fixture_v1",
     source: { game: source.game, run_id: runId, worker_state_id: workerStateId, attempt, checkpoint_id: row.id, target_key: targetKey },
     files,
     sources: {
-      summary: { path: shown(summaryPath), sha256: sha256Hex(summaryText) },
-      patch: { path: shown(patchPath), sha256: sha256Hex(patchText) },
-      note: { path: shown(outputPath ?? `${row.id}:metadata.agent_note`), sha256: sha256Hex(noteRaw) },
+      summary: { path: sourcePaths.summary, sha256: sha256Hex(summaryText) },
+      patch: { path: sourcePaths.patch, sha256: sha256Hex(patchText) },
+      note: { path: sourcePaths.note, sha256: sha256Hex(noteRaw) },
       checkpoint: { path: "<source-root>/" + source.relative(source.orchestratorDbPath) + `#worker_checkpoints/${row.id}`, sha256: sha256Hex(row.metadata_json) },
     },
     trimmed,
-    command: sanitize(
-      opts.command ??
-        `advisory-calibration freeze-replay --source-root ${source.root} --game ${source.game} --run ${runId} --worker-state ${workerStateId} --attempt ${attempt} --out ${opts.outDir}`,
-    ),
+    command,
     frozen_at: new Date().toISOString(),
     notes: [
       `note.txt is the worker's final message (${noteSource === "agent_output" ? "agent_output_path" : "metadata.agent_note"}).`,

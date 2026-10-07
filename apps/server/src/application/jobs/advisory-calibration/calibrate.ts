@@ -37,6 +37,7 @@ import {
 import { evaluateHeldout, qualify, selectThresholds, type EvaluationItem, type HeldoutResult, type SelectionResult } from "./evaluate.js";
 import { openCalibrationKernel } from "./kernels.js";
 import { renderCalibrationReport } from "./report.js";
+import { computeGroups } from "./groups.js";
 import { splitHash } from "./split.js";
 import {
   canonicalJson,
@@ -50,7 +51,7 @@ import {
   writeJsonl,
   type CalibrationDataset,
 } from "./store.js";
-import type { CalibrationEngine, CalibrationItem, HumanLabel, ProbabilityRow } from "./types.js";
+import type { CalibrationEngine, CalibrationItem, HumanLabel, ProbabilityRow, SplitFile } from "./types.js";
 
 export interface CalibrationReport {
   schema: "advisory_calibration_report_v1";
@@ -130,6 +131,55 @@ export function scorableItems(dataset: CalibrationDataset, excluded: Excluded): 
   return out;
 }
 
+/**
+ * Why split.json no longer matches the items (empty when current): items it
+ * has not assigned, or merged groups that changed since the split (two saved
+ * groups now joined, e.g. by an item bridging selection and held-out, or one
+ * saved group now apart). Evaluating such a split would treat correlated
+ * evidence as independent, so calibrate refuses it.
+ */
+export function staleSplitReasons(items: readonly CalibrationItem[], split: SplitFile): string[] {
+  const reasons: string[] = [];
+  const missing = items.filter((item) => split.items[item.id] === undefined).length;
+  if (missing > 0) reasons.push(`${missing} item(s) are not in split.json`);
+  const { itemGroup } = computeGroups(items);
+  const savedPerCurrent = new Map<string, Set<string>>();
+  const currentPerSaved = new Map<string, Set<string>>();
+  let unassigned = 0;
+  for (const item of items) {
+    const saved = split.items[item.id];
+    if (saved === undefined) continue;
+    if (split.components[saved] === undefined) unassigned += 1;
+    const current = itemGroup.get(item.id)!;
+    savedPerCurrent.set(current, (savedPerCurrent.get(current) ?? new Set()).add(saved));
+    currentPerSaved.set(saved, (currentPerSaved.get(saved) ?? new Set()).add(current));
+  }
+  const merged = [...savedPerCurrent.values()].filter((saved) => saved.size > 1).length;
+  const separated = [...currentPerSaved.values()].filter((current) => current.size > 1).length;
+  if (merged > 0) reasons.push(`${merged} group(s) now join saved groups that were split apart`);
+  if (separated > 0) reasons.push(`${separated} saved group(s) no longer hold together`);
+  if (unassigned > 0) reasons.push(`${unassigned} item(s) belong to groups without a side`);
+  return reasons;
+}
+
+/**
+ * Held-out groups whose human labels disagree, over every real (non-synthetic)
+ * labelled member, before any member is dropped for a missing justification,
+ * a missing or failed score, or a served-model mismatch.
+ */
+export function heldoutLabelConflicts(dataset: CalibrationDataset): Set<string> {
+  const split = dataset.split;
+  const labels = new Map<string, Set<HumanLabel>>();
+  if (!split) return new Set();
+  for (const [id, label] of effectiveHumanLabels(dataset.labels)) {
+    const item = dataset.byId.get(id);
+    const group = split.items[id];
+    if (!item || item.synthetic || group === undefined || split.components[group] !== "heldout") continue;
+    labels.set(group, (labels.get(group) ?? new Set()).add(label));
+  }
+  return new Set([...labels].filter(([, set]) => set.size > 1).map(([group]) => group));
+}
+
 /** sha256 over the effective human labels of every item, sorted by id. */
 export function labelSetHash(dataset: CalibrationDataset): string | null {
   const labels = [...effectiveHumanLabels(dataset.labels)].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
@@ -176,6 +226,7 @@ export function buildCalibrationReport(input: {
   const heldout = evaluateHeldout(
     evaluated.filter((item) => item.side === "heldout"),
     selection.thresholds,
+    heldoutLabelConflicts(input.dataset),
   );
   const hashes = { labelSetHash: labelSetHash(input.dataset), splitHash: input.dataset.split ? splitHash(input.dataset.split) : null };
   const { qualification, reasons } = qualify(
@@ -323,6 +374,13 @@ export async function calibrateCommand(args: CalibrationArgs, print: (line: stri
 
   const dataset = loadDataset(stringFlag(args, "--dir") ?? DEFAULT_CALIBRATION_DIR);
   if (!dataset.split) throw new Error(`advisory-calibration calibrate: ${dataset.paths.split} is missing; run split first`);
+  // Before anything is scored: the saved groups must still be the independent groups of these items.
+  const stale = staleSplitReasons(dataset.items, dataset.split);
+  if (stale.length > 0) {
+    throw new Error(
+      `advisory-calibration calibrate: split.json is stale (${stale.join("; ")}); rerun \`advisory-calibration split --dir ${dataset.paths.dir}\` before calibrating`,
+    );
+  }
   const excluded = emptyExcluded();
   const scorable = scorableItems(dataset, excluded);
 

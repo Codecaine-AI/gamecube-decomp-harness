@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { parseCalibrationArgs } from "./args";
+import { calibrateCommand } from "./calibrate";
+import { openCalibrationKernel } from "./kernels";
 import { replayCommand, runReplay } from "./replay";
 
 const REPO_ROOT = join(import.meta.dir, "../../../../../..");
@@ -128,6 +130,27 @@ describe("advisory replay", () => {
     const failedDb = join(tempDir(), "failed.db");
     await expect(runReplay({ fixtureDir: FIXTURE, engine: "replay", dbPath: failedDb, config: { thresholds: {} } as never })).rejects.toThrow();
     expect(parentStates(failedDb)).toEqual([{ run: "error", session: "error", container: "error", run_ended: 1, session_ended: 1, container_ended: 1 }]);
+  });
+
+  test("--engine live is refused without MODEL_NODES_LIVE=1, before any database or client exists", async () => {
+    const saved = process.env.MODEL_NODES_LIVE;
+    delete process.env.MODEL_NODES_LIVE;
+    try {
+      const dbPath = join(tempDir(), "live.db");
+      await expect(replayCommand(parseCalibrationArgs(["replay", "--fixture", FIXTURE, "--engine", "live", "--db", dbPath]), () => {})).rejects.toThrow(
+        "set MODEL_NODES_LIVE=1 to opt in",
+      );
+      await expect(runReplay({ fixtureDir: FIXTURE, engine: "live", dbPath })).rejects.toThrow("MODEL_NODES_LIVE=1");
+      await expect(calibrateCommand(parseCalibrationArgs(["calibrate", "--dir", join(REPO_ROOT, "analysis/advisory-adjudication/sample"), "--engine", "live", "--db", dbPath]), () => {})).rejects.toThrow("MODEL_NODES_LIVE=1");
+      // Only "1" opts in.
+      process.env.MODEL_NODES_LIVE = "true";
+      await expect(openCalibrationKernel({ engine: "live", label: "test", dbPath })).rejects.toThrow("MODEL_NODES_LIVE=1");
+      expect(existsSync(dbPath)).toBe(false);
+      expect(fetchCalls).toBe(0);
+    } finally {
+      if (saved === undefined) delete process.env.MODEL_NODES_LIVE;
+      else process.env.MODEL_NODES_LIVE = saved;
+    }
   });
 
   test("replay --engine fake extracts from the note and abstains at the fake classifier's p = 0.5", async () => {

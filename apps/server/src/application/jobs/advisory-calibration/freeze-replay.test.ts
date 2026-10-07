@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -125,6 +125,49 @@ describe("freeze-replay", () => {
 
     // Wrong ids are refused.
     await expect(freezeReplayCommand(parseCalibrationArgs(["freeze-replay", "--source-root", history.root, "--run", "no-such-run", "--worker-state", history.workerStateId, "--attempt", "2", "--out", outDir()]), () => {})).rejects.toThrow("run no-such-run not found");
+  });
+
+  test("freeze-replay scrubs bearer tokens inside JSON values and refuses short secrets", async () => {
+    const history = tree();
+    const token = "tok_ABCDEFG123";
+    // A finding excerpt and a note value that END in a bearer token, right before JSON punctuation.
+    const summary = JSON.parse(readFileSync(history.paths.summary, "utf8"));
+    summary.qaLint.findings[0].excerpt = `${summary.qaLint.findings[0].excerpt} // Authorization: Bearer ${token}`;
+    writeFileSync(history.paths.summary, JSON.stringify(summary, null, 2));
+    const note = JSON.parse(history.noteText);
+    note.probe = `curl -H "Authorization: Bearer ${token}"`;
+    writeFileSync(history.paths.note, JSON.stringify(note, null, 2));
+
+    const out = outDir();
+    await freeze(history, out);
+    for (const name of ["findings.json", "checkpoint.json", "fixture-extraction.json", "manifest.json", "note.txt"]) {
+      const text = readFileSync(join(out, name), "utf8");
+      expect(() => JSON.parse(text)).not.toThrow();
+      expect(text).not.toContain(token);
+    }
+    const findings = JSON.parse(readFileSync(join(out, "findings.json"), "utf8")) as QaScanFinding[];
+    expect(findings[0]!.excerpt.endsWith("// Authorization: <redacted:token>")).toBe(true);
+    expect(JSON.parse(readFileSync(join(out, "note.txt"), "utf8")).probe).toBe('curl -H "Authorization: <redacted:token>');
+
+    // A secret-looking value too short to scrub safely: freezing refuses, naming the variable, never the value.
+    const shortSecret = "zq7Wv";
+    note.probe = `the sandbox key was ${shortSecret}`;
+    writeFileSync(history.paths.note, JSON.stringify(note, null, 2));
+    const saved = process.env.FIXTURE_SHORT_TOKEN;
+    process.env.FIXTURE_SHORT_TOKEN = shortSecret;
+    try {
+      const refusedOut = outDir();
+      const failure = await freeze(history, refusedOut).then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+      expect(failure?.message).toContain("FIXTURE_SHORT_TOKEN");
+      expect(failure?.message).not.toContain(shortSecret);
+      expect(existsSync(refusedOut)).toBe(false);
+    } finally {
+      if (saved === undefined) delete process.env.FIXTURE_SHORT_TOKEN;
+      else process.env.FIXTURE_SHORT_TOKEN = saved;
+    }
   });
 
   test("a patch over 64 KB is trimmed to the findings' hunks", async () => {

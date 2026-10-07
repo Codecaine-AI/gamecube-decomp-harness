@@ -2,6 +2,7 @@
 // grouped held-out calibration of the llm_review advisory decision, the
 // frozen replay fixture, and the offline replay of the shadow handler's code
 // path. Command modules load on first use, so job-runner stays cheap to start.
+// `--engine live` makes model calls and needs MODEL_NODES_LIVE=1.
 //
 //   build-dataset --source-root <dir> [--game <g>] [--dir <out>]
 //   shadow-export --source-root <dir> [--game <g>] [--dir <out>]

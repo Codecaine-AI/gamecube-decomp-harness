@@ -69,7 +69,7 @@ export interface HeldoutResult {
   acceptRate: number | null;
   /** Abstained groups / groups. */
   abstainRate: number | null;
-  /** One-sided 95 % Clopper–Pearson upper bound on the false-accept rate over negative groups. */
+  /** One-sided 95 % Clopper–Pearson upper bound on the false-accept rate over negative groups, rounded for display (qualify compares the exact bound). */
   upper95: number | null;
 }
 
@@ -153,7 +153,12 @@ export function selectThresholds(selection: readonly EvaluationItem[]): Selectio
   };
 }
 
-export function evaluateHeldout(heldout: readonly EvaluationItem[], t: Thresholds | null): HeldoutResult {
+/**
+ * `knownConflicts`: held-out groups whose human labels disagree across ALL
+ * their real members, scored or not (calibrate.ts); they are excluded and
+ * listed even when the disagreeing member was filtered out before scoring.
+ */
+export function evaluateHeldout(heldout: readonly EvaluationItem[], t: Thresholds | null, knownConflicts: ReadonlySet<string> = new Set()): HeldoutResult {
   const byGroup = new Map<string, EvaluationItem[]>();
   for (const item of heldout) {
     if (item.synthetic || item.labelSource !== "human") throw new Error(`held-out item ${item.id} is not a human-labelled real item`);
@@ -161,14 +166,16 @@ export function evaluateHeldout(heldout: readonly EvaluationItem[], t: Threshold
     if (members) members.push(item);
     else byGroup.set(item.group, [item]);
   }
-  const conflictingGroups: string[] = [];
+  const conflicts = new Set(knownConflicts);
   const units: Array<{ label: HumanLabel; items: EvaluationItem[] }> = [];
   for (const group of [...byGroup.keys()].sort()) {
     const items = byGroup.get(group)!;
     const labels = new Set(items.map((item) => item.label));
-    if (labels.size > 1) conflictingGroups.push(group);
-    else units.push({ label: items[0]!.label, items });
+    if (labels.size > 1) conflicts.add(group);
+    if (conflicts.has(group)) continue;
+    units.push({ label: items[0]!.label, items });
   }
+  const conflictingGroups = [...conflicts].sort();
   const negativeGroups = units.filter((unit) => unit.label === "unjustified").length;
   const positiveGroups = units.length - negativeGroups;
   if (t === null) {
@@ -234,7 +241,8 @@ export function qualify(selection: SelectionResult, heldout: HeldoutResult, bars
   if (heldout.positiveGroups < bars.minPositiveGroups) {
     reasons.push(`held-out positive groups ${heldout.positiveGroups} < ${bars.minPositiveGroups}`);
   }
-  if (heldout.upper95 !== null && heldout.upper95 > bars.maxFalseAcceptUpper) {
+  // The bar is compared at full precision; the reported upper95 is rounded for display only.
+  if (heldout.falseAccepts !== null && clopperPearsonUpper(heldout.falseAccepts, heldout.negativeGroups) > bars.maxFalseAcceptUpper) {
     reasons.push(`Clopper–Pearson upper95 ${heldout.upper95} > maxFalseAcceptUpper ${bars.maxFalseAcceptUpper}`);
   }
   if (!hashes.labelSetHash || !hashes.splitHash) reasons.push("labelSetHash or splitHash missing");
