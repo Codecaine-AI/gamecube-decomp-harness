@@ -26,8 +26,11 @@ import {
   defaultModelNodeHandlers,
   ensureModelNodeLaneState,
   modelNodeLaneEnabledSince,
+  ModelNodeLaneAbandonedError,
+  startModelNodeLane,
   startModelNodeLanes,
   startModelNodeLanesIfEnabled,
+  type ModelNodeHandlerContext,
   type ModelNodeHandlers,
   type ModelNodeJobHandler,
 } from "./index.js";
@@ -197,6 +200,115 @@ describe("model-node lanes", () => {
     } finally {
       if (!stopped) await lanes.stop({ maxWaitMs: 50 });
     }
+  });
+
+  test("lanes: shutdown past the grace releases a non-cooperative handler's claim; its late result writes nothing", async () => {
+    const store = tempStore();
+    seedRun(store, "run-a");
+    ensureModelNodeLaneState(store, "checkpoint_adjudication", ago(600_000));
+    seedCheckpoint(store, { id: "cp-1", runId: "run-a", workerStateId: "ws-1", validationTime: ago(60_000) });
+    let lateResolve: ((result: JobResult) => void) | undefined;
+    let context: ModelNodeHandlerContext | undefined;
+    // Ignores the abort signal and never settles on its own.
+    const stubborn: ModelNodeJobHandler = (_job, ctx) => {
+      context = ctx;
+      return new Promise<JobResult>((resolve) => { lateResolve = resolve; });
+    };
+    const abandoned: number[] = [];
+    const lane = startModelNodeLane({
+      store,
+      kind: "checkpoint_adjudication",
+      handler: stubborn,
+      catchUp: () => catchUpAdjudication(store),
+      intervalMs: 10,
+      onShutdownAbandoned: (count) => abandoned.push(count),
+      log: () => {},
+    });
+    const row = () => store.db.query<{ status: string; revision: number; lease_id: string | null; lease_expires_at: string | null;
+      next_attempt_at: string | null; result_ref: string | null; attempts: number }, []>(
+      "SELECT status, revision, lease_id, lease_expires_at, next_attempt_at, result_ref, attempts FROM jobs WHERE kind = 'checkpoint_adjudication'",
+    ).get()!;
+    await waitFor(() => row().status === "claimed" && context !== undefined);
+    expect(lane.inFlight()).toBe(1);
+
+    const startedAt = Date.now();
+    await lane.stop({ maxWaitMs: 50 });
+    expect(Date.now() - startedAt).toBeLessThan(2_000);
+    expect(abandoned).toEqual([1]);
+    expect(lane.inFlight()).toBe(0);
+    expect(context!.signal.aborted).toBe(true);
+    expect(() => context!.ensureClaim()).toThrow(ModelNodeLaneAbandonedError);
+    const released = row();
+    expect(released).toMatchObject({ status: "waiting", lease_id: null, lease_expires_at: null, result_ref: null, attempts: 1 });
+    expect(Date.parse(released.next_attempt_at!)).toBeLessThanOrEqual(Date.now());
+
+    // No heartbeat renews the released claim, and the handler's late result writes nothing.
+    await sleep(100);
+    lateResolve!({ resultRef: "late", detail: { status: "late" } });
+    await sleep(50);
+    expect(row()).toEqual(released);
+    expect(store.db.query("SELECT COUNT(*) AS count FROM game_events WHERE event_type = 'job.succeeded'").get()).toEqual({ count: 0 });
+
+    // Another lane (another run, after a restart) reclaims the job at once.
+    const { handlers, handled } = recordingHandlers();
+    const next = startModelNodeLane({ store, kind: "checkpoint_adjudication", handler: handlers.checkpoint_adjudication, catchUp: () => 0, intervalMs: 10 });
+    try {
+      await waitFor(() => row().status === "succeeded");
+    } finally {
+      await next.stop({ maxWaitMs: 1_000 });
+    }
+    expect(handled).toEqual(["checkpoint_adjudication:cp-1"]);
+    expect(row()).toMatchObject({ status: "succeeded", attempts: 2, result_ref: null });
+  });
+
+  test("lanes: a dry run enqueues an existing cross-run backlog but never claims it or runs a registered handler", async () => {
+    const store = tempStore();
+    seedRun(store, "run-a");
+    seedRun(store, "run-b");
+    ensureModelNodeLaneState(store, "checkpoint_adjudication", ago(600_000));
+    ensureModelNodeLaneState(store, "checkpoint_knowledge", ago(600_000));
+    seedCheckpoint(store, { id: "cp-queued", runId: "run-a", workerStateId: "ws-queued", validationTime: ago(300_000) });
+    catchUpAdjudication(store);
+    seedCheckpoint(store, { id: "cp-stranded", runId: "run-a", workerStateId: "ws-stranded", validationTime: ago(200_000) });
+    seedSettledEpoch(store, { id: "epoch-a", runId: "run-a", closedAt: ago(100_000) });
+    seedCheckpoint(store, { id: "cp-integrated", runId: "run-a", workerStateId: "ws-integrated", epochId: "epoch-a", validationTime: ago(150_000), qaStatus: "clean" });
+    seedIntegration(store, { checkpointId: "cp-integrated", runId: "run-a", epochId: "epoch-a" });
+    const handler = jest.fn(async (): Promise<JobResult> => { throw new Error("a dry run must never execute a handler"); });
+
+    const lanes = startModelNodeLanesIfEnabled({
+      store,
+      runId: "run-b",
+      globals: { dryRunAgents: true } as never,
+      advisoryAdjudication: "shadow",
+      checkpointKnowledgeFeed: true,
+      checkpointKnowledgeCap: 50,
+      handlers: { checkpoint_adjudication: handler, checkpoint_knowledge: handler },
+      start: (params) => startModelNodeLanes({ ...params, lane: { intervalMs: 10 } }),
+    })!;
+    expect(lanes.claimingKinds).toEqual([]);
+    await sleep(100);
+    await lanes.stop({ maxWaitMs: 1_000 });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(jobs(store).map((job) => [job.kind, job.dedupe_key, job.status, job.attempts])).toEqual([
+      ["checkpoint_adjudication", "cp-queued", "queued", 0],
+      ["checkpoint_adjudication", "cp-stranded", "queued", 0],
+      ["checkpoint_knowledge", "cp-integrated", "queued", 0],
+    ]);
+    expect(JSON.parse(String((store.db.query("SELECT payload_json FROM events WHERE run_id = 'run-b'").get() as { payload_json: string }).payload_json)))
+      .toMatchObject({ dry_run: true });
+    // The gate sits in startModelNodeLanes too, for any other caller.
+    const direct = startModelNodeLanes({
+      store,
+      config: { adjudication: true, knowledge: true },
+      handlers: { checkpoint_adjudication: handler, checkpoint_knowledge: handler },
+      dryRun: true,
+      lane: { intervalMs: 10 },
+    });
+    expect(direct.claimingKinds).toEqual([]);
+    await sleep(50);
+    await direct.stop({ maxWaitMs: 1_000 });
+    expect(handler).not.toHaveBeenCalled();
   });
 
   test("lanes: catch-up enqueues once per checkpoint and recovers after a simulated crash", async () => {

@@ -1,5 +1,5 @@
 import { startJobConsumer } from "@server/core/job-queue/consumer.js";
-import { claimNextJob, completeJob, failJob, getJob, heartbeatJob } from "@server/core/job-queue/kernel.js";
+import { claimNextJob, completeJob, failJob, getJob, heartbeatJob, verifyClaimToken } from "@server/core/job-queue/kernel.js";
 import type {
   ClaimToken,
   JobKindDescriptor,
@@ -24,6 +24,20 @@ export interface ModelNodeHandlerContext {
   token: ClaimToken;
   /** Aborted when the lane's shutdown grace runs out; pass it to every node call. */
   signal: AbortSignal;
+  /**
+   * Throws unless this lane still owns the claim (not abandoned at shutdown,
+   * lease not lost). Call it right before any domain write, so a handler that
+   * outlives its claim writes nothing.
+   */
+  ensureClaim: () => void;
+}
+
+/** Settles an execution the lane gave up on at shutdown; its claim was already released. */
+export class ModelNodeLaneAbandonedError extends Error {
+  constructor(kind: ModelNodeJobKind, jobId: string) {
+    super(`${kind} lane abandoned ${jobId} at shutdown`);
+    this.name = "ModelNodeLaneAbandonedError";
+  }
 }
 
 /**
@@ -66,7 +80,11 @@ export interface ModelNodeLane {
   /** Run one catch-up now; never throws. Returns jobs enqueued (0 on failure). */
   catchUp(): number;
   inFlight(): number;
-  /** Stop claiming, wait up to `maxWaitMs` for in-flight handlers, then abort and abandon them. */
+  /**
+   * Stop claiming and wait up to `maxWaitMs` for in-flight handlers. Past the
+   * grace: abort them, release their claims (reclaimable at once), and return
+   * without waiting; a handler that ignores the abort can no longer write.
+   */
   stop(options?: { maxWaitMs?: number }): Promise<void>;
 }
 
@@ -118,16 +136,55 @@ export function startModelNodeLane(options: ModelNodeLaneOptions): ModelNodeLane
   };
 
   const handler = options.handler;
+  const ops = kernelOps(options.maxAttempts ?? MODEL_NODE_LANE_DEFAULTS.maxAttempts);
+  // Every running execution, so shutdown can end queue ownership without waiting for the handler.
+  const executions = new Map<string, { token: ClaimToken; abandon: (cause: Error) => void }>();
+  const abandoned = new Set<string>();
+
+  const execute = (job: JobRecord, ctx: { store: StateStore; token: ClaimToken }): Promise<JobResult> => {
+    const ensureClaim = (): void => {
+      if (abandoned.has(job.jobId)) throw new ModelNodeLaneAbandonedError(kind, job.jobId);
+      verifyClaimToken(store, ctx.token, at());
+    };
+    return new Promise<JobResult>((resolve, reject) => {
+      executions.set(job.jobId, { token: ctx.token, abandon: reject });
+      Promise.resolve()
+        .then(() => handler!(job, { ...ctx, signal: abort.signal, ensureClaim }))
+        .then(resolve, reject);
+    }).finally(() => { executions.delete(job.jobId); });
+  };
+
+  /**
+   * Release every running claim through the queue's own failure path (lease
+   * cleared, retry due now; terminal only past maxAttempts), then settle the
+   * execution so the consumer stops heartbeating. A late result from the
+   * handler then fails the claim-token check and writes nothing.
+   */
+  const abandonExecutions = (): number => {
+    const running = [...executions.entries()];
+    for (const [jobId, execution] of running) {
+      abandoned.add(jobId);
+      try {
+        ops.failJob(store, execution.token, `abandoned: ${kind} lane stopped before the handler finished`, {
+          backoffMs: 0,
+          at: at(),
+          actor: "runner",
+        });
+      } catch (cause) {
+        log(`[model-node-lane] ${kind} could not release abandoned job ${jobId}: ${errorMessage(cause)}`);
+      }
+      execution.abandon(new ModelNodeLaneAbandonedError(kind, jobId));
+    }
+    return running.length;
+  };
+
   catchUp();
   const consumer = handler === null ? null : startJobConsumer(store, {
     kind,
     concurrencyLimit: options.concurrency ?? MODEL_NODE_LANE_DEFAULTS.concurrency,
     leaseMs,
-    execution: {
-      mode: "inline",
-      handler: (job, ctx) => handler(job, { ...ctx, signal: abort.signal }),
-    },
-  } satisfies JobKindDescriptor, kernelOps(options.maxAttempts ?? MODEL_NODE_LANE_DEFAULTS.maxAttempts), {
+    execution: { mode: "inline", handler: execute },
+  } satisfies JobKindDescriptor, ops, {
     intervalMs: options.intervalMs ?? MODEL_NODE_LANE_DEFAULTS.intervalMs,
     actor: "runner",
     now: at,
@@ -156,11 +213,16 @@ export function startModelNodeLane(options: ModelNodeLaneOptions): ModelNodeLane
         new Promise<typeof deadline>((resolveDeadline) => { timer = setTimeout(() => resolveDeadline(deadline), maxWaitMs); }),
       ]).finally(() => { if (timer) clearTimeout(timer); });
       if (outcome === deadline) {
-        const abandoned = consumer.inFlight();
         abort.abort(new Error(`${kind} lane stopped`));
-        void stopping.catch(() => {});
-        log(`[model-node-lane] ${kind} shutdown abandoned ${abandoned} in-flight job(s) after ${maxWaitMs}ms`);
-        options.onShutdownAbandoned?.(abandoned);
+        const released = abandonExecutions();
+        log(`[model-node-lane] ${kind} shutdown abandoned ${released} in-flight job(s) after ${maxWaitMs}ms`);
+        options.onShutdownAbandoned?.(released);
+        // The abandoned executions are settled now, so the consumer drains at once.
+        let drainTimer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([
+          stopping.catch(() => {}),
+          new Promise<void>((resolveDrain) => { drainTimer = setTimeout(resolveDrain, 1_000); }),
+        ]).finally(() => { if (drainTimer) clearTimeout(drainTimer); });
       }
     },
   };

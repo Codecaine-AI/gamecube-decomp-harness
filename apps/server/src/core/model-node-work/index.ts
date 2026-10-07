@@ -33,6 +33,7 @@ export {
 } from "./catch-up.js";
 export {
   MODEL_NODE_LANE_DEFAULTS,
+  ModelNodeLaneAbandonedError,
   startModelNodeLane,
   type ModelNodeFatalErrorHandler,
   type ModelNodeHandlerContext,
@@ -96,6 +97,8 @@ export interface StartModelNodeLanesParams {
   store: StateStore;
   config: ModelNodeLanesConfig;
   handlers: ModelNodeHandlers;
+  /** Dry run (`globals.dryRunAgents`): enqueue only; every handler is dropped, so nothing is claimed or executed. */
+  dryRun?: boolean;
   shouldClaim?: () => boolean;
   onFatalError?: ModelNodeFatalErrorHandler;
   onShutdownAbandoned?: (count: number) => void;
@@ -112,6 +115,9 @@ export function startModelNodeLanes(params: StartModelNodeLanesParams): ModelNod
     checkpoint_adjudication: (options = {}) => catchUpAdjudication(store, options),
     checkpoint_knowledge: (options = {}) => catchUpKnowledge(store, { ...options, cap: knowledgeCap }),
   };
+  const handlers: ModelNodeHandlers = params.dryRun
+    ? { checkpoint_adjudication: null, checkpoint_knowledge: null }
+    : params.handlers;
   const kinds: ModelNodeJobKind[] = [
     ...(config.adjudication ? ["checkpoint_adjudication" as const] : []),
     ...(config.knowledge ? ["checkpoint_knowledge" as const] : []),
@@ -121,7 +127,7 @@ export function startModelNodeLanes(params: StartModelNodeLanesParams): ModelNod
     ...params.lane,
     store,
     kind,
-    handler: params.handlers[kind],
+    handler: handlers[kind],
     catchUp: () => catchUps[kind](),
     shouldClaim: params.shouldClaim,
     onFatalError: params.onFatalError,
@@ -178,7 +184,9 @@ export function startModelNodeLanes(params: StartModelNodeLanesParams): ModelNod
  * as a handled run event. Zero footprint (no store access) when every lane is
  * off. The adjudication lane runs whenever adjudication is not `off`: its
  * catch-up only selects candidates whose effective mode is `shadow`, which
- * includes enforce requests the worker downgraded to shadow.
+ * includes enforce requests the worker downgraded to shadow. With
+ * `globals.dryRunAgents` the lanes only enqueue: no handler is constructed and
+ * no job of any run is claimed.
  */
 export function startModelNodeLanesIfEnabled(params: {
   store: StateStore;
@@ -200,18 +208,24 @@ export function startModelNodeLanesIfEnabled(params: {
   };
   if (!config.adjudication && !config.knowledge) return null;
   const { store, runId } = params;
+  const dryRun = params.globals.dryRunAgents === true;
   const flagEvent = addEvent(store, runId, "model_node_lanes_recorded", "run-loop", {
     advisory_adjudication: params.advisoryAdjudication,
     checkpoint_adjudication_lane: config.adjudication,
     checkpoint_knowledge_lane: config.knowledge,
     checkpoint_knowledge_cap: params.checkpointKnowledgeCap,
+    dry_run: dryRun,
     created_by: "run-loop",
   });
   markEventHandled(store, flagEvent);
   return (params.start ?? startModelNodeLanes)({
     store,
     config,
-    handlers: { ...defaultModelNodeHandlers(params.globals), ...params.handlers },
+    // A dry run constructs no handler at all (factories included): enqueue only.
+    handlers: dryRun
+      ? { checkpoint_adjudication: null, checkpoint_knowledge: null }
+      : { ...defaultModelNodeHandlers(params.globals), ...params.handlers },
+    dryRun,
     shouldClaim: params.shouldClaim,
     onFatalError: params.onFatalError,
     onShutdownAbandoned: params.onShutdownAbandoned,
