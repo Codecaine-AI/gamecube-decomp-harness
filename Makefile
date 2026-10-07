@@ -13,7 +13,7 @@ DOCS_API_PORT ?= 4801
 DOCS_KERNEL_PORT ?= 4840
 # Style rail: unlocked by default so this corpus can author the shared theme.
 # docs-cli resolves --themes-root to the docs-system checkout, so rail edits
-# made here write back to Core/docs-system/themes/default (the global theme).
+# made here write back to codecaine/core/docs-system/themes/default (the global theme).
 # Set DOCS_THEME_LOCKED=1 for a read-only serve (rail hidden, writes 403).
 DOCS_THEME_LOCKED ?= 0
 DOCS_THEME_LOCK_FLAG := $(if $(filter 1 true yes,$(DOCS_THEME_LOCKED)),--theme-locked,)
@@ -64,8 +64,8 @@ help:
 	  '  WORKERS=$(WORKERS) AGENT_TIMEOUT_SECONDS=$(AGENT_TIMEOUT_SECONDS) GOAL=$(GOAL) DRY_RUN=$(DRY_RUN)'
 
 install:
-	@for p in db kernel protocol viewer-core viewer-shell viewer-ui; do (cd ../Core/agent-kernel/packages/$$p && bun link >/dev/null); done
-	@(cd ../Core/prompt-kit/packages/prompt-kit && bun link >/dev/null)
+	@for p in db kernel protocol viewer-core viewer-shell viewer-ui; do (cd ../../codecaine/core/agent-kernel/packages/$$p && bun link >/dev/null); done
+	@(cd ../../codecaine/core/prompt-kit/packages/prompt-kit && bun link >/dev/null)
 	bun install
 
 check:
@@ -89,7 +89,7 @@ docs:
 	      fi; \
 	    }; \
 	  else \
-	    (cd ../Core/docs-system/packages/docs-kernel && \
+	    (cd ../../codecaine/core/docs-system/packages/docs-kernel && \
 	      exec env -u DOCS_KERNEL_DOCS_ROOT -u DOCS_KERNEL_CORPORA_FILE \
 	        DOCS_KERNEL_PORT="$(DOCS_KERNEL_PORT)" bun src/server.ts) & \
 	    KERNEL_PID=$$!; \
@@ -118,7 +118,7 @@ docs:
 	      open "http://localhost:$(DOCS_PORT)") & \
 	    OPEN_PID=$$!; \
 	  fi; \
-	  bun ../Core/docs-system/packages/docs-cli/src/index.ts serve \
+	  bun ../../codecaine/core/docs-system/packages/docs-cli/src/index.ts serve \
 	    --root docs \
 	    --dev \
 	    --port "$(DOCS_API_PORT)" \
