@@ -9,6 +9,7 @@ import {
   truncateHead,
   truncateLine,
   type BashOperations,
+  type ExtensionToolContext,
 } from "@agent-kernel/kernel/pi-sdk";
 import type { SandboxExecResult, SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import type {
@@ -163,17 +164,42 @@ function sandboxEditOperations(handle: SandboxHandle) {
   };
 }
 
+/**
+ * Pi 1.0 tools resolve relative paths against the session's `ctx.cwd` before the cwd they were
+ * built with. Sandbox sessions run on the host checkout, so pin `cwd` to the sandbox workspace and
+ * keep the rest of the context (copied by descriptor so its guarded getters stay lazy).
+ */
+function withWorkspaceCwd<T extends { execute(...args: any[]): unknown }>(definition: T, root: string): T {
+  return {
+    ...definition,
+    execute(
+      toolCallId: string,
+      params: unknown,
+      signal: AbortSignal | undefined,
+      onUpdate: unknown,
+      ctx?: ExtensionToolContext,
+    ) {
+      const pinned = ctx
+        ? Object.defineProperties({}, { ...Object.getOwnPropertyDescriptors(ctx), cwd: { value: root, enumerable: true } })
+        : ctx;
+      return definition.execute(toolCallId, params, signal, onUpdate, pinned);
+    },
+  };
+}
+
 export function createSandboxReadToolDefinition(handle: SandboxHandle, workspaceRoot: string) {
-  return createReadToolDefinition(normalizedWorkspaceRoot(workspaceRoot), {
+  const root = normalizedWorkspaceRoot(workspaceRoot);
+  return withWorkspaceCwd(createReadToolDefinition(root, {
     autoResizeImages: false,
     operations: sandboxReadOperations(handle),
-  });
+  }), root);
 }
 
 export function createSandboxEditToolDefinition(handle: SandboxHandle, workspaceRoot: string) {
-  return createEditToolDefinition(normalizedWorkspaceRoot(workspaceRoot), {
+  const root = normalizedWorkspaceRoot(workspaceRoot);
+  return withWorkspaceCwd(createEditToolDefinition(root, {
     operations: sandboxEditOperations(handle),
-  });
+  }), root);
 }
 
 async function sandboxPathKind(
@@ -392,7 +418,7 @@ export function createSandboxGlobToolDefinition(handle: SandboxHandle, workspace
       },
     },
   });
-  return { ...base, name: "glob", label: "glob" };
+  return withWorkspaceCwd({ ...base, name: "glob", label: "glob" }, root);
 }
 
 export function createSandboxFileToolDefinitions(handle: SandboxHandle, workspaceRoot: string) {

@@ -44,18 +44,91 @@ function activeTools(session: Awaited<ReturnType<typeof createAgentSession>>["se
   return session.agent.state.tools;
 }
 
+function activeTool(session: Awaited<ReturnType<typeof createAgentSession>>["session"], name: string) {
+  const tool = activeTools(session).find((candidate) => candidate.name === name);
+  if (!tool) throw new Error(`${name} tool was not registered`);
+  return tool;
+}
+
 async function executeBash(
   session: Awaited<ReturnType<typeof createAgentSession>>["session"],
   command: string,
 ): Promise<void> {
-  const bash = activeTools(session).find((tool) => tool.name === "bash");
-  if (!bash) throw new Error("bash tool was not registered");
-  await bash.execute("bash-proof", { command }, undefined, () => {});
+  await activeTool(session, "bash").execute("bash-proof", { command }, undefined, () => {});
+}
+
+function resultText(result: { content: Array<{ type: string; text?: string }> }): string {
+  return result.content.map((part) => (part.type === "text" ? part.text ?? "" : "")).join("");
+}
+
+/**
+ * Pi passes the session's host cwd to tools as `ctx.cwd`; relative paths must still resolve in
+ * the sandbox workspace. Tools run from the session's active list, so Pi supplies that context.
+ */
+async function expectRelativeFileToolsUseSandbox(
+  session: Awaited<ReturnType<typeof createAgentSession>>["session"],
+  { provider, handle, hostRoot, workspaceRoot }: Awaited<ReturnType<typeof fixture>>,
+): Promise<void> {
+  const file = `${workspaceRoot}/src/test.c`;
+  const sourceDir = `${workspaceRoot}/src`;
+  await handle.writeFile(file, "int value = 1;\n");
+
+  const read = await activeTool(session, "read").execute("read-proof", { path: "src/test.c" }, undefined, () => {});
+  expect(resultText(read)).toContain("int value = 1;");
+
+  await activeTool(session, "edit").execute(
+    "edit-proof",
+    { path: "src/test.c", edits: [{ oldText: "value = 1", newText: "value = 2" }] },
+    undefined,
+    () => {},
+  );
+  expect(await handle.readFile(file)).toBe("int value = 2;\n");
+
+  const firstGlobCall = provider.execCalls.length;
+  provider.scriptExec(
+    { exitCode: 0, stdout: `${workspaceRoot}\n`, stderr: "" },
+    { exitCode: 0, stdout: `${file}\n`, stderr: "" },
+  );
+  const glob = await activeTool(session, "glob").execute("glob-proof", { pattern: "*.c" }, undefined, () => {});
+  expect(resultText(glob)).toBe("src/test.c");
+  const globCalls = provider.execCalls.slice(firstGlobCall);
+  expect(globCalls).toMatchObject([
+    { command: ["find", workspaceRoot, "-maxdepth", "0", "-type", "d", "-print"], opts: { cwd: workspaceRoot } },
+    { opts: { cwd: workspaceRoot } },
+  ]);
+  expect(globCalls[1]?.command[5]).toBe(workspaceRoot);
+
+  const firstGrepCall = provider.execCalls.length;
+  provider.scriptExec(
+    { exitCode: 0, stdout: `${sourceDir}\n`, stderr: "" },
+    {
+      exitCode: 0,
+      stdout: `${JSON.stringify({
+        type: "match",
+        data: { path: { text: "test.c" }, line_number: 1, lines: { text: "int value = 2;\n" } },
+      })}\n`,
+      stderr: "",
+    },
+  );
+  const grep = await activeTool(session, "grep").execute(
+    "grep-proof",
+    { pattern: "value", path: "src" },
+    undefined,
+    () => {},
+  );
+  expect(resultText(grep)).toBe("test.c:1: int value = 2;");
+  expect(provider.execCalls.slice(firstGrepCall)).toMatchObject([
+    { command: ["find", sourceDir, "-maxdepth", "0", "-type", "d", "-print"] },
+    { opts: { cwd: sourceDir } },
+  ]);
+
+  expect(JSON.stringify(provider.execCalls)).not.toContain(hostRoot);
 }
 
 describe("sandbox same-name agent tool wiring", () => {
   test("direct Pi custom tools replace builtins while write remains excluded", async () => {
-    const { hostRoot, provider, handle, workspaceRoot, fileTools } = await fixture();
+    const sandbox = await fixture();
+    const { hostRoot, provider, handle, workspaceRoot, fileTools } = sandbox;
     provider.scriptExec({ exitCode: 0, stdout: "direct", stderr: "" });
     const registration = buildPiToolRegistration({
       cwd: hostRoot,
@@ -91,10 +164,13 @@ describe("sandbox same-name agent tool wiring", () => {
       command: ["/bin/bash", "-lc", "printf direct"],
       opts: { cwd: workspaceRoot, env: { SANDBOX_PATH: "direct" } },
     });
+
+    await expectRelativeFileToolsUseSandbox(session, sandbox);
   });
 
   test("kernel extension factories replace the same-named Pi builtins", async () => {
-    const { hostRoot, provider, handle, workspaceRoot, fileTools } = await fixture();
+    const sandbox = await fixture();
+    const { hostRoot, provider, handle, workspaceRoot, fileTools } = sandbox;
     provider.scriptExec({ exitCode: 0, stdout: "kernel", stderr: "" });
     const extensionFactories = buildMeleeKernelToolFactories({
       role: "worker",
@@ -148,5 +224,7 @@ describe("sandbox same-name agent tool wiring", () => {
       command: ["/bin/bash", "-lc", "printf kernel"],
       opts: { cwd: workspaceRoot, env: { SANDBOX_PATH: "kernel" } },
     });
+
+    await expectRelativeFileToolsUseSandbox(session, sandbox);
   });
 });
