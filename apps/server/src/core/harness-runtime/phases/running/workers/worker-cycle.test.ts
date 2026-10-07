@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import {
@@ -997,56 +997,61 @@ describe("recordAcceptedAdvisories", () => {
   }
 
   test("one row per accepted fingerprint, crediting each physical occurrence; unreadable lines and info advisories are never recorded", async () => {
-    const store = openState(await mkdtemp(join(tmpdir(), "accepted-advisory-")));
+    const stateDir = await mkdtemp(join(tmpdir(), "accepted-advisory-"));
     try {
-      const first = cast(2, "x = *(char**)   &lbl_A;");
-      const second = cast(4, "x = *(char**) &lbl_A;");
-      // Whitespace inside the line normalizes away, so both copies share one af2 fingerprint.
-      const shared = advisoryFingerprint(first, "    x = *(char**)   &lbl_A;");
-      expect(advisoryFingerprint(second, "    x = *(char**) &lbl_A;")).toBe(shared);
-      // Accepted, but its excerpt does not match the patch line: unreadable evidence.
-      const mismatched = cast(5, "w = *(char**) &lbl_B;");
-      const info = cast(5, "z = *(char**) &lbl_B;", { severity: "info" });
-      const adjudication = {
-        schema: "llm_review_adjudication_v1",
-        requested_mode: "enforce",
-        mode: "enforce",
-        verdict: "pass",
-        applied: true,
-        advisories: [
-          adjudicated(first, shared),
-          adjudicated(second, shared),
-          adjudicated(mismatched, "af2:mismatched"),
-          adjudicated(info, "af2:info", "noted"),
-        ],
-        accepted_fingerprints: [shared, "af2:mismatched"],
-        extraction: { status: "ok" },
-        sources: { note_sha256: null, patch_sha256: null },
-        model: { requested: "typesafe/jev-1.13.0" },
-        thresholds: { passAt: 0.85, failAt: 0.15, qualification: "enforcement-qualified" },
-        duration_ms: 10,
-      } as const;
+      const store = openState(stateDir);
+      try {
+        const first = cast(2, "x = *(char**)   &lbl_A;");
+        const second = cast(4, "x = *(char**) &lbl_A;");
+        // Whitespace inside the line normalizes away, so both copies share one af2 fingerprint.
+        const shared = advisoryFingerprint(first, "    x = *(char**)   &lbl_A;");
+        expect(advisoryFingerprint(second, "    x = *(char**) &lbl_A;")).toBe(shared);
+        // Accepted, but its excerpt does not match the patch line: unreadable evidence.
+        const mismatched = cast(5, "w = *(char**) &lbl_B;");
+        const info = cast(5, "z = *(char**) &lbl_B;", { severity: "info" });
+        const adjudication = {
+          schema: "llm_review_adjudication_v1",
+          requested_mode: "enforce",
+          mode: "enforce",
+          verdict: "pass",
+          applied: true,
+          advisories: [
+            adjudicated(first, shared),
+            adjudicated(second, shared),
+            adjudicated(mismatched, "af2:mismatched"),
+            adjudicated(info, "af2:info", "noted"),
+          ],
+          accepted_fingerprints: [shared, "af2:mismatched"],
+          extraction: { status: "ok" },
+          sources: { note_sha256: null, patch_sha256: null },
+          model: { requested: "typesafe/jev-1.13.0" },
+          thresholds: { passAt: 0.85, failAt: 0.15, qualification: "enforcement-qualified" },
+          duration_ms: 10,
+        } as const;
 
-      const params = { checkpointId: "checkpoint-1", runId: "run-1", adjudication: adjudication as never, patchText: patch, acceptedAt: "2026-10-07T00:00:00.000Z" };
-      expect(recordAcceptedAdvisories(store, params)).toEqual([shared]);
-      // Replays are idempotent per (fingerprint, checkpoint).
-      expect(recordAcceptedAdvisories(store, params)).toEqual([shared]);
-      expect(store.db.query("SELECT * FROM accepted_advisory").all()).toEqual([{
-        fingerprint: shared,
-        checkpoint_id: "checkpoint-1",
-        run_id: "run-1",
-        rule_id: "type_erasing_cast",
-        file,
-        full_line: "x = *(char**) &lbl_A;",
-        occurrences: 2,
-        decision_run_id: "decision-2",
-        probability: 0.93,
-        served_model: "typesafe/jev-1.13.0",
-        thresholds_json: JSON.stringify({ passAt: 0.85, failAt: 0.15 }),
-        accepted_at: "2026-10-07T00:00:00.000Z",
-      }]);
+        const params = { checkpointId: "checkpoint-1", runId: "run-1", adjudication: adjudication as never, patchText: patch, acceptedAt: "2026-10-07T00:00:00.000Z" };
+        expect(recordAcceptedAdvisories(store, params)).toEqual([shared]);
+        // Replays are idempotent per (fingerprint, checkpoint).
+        expect(recordAcceptedAdvisories(store, params)).toEqual([shared]);
+        expect(store.db.query("SELECT * FROM accepted_advisory").all()).toEqual([{
+          fingerprint: shared,
+          checkpoint_id: "checkpoint-1",
+          run_id: "run-1",
+          rule_id: "type_erasing_cast",
+          file,
+          full_line: "x = *(char**) &lbl_A;",
+          occurrences: 2,
+          decision_run_id: "decision-2",
+          probability: 0.93,
+          served_model: "typesafe/jev-1.13.0",
+          thresholds_json: JSON.stringify({ passAt: 0.85, failAt: 0.15 }),
+          accepted_at: "2026-10-07T00:00:00.000Z",
+        }]);
+      } finally {
+        store.db.close();
+      }
     } finally {
-      store.db.close();
+      await rm(stateDir, { recursive: true, force: true });
     }
   });
 });

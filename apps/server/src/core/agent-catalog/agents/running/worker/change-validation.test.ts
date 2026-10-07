@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { QaScanFinding, QaScanInvocation, QaScanResult, RunQaScanDiffOptions } from "@server/core/validation/qa";
@@ -1214,6 +1214,17 @@ describe("validateWorkerChange micro-gate integration", () => {
 });
 
 describe("advisory adjudication modes", () => {
+  const tempDirs: string[] = [];
+  /** A temp dir registered for removal the moment it exists, so a failing assertion cannot leak it. */
+  async function tempDir(prefix: string): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), prefix));
+    tempDirs.push(dir);
+    return dir;
+  }
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
   const target = { unit: "melee/ft/ftcoll.c", symbol: "ftCo_800C8E5C", source_path: "src/melee/ft/ftcoll.c" };
   const allMicroGatesOff = { sectionParity: false, undefinedSymbols: false, bannedIdioms: false, formatting: false, symbolValidation: false };
 
@@ -1324,7 +1335,7 @@ describe("advisory adjudication modes", () => {
   });
 
   test("retainPreQa adds preQa and changes nothing else", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "advisory-retain-preqa-"));
+    const outputDir = await tempDir("advisory-retain-preqa-");
     const findings = [advisory()];
 
     const off = await runAttempt(outputDir, { findings });
@@ -1358,7 +1369,7 @@ describe("advisory adjudication modes", () => {
   });
 
   test("deferAdvisories keeps status passed only for advisory-only scans", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "advisory-defer-"));
+    const outputDir = await tempDir("advisory-defer-");
     const enforce = await runAttempt(outputDir, { findings: [advisory(), advisory({ severity: "info", rule_id: "authored_style", line: 50 })], deferAdvisories: true });
     expect(enforce.status).toBe("passed");
     expect(enforce.advisoryGate).toBe("pending");
@@ -1388,7 +1399,7 @@ describe("advisory adjudication modes", () => {
   });
 
   test("failForPendingAdvisories reproduces today's flip exactly", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "advisory-fail-pending-"));
+    const outputDir = await tempDir("advisory-fail-pending-");
     const findings = [advisory()];
     const off = await runAttempt(outputDir, { findings });
     const pending = await runAttempt(outputDir, { findings, deferAdvisories: true });
@@ -1411,7 +1422,7 @@ describe("advisory adjudication modes", () => {
   });
 
   test("effectiveQaLint feeds back only the advisories adjudication left blocking", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "advisory-effective-"));
+    const outputDir = await tempDir("advisory-effective-");
     const first = advisory({ line: 42 });
     const second = advisory({ line: 43, excerpt: "s16* q = (s16*) obj;" });
     const info = advisory({ severity: "info", rule_id: "authored_style", line: 50 });
@@ -1445,7 +1456,7 @@ describe("advisory adjudication modes", () => {
   });
 
   test("effectiveQaLint is the raw qaLint without adjudication and for any non-advisory scan", async () => {
-    const outputDir = await mkdtemp(join(tmpdir(), "advisory-effective-raw-"));
+    const outputDir = await tempDir("advisory-effective-raw-");
     const off = await runAttempt(outputDir, { findings: [advisory()] });
     expect(effectiveQaLint(off)).toBe(off.qaLint);
     const pending = await runAttempt(outputDir, { findings: [advisory()], deferAdvisories: true });
