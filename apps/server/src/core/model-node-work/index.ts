@@ -20,6 +20,7 @@ import {
   type ModelNodeLaneOptions,
 } from "./lane.js";
 import { createAdjudicationHandler } from "./handlers/adjudication.js";
+import { checkpointKnowledgeRetry, createCheckpointKnowledgeHandler } from "@server/core/knowledge-v2/checkpoint-feed/handler.js";
 
 export {
   CATCH_UP_BATCH_SIZE,
@@ -59,7 +60,7 @@ export type ModelNodeHandlerFactory = (globals: GlobalArgs) => ModelNodeJobHandl
  */
 const MODEL_NODE_HANDLER_FACTORIES: Readonly<Record<ModelNodeJobKind, ModelNodeHandlerFactory | null>> = Object.freeze({
   checkpoint_adjudication: createAdjudicationHandler,
-  checkpoint_knowledge: null,
+  checkpoint_knowledge: (globals) => createCheckpointKnowledgeHandler(globals),
 });
 
 /** The production handler for each kind, or null when it is not registered yet. */
@@ -129,6 +130,7 @@ export function startModelNodeLanes(params: StartModelNodeLanesParams): ModelNod
     store,
     kind,
     handler: handlers[kind],
+    ...(kind === "checkpoint_knowledge" ? { retry: checkpointKnowledgeRetry } : {}),
     catchUp: () => catchUps[kind](),
     shouldClaim: params.shouldClaim,
     onFatalError: params.onFatalError,

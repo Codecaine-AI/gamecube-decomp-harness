@@ -512,7 +512,7 @@ describe("startModelNodeLanesIfEnabled", () => {
     expect(start).not.toHaveBeenCalled();
   });
 
-  test("starts the adjudication lane for shadow and enforce and the knowledge lane for the feed; the adjudication handler is registered, the knowledge handler is not yet", () => {
+  test("starts the adjudication lane for shadow and enforce and the knowledge lane for the feed; both handlers are registered", () => {
     const store = tempStore();
     seedRun(store, "run-a");
     const configs: unknown[] = [];
@@ -527,7 +527,7 @@ describe("startModelNodeLanesIfEnabled", () => {
         start: (params) => {
           configs.push(params.config);
           expect(typeof params.handlers.checkpoint_adjudication).toBe("function");
-          expect(params.handlers.checkpoint_knowledge).toBeNull();
+          expect(typeof params.handlers.checkpoint_knowledge).toBe("function");
           return null as never;
         },
       });
@@ -539,7 +539,7 @@ describe("startModelNodeLanesIfEnabled", () => {
     ]);
     const defaults = defaultModelNodeHandlers({} as never);
     expect(typeof defaults.checkpoint_adjudication).toBe("function");
-    expect(defaults.checkpoint_knowledge).toBeNull();
+    expect(typeof defaults.checkpoint_knowledge).toBe("function");
   });
 
   test("without a registered handler, enqueued checkpoint_* jobs stay queued after a lane tick and after stop", async () => {

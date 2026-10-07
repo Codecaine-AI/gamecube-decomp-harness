@@ -1,5 +1,9 @@
+import { existsSync } from "node:fs";
+import { Database } from "bun:sqlite";
+
 import { DEFAULT_CHECKPOINT_KNOWLEDGE_CAP } from "@server/core/game-registry/runtime-options.js";
-import { enqueueJob } from "@server/core/job-queue/kernel.js";
+import { enqueueJob, getJobByDedupeKey, requeueJob } from "@server/core/job-queue/kernel.js";
+import { gameKnowledgeRoot, knowledgeStorePath } from "@server/core/knowledge/paths.js";
 import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
 
 export const MODEL_NODE_JOB_KINDS = ["checkpoint_adjudication", "checkpoint_knowledge"] as const;
@@ -121,33 +125,150 @@ interface KnowledgeCandidateRow {
   run_id: string;
 }
 
+export interface KnowledgeCatchUpOptions extends CatchUpOptions {
+  /** Narrows the scan to one epoch (the post-boundary trigger). */
+  epochId?: string;
+  /** Narrows the scan to these epochs (`checkpoint-knowledge backfill`); empty enqueues nothing. */
+  epochIds?: readonly string[];
+  /** Most `checkpoint_knowledge` jobs per epoch (default 50). */
+  cap?: number;
+  /**
+   * Also reach epochs settled before the kind's `enabled_since`, and scan
+   * without lane state. Honoured only together with `epochIds`, so history
+   * is reached only by naming it (the deliberate backfill, §6.8), never by
+   * turning the feed on.
+   */
+  includeHistory?: boolean;
+  /**
+   * Of these checkpoints of one game, the ones whose knowledge submission
+   * exists. Default: the game's knowledge store, read-only.
+   */
+  ingestedSubmissions?: IngestedSubmissions;
+  log?: (message: string) => void;
+}
+
+/** The error prefix of a `checkpoint_knowledge` attempt whose submission was not ingested yet. */
+export const SUBMISSION_NOT_FOUND = "submission-not-found";
+/** Most terminal submission-not-found jobs one scan looks at. */
+const STRANDED_SCAN_LIMIT = 1_000;
+
+export type IngestedSubmissions = (gameId: string, checkpointIds: readonly string[]) => ReadonlySet<string>;
+
+function isUnderTestRunner(): boolean {
+  return process.env.NODE_ENV === "test"
+    || process.env.BUN_TEST !== undefined
+    || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test");
+}
+
+/** Checkpoint ids among `checkpointIds` that a submission of the game's knowledge store records (`runtime_ref`). */
+export function knowledgeStoreSubmissions(gameId: string, checkpointIds: readonly string[]): ReadonlySet<string> {
+  if (isUnderTestRunner()) {
+    throw new Error("knowledge catch-up refuses the default knowledge store under a test runner; pass ingestedSubmissions");
+  }
+  const path = knowledgeStorePath(gameKnowledgeRoot(gameId));
+  if (!existsSync(path)) return new Set();
+  const db = new Database(path, { readonly: true });
+  try {
+    return new Set(db
+      .query<{ runtime_ref: string }, [string]>("SELECT runtime_ref FROM submission WHERE runtime_ref IN (SELECT value FROM json_each(?))")
+      .all(JSON.stringify(checkpointIds))
+      .map((row) => row.runtime_ref));
+  } finally {
+    db.close();
+  }
+}
+
+function jobErrorMessage(errorJson: string | null): string {
+  if (!errorJson) return "";
+  try {
+    const value = JSON.parse(errorJson) as unknown;
+    if (typeof value === "string") return value;
+    const message = typeof value === "object" && value !== null ? (value as { message?: unknown }).message : undefined;
+    return typeof message === "string" ? message : errorJson;
+  } catch {
+    return errorJson;
+  }
+}
+
+/**
+ * Re-enqueue every `checkpoint_knowledge` job that ended terminal because its
+ * submission was not ingested in time, once the submission exists. Any other
+ * terminal outcome stays as it is; a requeued job is queued, so a second scan
+ * finds nothing.
+ */
+function requeueIngestedSubmissions(store: StateStore, options: KnowledgeCatchUpOptions, epochFilter: string | null): number {
+  const rows = store.db
+    .query<{ dedupe_key: string; game_id: string; error_json: string | null }, [string | null, number]>(`
+      SELECT dedupe_key, game_id, error_json FROM jobs
+      WHERE kind = 'checkpoint_knowledge' AND status = 'failed' AND completed_at IS NOT NULL
+        AND error_json LIKE '%${SUBMISSION_NOT_FOUND}%'
+        AND (?1 IS NULL OR json_extract(payload_json, '$.epochId') IN (SELECT value FROM json_each(?1)))
+      ORDER BY completed_at, dedupe_key
+      LIMIT ?2`)
+    .all(epochFilter, STRANDED_SCAN_LIMIT)
+    .filter((row) => jobErrorMessage(row.error_json).startsWith(SUBMISSION_NOT_FOUND));
+  if (rows.length === 0) return 0;
+  const byGame = new Map<string, string[]>();
+  for (const row of rows) byGame.set(row.game_id, [...(byGame.get(row.game_id) ?? []), row.dedupe_key]);
+  const lookup = options.ingestedSubmissions ?? knowledgeStoreSubmissions;
+  const log = options.log ?? ((message: string) => console.warn(message));
+  const at = options.at ?? now();
+  let requeued = 0;
+  for (const [gameId, checkpointIds] of byGame) {
+    let ingested: ReadonlySet<string>;
+    try {
+      ingested = lookup(gameId, checkpointIds);
+    } catch (cause) {
+      log(`[model-node-lanes] checkpoint_knowledge submission lookup failed for ${gameId}: ${cause instanceof Error ? cause.message : String(cause)}`);
+      continue;
+    }
+    for (const checkpointId of checkpointIds) {
+      if (!ingested.has(checkpointId)) continue;
+      immediateTransaction(store.db, () => {
+        const job = getJobByDedupeKey(store, "checkpoint_knowledge", checkpointId);
+        if (job?.status !== "failed" || job.completedAt === null) return;
+        requeueJob(store, { kind: "checkpoint_knowledge", dedupeKey: checkpointId, actor: "runner", at });
+        requeued += 1;
+      });
+    }
+  }
+  return requeued;
+}
+
 /**
  * Enqueue `checkpoint_knowledge` for applied integrations of every epoch
- * settled since the kind was enabled, in any run (§6.8 rule 2: closed as
- * `completed` with its `epoch-save-point-<id>` row). Exact matches first,
- * then score gain, until the epoch holds `cap` jobs. `epochId` narrows the
- * scan to one epoch (the post-boundary trigger). Confirmed-good evaluation
- * is the handler's job. Returns the number of jobs enqueued.
+ * settled since the kind was enabled, in any run (§6.3, §6.8 rule 2: closed
+ * as `completed` with its `epoch-save-point-<id>` row). The scan reads the
+ * stored rows only, so fresh and reconciled settlements are covered alike, a
+ * crash between settlement and enqueue is recovered by the next scan in the
+ * state directory, and Sync is never consulted. Exact matches first, then
+ * score gain, until the epoch holds `cap` jobs. Confirmed-good evaluation is
+ * the handler's job. A job that ended terminal with `submission-not-found` is
+ * re-enqueued once its submission exists. Returns the number of jobs enqueued
+ * or re-enqueued.
  */
-export function catchUpKnowledge(
-  store: StateStore,
-  options: CatchUpOptions & { epochId?: string; cap?: number } = {},
-): number {
-  const enabledSince = modelNodeLaneEnabledSince(store, "checkpoint_knowledge");
-  if (enabledSince === null) return 0;
-  const epochId = options.epochId ?? null;
+export function catchUpKnowledge(store: StateStore, options: KnowledgeCatchUpOptions = {}): number {
+  const named = options.epochIds !== undefined
+    ? [...new Set(options.epochIds)]
+    : options.epochId !== undefined ? [options.epochId] : null;
+  if (named !== null && named.length === 0) return 0;
+  const history = options.includeHistory === true && options.epochIds !== undefined;
+  const enabledSince = history ? null : modelNodeLaneEnabledSince(store, "checkpoint_knowledge");
+  if (!history && enabledSince === null) return 0;
+  const epochFilter = named === null ? null : JSON.stringify(named);
   const cap = Math.max(0, Math.floor(options.cap ?? DEFAULT_CHECKPOINT_KNOWLEDGE_CAP));
   if (cap === 0) return 0;
-  return scanInBatches((limit) => immediateTransaction(store.db, () => {
+  const enqueued = scanInBatches((limit) => immediateTransaction(store.db, () => {
     const epochs = store.db
-      .query<SettledEpochRow, [string, string | null, number, number]>(`
+      .query<SettledEpochRow, [string | null, string | null, number, number]>(`
         SELECT e.id, COALESCE(r.game_id, 'melee') AS game_id, r.trace_id,
           (SELECT COUNT(*) FROM jobs j
             WHERE j.kind = 'checkpoint_knowledge' AND json_extract(j.payload_json, '$.epochId') = e.id) AS queued
         FROM epochs e
         LEFT JOIN runs r ON r.id = e.run_id
-        WHERE e.status = 'completed' AND e.closed_at IS NOT NULL AND e.closed_at >= ?1
-          AND (?2 IS NULL OR e.id = ?2)
+        WHERE e.status = 'completed' AND e.closed_at IS NOT NULL
+          AND (?1 IS NULL OR e.closed_at >= ?1)
+          AND (?2 IS NULL OR e.id IN (SELECT value FROM json_each(?2)))
           AND EXISTS (SELECT 1 FROM save_points sp WHERE sp.id = 'epoch-save-point-' || e.id)
           AND EXISTS (
             SELECT 1 FROM integration_outcomes io
@@ -157,7 +278,7 @@ export function catchUpKnowledge(
           AND queued < ?3
         ORDER BY e.closed_at, e.id
         LIMIT ?4`)
-      .all(enabledSince, epochId, cap, limit);
+      .all(enabledSince, epochFilter, cap, limit);
     const at = options.at ?? now();
     let enqueued = 0;
     for (const epoch of epochs) {
@@ -188,4 +309,5 @@ export function catchUpKnowledge(
     }
     return { scanned: epochs.length, enqueued };
   }), options);
+  return enqueued + requeueIngestedSubmissions(store, options, epochFilter);
 }

@@ -43,11 +43,24 @@ export class ModelNodeLaneAbandonedError extends Error {
 /**
  * Engine failures are results (complete with `detail.status: "error"`). Throw
  * only for infrastructure failures, so the queue backs off and retries; after
- * `maxAttempts` the job turns terminal with the error.
+ * `maxAttempts` the job turns terminal with the error, unless the lane's
+ * `retry` policy decides otherwise for that error.
  */
 export type ModelNodeJobHandler = (job: JobRecord, ctx: ModelNodeHandlerContext) => Promise<JobResult>;
 
 export type ModelNodeFatalErrorHandler = (cause: unknown, context: { job: JobRecord | null; operation: string }) => void;
+
+/** How one failed attempt is retried: `terminal: false` keeps retrying past `maxAttempts`. */
+export interface ModelNodeRetryDecision {
+  backoffMs: number;
+  terminal: boolean;
+}
+
+/**
+ * A kind's own retry for the errors it recognizes; null leaves the lane's
+ * default (the queue's backoff, terminal after `maxAttempts`).
+ */
+export type ModelNodeRetryPolicy = (job: JobRecord, cause: unknown) => ModelNodeRetryDecision | null;
 
 export interface ModelNodeLaneOptions {
   store: StateStore;
@@ -63,6 +76,8 @@ export interface ModelNodeLaneOptions {
   concurrency?: number;
   leaseMs?: number;
   maxAttempts?: number;
+  /** Per-error retry for handler failures; absent or null keeps the default for every error. */
+  retry?: ModelNodeRetryPolicy;
   catchUpEveryMs?: number;
   intervalMs?: number;
   shouldClaim?: () => boolean;
@@ -92,11 +107,21 @@ function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-function kernelOps(maxAttempts: number): JobQueueKernelOps {
+/**
+ * `retryDecisions` holds the retry policy's decision for a handler failure,
+ * keyed by job, until the consumer records that failure; every other failure
+ * (an abandoned claim included) keeps the default.
+ */
+function kernelOps(maxAttempts: number, retryDecisions: Map<string, ModelNodeRetryDecision>): JobQueueKernelOps {
   return {
     claimNextJob,
     completeJob,
     failJob: (store, token, error, input = {}) => {
+      const decision = retryDecisions.get(token.jobId);
+      retryDecisions.delete(token.jobId);
+      if (decision) {
+        return failJob(store, token, error, { ...input, backoffMs: decision.backoffMs, terminal: Boolean(input.terminal) || decision.terminal });
+      }
       const attempts = getJob(store, token.jobId)?.attempts ?? 0;
       return failJob(store, token, error, { ...input, terminal: Boolean(input.terminal) || attempts >= maxAttempts });
     },
@@ -136,7 +161,8 @@ export function startModelNodeLane(options: ModelNodeLaneOptions): ModelNodeLane
   };
 
   const handler = options.handler;
-  const ops = kernelOps(options.maxAttempts ?? MODEL_NODE_LANE_DEFAULTS.maxAttempts);
+  const retryDecisions = new Map<string, ModelNodeRetryDecision>();
+  const ops = kernelOps(options.maxAttempts ?? MODEL_NODE_LANE_DEFAULTS.maxAttempts, retryDecisions);
   // Every running execution, so shutdown can end queue ownership without waiting for the handler.
   const executions = new Map<string, { token: ClaimToken; abandon: (cause: Error) => void }>();
   const abandoned = new Set<string>();
@@ -146,11 +172,22 @@ export function startModelNodeLane(options: ModelNodeLaneOptions): ModelNodeLane
       if (abandoned.has(job.jobId)) throw new ModelNodeLaneAbandonedError(kind, job.jobId);
       verifyClaimToken(store, ctx.token, at());
     };
+    retryDecisions.delete(job.jobId);
     return new Promise<JobResult>((resolve, reject) => {
       executions.set(job.jobId, { token: ctx.token, abandon: reject });
       Promise.resolve()
         .then(() => handler!(job, { ...ctx, signal: abort.signal, ensureClaim }))
         .then(resolve, reject);
+    }).catch((cause: unknown) => {
+      // The consumer records this failure next; an abandoned claim was already released with the default.
+      let decision: ModelNodeRetryDecision | null = null;
+      try {
+        decision = abandoned.has(job.jobId) ? null : options.retry?.(job, cause) ?? null;
+      } catch (policyCause) {
+        log(`[model-node-lane] ${kind} retry policy failed for ${job.jobId}: ${errorMessage(policyCause)}`);
+      }
+      if (decision) retryDecisions.set(job.jobId, decision);
+      throw cause;
     }).finally(() => { executions.delete(job.jobId); });
   };
 

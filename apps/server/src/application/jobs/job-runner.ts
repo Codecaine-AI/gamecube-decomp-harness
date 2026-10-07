@@ -41,6 +41,7 @@ import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
 import { advisoryShadowReport } from "@server/application/jobs/advisory-shadow-report.js";
 import { advisoryCalibration } from "@server/application/jobs/advisory-calibration/index.js";
+import { checkpointKnowledge } from "@server/core/knowledge-v2/checkpoint-feed/cli.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 
 function jobOwnsStorageMigrations(command: string): boolean {
@@ -61,7 +62,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
     return;
   }
-  const { command, globals, args } = parse(argv);
+  // checkpoint-knowledge takes a positional subcommand (e.g. `backfill`); lift it to a flag for parse().
+  const lifted =
+    argv[0] === "checkpoint-knowledge" && argv[1] !== undefined && !argv[1].startsWith("--")
+      ? ["checkpoint-knowledge", "--subcommand", argv[1], ...argv.slice(2)]
+      : argv;
+  const { command, globals, args } = parse(lifted);
   if (globals.game) {
     loadLocalEnv({
       root: dirname(globals.game.localEnvPath),
@@ -78,6 +84,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (command === "validate-sandbox") await validateSandbox(globals, args);
     else if (command === "boundary-sync") await boundarySync(globals, args);
     else if (command === "advisory-shadow-report") await advisoryShadowReport(globals, args);
+    else if (command === "checkpoint-knowledge") await checkpointKnowledge(globals, args, argv);
     else if (command === "init-run") await initRun(globals, args);
     else if (command === "prepare-epoch") await prepareEpoch(globals, args);
     else if (command === "tick") await tick(globals, args);
