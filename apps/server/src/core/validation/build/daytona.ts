@@ -26,7 +26,26 @@ async function git(root: string, args: string[]): Promise<string> {
   return result.stdout;
 }
 
-export async function buildSourceIdentity(repoRoot: string): Promise<{ head: string; patch: string; files: Array<{ path: string; bytes: Buffer; executable: boolean }>; digest: string; tree: string }> {
+type BuildSourceIdentity = { head: string; patch: string; files: Array<{ path: string; bytes: Buffer; executable: boolean }>; digest: string; tree: string };
+
+/**
+ * Host integrations keep writing and committing into the shared checkout, so a
+ * single capture can straddle one: its patch and its tree then describe
+ * different checkouts and the sandbox tree never matches. Accept a capture only
+ * once two consecutive reads agree.
+ */
+export async function buildSourceIdentity(repoRoot: string, attempts = 5): Promise<BuildSourceIdentity> {
+  let previous = await captureSourceIdentity(repoRoot);
+  for (let attempt = 1; attempt < attempts; attempt += 1) {
+    const current = await captureSourceIdentity(repoRoot);
+    if (current.digest === previous.digest) return current;
+    previous = current;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+  }
+  throw new Error(`Build source kept changing across ${attempts} captures; refusing an inconsistent snapshot`);
+}
+
+async function captureSourceIdentity(repoRoot: string): Promise<BuildSourceIdentity> {
   const head = (await git(repoRoot, ["rev-parse", "HEAD"])).trim();
   // Pin every later read to this commit: an integration can move HEAD while the
   // identity is captured, and a tree from one commit with a patch against another
@@ -245,7 +264,7 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     if (result.exitCode !== 0) throw new Error(`Daytona build runner failed (${result.exitCode}): ${result.stderr || result.stdout}`);
     const response: BuildResponse = JSON.parse(await sandbox.readFile("/tmp/build-result.json"));
     await writeFile(resolve(evidenceDir, "result.json"), JSON.stringify(response, null, 2));
-    const checkoutMoved = (await buildSourceIdentity(repoRoot)).digest !== source.digest;
+    const checkoutMoved = (await captureSourceIdentity(repoRoot)).digest !== source.digest;
     // A QA scan reads lint policy from the checkout and scans a diff file; its
     // verdict holds for the snapshot it ran on even when integrations move the
     // shared checkout meanwhile. It still never publishes into a moved checkout.
@@ -274,7 +293,7 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
       stagedArtifacts.push([staged, local]);
     }
     try {
-      if (!failed && !checkoutMoved && (await buildSourceIdentity(repoRoot)).digest !== source.digest) throw new Error("Checkout changed during artifact transfer; rejecting stale artifacts");
+      if (!failed && !checkoutMoved && (await captureSourceIdentity(repoRoot)).digest !== source.digest) throw new Error("Checkout changed during artifact transfer; rejecting stale artifacts");
       for (const [staged, local] of stagedArtifacts) {
         const adjacent = `${local}.${id}.tmp`;
         try { await copyFile(staged, adjacent); await rename(adjacent, local); }

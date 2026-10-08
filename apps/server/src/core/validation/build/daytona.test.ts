@@ -85,6 +85,15 @@ describe("Daytona build execution", () => {
     ];
     for (const call of calls) await expect(call()).rejects.toThrow("No registered");
   });
+  test("source identity waits for a checkout that is mid-write to settle", async () => {
+    const f = await fixture();
+    let writes = 0;
+    const writer = setInterval(() => { if (writes < 3) void writeFile(resolve(f.repo, "source.c"), `write ${writes++}\n`); }, 20);
+    try {
+      const source = await buildSourceIdentity(f.repo, 20);
+      expect(source.patch).toContain(`+${(await readFile(resolve(f.repo, "source.c"), "utf8")).trim()}`);
+    } finally { clearInterval(writer); }
+  });
   test("captures dirty, staged and executable untracked input without changing host index", async () => {
     const f = await fixture();
     await writeFile(resolve(f.repo, "source.c"), "staged\n"); f.git(["add", "source.c"]);
