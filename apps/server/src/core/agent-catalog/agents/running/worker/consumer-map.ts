@@ -42,6 +42,9 @@ interface ConsumerMapCache {
   grep_headers: string[];
 }
 
+/** Object target (repo-relative, e.g. `build/GALE01/src/x.o`) -> real repo-relative source path. */
+export type ObjectSourceMap = Map<string, string>;
+
 interface ParsedNinjaDeps {
   consumersByHeader: Record<string, string[]>;
   sourceUnitCount: number;
@@ -68,6 +71,33 @@ function repoRelativePath(value: string, repoRoot: string): string | null {
   return normalized;
 }
 
+const SOURCE_EXTENSIONS = [".c", ".cp", ".cpp", ".cc", ".cxx"] as const;
+const CPP_SOURCE_EXTENSIONS = [".cp", ".cpp", ".cc", ".cxx"] as const;
+const HEADER_EXTENSIONS = [".h", ".hpp", ".hh", ".hxx", ".inc", ".tpp", ".ipp"] as const;
+
+function hasExtension(path: string, extensions: readonly string[]): boolean {
+  const lower = path.toLowerCase();
+  return extensions.some((extension) => lower.endsWith(extension));
+}
+
+/** A compilable translation unit under `src/` or a configure.py library root `libs/<lib>/src/`. */
+export function isTranslationUnitSource(path: string): boolean {
+  return (path.startsWith("src/") || /^libs\/[^/]+\/src\//.test(path)) && hasExtension(path, SOURCE_EXTENSIONS);
+}
+
+/**
+ * Header-like dependency: a known header extension, or an extensionless file in
+ * an include tree (C++ standard headers such as MSL `new`/`memory`). Build
+ * outputs (precompiled `.mch`, generated files) are never edit targets.
+ */
+export function isHeaderDependency(path: string): boolean {
+  if (path.startsWith("build/") || isTranslationUnitSource(path)) return false;
+  if (hasExtension(path, HEADER_EXTENSIONS)) return true;
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  return !name.includes(".") && /(?:^|\/)include\//.test(path);
+}
+
+/** Melee-era fallback: only for C games, where `build/<ver>/src/x.o` comes from `src/x.c`. */
 function sourceFromObjectTarget(target: string, repoRoot: string): string | null {
   const normalized = repoRelativePath(target, repoRoot);
   if (!normalized) return null;
@@ -75,28 +105,68 @@ function sourceFromObjectTarget(target: string, repoRoot: string): string | null
   return match ? `src/${match[1]}.c` : null;
 }
 
-function sourceForDepsBlock(target: string, deps: string[], repoRoot: string): string | null {
+function sourceForDepsBlock(
+  target: string,
+  deps: string[],
+  repoRoot: string,
+  objectSources: ObjectSourceMap | undefined,
+  allowObjectFallback: boolean,
+): string | null {
+  const normalizedTarget = repoRelativePath(target, repoRoot);
+  // objdiff.json `base_path` -> `metadata.source_path` is authoritative: configure.py
+  // remaps `libs/<lib>/src/x` to object `build/<ver>/src/<lib>/x.o`, and the compiler's
+  // depfile then names the (nonexistent) `src/<lib>/x` path.
+  const mapped = normalizedTarget ? objectSources?.get(normalizedTarget) : undefined;
+  if (mapped) return mapped;
   for (const dep of deps) {
     const normalized = repoRelativePath(dep, repoRoot);
-    if (normalized?.startsWith("src/") && normalized.endsWith(".c")) return normalized;
+    if (normalized && isTranslationUnitSource(normalized)) return normalized;
   }
-  return sourceFromObjectTarget(target, repoRoot);
+  return allowObjectFallback ? sourceFromObjectTarget(target, repoRoot) : null;
 }
 
-function parseNinjaDepsDetailed(output: string, repoRoot: string): ParsedNinjaDeps {
+/** Build object target -> source path from objdiff.json units (`base_path`, `metadata.source_path`). */
+export function parseObjdiffObjectSources(raw: string, repoRoot: string): ObjectSourceMap {
+  const map: ObjectSourceMap = new Map();
+  let config: unknown;
+  try {
+    config = JSON.parse(raw);
+  } catch {
+    return map;
+  }
+  const units = config && typeof config === "object" && Array.isArray((config as { units?: unknown }).units)
+    ? (config as { units: unknown[] }).units
+    : [];
+  for (const unit of units) {
+    if (!unit || typeof unit !== "object") continue;
+    const { base_path: basePath, metadata } = unit as { base_path?: unknown; metadata?: unknown };
+    const sourcePath = metadata && typeof metadata === "object" ? (metadata as { source_path?: unknown }).source_path : undefined;
+    if (typeof basePath !== "string" || typeof sourcePath !== "string") continue;
+    const object = repoRelativePath(basePath, repoRoot);
+    const source = repoRelativePath(sourcePath, repoRoot);
+    if (object && source && isTranslationUnitSource(source)) map.set(object, source);
+  }
+  return map;
+}
+
+function parseNinjaDepsDetailed(output: string, repoRoot: string, objectSources?: ObjectSourceMap): ParsedNinjaDeps {
   const consumers = new Map<string, Set<string>>();
   let sourceUnitCount = 0;
   let currentTarget: string | null = null;
   let currentDeps: string[] = [];
+  // Never invent `src/x.c` for a C++ game: a `.cpp`-sourced object must not map to a `.c` path.
+  const allowObjectFallback = !output
+    .split(/\r?\n/)
+    .some((line) => /^\s+\S/.test(line) && hasExtension(line.trim(), CPP_SOURCE_EXTENSIONS));
 
   const finishBlock = (): void => {
     if (!currentTarget) return;
-    const sourcePath = sourceForDepsBlock(currentTarget, currentDeps, repoRoot);
+    const sourcePath = sourceForDepsBlock(currentTarget, currentDeps, repoRoot, objectSources, allowObjectFallback);
     if (sourcePath && currentDeps.length > 0) {
       sourceUnitCount += 1;
       for (const dep of currentDeps) {
         const headerPath = repoRelativePath(dep, repoRoot);
-        if (!headerPath?.endsWith(".h")) continue;
+        if (!headerPath || !isHeaderDependency(headerPath)) continue;
         const headerConsumers = consumers.get(headerPath) ?? new Set<string>();
         headerConsumers.add(sourcePath);
         consumers.set(headerPath, headerConsumers);
@@ -128,8 +198,8 @@ function parseNinjaDepsDetailed(output: string, repoRoot: string): ParsedNinjaDe
 }
 
 /** Parse `ninja -t deps` output into header -> repo-relative source translation units. */
-export function parseNinjaDeps(output: string, repoRoot: string): Record<string, string[]> {
-  return parseNinjaDepsDetailed(output, repoRoot).consumersByHeader;
+export function parseNinjaDeps(output: string, repoRoot: string, objectSources?: ObjectSourceMap): Record<string, string[]> {
+  return parseNinjaDepsDetailed(output, repoRoot, objectSources).consumersByHeader;
 }
 
 function cacheRevToken(baseRev: string): string {
@@ -205,7 +275,7 @@ function grepConsumers(stdout: string, repoRoot: string): string[] {
   const consumers = stdout
     .split(/\r?\n/)
     .map((line) => repoRelativePath(line, repoRoot))
-    .filter((path): path is string => Boolean(path?.startsWith("src/") && path.endsWith(".c")));
+    .filter((path): path is string => Boolean(path && isTranslationUnitSource(path)));
   return [...new Set(consumers)].sort();
 }
 
@@ -233,7 +303,14 @@ export async function resolveHeaderConsumers(options: ResolveHeaderConsumersOpti
   try {
     const deps = await commandRunner(options.repoRoot, ["ninja", "-t", "deps"]);
     if (deps.exitCode === 0) {
-      const parsed = parseNinjaDepsDetailed(deps.stdout, options.repoRoot);
+      let objectSources: ObjectSourceMap | undefined;
+      try {
+        const objdiff = await commandRunner(options.repoRoot, ["cat", "objdiff.json"]);
+        if (objdiff.exitCode === 0) objectSources = parseObjdiffObjectSources(objdiff.stdout, options.repoRoot);
+      } catch {
+        // Without objdiff.json the deps list (and, for C games, the object target) still apply.
+      }
+      const parsed = parseNinjaDepsDetailed(deps.stdout, options.repoRoot, objectSources);
       if (parsed.sourceUnitCount > 0) {
         const completeCache: ConsumerMapCache = {
           schema_version: "consumer_map_v1",
@@ -260,14 +337,18 @@ export async function resolveHeaderConsumers(options: ResolveHeaderConsumersOpti
     const grep = await commandRunner(options.repoRoot, [
       "grep",
       "-rl",
-      "--include=*.c",
+      ...SOURCE_EXTENSIONS.map((extension) => `--include=*${extension}`),
       "-F",
       basename(headerPath),
       "src",
+      "libs",
     ]);
     if (grep.exitCode === 0 || grep.exitCode === 1) {
       consumers = grepConsumers(grep.stdout, options.repoRoot);
       grepCacheable = true;
+    } else if (grep.exitCode === 2 && grep.stdout.trim()) {
+      // A missing search root (e.g. no `libs/`) still yields usable matches; don't cache a partial scan.
+      consumers = grepConsumers(grep.stdout, options.repoRoot);
     }
   } catch {
     // Keep the scoped check empty/unavailable to its caller; never auto-escalate.
