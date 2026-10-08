@@ -31,9 +31,9 @@ export const SECRET_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|COOK
  * AUTH). Allowlisted by name only; no value is ever judged harmless.
  */
 export const NOT_CREDENTIALS: ReadonlySet<string> = new Set(["SSH_AUTH_SOCK", "XAUTHORITY", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE"]);
-/** A whitespace-free run holding at least one %XX escape (raw characters inside it decode as themselves). */
-const PERCENT_RUN = /\S*%[0-9A-Fa-f]{2}\S*/g;
-const PERCENT_ESCAPE = /^%[0-9A-Fa-f]{2}/;
+/** Whitespace-free runs (found in one linear pass); only those holding a %XX escape are decoded. */
+const WHITESPACE_FREE_RUN = /\S+/g;
+const HAS_PERCENT_ESCAPE = /%[0-9A-Fa-f]{2}/;
 /** Base64 characters (both alphabets) with whitespace inside, then optional padding. */
 const BASE64_RUN = /[A-Za-z0-9+/_-](?:[A-Za-z0-9+/_-]|\s)*={0,2}/g;
 /** Shorter values are too likely to occur by chance to replace everywhere; the kernel refuses credentials this short anyway. */
@@ -100,28 +100,46 @@ function byteMatches(bytes: Buffer, needle: Buffer): Array<[number, number]> {
   return found;
 }
 
+function isHex(code: number): boolean {
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 70) || (code >= 97 && code <= 102);
+}
+
+function isWhitespace(code: number): boolean {
+  return code === 32 || (code >= 9 && code <= 13) || code === 0xa0 || code === 0x2028 || code === 0x2029 || code === 0xfeff;
+}
+
 /**
  * Secrets inside percent-encoded runs (any case, escaped unreserved characters,
  * raw characters mixed in), matched on the decoded bytes; the span covers
- * exactly the characters that encode them.
+ * exactly the characters that encode them. Linear: runs are split once and
+ * each character is visited once.
  */
 function percentEncodedSpans(text: string, secrets: ReadonlyArray<[string, Buffer]>): Span[] {
   const spans: Span[] = [];
-  for (const match of text.matchAll(PERCENT_RUN)) {
+  for (const match of text.matchAll(WHITESPACE_FREE_RUN)) {
     const run = match[0];
+    if (!HAS_PERCENT_ESCAPE.test(run)) continue;
     const bytes: number[] = [];
     const starts: number[] = [];
     const ends: number[] = [];
+    const push = (byte: number, from: number, to: number) => {
+      bytes.push(byte);
+      starts.push(match.index + from);
+      ends.push(match.index + to);
+    };
     for (let i = 0; i < run.length; ) {
-      const escape = PERCENT_ESCAPE.exec(run.slice(i));
-      const char = escape ? escape[0] : String.fromCodePoint(run.codePointAt(i)!);
-      const encoded = escape ? [Number.parseInt(char.slice(1), 16)] : [...Buffer.from(char, "utf8")];
-      for (const byte of encoded) {
-        bytes.push(byte);
-        starts.push(match.index + i);
-        ends.push(match.index + i + char.length);
+      const code = run.charCodeAt(i);
+      if (code === 37 && i + 2 < run.length && isHex(run.charCodeAt(i + 1)) && isHex(run.charCodeAt(i + 2))) {
+        push(Number.parseInt(run.slice(i + 1, i + 3), 16), i, i + 3);
+        i += 3;
+      } else if (code < 128) {
+        push(code, i, i + 1);
+        i += 1;
+      } else {
+        const char = String.fromCodePoint(run.codePointAt(i)!);
+        for (const byte of Buffer.from(char, "utf8")) push(byte, i, i + char.length);
+        i += char.length;
       }
-      i += char.length;
     }
     const decoded = Buffer.from(bytes);
     for (const [name, needle] of secrets) {
@@ -134,32 +152,35 @@ function percentEncodedSpans(text: string, secrets: ReadonlyArray<[string, Buffe
 }
 
 /**
- * Secrets inside base64 runs, matched on the decoded bytes at each of the
- * four alignments, whitespace inside the run ignored; the span covers the
- * base64 groups that encode them.
+ * Secrets inside base64 runs (either alphabet, whitespace inside allowed so a
+ * wrapped or split blob still decodes), matched on the decoded bytes at each
+ * of the four alignments. Each match maps to exactly the characters carrying
+ * its bits (byte i holds bits 8i..8i+7, character k bits 6k..6k+5), plus the
+ * run's trailing padding when the match reaches its end; neighbours, including
+ * a word before it or a slash after it, are kept. Linear in the run.
  */
 function base64Spans(text: string, secrets: ReadonlyArray<[string, Buffer]>): Span[] {
   const spans: Span[] = [];
   const shortest = Math.min(...secrets.map(([, needle]) => needle.length));
   for (const match of text.matchAll(BASE64_RUN)) {
     const positions: number[] = [];
-    let stripped = "";
+    const chars: string[] = [];
     for (let i = 0; i < match[0].length; i += 1) {
-      const char = match[0][i]!;
-      if (/\s/.test(char) || char === "=") continue;
+      const code = match[0].charCodeAt(i);
+      if (code === 61 || isWhitespace(code)) continue;
       positions.push(match.index + i);
-      stripped += char;
+      chars.push(match[0][i]!);
     }
-    if (stripped.length < Math.ceil((shortest * 4) / 3)) continue;
+    if (chars.length < Math.ceil((shortest * 4) / 3)) continue;
+    const stripped = chars.join("");
     for (let offset = 0; offset < 4; offset += 1) {
       const decoded = Buffer.from(stripped.slice(offset), "base64");
       for (const [name, needle] of secrets) {
         for (const [first, last] of byteMatches(decoded, needle)) {
-          const startChar = offset + Math.floor(first / 3) * 4;
-          const endChar = Math.min(stripped.length, offset + Math.floor(last / 3) * 4 + 4);
-          let end = positions[endChar - 1]! + 1;
-          // The run's own padding goes with its last group.
-          if (endChar === stripped.length) while (text[end] === "=") end += 1;
+          const startChar = offset + Math.floor((8 * first) / 6);
+          const lastChar = Math.min(chars.length - 1, offset + Math.floor((8 * last + 7) / 6));
+          let end = positions[lastChar]! + 1;
+          if (lastChar === chars.length - 1) while (text[end] === "=") end += 1;
           spans.push({ start: positions[startChar]!, end, token: false, name, nameLength: needle.length });
         }
       }

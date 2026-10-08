@@ -159,6 +159,40 @@ describe("history sanitizer", () => {
     expect(sanitize("see %2Fusr%2Fbin and the YWJjL2RlZitnaGk= value")).toBe(`see %2Fusr%2Fbin and the ${marker} value`);
   });
 
+  test("decoded matching is linear: 256 KiB without escapes or with invalid escapes stays fast (F19)", () => {
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SERVICE_PASSWORD: "abc/def+ghi" } });
+    const size = 256 * 1024;
+    const inputs = [
+      "x".repeat(size),
+      "%zz".repeat(size / 3),
+      `${"x".repeat(size)}%2`,
+      "word ".repeat(size / 5),
+      `${"y".repeat(size)}%41`,
+    ];
+    for (const input of inputs) {
+      const started = performance.now();
+      expect(sanitize(input)).toBe(input);
+      // Quadratic scanning took seconds here; a generous bound keeps the test stable.
+      expect(performance.now() - started).toBeLessThan(250);
+    }
+  });
+
+  test("a base64 match removes exactly its own characters: neighbours in prose, paths and URLs stay (F20)", () => {
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SERVICE_PASSWORD: "abc/def+ghi" } });
+    const marker = "<redacted:env:SERVICE_PASSWORD>";
+    for (const [input, expected] of [
+      ["the YWJjL2RlZitnaGk value", `the ${marker} value`],
+      ["https://example.test/YWJjL2RlZitnaGk/next", `https://example.test/${marker}/next`],
+      ["/srv/data/YWJjL2RlZitnaGk", `/srv/data/${marker}`],
+      ["key=YWJjL2RlZitnaGk;", `key=${marker};`],
+      ["abYWJjL2RlZitnaGk", `ab${marker}`],
+      ["x YWJjL2RlZitnaGk_url", `x ${marker}_url`],
+    ] as const) {
+      expect(sanitize(input)).toBe(expected);
+      expect(JSON.stringify(sanitizeDeep({ [input]: [input] }, sanitize))).toBe(JSON.stringify({ [expected]: [expected] }));
+    }
+  });
+
   test("keys are scrubbed like values, and keys that scrub to one name are kept apart", () => {
     const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SECRET_TOKEN: "abcdefgh" } });
     const scrubbed = sanitizeDeep(
