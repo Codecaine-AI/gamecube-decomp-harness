@@ -53,7 +53,7 @@ async function fixture() {
     writeFile: async (remote, content) => { uploads.set(remote, content); },
   };
   const provider: SandboxProvider = { create: async params => { expect(params.ephemeral).toBe(true); expect(params.ttlMinutes).toBe(90); return handle; }, get: async () => handle, listByLabels: async () => [], delete: async () => { deleted++; } };
-  return { repo, root, source, report, git, uploads, commands, game, provider, get deleted() { return deleted; }, set response(value: Record<string, unknown>) { response = value; }, set onRun(value: () => Promise<void>) { onRun = value; }, run: (kind: "report" | "command" | "autofix" | "format-apply" = "report") => executeDaytonaBuild(repo, { kind, input: {} }, { game, provider, bundleWorker: async path => { await writeFile(path, "// fixture worker"); } }) };
+  return { repo, root, source, report, git, uploads, commands, game, provider, get deleted() { return deleted; }, set response(value: Record<string, unknown>) { response = value; }, set onRun(value: () => Promise<void>) { onRun = value; }, run: (kind: "report" | "command" | "autofix" | "format-apply" | "qa" = "report") => executeDaytonaBuild(repo, { kind, input: {} }, { game, provider, bundleWorker: async path => { await writeFile(path, "// fixture worker"); } }) };
 }
 
 describe("Daytona build execution", () => {
@@ -105,6 +105,12 @@ describe("Daytona build execution", () => {
   test("source changing during execution cannot publish stale reports", async () => {
     const f = await fixture(); f.onRun = async () => { await writeFile(resolve(f.repo, "source.c"), "concurrent\n"); };
     await expect(f.run()).rejects.toThrow("Checkout changed"); expect(await readFile(f.report, "utf8")).toBe("accepted"); expect(f.deleted).toBe(1);
+  });
+  test("a QA scan keeps its verdict when the shared checkout moves, without publishing into it", async () => {
+    const f = await fixture(); f.onRun = async () => { await writeFile(resolve(f.repo, "source.c"), "integrated\n"); };
+    f.response = { value: { exitCode: 0, result: { status: "passed" } }, artifacts: ["/work/sms/build/GMSJ01/report.json", "/tmp/build-task-logs/task.log"] };
+    expect(await f.run("qa")).toMatchObject({ exitCode: 0, result: { status: "passed" } });
+    expect(await readFile(f.report, "utf8")).toBe("accepted"); expect(f.deleted).toBe(1);
   });
   test("nonzero command result cannot replace reports", async () => {
     const f = await fixture(); f.response = { value: { exitCode: 1, stdout: "", stderr: "failed" }, artifacts: ["/work/sms/build/GMSJ01/report.json"] };

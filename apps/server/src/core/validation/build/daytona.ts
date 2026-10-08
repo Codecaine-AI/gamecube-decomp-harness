@@ -242,7 +242,11 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     if (result.exitCode !== 0) throw new Error(`Daytona build runner failed (${result.exitCode}): ${result.stderr || result.stdout}`);
     const response: BuildResponse = JSON.parse(await sandbox.readFile("/tmp/build-result.json"));
     await writeFile(resolve(evidenceDir, "result.json"), JSON.stringify(response, null, 2));
-    const stale = (await buildSourceIdentity(repoRoot)).digest !== source.digest;
+    const checkoutMoved = (await buildSourceIdentity(repoRoot)).digest !== source.digest;
+    // A QA scan reads lint policy from the checkout and scans a diff file; its
+    // verdict holds for the snapshot it ran on even when integrations move the
+    // shared checkout meanwhile. It still never publishes into a moved checkout.
+    const stale = checkoutMoved && task.kind !== "qa";
     // format-apply returns its diff in the value for the caller to apply on the host; the sandbox edit itself is expected.
     const unexpectedEdit = !!response.sourcePatch?.trim() && !["autofix", "precommit", "format-apply"].includes(task.kind);
     const value = response.value as { exitCode?: number; status?: string; ok?: boolean } | undefined;
@@ -251,7 +255,7 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     for (const remote of response.artifacts) {
       if (resolve(remote) !== remote) throw new Error(`Invalid build artifact: ${remote}`);
       const log = within(remoteLog, remote);
-      if (failed && !log) continue;
+      if ((failed || checkoutMoved) && !log) continue;
       const relativePath = relative(remoteRoot, remote);
       const allowed = /^(?:build|build-ci)\/[^\n]*\/(?:report(?:_changes)?|baseline)\.json$/.test(relativePath)
         || ["build.ninja", "objdiff.json", "compile_commands.json"].includes(relativePath);
@@ -267,7 +271,7 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
       stagedArtifacts.push([staged, local]);
     }
     try {
-      if (!failed && (await buildSourceIdentity(repoRoot)).digest !== source.digest) throw new Error("Checkout changed during artifact transfer; rejecting stale artifacts");
+      if (!failed && !checkoutMoved && (await buildSourceIdentity(repoRoot)).digest !== source.digest) throw new Error("Checkout changed during artifact transfer; rejecting stale artifacts");
       for (const [staged, local] of stagedArtifacts) {
         const adjacent = `${local}.${id}.tmp`;
         try { await copyFile(staged, adjacent); await rename(adjacent, local); }
