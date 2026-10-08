@@ -156,10 +156,16 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     // (git bundle only records refs, never raw ids).
     const baselineRevision = task.kind === "symbol-check" && typeof task.input.baselineRevision === "string" ? task.input.baselineRevision : null;
     const baselineRef = baselineRevision ? `refs/decomp-orchestrator/symbol-baseline/${id}` : null;
+    // Bundle a ref pinned to the captured head, not HEAD: integrations keep
+    // committing to the shared checkout, and a HEAD that moves mid-bundle can
+    // leave the bundle empty or missing the captured commit as a tip.
+    const sourceRef = `refs/decomp-orchestrator/build-source/${id}`;
+    await git(repoRoot, ["update-ref", sourceRef, source.head]);
     if (baselineRef) await git(repoRoot, ["update-ref", baselineRef, baselineRevision!]);
     try {
-      await git(repoRoot, ["-c", "pack.threads=1", "bundle", "create", bundlePath, "HEAD", ...(baselineRef ? [baselineRef] : [])]);
+      await git(repoRoot, ["-c", "pack.threads=1", "bundle", "create", bundlePath, sourceRef, ...(baselineRef ? [baselineRef] : [])]);
     } finally {
+      await git(repoRoot, ["update-ref", "-d", sourceRef]).catch(() => undefined);
       if (baselineRef) await git(repoRoot, ["update-ref", "-d", baselineRef]).catch(() => undefined);
     }
     await sandbox.uploadFile(bundlePath, "/tmp/build-source.bundle");
