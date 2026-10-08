@@ -187,6 +187,12 @@ describe("history sanitizer", () => {
       ["key=YWJjL2RlZitnaGk;", `key=${marker};`],
       ["abYWJjL2RlZitnaGk", `ab${marker}`],
       ["x YWJjL2RlZitnaGk_url", `x ${marker}_url`],
+      // Unicode spaces are whitespace everywhere (F21): the run regex and the stripping agree.
+      ["wo\u2003rd YWJjL2RlZitnaGk value", `wo\u2003rd ${marker} value`],
+      ["the YWJjL2Rl\u3000ZitnaGk= value", `the ${marker} value`],
+      ["the YWJjL2Rl\u202fZitnaGk\u1680value", `the ${marker}\u1680value`],
+      ["x\u2009abc%2fdef%2bghi\u2009y", `x\u2009${marker}\u2009y`],
+      ["\u205fpre%61bc%2Fdef%2Bghi\u3000post", `\u205fpre${marker}\u3000post`],
     ] as const) {
       expect(sanitize(input)).toBe(expected);
       expect(JSON.stringify(sanitizeDeep({ [input]: [input] }, sanitize))).toBe(JSON.stringify({ [expected]: [expected] }));

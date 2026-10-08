@@ -104,9 +104,8 @@ function isHex(code: number): boolean {
   return (code >= 48 && code <= 57) || (code >= 65 && code <= 70) || (code >= 97 && code <= 102);
 }
 
-function isWhitespace(code: number): boolean {
-  return code === 32 || (code >= 9 && code <= 13) || code === 0xa0 || code === 0x2028 || code === 0x2029 || code === 0xfeff;
-}
+/** The one whitespace definition: JavaScript `\s`, as in BASE64_RUN and WHITESPACE_FREE_RUN (Unicode spaces included). */
+const WHITESPACE = /\s/;
 
 /**
  * Secrets inside percent-encoded runs (any case, escaped unreserved characters,
@@ -166,10 +165,10 @@ function base64Spans(text: string, secrets: ReadonlyArray<[string, Buffer]>): Sp
     const positions: number[] = [];
     const chars: string[] = [];
     for (let i = 0; i < match[0].length; i += 1) {
-      const code = match[0].charCodeAt(i);
-      if (code === 61 || isWhitespace(code)) continue;
+      const char = match[0][i]!;
+      if (char === "=" || WHITESPACE.test(char)) continue;
       positions.push(match.index + i);
-      chars.push(match[0][i]!);
+      chars.push(char);
     }
     if (chars.length < Math.ceil((shortest * 4) / 3)) continue;
     const stripped = chars.join("");
