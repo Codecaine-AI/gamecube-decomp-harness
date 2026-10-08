@@ -104,7 +104,8 @@ export interface DaytonaSandboxProviderOptions {
 }
 
 const DEFAULT_TRANSIENT_RETRY_DELAYS_MS = [2_000, 5_000] as const;
-const TRANSIENT_DAYTONA_FAILURE = /status code 50[234]\b|socket hang up|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed/i;
+// The gateway sometimes answers with its raw HTML error page instead of a JSON error.
+const TRANSIENT_DAYTONA_FAILURE = /status code 50[234]\b|\b50[234] (?:Bad Gateway|Service Temporarily Unavailable|Service Unavailable|Gateway Time-out|Gateway Timeout)\b|socket hang up|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed/i;
 
 export function isTransientDaytonaFailure(error: unknown): boolean {
   return TRANSIENT_DAYTONA_FAILURE.test(error instanceof Error ? error.message : String(error));
@@ -284,7 +285,11 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   async create(params: SandboxCreateParams): Promise<SandboxHandle> {
-    const sandbox = await (await this.client()).create({
+    const client = await this.client();
+    // Only ephemeral (build) sandboxes retry creation: a duplicate left by a lost
+    // response stops on inactivity and deletes itself. Worker sandboxes have
+    // their own reprovision and reconciliation path.
+    const createOnce = () => client.create({
       snapshot: params.snapshot,
       labels: { ...params.labels },
       // Daytona API: "Cannot specify Sandbox resources when using a snapshot".
@@ -292,6 +297,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       ...(params.ephemeral ? { autoDeleteInterval: 0 } : {}),
       ttlMinutes: params.ttlMinutes,
     });
+    const sandbox = params.ephemeral ? await retryTransient(this.retryDelaysMs, createOnce) : await createOnce();
     return handle(sandbox, this.retryDelaysMs);
   }
 

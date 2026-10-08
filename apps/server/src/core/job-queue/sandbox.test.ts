@@ -345,6 +345,30 @@ describe("DaytonaSandboxProvider", () => {
     expect(calls.filter((name) => name === "uploadFile")).toHaveLength(1);
   });
 
+  test("retries ephemeral creation through a gateway HTML error page, never worker creation", async () => {
+    const gatewayPage = "<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n</html>";
+    let creates = 0;
+    const sdkSandbox = { id: "daytona-build", labels: {} };
+    const provider = new DaytonaSandboxProvider({
+      readApiKey: () => "test-key",
+      clientFactory: () => ({
+        create: async () => {
+          creates += 1;
+          if (creates % 2 === 1) throw new Error(gatewayPage);
+          return sdkSandbox as never;
+        },
+        get: async () => sdkSandbox as never,
+        list: () => [],
+      }),
+      transientRetryDelaysMs: [0, 0],
+    });
+
+    expect((await provider.create({ ...createParams, ephemeral: true })).sandboxId).toBe("daytona-build");
+    expect(creates).toBe(2);
+    await expect(provider.create(createParams)).rejects.toThrow("502 Bad Gateway");
+    expect(creates).toBe(3);
+  });
+
   test("throws a clear missing-key error only when first used", async () => {
     const provider = new DaytonaSandboxProvider({
       readApiKey: () => undefined,
