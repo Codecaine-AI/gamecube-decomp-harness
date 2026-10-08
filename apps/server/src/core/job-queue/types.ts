@@ -1,7 +1,14 @@
 import type { JsonObject } from "@server/core/harness-state/events.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 
-export const JOB_KINDS = ["worker", "knowledge_absorption", "worker_summary", "integration"] as const;
+export const JOB_KINDS = [
+  "worker",
+  "knowledge_absorption",
+  "worker_summary",
+  "integration",
+  "checkpoint_adjudication",
+  "checkpoint_knowledge",
+] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_STATUSES = ["queued", "claimed", "running", "waiting", "succeeded", "failed", "cancelled"] as const;

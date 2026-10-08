@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import {
   createBashToolDefinition,
   type BashOperations,
-} from "@earendil-works/pi-coding-agent";
+} from "@agent-kernel/kernel/pi-sdk";
 import type { AgentContextResolver } from "@agent-kernel/kernel/context";
 import type { ParsedAgent } from "@agent-kernel/kernel/spawn-pipeline";
 import type { PiRunResult, RuntimeAgentRole } from "@server/core/shared/types";

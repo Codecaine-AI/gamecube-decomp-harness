@@ -2,7 +2,9 @@ import { remoteBuildsEnabled } from "@server/core/validation/build/execution.js"
 import { basename, dirname } from "node:path";
 
 import { closeDefaultMeleeKernelRuntime, resetDefaultMeleeKernelRuntimeForTests } from "@server/infrastructure/kernel/bridge/runtime";
+import { closeNodeKernel } from "@server/infrastructure/kernel/nodes/node-kernel";
 import { loadLocalEnv } from "@server/infrastructure/env";
+import { loadCodecaineEnv } from "@server/infrastructure/env/codecaine-env";
 import { configureGlobalCompileJobserver } from "@server/infrastructure/shell/global-compile-jobserver";
 import { parse } from "@server/core/game-registry/runtime-options.js";
 import { kg2Backfill } from "@server/core/knowledge-v2/backfill/cli.js";
@@ -37,6 +39,9 @@ import { regressionCheck } from "@server/core/validation/jobs/regression-check.j
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
+import { advisoryShadowReport } from "@server/application/jobs/advisory-shadow-report.js";
+import { advisoryCalibration } from "@server/application/jobs/advisory-calibration/index.js";
+import { checkpointKnowledge } from "@server/core/knowledge-v2/checkpoint-feed/cli.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 
 function jobOwnsStorageMigrations(command: string): boolean {
@@ -45,7 +50,28 @@ function jobOwnsStorageMigrations(command: string): boolean {
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
-  const { command, globals, args } = parse(argv);
+  loadCodecaineEnv();
+  if (argv[0] === "advisory-calibration") {
+    // Own positional-subcommand grammar; history is read only via --source-root.
+    try {
+      await advisoryCalibration(argv.slice(1));
+    } finally {
+      try {
+        // The node kernel writes through the melee kernel runtime's DB: flush it first.
+        await closeNodeKernel();
+      } finally {
+        await closeDefaultMeleeKernelRuntime();
+        resetDefaultMeleeKernelRuntimeForTests();
+      }
+    }
+    return;
+  }
+  // checkpoint-knowledge takes a positional subcommand (e.g. `backfill`); lift it to a flag for parse().
+  const lifted =
+    argv[0] === "checkpoint-knowledge" && argv[1] !== undefined && !argv[1].startsWith("--")
+      ? ["checkpoint-knowledge", "--subcommand", argv[1], ...argv.slice(2)]
+      : argv;
+  const { command, globals, args } = parse(lifted);
   if (globals.game) {
     loadLocalEnv({
       root: dirname(globals.game.localEnvPath),
@@ -61,6 +87,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   try {
     if (command === "validate-sandbox") await validateSandbox(globals, args);
     else if (command === "boundary-sync") await boundarySync(globals, args);
+    else if (command === "advisory-shadow-report") await advisoryShadowReport(globals, args);
+    else if (command === "checkpoint-knowledge") await checkpointKnowledge(globals, args, argv);
     else if (command === "init-run") await initRun(globals, args);
     else if (command === "prepare-epoch") await prepareEpoch(globals, args);
     else if (command === "tick") await tick(globals, args);
@@ -94,8 +122,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   } finally {
     if (previousMigrationMode === undefined) delete process.env[STATE_MIGRATION_MODE_ENV];
     else process.env[STATE_MIGRATION_MODE_ENV] = previousMigrationMode;
-    await closeDefaultMeleeKernelRuntime();
-    resetDefaultMeleeKernelRuntimeForTests();
+    try {
+      // The node kernel writes through the melee kernel runtime's DB: flush it first.
+      await closeNodeKernel();
+    } finally {
+      await closeDefaultMeleeKernelRuntime();
+      resetDefaultMeleeKernelRuntimeForTests();
+    }
   }
 
   if (command === "worker-task") {

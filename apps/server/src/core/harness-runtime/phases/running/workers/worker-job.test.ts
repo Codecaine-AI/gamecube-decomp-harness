@@ -25,7 +25,7 @@ import {
   workerKernelOps,
   type WorkerJobRunContext,
 } from "./worker-job.js";
-import { runWorkerCycleFromTask, type WorkerCycleResult } from "./worker-cycle.js";
+import { readWorkerTaskFile, runWorkerCycleFromTask, type WorkerCycleResult } from "./worker-cycle.js";
 
 const tempDirs: string[] = [];
 
@@ -67,7 +67,7 @@ function fixture() {
     ttlSeconds: 1800, sandboxSleep: true, sandboxSleepDebounceMs: 1_000,
     concurrencyLimit: 1, thinkingLevel: "medium",
     postReturnCheckCommand: "check", workerConfigureCommand: "configure", graphDbPath: resolve(stateDir, "graph.db"),
-    writeSetFlags: { writeSetWidening: "off" }, workerIdPrefix: "test",
+    writeSetFlags: { writeSetWidening: "off" }, advisoryAdjudication: "shadow", workerIdPrefix: "test",
   };
   const epochTargetId = String((store.db.query("SELECT id FROM epoch_targets WHERE epoch_id = ?").get(epoch.id) as { id: string }).id);
   return { store, stateDir, ctx, run, epochId: epoch.id, epochTargetId };
@@ -327,6 +327,34 @@ describe("worker job kind", () => {
         sandbox_sleep_debounce_ms: 1_000,
       });
       expect(spec.worktree_path).toBeUndefined();
+    } finally { f.store.db.close(); }
+  });
+
+  test("task file round-trips advisory_adjudication; a missing key reads as default", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      f.ctx.advisoryAdjudication = "off";
+      const result = claimSandboxJob(f);
+      const task = await buildWorkerTask(f.ctx, {
+        sandboxProvider: new FakeSandboxProvider(),
+        provisionSandbox: async (input) => ({ sandboxId: "sandbox-advisory-flag", workspaceRoot: input.workspaceRoot }),
+      })(result.job, { store: f.store, token: result.token });
+      const taskFile = task.command.at(-1)!;
+      const spec = JSON.parse(readFileSync(taskFile, "utf8")) as Record<string, unknown>;
+      expect(spec.advisory_adjudication).toBe("off");
+      const read = (body: Record<string, unknown>) => {
+        writeFileSync(taskFile, JSON.stringify(body));
+        return readWorkerTaskFile(new Map([["--task-file", taskFile]]));
+      };
+      expect((await read(spec)).advisory_adjudication).toBe("off");
+      expect((await read({ ...spec, advisory_adjudication: "enforce" })).advisory_adjudication).toBe("enforce");
+
+      const { advisory_adjudication: _omitted, ...legacy } = spec;
+      expect((await read(legacy)).advisory_adjudication).toBe("shadow");
+
+      await expect(read({ ...spec, advisory_adjudication: "strict" }))
+        .rejects.toThrow("Worker task advisory_adjudication must be one of: off, shadow, enforce");
     } finally { f.store.db.close(); }
   });
 

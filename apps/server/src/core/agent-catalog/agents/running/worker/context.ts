@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
+import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import type {
   PiPromptBundle,
   RunGameMetadata,
@@ -75,6 +76,8 @@ export interface WorkerPromptOptions {
   targetSourceText?: string | null;
   /** Explicit catalog/test fixtures; real workers load current names from the KB. */
   sourceNames?: readonly SourceName[];
+  /** Shadow and enforce ask for the `kept_advisories` note field; omitted renders `off`, today's text. */
+  advisoryAdjudication?: AdvisoryAdjudicationMode;
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -587,11 +590,17 @@ function workerTargetKnowledgeXml(
   ].join("\n");
 }
 
-function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget, game?: RunGameMetadata): string {
+function decompStandardsBudgetXml(
+  contextBudget: WorkerPromptContextBudget,
+  game: RunGameMetadata | undefined,
+  advisoryAdjudication: AdvisoryAdjudicationMode,
+): string {
   const mode = WORKER_CONTEXT_BUDGETS[contextBudget].standards;
   // Games with their own standards always get the full composed XML; a
   // global-only set can be summarized under tighter budgets.
-  if (mode === "full" || (game?.gameId && hasGameScopedStandards({ gameId: game.gameId }))) return globalStandardsPromptXml({ gameId: game?.gameId });
+  if (mode === "full" || (game?.gameId && hasGameScopedStandards({ gameId: game.gameId }))) {
+    return globalStandardsPromptXml({ gameId: game?.gameId }, { advisoryAdjudication });
+  }
   const rules =
     mode === "summary"
       ? [
@@ -605,9 +614,10 @@ function decompStandardsBudgetXml(contextBudget: WorkerPromptContextBudget, game
           "Local style, pre-existing dirty work, and runner evidence are required.",
           "Read local standards/source if a choice is ambiguous.",
         ];
+  const keptAdvisoryRecord = advisoryAdjudication === "off" ? "the attempt summary" : "`kept_advisories`";
   return [
     `    <decomp_standards context_budget="${contextBudget}" compacted="true">`,
-    `        <instruction>${xmlText("These are mandatory requirements enforced by lint and review. Repair every finding before an attempt is accepted; if an llm_review advisory is kept, justify it in the attempt summary.")}</instruction>`,
+    `        <instruction>${xmlText(`These are mandatory requirements enforced by lint and review. Repair every finding before an attempt is accepted; if an llm_review advisory is kept, justify it in ${keptAdvisoryRecord}.`)}</instruction>`,
     ...rules.map((rule) => `        <rule>${xmlText(rule)}</rule>`),
     "    </decomp_standards>",
   ].join("\n");
@@ -671,7 +681,7 @@ export function buildWorkerKernelContext(
     contextBudget,
   );
   const values = {
-    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game),
+    DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game, options.advisoryAdjudication ?? "off"),
     FIRST_DIFF_XML: inputXml.firstDiffXml,
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
     TARGET_XML: inputXml.targetXml,

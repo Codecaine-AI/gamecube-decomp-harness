@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
-import type { ExtensionContext, ExtensionFactory } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, ExtensionFactory } from "@agent-kernel/kernel/pi-sdk";
 import {
   createKernel as createLiveKernel,
   type CreateKernelConfig,
@@ -241,11 +241,13 @@ function buildKernelSpawnOptions({
   piOptions,
   runtime,
   spawnOptions,
+  onRunStarted,
 }: {
   context: MeleeKernelSpawnContext;
   piOptions: PiRunOptions;
   runtime: MeleeCreateSpawnAgentRuntime;
   spawnOptions?: MeleeKernelSpawnOptions;
+  onRunStarted?: KernelSpawnOptions["onRunStarted"];
 }): MeleeKernelPipelineSpawnOptions {
   const appSessionId = context.appSessionId;
   if (!appSessionId) {
@@ -287,6 +289,7 @@ function buildKernelSpawnOptions({
     trigger: "system",
     phase: context.phase ?? piOptions.role,
     displayLabel: leaf?.label ?? piOptions.role,
+    onRunStarted,
   };
 }
 
@@ -529,6 +532,9 @@ export function createMeleeKernelSpawnAgent(
     };
     const kernelSpawn = createSpawnAgent(adapters);
     const timeoutSignal = spawnSignalWithTimeout(spawnOptions?.abortSignal, options.piOptions);
+    // The kernel throws on its error path, so the run identity it reports at
+    // start is the only record of which run failed.
+    let startedRun: { runId: string; containerId: string } | undefined;
     const kernelOptions = buildKernelSpawnOptions({
       context: spawnContext,
       piOptions: options.piOptions,
@@ -536,6 +542,9 @@ export function createMeleeKernelSpawnAgent(
       spawnOptions: {
         ...spawnOptions,
         abortSignal: timeoutSignal.signal,
+      },
+      onRunStarted: (info) => {
+        startedRun = info;
       },
     });
     const userPrompt = options.contextResolver
@@ -576,6 +585,8 @@ export function createMeleeKernelSpawnAgent(
           failed: true,
           error: message,
           providerError,
+          kernelRunId: startedRun?.runId,
+          kernelContainerId: startedRun?.containerId,
         };
       } finally {
         timeoutSignal.cleanup();
@@ -612,6 +623,9 @@ export function createMeleeKernelSpawnAgent(
               : "Pi session aborted"
             : undefined,
           providerError,
+          kernelRunId: result.runId ?? startedRun?.runId,
+          kernelContainerId: result.containerId ?? startedRun?.containerId,
+          kernelPiSessionId: result.piSessionId,
         };
       } finally {
         result.session.dispose?.();

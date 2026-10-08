@@ -1,4 +1,5 @@
 import type { KernelPreviewOptions } from "@server/core/agent-catalog/kernel-preview.js";
+import { parseAdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
 
@@ -20,6 +21,14 @@ export async function handleAgentsApiRoute(url: URL, deps: AgentsApiRouteDeps): 
       return deps.json({ error: "target must use <unit>:<symbol>" }, { status: 400 });
     }
     options = { target: { unit, symbol } };
+  }
+  const rawMode = url.searchParams.get("advisory_adjudication");
+  if (rawMode !== null) {
+    try {
+      options = { ...options, advisoryAdjudication: parseAdvisoryAdjudicationMode(rawMode, "advisory_adjudication") };
+    } catch (error) {
+      return deps.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    }
   }
   const paths = deps.requestPaths(url, { useDefaultGame: true });
   return deps.json(deps.loadKernelAgentsPayload(paths, options));

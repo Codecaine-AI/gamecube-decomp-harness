@@ -6,6 +6,7 @@ import { evidenceFactIdIndexMigration } from "./003-evidence-fact-id-index.js";
 import { workerRunIntegrationDetailMigration } from "./004-worker-run-integration-detail.js";
 import { targetMovedToIdMigration } from "./005-target-moved-to-id.js";
 import { eventNoteCauseMigration } from "./006-event-note-cause.js";
+import { checkpointConfirmedPathwayMigration } from "./007-checkpoint-confirmed-pathway.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { KnowledgeStorageMigration } from "./types.js";
 
@@ -18,6 +19,7 @@ export const knowledgeStorageMigrations: readonly KnowledgeStorageMigration[] = 
   workerRunIntegrationDetailMigration,
   targetMovedToIdMigration,
   eventNoteCauseMigration,
+  checkpointConfirmedPathwayMigration,
 ]);
 
 interface AppliedMigrationRow {

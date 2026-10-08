@@ -10,6 +10,11 @@ import {
   type KernelAgentViewerDefinition,
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
+import {
+  ADVISORY_ADJUDICATION_ENV,
+  parseAdvisoryAdjudicationMode,
+  type AdvisoryAdjudicationMode,
+} from "@server/core/game-registry/runtime-options.js";
 import type { PiPromptBundle, RunGameMetadata } from "@server/core/shared/types";
 import { availableToolsPromptXml, type AgentToolRuntimeContext } from "@server/core/tools";
 import { workerSummarizerPrompt } from "@server/core/agent-catalog/agents/knowledge/worker-summarizer/index.js";
@@ -46,6 +51,8 @@ export interface KernelAgentCatalogContext {
 export interface KernelAgentsPayload {
   generatedAt: string;
   source: "sample";
+  /** The advisory adjudication mode the worker sample was rendered for. */
+  advisoryAdjudication: AdvisoryAdjudicationMode;
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
 }
@@ -54,6 +61,8 @@ type BackfillPreviewContext = Pick<BackfillPassContext, "fillOut" | "supporting"
 
 export interface KernelPreviewDeps {
   target?: KernelPreviewTarget;
+  /** Worker prompt mode; defaults to `ORCH_ADVISORY_ADJUDICATION` when set, else `off`. */
+  advisoryAdjudication?: AdvisoryAdjudicationMode;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
   loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
   buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
@@ -65,7 +74,15 @@ export interface KernelPreviewTarget {
   symbol: string;
 }
 
-export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target">;
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication">;
+
+// The server knows no run's `--advisory-adjudication` flag, only the env
+// override that wins over it; without one the preview shows today's `off` text.
+function previewAdvisoryAdjudication(deps: KernelPreviewDeps): AdvisoryAdjudicationMode {
+  if (deps.advisoryAdjudication) return deps.advisoryAdjudication;
+  const configured = process.env[ADVISORY_ADJUDICATION_ENV];
+  return configured === undefined ? "off" : parseAdvisoryAdjudicationMode(configured, ADVISORY_ADJUDICATION_ENV);
+}
 
 const DEFAULT_WORKER_PREVIEW_TARGET: KernelPreviewTarget = {
   unit: "main/melee/mn/mnvibration",
@@ -142,6 +159,7 @@ function realWorkerPrompt(
   paths: KernelAgentCatalogContext,
   deps: KernelPreviewDeps,
   target: KernelPreviewTarget,
+  advisoryAdjudication: AdvisoryAdjudicationMode,
 ): PiPromptBundle | null {
   const game = gameMetadata(paths);
   const cardLoader = deps.loadTargetCard ?? (game
@@ -189,6 +207,7 @@ function realWorkerPrompt(
     targetSourceText: checkoutPath && existsSync(checkoutPath)
       ? readFileSync(checkoutPath, "utf8")
       : `/* preview: source unavailable for ${sourcePath || `${target.unit}:${target.symbol}`} */\n`,
+    advisoryAdjudication,
   });
 }
 
@@ -249,12 +268,13 @@ function samplePrompt(
   agentId: KernelAgentId,
   paths: KernelAgentCatalogContext,
   deps: KernelPreviewDeps,
+  advisoryAdjudication: AdvisoryAdjudicationMode,
 ): PiPromptBundle {
   const game = gameMetadata(paths);
   switch (agentId) {
     case "worker":
       {
-        const real = realWorkerPrompt(paths, deps, deps.target ?? DEFAULT_WORKER_PREVIEW_TARGET);
+        const real = realWorkerPrompt(paths, deps, deps.target ?? DEFAULT_WORKER_PREVIEW_TARGET, advisoryAdjudication);
         if (real) return real;
       }
       return workerPrompt({
@@ -397,6 +417,7 @@ function samplePrompt(
           source_path: "src/melee/ft/chara/ftDemo.c", value: "ftDemo_UpdateGuardedState", confidence: 0.72,
           fact_id: "fact-kernel-viewer-name", updated_at: "2026-09-05T00:00:00Z",
         }],
+        advisoryAdjudication,
       });
     case "worker-summarizer": {
       const workerRunId = "run:31f060aa-de8d-49cc-adf0-601e8735dd4e";
@@ -601,10 +622,16 @@ export function loadKernelAgentsPayload(
 ): KernelAgentsPayload {
   const generatedAt = new Date().toISOString();
   const warnings: string[] = [];
+  let advisoryAdjudication: AdvisoryAdjudicationMode = "off";
+  try {
+    advisoryAdjudication = previewAdvisoryAdjudication(deps);
+  } catch (error) {
+    warnings.push(`Rendering the worker sample as off: ${error instanceof Error ? error.message : String(error)}`);
+  }
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
     try {
-      return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps), {
+      return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps, advisoryAdjudication), {
         generatedAt,
         renderedTools: renderedTools(entry, paths),
       });
@@ -623,6 +650,7 @@ export function loadKernelAgentsPayload(
   return {
     generatedAt,
     source: "sample",
+    advisoryAdjudication,
     agents,
     warnings,
   };

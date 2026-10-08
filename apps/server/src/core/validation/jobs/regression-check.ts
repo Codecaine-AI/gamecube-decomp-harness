@@ -8,10 +8,17 @@ import {
   type PrPromotionPolicy,
 } from "@server/core/validation/objdiff/report";
 import { runQaScanDiff, type QaScanInvocation } from "@server/core/validation/qa";
+import {
+  captureQaScanGuard,
+  gitHeadRev,
+  l2AcceptedAdvisoryOptions,
+  NO_RUN_SELECTED_RUN_ID,
+  type L2AcceptedAdvisoryOptions,
+} from "@server/core/validation/qa/accepted-advisories.js";
 import { runCommandStreaming } from "@server/infrastructure/shell";
 import { packageRoot } from "@server/core/knowledge";
 import { booleanArg, numberArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { composeHandoffVerdict, evaluateQaGate } from "./qa-gate.js";
+import { composeHandoffVerdict, evaluateQaGate, exemptedAdvisoriesNote } from "./qa-gate.js";
 
 // Progress narration goes to stderr so stdout stays a single JSON document
 // for callers like the dashboard server that parse it.
@@ -176,9 +183,16 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
   const qaScanPath = resolve(outputDir, "qa_scan.json");
   const qaScanTextPath = resolve(outputDir, "qa_scan.txt");
   let qaInvocation: QaScanInvocation | null = null;
+  let qaGateOptions: L2AcceptedAdvisoryOptions | undefined;
   if (skipQaGate) {
     trace("qa gate skipped via --skip-qa-gate");
   } else {
+    // Accepted llm_review advisories are honoured only for an explicitly
+    // selected harness run, against HEAD and the worktree as they were when
+    // the scan started.
+    const requestedRunId = runId === NO_RUN_SELECTED_RUN_ID ? null : runId;
+    const scanGuard = requestedRunId === null ? undefined : await captureQaScanGuard(globals.repoRoot);
+    const scanHeadRev = requestedRunId === null ? null : await gitHeadRev(globals.repoRoot);
     trace(`qa gate: review_lint scan_diff vs ${qaBaseRef}`);
     qaInvocation = await runQaScanDiff({
       repoRoot: globals.repoRoot,
@@ -193,8 +207,20 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
     await writeFile(qaScanPath, qaInvocation.stdout);
     await writeFile(qaScanTextPath, qaInvocation.stderr);
     trace(`qa gate exited ${qaInvocation.exitCode}${qaInvocation.toolError === null ? "" : ` (tool error: ${qaInvocation.toolError})`}`);
+    qaGateOptions = await l2AcceptedAdvisoryOptions({
+      stateDir: globals.stateDir,
+      requestedRunId,
+      repoRoot: globals.repoRoot,
+      headRev: scanHeadRev,
+      findings: qaInvocation.result?.findings ?? [],
+      scanGuard,
+      trace,
+    });
   }
-  const qaGate = evaluateQaGate(qaInvocation, skipQaGate);
+  const qaGate = evaluateQaGate(qaInvocation, skipQaGate, qaGateOptions);
+  if (qaGate.operatorMessage !== undefined) trace(qaGate.operatorMessage);
+  const qaExemptionNote = exemptedAdvisoriesNote(qaGate);
+  if (qaExemptionNote !== null) trace(qaExemptionNote);
 
   let reportError: string | null = null;
   let regressionCounts: Record<string, number> | null = null;
@@ -223,6 +249,20 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
   const regressionGatePassed = result.exitCode === 0 && reportError === null && !hasReportRegressions;
   const promotionBlocked = requirePrPromotion && prPromotion?.status !== "pr_ready";
   const { passed, status } = composeHandoffVerdict({ regressionGatePassed, promotionBlocked, qaGatePassed: qaGate.qaGatePassed });
+  const baseHint =
+    reportError !== null
+      ? "Inspect stdout/stderr and pr_report_error.txt. The regression gate could not parse build/GALE01/report_changes.json."
+      : hasReportRegressions
+        ? "Inspect pr_report.md and build/GALE01/report_changes.json. Broken matches, fuzzy regressions, or metric regressions must be fixed before PR handoff."
+        : result.exitCode !== 0
+          ? "Inspect stdout/stderr. If the baseline is missing, run ninja baseline on the upstream base before checking the branch."
+          : qaGate.hint !== null
+            ? qaGate.hint
+            : promotionHint(prPromotion, requirePrPromotion);
+  // A failing QA hint already names the exemptions; other hints get them appended.
+  const advisoryNotes = [baseHint === qaGate.hint ? null : qaExemptionNote, qaGate.operatorMessage ?? null].filter(
+    (note): note is string => note !== null,
+  );
   const summary = {
     status,
     exitCode: result.exitCode,
@@ -249,16 +289,18 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
     qaFindings: qaGate.qaFindings,
     qaCounts: qaGate.qaCounts,
     qaScanPath: skipQaGate ? null : qaScanPath,
-    hint:
-      reportError !== null
-        ? "Inspect stdout/stderr and pr_report_error.txt. The regression gate could not parse build/GALE01/report_changes.json."
-        : hasReportRegressions
-          ? "Inspect pr_report.md and build/GALE01/report_changes.json. Broken matches, fuzzy regressions, or metric regressions must be fixed before PR handoff."
-          : result.exitCode !== 0
-            ? "Inspect stdout/stderr. If the baseline is missing, run ninja baseline on the upstream base before checking the branch."
-            : qaGate.hint !== null
-              ? qaGate.hint
-              : promotionHint(prPromotion, requirePrPromotion),
+    // Present only when a harness run was selected or accepted advisories exist;
+    // qaFindings, qaCounts, and qaGateExitCode above stay the raw scan.
+    ...(qaGate.effective === undefined || qaGateOptions?.acceptedAdvisories === undefined
+      ? {}
+      : {
+          qaAcceptedAdvisoryRun: { runId: qaGateOptions.acceptedAdvisories.runId, headRev: qaGateOptions.acceptedAdvisories.headRev },
+          qaEffective: qaGate.effective,
+          qaExemptedAdvisories: qaGate.exemptedAdvisories ?? [],
+          qaBlockingAdvisories: qaGate.blockingAdvisories ?? [],
+        }),
+    ...(qaGate.operatorMessage === undefined ? {} : { qaOperatorMessage: qaGate.operatorMessage }),
+    hint: advisoryNotes.length > 0 ? `${baseHint} ${advisoryNotes.join(" ")}` : baseHint,
   };
   trace(
     `verdict: ${summary.status} (build exit ${result.exitCode}, regression gate ${regressionGatePassed ? "clean" : "dirty"}, ` +

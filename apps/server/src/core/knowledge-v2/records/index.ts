@@ -118,7 +118,7 @@ export type PullRequestEntryInput = SubjectRef & {
 
 export interface IndexTaskInput {
   id: string;
-  pathway: "run_closed" | "pr_imported" | "regression" | "archival_ingest" | "drift_recheck";
+  pathway: "run_closed" | "pr_imported" | "regression" | "archival_ingest" | "drift_recheck" | "checkpoint_confirmed";
   payload: string;
   enqueuedAt?: string;
 }

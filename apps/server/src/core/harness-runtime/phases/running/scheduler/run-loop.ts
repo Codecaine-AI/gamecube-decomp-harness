@@ -33,10 +33,14 @@ import {
   stringArg,
   syncMergePolicyArg,
   librarianConsumerFlag,
+  modelNodeFlags,
   workerSummaryFlag,
   writeSetIntegrationFlags,
   type GlobalArgs,
+  type ModelNodeFlags,
+  type WriteSetIntegrationFlags,
 } from "@server/core/game-registry/runtime-options.js";
+import type { AdvisoryAdjudicationConfig } from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication/config.js";
 import { assertSchedulableRun } from "@server/core/harness-runtime/phases/running/jobs/shared.js";
 import { settleRunOnExit } from "@server/core/harness-runtime/phases/running/jobs/settle-supervised-run.js";
 import {
@@ -46,7 +50,7 @@ import {
   schedulerEpochConfigFromArgs,
   type SchedulerTickResult,
 } from "@server/core/harness-runtime/phases/running/scheduler/tick.js";
-import { resolveBaseRev } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
+import { resolveBaseRev, resolveWorkerAdvisoryMode } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { startJobConsumer, type JobConsumerHandle } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
 import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
@@ -63,6 +67,7 @@ import {
 import { runKnowledgeMaintenance, type KnowledgeMaintenanceProgressEvent } from "@server/core/knowledge/jobs/kg.js";
 import { startWorkerSummaryProcessor } from "@server/core/knowledge-v2/summarizer-job/index.js";
 import { startLibrarianConsumerLane } from "@server/core/knowledge-v2/librarian/lane.js";
+import { startModelNodeLanesIfEnabled, type ModelNodeLanes } from "@server/core/model-node-work/index.js";
 import { recoverActiveClaims } from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
 import { workerTtlSeconds } from "@server/core/harness-runtime/phases/running/worker-ttl.js";
 import { runEpochBoundary } from "./epoch-boundary.js";
@@ -163,6 +168,8 @@ export type TriggerAgentResult = RunLoopResult;
 export interface RunLoopDeps {
   sandboxProvider?: SandboxProvider;
   providerProbe?: () => Promise<ProviderProbeResult>;
+  /** Test seam: the worker job's task executor and sandbox provisioning; production passes nothing. */
+  workerJobDeps?: Pick<NonNullable<Parameters<typeof workerJobDescriptor>[1]>, "executor" | "provisionSandbox">;
 }
 
 export function providerCircuitConfigFromArgs(args: Map<string, string | true>) {
@@ -246,6 +253,47 @@ export function createProviderCircuitBreaker(
       } finally { probing = false; }
     },
   };
+}
+
+/**
+ * Records the run's widening policy (always, so it is auditable even at its
+ * default) and, when any model-node feature is on, the model-node policies.
+ * With adjudication and the knowledge feed both off the payload is exactly
+ * today's (plan §11 #14). An enforce request also records the mode workers
+ * will run, resolved by the worker's own rule, and warns once when it is
+ * downgraded to shadow.
+ */
+export function recordRunLoopFlags(
+  store: StateStore,
+  runId: string,
+  flags: { writeSetFlags: WriteSetIntegrationFlags; nodeFlags: ModelNodeFlags },
+  options: { advisoryConfig?: AdvisoryAdjudicationConfig; warn?: (message: string) => void } = {},
+): void {
+  const { writeSetFlags, nodeFlags } = flags;
+  const enforce = nodeFlags.advisoryAdjudication === "enforce"
+    ? resolveWorkerAdvisoryMode("enforce", options.advisoryConfig)
+    : null;
+  const modelNodesOn = nodeFlags.advisoryAdjudication !== "off" || nodeFlags.checkpointKnowledgeFeed === "on";
+  const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
+    write_set_widening: writeSetFlags.writeSetWidening,
+    ...(modelNodesOn && {
+      advisory_adjudication: nodeFlags.advisoryAdjudication,
+      ...(enforce && {
+        advisory_adjudication_effective: enforce.mode,
+        ...(enforce.downgradedReason && { advisory_adjudication_downgraded_reason: enforce.downgradedReason }),
+      }),
+      checkpoint_knowledge_feed: nodeFlags.checkpointKnowledgeFeed,
+      checkpoint_knowledge_cap: nodeFlags.checkpointKnowledgeCap,
+    }),
+    created_by: "run-loop",
+  });
+  markEventHandled(store, flagEvent);
+  if (enforce?.downgradedReason) {
+    (options.warn ?? console.warn)(
+      `[advisory-adjudication] enforce requested; running shadow (${enforce.downgradedReason}). ` +
+        "Calibrate and write qualified thresholds to enable enforce.",
+    );
+  }
 }
 
 export function startWorkerSummaryIfEnabled(params: {
@@ -612,6 +660,7 @@ export async function runRunLoop(
   let abandonedBackgroundBorrowers = 0;
   let stopWorkerSummary: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
   let stopLibrarianConsumer: ((options?: { maxWaitMs?: number }) => Promise<void>) | null = null;
+  let modelNodeLanes: ModelNodeLanes | null = null;
   let runLoopWakeResolve: (() => void) | null = null;
   const stop = () => {
     stopRequested = true;
@@ -683,15 +732,8 @@ export async function runRunLoop(
     const postReturnCheckCommand = stringArg(args, "--post-return-check-command", "");
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     const writeSetFlags = writeSetIntegrationFlags(args);
-    {
-      // Always record the effective mode so a run's widening policy is auditable
-      // even when it is the default.
-      const flagEvent = addEvent(store, runId, "write_set_integration_flags", "run-loop", {
-        write_set_widening: writeSetFlags.writeSetWidening,
-        created_by: "run-loop",
-      });
-      markEventHandled(store, flagEvent);
-    }
+    const nodeFlags = modelNodeFlags(args);
+    recordRunLoopFlags(store, runId, { writeSetFlags, nodeFlags });
     stopWorkerSummary = startWorkerSummaryIfEnabled({
       args,
       store: borrowedStore,
@@ -711,6 +753,21 @@ export async function runRunLoop(
       globals,
       gameId,
       shouldClaim: () => !providerCircuit.isOpen() && getDispatchState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+    });
+    // Out-of-band model-node work (shadow adjudication, checkpoint knowledge):
+    // durable jobs on their own lanes, never counted toward drain or idle exit.
+    modelNodeLanes = startModelNodeLanesIfEnabled({
+      store: borrowedStore,
+      runId,
+      globals,
+      advisoryAdjudication: nodeFlags.advisoryAdjudication,
+      checkpointKnowledgeFeed: nodeFlags.checkpointKnowledgeFeed === "on",
+      checkpointKnowledgeCap: nodeFlags.checkpointKnowledgeCap,
+      shouldClaim: () => !providerCircuit.isOpen() && getDispatchState(borrowedStore, gameId)?.active_workflow?.kind !== "sync",
+      onFatalError: onFatalStateError,
+      onShutdownAbandoned: (count) => {
+        abandonedBackgroundBorrowers = Math.max(abandonedBackgroundBorrowers, count);
+      },
     });
     const exitOnWorkerError = booleanArg(args, "--exit-on-worker-error");
     const workerThinkingLevel = stringArg(args, "--worker-thinking-level", globals.thinkingLevel);
@@ -778,6 +835,7 @@ export async function runRunLoop(
       workerConfigureCommand,
       graphDbPath,
       writeSetFlags,
+      advisoryAdjudication: nodeFlags.advisoryAdjudication,
       workerIdPrefix: "runloop",
     };
     const handleWorkerJobSettled = (
@@ -795,6 +853,8 @@ export async function runRunLoop(
       const summaryError = summary.error && typeof summary.error === "object" ? summary.error as Record<string, unknown> : undefined;
       const errorKind = typeof summaryError?.kind === "string" ? summaryError.kind : undefined;
       providerCircuit.recordClosure(errorKind);
+      // Durable source enqueue (SQL only) so the loop can exit right after this worker.
+      if (workerStateId) modelNodeLanes?.afterWorkerSettled(workerStateId);
       const error = settle.error ?? (typeof row?.error_summary === "string" ? row.error_summary : undefined);
       workerResults.push({
         workerStateId,
@@ -845,6 +905,7 @@ export async function runRunLoop(
       runLoopWakeResolve?.();
     };
     const workerDescriptor = workerJobDescriptor(workerCtx, {
+      ...deps.workerJobDeps,
       sandboxProvider,
       trackSandboxDeletion: (deletion) => {
         pendingSettleWork.add(deletion);
@@ -992,6 +1053,9 @@ export async function runRunLoop(
           reportKnowledgeProgress: knowledgeProgressReporter,
         })
           .then((outcome) => {
+            // Fresh or reconciled: enqueue this epoch's knowledge jobs now (SQL
+            // only); the lane's catch-up reads stored rows, so it is idempotent.
+            modelNodeLanes?.afterEpochBoundary(schedulerEpochId);
             // Workers base new worktrees on the latest epoch boundary commit.
             // Compare-and-set: the boundary sha was captured at snapshot time,
             // so if an integration drain or resolver advanced baseRev during
@@ -1311,6 +1375,8 @@ export async function runRunLoop(
     if (runningProviderProbe) await runningProviderProbe;
     if (stopWorkerSummary) await stopWorkerSummary({ maxWaitMs: 15_000 });
     if (stopLibrarianConsumer) await stopLibrarianConsumer({ maxWaitMs: 15_000 });
+    // Final synchronous catch-up of both kinds, then stop the lanes.
+    if (modelNodeLanes) await modelNodeLanes.stop({ maxWaitMs: 15_000 });
     const closed = stateStoreCloseInfo(store);
     if (observedRunId && !closed) {
       try {

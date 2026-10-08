@@ -11,7 +11,7 @@ type RootPackage = {
 const repoRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 const selfPath = fileURLToPath(import.meta.url);
 const vendoredFrameworkRoot = join(repoRoot, "packages", "docs-framework");
-const docsCliPath = "../Core/docs-system/packages/docs-cli/src/index.ts";
+const docsCliPath = "../../codecaine/core/docs-system/packages/docs-cli/src/index.ts";
 const liveDocsCli = join(repoRoot, docsCliPath);
 
 function repoRelative(path: string): string {

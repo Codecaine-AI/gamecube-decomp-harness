@@ -1,0 +1,43 @@
+{
+  "id": "cd9bb24d-9a4f-43d5-b67d-839950f784ff",
+  "run_id": "4a45af8a-9f8c-499b-b375-c0d8e93fc8fd",
+  "worker_state_id": "9cbece80-e52a-46c1-b621-a9eeb5dd2dad",
+  "attempt_index": 2,
+  "target_key": "main/melee/gm/gmtoulib::fn_8018F00C",
+  "old_score": 88.12381,
+  "new_score": 100,
+  "delta": 11.876189999999994,
+  "exact_match": true,
+  "qa_status": "warnings",
+  "validation_status": "failed",
+  "agent_note": {
+    "summary": "Matched fn_8018F00C exactly by reading the four const pointer objects through pointer lvalues. This prevents MWCC from constant-folding their initializers while preserving the existing const definitions and exact .sdata/.sdata2 ownership and ordering.",
+    "validation": {
+      "checkdiff_run": "fn_8018F00C: PASS (100.00000%)",
+      "checkdiff_summary": "fn_8018F00C: PASS",
+      "git_diff_check": "Passed",
+      "review_lint": "Tool returned file_not_found because of its sandbox path binding; runner QA should scan the retained four-line change."
+    },
+    "retained_edits": [
+      "Changed the four template initializations in fn_8018F00C from direct reads to `*(char**) &symbol` reads."
+    ],
+    "review_justification": "The four type-erasing casts are intentionally surfaced for review. They read pointer-valued objects at their declared pointer width and do not perform byte-offset field access. They are required because the synchronized declarations are `char* const`, causing MWCC to fold three null initializers and break codegen. Making those definitions mutable also reaches the desired instruction shape, but regresses exact data sections and was rejected in the prior attempt. The localized reads preserve canonical data ownership and produce an exact target.",
+    "unresolved_regression_caused_by_edits": "None observed."
+  },
+  "metadata_keys": [
+    "agent_note",
+    "agent_note_parse_error",
+    "agent_output_path",
+    "micro_gates",
+    "out_of_write_set_changes",
+    "post_return_check",
+    "review_lint",
+    "widened_validation",
+    "widening_decision",
+    "widening_ids",
+    "widening_request_draft",
+    "worker_session_timed_out",
+    "write_set_diff_changed",
+    "write_set_entries"
+  ]
+}

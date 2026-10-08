@@ -1,5 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, test } from "bun:test";
 import { meleeKernelAgent, type KernelAgentId } from "@server/core/agent-catalog/kernel-catalog";
+import { createMeleeKernelBridgeConfig } from "@server/infrastructure/kernel/bridge/config";
+import type { MeleeKernelPipelineSpawnAgent } from "@server/infrastructure/kernel/bridge/spawn-agent";
 import {
   createMeleeKernelPiAgentRunner,
   createPiChildProcessReaper,
@@ -103,6 +109,97 @@ describe("Melee kernel Pi agent resolution", () => {
     await runner(dryRunOptions());
 
     expect(resolvedNames).toEqual(["worker"]);
+  });
+});
+
+describe("Melee kernel spawn run identity", () => {
+  const appSessionId = "11111111-1111-5111-8111-111111111111";
+  const containerId = "melee:run-ids:worker";
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  });
+
+  async function kernelSpawnOptions(): Promise<MeleeKernelPiRunOptions> {
+    const tempDir = await mkdtemp(join(tmpdir(), "melee-kernel-run-ids-"));
+    tempDirs.push(tempDir);
+    return dryRunOptions({
+      cwd: tempDir,
+      outputDir: join(tempDir, "out"),
+      dryRun: false,
+      kernelSpawnStrategy: "kernel",
+      kernelRuntime: {
+        db: {},
+        config: {
+          markerConfig: createMeleeKernelBridgeConfig({ workingDir: tempDir }).markerConfig,
+          piSessionsDir: join(tempDir, ".pi-sessions"),
+        },
+      },
+      kernelContext: { appSessionId, containerId, workingDir: tempDir },
+    });
+  }
+
+  function runnerWithKernelSpawn(spawn: MeleeKernelPipelineSpawnAgent) {
+    return createMeleeKernelPiAgentRunner({ createKernelSpawnAgent: () => spawn });
+  }
+
+  test("PiRunResult carries kernel run ids on success and on spawn failure", async () => {
+    // Both fakes behave like the kernel: onRunStarted fires before the session exists.
+    const succeeded = await runnerWithKernelSpawn(async (_name, _prompt, _ctx, opts = {}) => {
+      opts.onRunStarted?.({ runId: "run-succeeded", containerId: opts.containerId! });
+      return {
+        responseText: "done",
+        aborted: false,
+        session: { sessionId: "pi-session-succeeded", messages: [], dispose() {} } as any,
+        runId: "run-succeeded",
+        containerId: opts.containerId,
+        piSessionId: "pi-session-succeeded",
+      };
+    })(await kernelSpawnOptions());
+
+    expect(succeeded.failed).toBeUndefined();
+    expect(succeeded.rawText).toBe("done");
+    expect(succeeded.kernelRunId).toBe("run-succeeded");
+    expect(succeeded.kernelContainerId).toBe(containerId);
+    expect(succeeded.kernelPiSessionId).toBe("pi-session-succeeded");
+
+    const failed = await runnerWithKernelSpawn(async (_name, _prompt, _ctx, opts = {}) => {
+      opts.onRunStarted?.({ runId: "run-failed", containerId: opts.containerId! });
+      throw new Error("provider connection reset");
+    })(await kernelSpawnOptions());
+
+    expect(failed.failed).toBe(true);
+    expect(failed.providerError).toBe("provider connection reset");
+    expect(failed.kernelRunId).toBe("run-failed");
+    expect(failed.kernelContainerId).toBe(containerId);
+    expect(failed.kernelPiSessionId).toBeUndefined();
+  });
+
+  test("dry runs never open a kernel run and carry no kernel ids", async () => {
+    let kernelSpawns = 0;
+    const runner = createMeleeKernelPiAgentRunner({
+      createKernelSpawnAgent: () => async () => {
+        kernelSpawns += 1;
+        throw new Error("dry run reached the kernel spawn");
+      },
+      runPiAgent: async () => ({
+        sessionId: "dry-session",
+        outputPath: "/out/result.txt",
+        systemPromptPath: "/out/system.md",
+        userPromptPath: "/out/user.md",
+        rawText: "",
+        dryRun: true,
+      }),
+    });
+
+    const result = await runner(dryRunOptions());
+
+    expect(kernelSpawns).toBe(0);
+    expect(result.dryRun).toBe(true);
+    expect(result.kernelRunId).toBeUndefined();
+    expect(result.kernelContainerId).toBeUndefined();
+    expect(result.kernelPiSessionId).toBeUndefined();
   });
 });
 

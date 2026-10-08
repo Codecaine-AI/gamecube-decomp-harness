@@ -130,6 +130,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
     runtime_ref TEXT,
     UNIQUE (worker_run_id, seq)
   );
+  CREATE INDEX submission_runtime_ref ON submission(runtime_ref);
 
   CREATE TABLE pull_request (
     id TEXT PRIMARY KEY,
@@ -190,7 +191,7 @@ export const KNOWLEDGE_SCHEMA_DDL = `
 
   CREATE TABLE index_task (
     id TEXT PRIMARY KEY,
-    pathway TEXT NOT NULL CHECK (pathway IN ('run_closed', 'pr_imported', 'regression', 'archival_ingest', 'drift_recheck')),
+    pathway TEXT NOT NULL CHECK (pathway IN ('run_closed', 'pr_imported', 'regression', 'archival_ingest', 'drift_recheck', 'checkpoint_confirmed')),
     payload TEXT NOT NULL,
     enqueued_at TEXT NOT NULL,
     started_at TEXT,

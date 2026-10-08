@@ -99,6 +99,49 @@ function enqueueRunClosed(f: ConsumerFixture, index: number, enqueuedAt = FIXED_
   return id;
 }
 
+function enqueueConfirmedCheckpoint(f: ConsumerFixture): string {
+  f.store.db.query(`INSERT INTO worker_run
+    (id, target_id, goal, baseline, run_id, worker_state_id, final_outcome, error_type,
+      integration, started_at, ended_at, closed_at)
+    VALUES ('run:ws-1', 'target-1', 'Match unit::func_1', '{}', 'operator-1', 'ws-1', 'match', NULL,
+      'integrated', '2026-08-29T00:00:00.000Z', '2026-08-29T00:05:00.000Z', '2026-08-29T00:06:00.000Z')`).run();
+  f.store.db.query(`INSERT INTO submission
+    (id, worker_run_id, seq, description, hypothesis, score, submitted_at, runtime_ref)
+    VALUES ('run:ws-1:sub:3', 'run:ws-1', 3, 'checkpoint 3 scored 100', NULL, 100,
+      '2026-08-29T00:04:00.000Z', 'checkpoint-1')`).run();
+  const id = "task:checkpoint_confirmed:checkpoint-1";
+  enqueueIndexTask(f.store, {
+    id,
+    pathway: "checkpoint_confirmed",
+    payload: JSON.stringify({
+      schema: "checkpoint_confirmed_v1",
+      checkpoint_id: "checkpoint-1",
+      worker_run_id: "run:ws-1",
+      submission_id: "run:ws-1:sub:3",
+      submission_seq: 3,
+      epoch_id: "epoch-1",
+      integration_id: "integration-1",
+      integrated_rev: "1111111",
+      save_point_commit: "2222222",
+      confirmation: "epoch-settled",
+      target: { key: "unit::func_1", knowledge_key: "unit:func_1", unit: "unit", function: "func_1" },
+      facts: [{
+        key: "tactic|unit|func_1|fixture",
+        kind: "tactic",
+        subject: "hoist the loop bound into a local",
+        statement: "Hoisting the loop bound into a local frees r31 for the counter.",
+        applies_when: "a loop re-reads its bound through a pointer",
+        evidence: ["hoisted bound; counter now in r31"],
+      }],
+      kept_advisories: [],
+      sources: { note_sha256: "n", patch_sha256: "p", runner_summary_sha256: "r", report_changes_sha256: "c" },
+      extraction: { kernel_run_id: "kernel-run-1", served_model: "fixture/model" },
+    }),
+    enqueuedAt: FIXED_NOW,
+  });
+  return id;
+}
+
 function insertDiscordMessages(store: KnowledgeStore, count: number): { from: string; to: string } {
   const insert = store.db.query(`INSERT INTO discord_message
     (id, channel, author, posted_at, content, thread_id, ingested_at)
@@ -235,6 +278,26 @@ describe("claimNextLibrarianTask", () => {
     }
     expect(order).toEqual(["regression", "run-early", "run-late", "pr-a", "pr-b", "archival", "drift"]);
     for (const id of order) expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: null });
+  });
+
+  test("claim order puts checkpoint_confirmed after run_closed", () => {
+    const f = fixture("checkpoint-priority");
+    const enqueue = (id: string, pathway: LibrarianPathway, enqueuedAt: string): void =>
+      enqueueIndexTask(f.store, { id, pathway, payload: `payload-${id}`, enqueuedAt });
+    enqueue("checkpoint-early", "checkpoint_confirmed", "2026-08-01T00:00:00.000Z");
+    enqueue("archival", "archival_ingest", "2026-08-01T00:00:00.000Z");
+    enqueue("pr", "pr_imported", "2026-08-02T00:00:00.000Z");
+    enqueue("checkpoint-late", "checkpoint_confirmed", "2026-08-03T00:00:00.000Z");
+    enqueue("regression", "regression", "2026-08-04T00:00:00.000Z");
+    enqueue("run", "run_closed", "2026-08-05T00:00:00.000Z");
+
+    const order: string[] = [];
+    for (;;) {
+      const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW });
+      if (claimed === undefined) break;
+      order.push(claimed.task.id);
+    }
+    expect(order).toEqual(["regression", "run", "checkpoint-early", "pr", "checkpoint-late", "archival"]);
   });
 
   test("honors the pathway filter and the exclude set", () => {
@@ -768,6 +831,58 @@ describe("runLibrarianPass", () => {
     expect(logEntries(f, "happy-run")).toEqual([
       expect.objectContaining({ task_id: id, status: "completed", claim: "completed" }),
     ]);
+  });
+
+  test("applies a checkpoint_confirmed pass that cites the checkpoint's submission and completes the task", async () => {
+    const f = fixture("checkpoint-confirmed", 1);
+    const id = enqueueConfirmedCheckpoint(f);
+    const claimed = claimNextLibrarianTask(f.store, { now: () => FIXED_NOW })!.task;
+    const checked: DriftReport["subject"][] = [];
+    let renderedContext = "";
+    let systemPrompt = "";
+    const submissionLocator = "attempt://run/run:ws-1/submission/3";
+
+    const result = await runLibrarianPass(f.store, claimed, {
+      runId: "checkpoint-confirmed-run",
+      globals: f.globals,
+      sharedWriteGate: createSharedGate(),
+      runPiAgent: (options) => {
+        renderedContext = options.prompt.kernelContext?.renderedContext ?? "";
+        systemPrompt = options.prompt.systemPrompt;
+        return modelResult({
+          facts: [{
+            subject: { target_stable_key: "unit:func_1" },
+            type: "state_behavior",
+            op: "write",
+            value: "Keeps its loop bound in a local so the counter lives in r31.",
+            rationale: "The confirmed checkpoint hoisted the bound and matched.",
+            confidence: 0.8,
+            evidence: [{ kind: "attempt", locator: submissionLocator, why: "The confirmed submission hoists the bound." }],
+          }],
+          links: [],
+          entities: [],
+          merges: [],
+        });
+      },
+      flagCodeDrift: (_store, options) => {
+        checked.push(options.subject);
+        return driftReport(options.subject, { drifted: 0, unresolvable: 0 });
+      },
+      now: () => FIXED_NOW,
+    });
+
+    expect(claimed.id).toBe(id);
+    expect(renderedContext).toContain("This is a `checkpoint_confirmed` pass.");
+    expect(renderedContext).toContain(submissionLocator);
+    expect(systemPrompt).toContain("Merge each fact into the existing entity for its subject");
+    expect(result.applyReport.counts).toEqual({ applied: 1, rejected: 0, skipped: 0 });
+    expect(f.store.db.query("SELECT kind, locator FROM evidence").all()).toEqual([
+      { kind: "attempt", locator: submissionLocator },
+    ]);
+    expect(checked).toEqual([{ entityId: "unit-main" }, { targetId: "target-1" }]);
+    expect(result.driftGate).toBe("clean");
+    expect(indexedAt(f.store, "target-1")).toBe(FIXED_NOW);
+    expect(taskState(f.store, id)).toMatchObject({ started_at: FIXED_NOW, done_at: FIXED_NOW });
   });
 
   test("retries an out-of-scope proposal once with the rejection context and applies the correction", async () => {

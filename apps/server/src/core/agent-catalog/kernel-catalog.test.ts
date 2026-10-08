@@ -525,6 +525,54 @@ describe("meleeKernelAgentCatalog", () => {
     expect(contracts[0]).toBe(contracts[1]);
   });
 
+  test("renders the worker preview for the off, shadow and enforce advisory modes", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const workerText = (payload: ReturnType<typeof loadKernelAgentsPayload>) => {
+      const worker = payload.agents.find((agent) => agent.name === "worker");
+      return `${worker?.renderedPrompt?.content ?? ""}\n${worker?.context?.renderedContext ?? ""}`;
+    };
+    const previous = process.env.ORCH_ADVISORY_ADJUDICATION;
+    try {
+      delete process.env.ORCH_ADVISORY_ADJUDICATION;
+      const unconfigured = loadKernelAgentsPayload(paths);
+      expect(unconfigured.advisoryAdjudication).toBe("off");
+      expect(workerText(unconfigured)).not.toContain("kept_advisories");
+
+      const shadow = loadKernelAgentsPayload(paths, { advisoryAdjudication: "shadow" });
+      const enforce = loadKernelAgentsPayload(paths, { advisoryAdjudication: "enforce" });
+      for (const [mode, payload] of [["shadow", shadow], ["enforce", enforce]] as const) {
+        expect(payload.advisoryAdjudication).toBe(mode);
+        expect(payload.warnings).toEqual([]);
+        expect(workerText(payload)).toContain("`kept_advisories`: array of `{ rule_id, file, line, justification }`");
+        expect(workerText(payload)).toContain("justify it in `kept_advisories`");
+      }
+      expect(workerText(shadow)).toContain("findings still block acceptance today");
+      expect(workerText(enforce)).toContain("A reviewer judges each justification");
+
+      process.env.ORCH_ADVISORY_ADJUDICATION = "enforce";
+      const configured = loadKernelAgentsPayload(paths);
+      expect(configured.advisoryAdjudication).toBe("enforce");
+      expect(workerText(configured)).toContain("A reviewer judges each justification");
+      expect(loadKernelAgentsPayload(paths, { advisoryAdjudication: "off" }).advisoryAdjudication).toBe("off");
+
+      process.env.ORCH_ADVISORY_ADJUDICATION = "sometimes";
+      const invalid = loadKernelAgentsPayload(paths);
+      expect(invalid.advisoryAdjudication).toBe("off");
+      expect(invalid.warnings).toEqual([
+        "Rendering the worker sample as off: ORCH_ADVISORY_ADJUDICATION must be one of: off, shadow, enforce",
+      ]);
+      expect(workerText(invalid)).not.toContain("kept_advisories");
+    } finally {
+      if (previous === undefined) delete process.env.ORCH_ADVISORY_ADJUDICATION;
+      else process.env.ORCH_ADVISORY_ADJUDICATION = previous;
+    }
+  });
+
   test("threads the selected target into the real worker preview", () => {
     const selected = { unit: "unit/selected", symbol: "SelectedTarget" };
     const loaded: unknown[] = [];

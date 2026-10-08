@@ -10,7 +10,7 @@ test("renames v9 harness and dispatch ownership without changing any original ro
     runStorageMigrations(db);
     initializeHarnessState(db, { gameId: "game", worktree: "/checkout", configurationRevision: "config", commandId: "init" });
     db.query("INSERT INTO dispatch_state(game_id,trace_id,created_at,updated_at) VALUES(?,?,?,?)").run("game", "original-trace", "then", "then");
-    db.exec("ALTER TABLE harness_state RENAME TO continuing_harness; ALTER TABLE dispatch_state RENAME TO harness_state; DELETE FROM schema_migrations WHERE version=10");
+    db.exec("ALTER TABLE harness_state RENAME TO continuing_harness; ALTER TABLE dispatch_state RENAME TO harness_state; DELETE FROM schema_migrations WHERE version>=10");
     const before = databaseFingerprints(db);
     runStorageMigrations(db);
     const after = databaseFingerprints(db);

@@ -19,11 +19,37 @@ import {
   type WorkerRunnerValidation,
 } from "@server/core/agent-catalog/agents/running/worker";
 import {
+  effectiveQaLint,
   extendWorkerChangeBaselineSourceSnapshot,
+  failForPendingAdvisories,
   qaLintRepairReasons,
   validateWidenedChange,
+  type QaScanRunner,
   type WorkerChangeValidation,
 } from "@server/core/agent-catalog/agents/running/worker/change-validation";
+import {
+  adjudicateAdvisories,
+  buildLlmReviewCandidate,
+  effectiveMode,
+  failClosedAdjudication,
+  failureCode,
+  foldVerdicts,
+  inlineBudget,
+  sanitizeAdjudicationRecord,
+  shippedAdvisoryAdjudicationConfig,
+  type AdvisoryAdjudication,
+  type AdvisoryAdjudicationConfig,
+  type LlmReviewCandidate,
+  type ModeDowngradeReason,
+} from "@server/core/agent-catalog/agents/running/worker/advisory-adjudication";
+import { getNodeKernel, type WorkerNodeKernel } from "@server/infrastructure/kernel/nodes/node-kernel";
+import {
+  fullFlaggedLineFromPatch,
+  isAdvisoryFinding,
+  normalizeAdvisoryCode,
+  normalizeAdvisoryPath,
+} from "@server/core/validation/qa/advisory-fingerprint.js";
+import { immediateTransaction } from "@server/core/orchestrator-state";
 import type { WorkerMicroGateFlags } from "@server/core/agent-catalog/agents/running/worker/micro-gates";
 import { defaultWorkerToolProfile } from "@server/core/tools";
 import {
@@ -78,9 +104,12 @@ import type { WorkerOutputIntegrationApplyResult } from "@server/core/harness-ru
 import type { PiRunResult } from "@server/core/shared/types";
 import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
 import {
+  DEFAULT_ADVISORY_ADJUDICATION_MODE,
   gameMetadata,
+  parseAdvisoryAdjudicationMode,
   stringArg,
   writeSetIntegrationFlags,
+  type AdvisoryAdjudicationMode,
   type GlobalArgs,
   type WriteSetWideningMode,
 } from "@server/core/game-registry/runtime-options.js";
@@ -290,11 +319,14 @@ export function classifyWorkerError(params: {
   // L1 QA lint rejection: the attempt re-added or left a QA finding.
   // The runner_validation_ prefix keeps this a rework kind for repair/continue
   // feedback and never turns the worker lifecycle into an infrastructure error.
-  if (params.runnerValidation.qaLint?.status === "violations" || params.runnerValidation.qaLint?.status === "warnings") {
-    const qaReasons = qaLintRepairReasons(params.runnerValidation.qaLint);
+  // The effective view drops advisories an enforce-mode adjudication accepted;
+  // off and shadow have no resolution, so it is the raw QA lint there.
+  const qaLint = effectiveQaLint(params.runnerValidation);
+  if (qaLint?.status === "violations" || qaLint?.status === "warnings") {
+    const qaReasons = qaLintRepairReasons(qaLint);
     return {
       kind: "runner_validation_qa_lint_failed",
-      summary: `QA lint rejected the attempt: ${params.runnerValidation.qaLint.findings.length} QA finding(s) requiring repair`,
+      summary: `QA lint rejected the attempt: ${qaLint.findings.length} QA finding(s) requiring repair`,
       reasons: [...validationReasons, ...qaReasons.filter((reason) => !validationReasons.includes(reason))],
     };
   }
@@ -415,7 +447,8 @@ export async function headerDeclaresEvidenceSymbol(
 
 // All repair feedback for one attempt: the shared return-gate reasons, any
 // out-of-write-set edit warning, plus the L1 QA lint findings, formatted
-// verbatim for the worker's next iteration.
+// verbatim for the worker's next iteration. QA findings come from the
+// effective view, so an advisory accepted in enforce mode is not fed back.
 export function workerAttemptRepairReasons(params: {
   runnerValidation: WorkerChangeValidation;
   reviewLint?: WorkerReviewLint;
@@ -432,7 +465,7 @@ export function workerAttemptRepairReasons(params: {
   const outOfWriteSetReason = outOfWriteSetRepairReason(params.outOfWriteSetChanges ?? []);
   if (outOfWriteSetReason) reasons.push(outOfWriteSetReason);
   reasons.push(...(params.wideningReasons ?? []));
-  reasons.push(...qaLintRepairReasons(params.runnerValidation.qaLint));
+  reasons.push(...qaLintRepairReasons(effectiveQaLint(params.runnerValidation)));
   return reasons;
 }
 
@@ -1136,6 +1169,254 @@ function mergeRunnerValidation(changeValidation: WorkerChangeValidation, postRet
   return { ...changeValidation, postReturnCheck: postReturnCheckSummary };
 }
 
+export interface WorkerAdvisoryMode {
+  requested: AdvisoryAdjudicationMode;
+  /** What the worker runs: enforce without enforcement-qualified thresholds runs as shadow. */
+  mode: AdvisoryAdjudicationMode;
+  downgradedReason?: ModeDowngradeReason | "invalid-config";
+  /** Null in off, which never reads the config. */
+  config: AdvisoryAdjudicationConfig | null;
+}
+
+/**
+ * The worker's advisory adjudication mode (plan §6.2, §6.5). An unreadable
+ * config never fails the worker: enforce then runs as shadow (advisories keep
+ * blocking, today's verdict), and shadow needs no config in the worker. The
+ * run loop resolves enforce through this too, to report a downgrade at start.
+ */
+export function resolveWorkerAdvisoryMode(
+  requested: AdvisoryAdjudicationMode,
+  config?: AdvisoryAdjudicationConfig,
+): WorkerAdvisoryMode {
+  if (requested === "off") return { requested, mode: "off", config: null };
+  let resolved: AdvisoryAdjudicationConfig;
+  try {
+    resolved = config ?? shippedAdvisoryAdjudicationConfig();
+  } catch {
+    return requested === "enforce"
+      ? { requested, mode: "shadow", downgradedReason: "invalid-config", config: null }
+      : { requested, mode: requested, config: null };
+  }
+  return { requested, ...effectiveMode(requested, resolved), config: resolved };
+}
+
+interface WorkerAdvisoryCandidateInput {
+  mode: WorkerAdvisoryMode;
+  validation: WorkerChangeValidation;
+  reviewLint: WorkerReviewLint;
+  outOfWriteSetChanges: OutOfWriteSetChange[];
+  result: PiRunResult;
+  attemptIndex: number;
+  /** Enforce: the attempt's QA patch, the source of the af2 fingerprints. Null in shadow (no I/O). */
+  patchText: string | null;
+  inlineResult: AdvisoryAdjudication | null;
+}
+
+/** The checkpoint's `llm_review_candidate`: pure data from in-memory objects (plan §6.4). */
+function workerLlmReviewCandidate(input: WorkerAdvisoryCandidateInput): LlmReviewCandidate {
+  return buildLlmReviewCandidate({
+    mode: input.mode.mode === "enforce" ? "enforce" : "shadow",
+    requestedMode: input.mode.requested,
+    ...(input.mode.downgradedReason !== undefined && { downgradedReason: input.mode.downgradedReason }),
+    validation: input.validation,
+    reviewLint: input.reviewLint,
+    outOfWriteSetChanges: input.outOfWriteSetChanges,
+    kernel: input.result.kernelRunId
+      ? {
+          run_id: input.result.kernelRunId,
+          container_id: input.result.kernelContainerId ?? "",
+          pi_session_id: input.result.kernelPiSessionId ?? "",
+        }
+      : null,
+    attemptIndex: input.attemptIndex,
+    agentOutputPath: input.result.outputPath ?? null,
+    patchText: input.patchText,
+    ...(input.inlineResult !== null && { inlineResult: input.inlineResult }),
+  });
+}
+
+interface DeferredAdvisoryOutcome {
+  /** What the post-return check sees: passed only when adjudication accepted every advisory. */
+  validation: WorkerChangeValidation;
+  /** Null when nothing was adjudicated (the attempt already failed another gate). */
+  adjudication: AdvisoryAdjudication | null;
+  /** The attempt's QA patch as read for the fingerprints; null when unreadable. */
+  patchText: string | null;
+}
+
+/** Enforce only: the attempt's QA patch when its scan flagged advisories, or null when unreadable. */
+async function readAdvisoryPatch(validation: WorkerChangeValidation): Promise<string | null> {
+  const scanPath = validation.qaLint?.scanPath;
+  if (!scanPath || !validation.qaLint?.findings.some(isAdvisoryFinding)) return null;
+  try {
+    return await readFile(scanPath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function abortedBy(signal: AbortSignal): Promise<null> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve(null);
+    signal.addEventListener("abort", () => resolve(null), { once: true });
+  });
+}
+
+/**
+ * Enforce inline (plan §6.6): adjudicates an attempt's deferred advisory-only
+ * QA findings within the claim deadline budget, before the post-return
+ * check. Only a `pass` keeps the attempt passed; rejection, outage, missing
+ * key, timeout, insufficient budget or any exception applies today's QA
+ * failure (failForPendingAdvisories) with one reason per advisory not
+ * accepted. Never throws, and no node error leaves this function except as
+ * data on the adjudication record.
+ */
+async function adjudicateDeferredAdvisories(params: {
+  validation: WorkerChangeValidation;
+  candidateInput: Omit<WorkerAdvisoryCandidateInput, "mode" | "validation" | "patchText" | "inlineResult">;
+  mode: WorkerAdvisoryMode;
+  noteText: string;
+  claimDeadlineMs: number | null;
+  nodeKernel: () => Promise<WorkerNodeKernel | null>;
+  requestIdPrefix: string;
+}): Promise<DeferredAdvisoryOutcome> {
+  const { validation, mode } = params;
+  // Another gate (the widened checks) already failed the attempt: nothing to adjudicate.
+  if (validation.status !== "passed" || !mode.config) {
+    return { validation: failForPendingAdvisories(validation), adjudication: null, patchText: null };
+  }
+  const config = mode.config;
+  const patchText = await readAdvisoryPatch(validation);
+  const candidate = workerLlmReviewCandidate({
+    ...params.candidateInput,
+    mode,
+    validation,
+    patchText,
+    inlineResult: null,
+  });
+  let adjudication: AdvisoryAdjudication;
+  const budget = inlineBudget({ claimDeadlineMs: params.claimDeadlineMs, nowMs: Date.now(), config });
+  if (!budget.ok) {
+    adjudication = failClosedAdjudication({ candidate, reason: "insufficient-time", config });
+  } else {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new DOMException("inline advisory adjudication budget exhausted", "TimeoutError")),
+      budget.ms,
+    );
+    try {
+      const kernel = await Promise.race([params.nodeKernel().catch(() => null), abortedBy(controller.signal)]);
+      adjudication = await adjudicateAdvisories({
+        kernel,
+        candidate,
+        noteText: params.noteText,
+        patchText,
+        signal: controller.signal,
+        requestIdPrefix: params.requestIdPrefix,
+        config,
+        budgetMs: budget.ms,
+      });
+    } catch (error) {
+      adjudication = failClosedAdjudication({
+        candidate,
+        reason: "exception",
+        // A fixed code only: exception messages can carry prompts or credentials (§4.7).
+        error: failureCode(error),
+        config,
+        budgetMs: budget.ms,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  const accepted = new Set(adjudication.accepted_fingerprints);
+  const resolution = adjudication.advisories.length === candidate.advisories.length && accepted.size > 0
+    ? {
+        acceptedFingerprints: adjudication.accepted_fingerprints,
+        remaining: candidate.advisories
+          .filter((_, index) => {
+            const adjudicated = adjudication.advisories[index]!;
+            return !(adjudicated.result === "pass" && adjudicated.fingerprint !== null && accepted.has(adjudicated.fingerprint));
+          })
+          .map(({ finding }) => finding),
+      }
+    : null;
+  if (adjudication.verdict === "pass" && resolution) {
+    const { advisoryGate: _pending, ...undeferred } = validation;
+    return { validation: { ...undeferred, advisoryResolution: resolution }, adjudication, patchText };
+  }
+  const failed = failForPendingAdvisories(validation, foldVerdicts(adjudication.advisories).repairReasons);
+  return {
+    validation: resolution ? { ...failed, advisoryResolution: resolution } : failed,
+    adjudication,
+    patchText,
+  };
+}
+
+/**
+ * Enforce-mode acceptance evidence (plan §6.10), written after
+ * recordWorkerCheckpoint for a `pass` adjudication: one `accepted_advisory`
+ * row per accepted af2 fingerprint. `occurrences` counts the attempt's
+ * flagged physical lines that share the fingerprint, the most L2 credits the
+ * row for. An advisory whose complete flagged line cannot be read from the
+ * attempt's QA patch is never recorded. Returns the recorded fingerprints.
+ */
+export function recordAcceptedAdvisories(store: StateStore, params: {
+  checkpointId: string;
+  runId: string;
+  adjudication: AdvisoryAdjudication;
+  /** The attempt's qa_diff.patch, the text the fingerprints were computed from. */
+  patchText: string;
+  acceptedAt?: string;
+}): string[] {
+  const acceptedFingerprints = new Set(params.adjudication.accepted_fingerprints);
+  const rows = new Map<string, {
+    advisory: AdvisoryAdjudication["advisories"][number];
+    fullLine: string;
+    lines: Set<string>;
+  }>();
+  for (const advisory of params.adjudication.advisories) {
+    const fingerprint = advisory.fingerprint;
+    if (fingerprint === null || advisory.severity !== "warning" || advisory.result !== "pass" || !acceptedFingerprints.has(fingerprint)) continue;
+    const fullLine = fullFlaggedLineFromPatch(params.patchText, advisory.file, advisory.line, advisory.excerpt);
+    if (fullLine === null) continue;
+    const location = `${normalizeAdvisoryPath(advisory.file)}:${advisory.line}`;
+    const row = rows.get(fingerprint);
+    if (row) row.lines.add(location);
+    else rows.set(fingerprint, { advisory, fullLine: normalizeAdvisoryCode(fullLine), lines: new Set([location]) });
+  }
+  const acceptedAt = params.acceptedAt ?? new Date().toISOString();
+  immediateTransaction(store.db, () => {
+    const insert = store.db.query(`
+      INSERT OR IGNORE INTO accepted_advisory (
+        fingerprint, checkpoint_id, run_id, rule_id, file, full_line, occurrences,
+        decision_run_id, probability, served_model, thresholds_json, accepted_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const [fingerprint, row] of rows) {
+      insert.run(
+        fingerprint,
+        params.checkpointId,
+        params.runId,
+        row.advisory.rule_id,
+        normalizeAdvisoryPath(row.advisory.file),
+        row.fullLine,
+        row.lines.size,
+        row.advisory.decision?.run_id ?? null,
+        row.advisory.probability ?? null,
+        row.advisory.decision?.served_model ?? null,
+        JSON.stringify(row.advisory.decision?.thresholds ?? {
+          passAt: params.adjudication.thresholds.passAt,
+          failAt: params.adjudication.thresholds.failAt,
+        }),
+        acceptedAt,
+      );
+    }
+  });
+  return [...rows.keys()];
+}
+
 function runnerValidationCompiled(validation: WorkerRunnerValidation): boolean {
   if (validation.status === "build_failed") return false;
   if (validation.status === "passed" || validation.status === "failed") return Boolean(validation.target) || validation.exitCode === 0;
@@ -1168,6 +1449,7 @@ interface WorkerTaskFileBase {
   worker_configure_command: string;
   graph_db_path: string;
   write_set_flags: ReturnType<typeof writeSetIntegrationFlags>;
+  advisory_adjudication: AdvisoryAdjudicationMode;
 }
 
 interface WorkerTaskFile extends WorkerTaskFileBase {
@@ -1243,6 +1525,10 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
     worker_configure_command: row.worker_configure_command,
     graph_db_path: requiredTaskString(row.graph_db_path, "graph_db_path"),
     write_set_flags: row.write_set_flags as ReturnType<typeof writeSetIntegrationFlags>,
+    // Task files written before the flag existed carry no key and read as the default.
+    advisory_adjudication: row.advisory_adjudication === undefined
+      ? DEFAULT_ADVISORY_ADJUDICATION_MODE
+      : parseAdvisoryAdjudicationMode(row.advisory_adjudication, "Worker task advisory_adjudication"),
   };
   return {
     ...common,
@@ -1282,6 +1568,12 @@ export function reconstructClaimedWorkerTask(store: StateStore, task: WorkerTask
 export interface WorkerTaskRuntimeDeps {
   sandboxProvider?: SandboxProvider;
   runAgent?: (options: MeleeKernelPiRunOptions) => Promise<PiRunResult>;
+  /** Injectable scan_diff runner for the L1 QA lint; defaults to runQaScanDiff. */
+  qaScanRunner?: QaScanRunner;
+  /** Node kernel for enforce-mode advisory adjudication; defaults to the process's getNodeKernel. Never called in off or shadow. */
+  nodeKernel?: () => Promise<WorkerNodeKernel | null>;
+  /** Advisory adjudication config; defaults to the shipped config.json (exploratory, so enforce runs as shadow). */
+  advisoryConfig?: AdvisoryAdjudicationConfig;
 }
 
 function disabledSandboxSleepStats(): SandboxSleepStats {
@@ -1377,6 +1669,10 @@ export async function runWorkerCycleFromTask(
         sandboxSleepEnabled: task.sandbox_sleep,
         sandboxSleepDebounceMs: task.sandbox_sleep_debounce_ms,
         finalizeSandboxSleep,
+        advisoryAdjudication: task.advisory_adjudication,
+        advisoryConfig: deps.advisoryConfig,
+        qaScanRunner: deps.qaScanRunner,
+        nodeKernel: deps.nodeKernel,
       });
     } catch (error) {
       taskFailed = true;
@@ -1419,12 +1715,17 @@ async function executeClaimedWorker(params: {
   sandboxSleepEnabled: boolean;
   sandboxSleepDebounceMs: number;
   finalizeSandboxSleep: () => Promise<SandboxSleepStats>;
+  advisoryAdjudication: AdvisoryAdjudicationMode;
+  advisoryConfig?: AdvisoryAdjudicationConfig;
+  qaScanRunner?: QaScanRunner;
+  nodeKernel?: () => Promise<WorkerNodeKernel | null>;
 }): Promise<WorkerCycleResult> {
     const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, workspaceExec,
       sandboxHandle, runAgent, outputDir, baseRev, ttlSeconds, thinkingLevel, postReturnCheckCommand,
       graphDbPath, writeSetFlags, token, sandboxSleepEnabled, sandboxSleepDebounceMs,
-      finalizeSandboxSleep } = params;
+      finalizeSandboxSleep, qaScanRunner } = params;
     const writeSetWideningMode = writeSetFlags.writeSetWidening;
+    const advisoryMode = resolveWorkerAdvisoryMode(params.advisoryAdjudication, params.advisoryConfig);
     let currentWriteSet = [...claimed.writeSet];
     let currentEntries = [...claimed.writeSetEntries];
     const wideningIds: string[] = [];
@@ -1742,6 +2043,7 @@ async function executeClaimedWorker(params: {
             workerLogDir: outputDir,
             contextBudget,
             targetSourceText,
+            advisoryAdjudication: advisoryMode.mode,
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -2173,6 +2475,9 @@ async function executeClaimedWorker(params: {
         postAttemptDiffText: postAttemptDiff.stdout,
         baseRevision: baseRev,
         workspaceExec,
+        qaScanRunner,
+        retainPreQa: advisoryMode.mode !== "off",
+        deferAdvisories: advisoryMode.mode === "enforce",
       });
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
         ? await validateWidenedChange({
@@ -2197,6 +2502,27 @@ async function executeClaimedWorker(params: {
           });
         }
       }
+      const advisoryCandidateInput = {
+        reviewLint,
+        outOfWriteSetChanges,
+        result,
+        attemptIndex,
+      };
+      // Enforce (plan §6.6): deferred advisories are adjudicated inline,
+      // deadline-bounded, before the post-return check, so an advisory that is
+      // not accepted skips the command exactly as a QA failure does today.
+      const inlineAdvisories = advisoryMode.mode === "enforce" && changeValidation.advisoryGate === "pending"
+        ? await adjudicateDeferredAdvisories({
+            validation: changeValidation,
+            candidateInput: advisoryCandidateInput,
+            mode: advisoryMode,
+            noteText: result.rawText,
+            claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+            nodeKernel: params.nodeKernel ?? (() => getNodeKernel({ stateDir: globals.stateDir })),
+            requestIdPrefix: `attempt:${claimed.workerStateId}:${attemptIndex}`,
+          })
+        : null;
+      const gatedChangeValidation = inlineAdvisories?.validation ?? changeValidation;
       const postReturnCheck = await runPostReturnCheck({
         commandTemplate: postReturnCheckCommand,
         dryRun: globals.dryRunAgents,
@@ -2208,12 +2534,28 @@ async function executeClaimedWorker(params: {
         target,
         outputDir,
         attemptIndex,
-        shouldRun: shouldRunRunnerValidation && changeValidation.status === "passed",
+        shouldRun: shouldRunRunnerValidation && gatedChangeValidation.status === "passed",
         workspaceExec,
       });
-      const runnerValidation = mergeRunnerValidation(changeValidation, postReturnCheck);
+      const runnerValidation = mergeRunnerValidation(gatedChangeValidation, postReturnCheck);
       if (runnerValidation.summaryPath) await writeFile(runnerValidation.summaryPath, JSON.stringify(runnerValidation, null, 2));
-      recordWorkerCheckpoint(store, {
+      // Enforce fingerprints every advisory from the attempt's QA patch.
+      const enforcePatchText = advisoryMode.mode === "enforce"
+        ? (inlineAdvisories?.patchText ?? (await readAdvisoryPatch(runnerValidation)))
+        : null;
+      // Shadow and enforce: the attempt's advisories as pure data from
+      // in-memory objects (in shadow no await and no I/O on this path); the
+      // shadow lane adjudicates eligible candidates later, out of band.
+      const llmReviewCandidate = advisoryMode.mode === "off"
+        ? null
+        : workerLlmReviewCandidate({
+            ...advisoryCandidateInput,
+            mode: advisoryMode,
+            validation: runnerValidation,
+            patchText: enforcePatchText,
+            inlineResult: inlineAdvisories?.adjudication ?? null,
+          });
+      const checkpoint = recordWorkerCheckpoint(store, {
         authority: token,
         workerStateId: claimed.workerStateId,
         runId,
@@ -2255,8 +2597,25 @@ async function executeClaimedWorker(params: {
             count: outOfWriteSetChanges.length,
             categories: outOfWriteSetCategoryCounts(outOfWriteSetChanges),
           },
+          ...(llmReviewCandidate ? { llm_review_candidate: llmReviewCandidate } : {}),
+          // Enforce: the inline verdict, and the QA status after accepted
+          // advisories (the qa_status column keeps the raw scan status).
+          ...(advisoryMode.mode === "enforce"
+            ? {
+                llm_review_adjudication: sanitizeAdjudicationRecord(inlineAdvisories?.adjudication ?? null),
+                qa_status_effective: effectiveQaLint(runnerValidation)?.status ?? null,
+              }
+            : {}),
         },
       });
+      if (inlineAdvisories?.adjudication?.verdict === "pass" && inlineAdvisories.patchText !== null) {
+        recordAcceptedAdvisories(store, {
+          checkpointId: checkpoint.id,
+          runId,
+          adjudication: inlineAdvisories.adjudication,
+          patchText: inlineAdvisories.patchText,
+        });
+      }
       appendWorkerActivityEvent(outputDir, {
         claim_id: claimed.claimId,
         session_id: result.sessionId,

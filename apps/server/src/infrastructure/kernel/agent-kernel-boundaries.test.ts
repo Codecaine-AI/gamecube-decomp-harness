@@ -18,7 +18,7 @@ type PackageJson = {
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const selfPath = fileURLToPath(import.meta.url);
 const vendoredKernelRoot = join(repoRoot, "packages", "agent-kernel");
-const coreRoot = join(repoRoot, "..", "Core");
+const coreRoot = join(repoRoot, "..", "..", "codecaine", "core");
 const chosenKernelRoot = join(coreRoot, "agent-kernel");
 const installedKernelRoot = fileURLToPath(new URL("../../../../../node_modules/@agent-kernel/kernel", import.meta.url));
 const docsKernelRoot = join(repoRoot, "ai_docs", "agent-kernel");
@@ -163,17 +163,17 @@ function collectBoundaryFailures(): string[] {
       for (const target of targets) {
         const normalizedTarget = target.split("\\").join("/");
         assert(
-          normalizedTarget.includes("Core/agent-kernel/packages/") &&
+          normalizedTarget.includes("codecaine/core/agent-kernel/packages/") &&
             !normalizedTarget.includes("packages/agent-kernel/packages/"),
-          `${tsconfigPath} must resolve ${alias} through linked node_modules or ../Core/agent-kernel, got ${target}`,
+          `${tsconfigPath} must resolve ${alias} through linked node_modules or ../../codecaine/core/agent-kernel, got ${target}`,
         );
       }
     }
   }
 
   assert(!entryExists(vendoredKernelRoot), "vendored packages/agent-kernel must not exist, including as a symlink");
-  assert(existsSync(chosenKernelRoot), "the live sibling ../Core/agent-kernel must exist");
-  assert(existsSync(join(chosenKernelRoot, "packages")), "the live sibling ../Core/agent-kernel/packages must exist");
+  assert(existsSync(chosenKernelRoot), "the live sibling ../../codecaine/core/agent-kernel must exist");
+  assert(existsSync(join(chosenKernelRoot, "packages")), "the live sibling ../../codecaine/core/agent-kernel/packages must exist");
 
   const chosenRealRoot = existsSync(chosenKernelRoot) ? realpathSync(chosenKernelRoot) : "";
   assert(entryExists(installedKernelRoot), "node_modules/@agent-kernel/kernel must be installed");
@@ -181,7 +181,7 @@ function collectBoundaryFailures(): string[] {
     assert(lstatSync(installedKernelRoot).isSymbolicLink(), "node_modules/@agent-kernel/kernel must be a symlink");
     assert(
       realpathSync(installedKernelRoot).startsWith(`${chosenRealRoot}${sep}`),
-      "node_modules/@agent-kernel/kernel must resolve inside ../Core/agent-kernel",
+      "node_modules/@agent-kernel/kernel must resolve inside ../../codecaine/core/agent-kernel",
     );
   }
   assert(existsSync(docsKernelRoot), "ai_docs/agent-kernel must resolve to the live sibling");
@@ -189,7 +189,7 @@ function collectBoundaryFailures(): string[] {
     assert(lstatSync(docsKernelRoot).isSymbolicLink(), "ai_docs/agent-kernel must remain a reference symlink");
     assert(
       realpathSync(docsKernelRoot) === chosenRealRoot,
-      "ai_docs/agent-kernel must point to the live sibling ../Core/agent-kernel",
+      "ai_docs/agent-kernel must point to the live sibling ../../codecaine/core/agent-kernel",
     );
   }
 
@@ -211,7 +211,7 @@ function collectBoundaryFailures(): string[] {
   }
 
   for (const packageName of expectedKernelPackages) {
-    assert(chosenPackageDirs.has(packageName), `${packageName} must be present under ../Core/agent-kernel/packages`);
+    assert(chosenPackageDirs.has(packageName), `${packageName} must be present under ../../codecaine/core/agent-kernel/packages`);
   }
 
   for (const [manifestPath, expectedDependencies] of Object.entries(expectedLinkedDependencies)) {

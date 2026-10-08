@@ -117,6 +117,7 @@ async function runDryWorkerTask(params: {
     workerConfigureCommand: "",
     graphDbPath: params.graphDbPath,
     writeSetFlags: { writeSetWidening: "off" },
+    advisoryAdjudication: "off",
     workerIdPrefix: "smoke-worker",
   };
   const claimed = workerKernelOps(context).claimNextJob(store, {

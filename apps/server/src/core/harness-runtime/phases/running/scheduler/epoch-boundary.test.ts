@@ -6,7 +6,7 @@ import { initializeHarnessState, getHarnessState, transitionHarnessState, getHar
 import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
 import { addEvent, createRun, openState, startSchedulerEpoch, type StateStore } from "@server/core/harness-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
+import { boundaryFindingKnowledgeEvent, runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
 const tempDirs: string[] = [];
 function fixture(units: unknown[]): { dir: string; store: StateStore; globals: GlobalArgs; runId: string; epochId: string } {
   const dir = mkdtempSync(join(tmpdir(), "epoch-boundary-"));
@@ -273,4 +273,32 @@ describe("harness epoch handoff", () => {
     } finally { value.store.db.close(); }
   });
 
+});
+
+describe("boundary QA knowledge notes", () => {
+  const finding = {
+    rule_id: "type_erasing_cast", severity: "warning", file: "src/melee/gm/x.c", line: 12, excerpt: "data = (u8*) gobj;",
+    message: "Added type-erasing cast", standard_id: null, detail: { cast: "(u8*)", llm_review: true },
+  };
+  const detail = JSON.stringify(finding);
+
+  test("boundary note summaries: adjudicated → acceptance evidence and checkpoint ids, no \"Re-admit\"/repair text; deferred → today's text unchanged", () => {
+    const deferred = boundaryFindingKnowledgeEvent("harness-1", "upstream-sha", { reason: "boundary_qa_deferred", sourcePath: finding.file, detail });
+    expect(deferred.summary).toBe(
+      `boundary_qa_deferred: src/melee/gm/x.c. ${detail} Upstream revision: upstream-sha. Re-admit through next-epoch admission; do not repair at the boundary.`,
+    );
+
+    const adjudicated = boundaryFindingKnowledgeEvent("harness-1", "upstream-sha", {
+      reason: "boundary_qa_adjudicated",
+      sourcePath: finding.file,
+      detail,
+      adjudication: { ruleId: "type_erasing_cast", file: finding.file, fingerprint: "af2:abc123", checkpointIds: ["checkpoint-a", "checkpoint-b"] },
+    });
+    expect(adjudicated.summary).toBe(
+      "Accepted llm_review advisory type_erasing_cast at src/melee/gm/x.c (fingerprint af2:abc123, checkpoints checkpoint-a, checkpoint-b); no action needed.",
+    );
+    expect(adjudicated.summary).not.toMatch(/re-admit|repair/i);
+    expect(adjudicated.sourcePath).toBe(finding.file);
+    expect(adjudicated.id).not.toBe(deferred.id);
+  });
 });

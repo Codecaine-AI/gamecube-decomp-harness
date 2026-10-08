@@ -10,6 +10,7 @@ import { writeFactWithEvidence } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import {
   buildTaskContext,
+  CHECKPOINT_FACT_SUBJECT_LIMIT,
   splitSlicePayload,
   type LibrarianPathway,
   type LibrarianTaskContext,
@@ -307,6 +308,59 @@ function insertPrCapFixture(store: KnowledgeStore): string[] {
     ids.push(prId);
   }
   return ids;
+}
+
+function insertConfirmedCheckpointRun(store: KnowledgeStore): void {
+  store.db.query(`INSERT INTO worker_run
+    (id, target_id, goal, baseline, run_id, worker_state_id, final_outcome, error_type,
+      integration, started_at, ended_at, closed_at)
+    VALUES ('run:ws-7', 'target-main', 'Match ftCo_800BFFD0', '{"score":51.85}', 'operator-9',
+      'ws-7', 'match', NULL, 'integrated', '2026-01-23T00:00:00.000Z',
+      '2026-01-23T00:20:00.000Z', '2026-01-23T00:21:00.000Z')`).run();
+  store.db.query(`INSERT INTO submission
+    (id, worker_run_id, seq, description, hypothesis, score, submitted_at, runtime_ref)
+    VALUES ('run:ws-7:sub:3', 'run:ws-7', 3, 'checkpoint 3 scored 100', NULL, 100,
+      '2026-01-23T00:15:00.000Z', 'checkpoint-7')`).run();
+  store.db.query(`INSERT INTO run_narrative
+    (worker_run_id, summary, notable_observations, narrative, produced_by, created_at)
+    VALUES ('run:ws-7', 'Checkpoint run narrative', '[]', '{"story":"long"}', 'live',
+      '2026-01-23T00:22:00.000Z')`).run();
+}
+
+function checkpointPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    schema: "checkpoint_confirmed_v1",
+    checkpoint_id: "checkpoint-7",
+    worker_run_id: "run:ws-7",
+    submission_id: "run:ws-7:sub:3",
+    submission_seq: 3,
+    epoch_id: "epoch-4",
+    integration_id: "integration-9",
+    integrated_rev: "abc1234",
+    save_point_commit: "def5678",
+    confirmation: "epoch-settled",
+    target: {
+      key: "main/melee/ft/ftcommon::ftCo_800BFFD0",
+      knowledge_key: "main/melee/ft/ftcommon:ftCo_800BFFD0",
+      unit: "main/melee/ft/ftcommon",
+      function: "ftCo_800BFFD0",
+    },
+    facts: [],
+    kept_advisories: [],
+    sources: { note_sha256: "note", patch_sha256: "patch", runner_summary_sha256: "summary", report_changes_sha256: "report" },
+    extraction: { kernel_run_id: "kernel-run-7", served_model: "fixture/model" },
+    ...overrides,
+  };
+}
+
+function typeFact(subject: string): Record<string, unknown> {
+  return {
+    key: `type_fact|main/melee/ft/ftcommon|ftCo_800BFFD0|${subject}`,
+    kind: "type_fact",
+    subject,
+    statement: `${subject} is read as a signed short.`,
+    evidence: ["lha r0, 0x2224(r31)"],
+  };
 }
 
 describe("buildTaskContext", () => {
@@ -1124,6 +1178,142 @@ describe("buildTaskContext", () => {
       split_total: 3,
     });
     expect(context.touched).toHaveLength(1);
+  });
+
+  test("assembles a confirmed checkpoint from its payload, cites the submission, and touches the subjects its type facts name", () => {
+    const store = openFixture();
+    insertConfirmedCheckpointRun(store);
+    const tactic = {
+      key: "tactic|main/melee/ft/ftcommon|ftCo_800BFFD0|fixture",
+      kind: "tactic",
+      subject: "read the field through a local",
+      statement: "Loading the field into a local first gives the lha the compiler emits.",
+      applies_when: "a field is read twice in one expression",
+      evidence: ["lha r0, 0x2224(r31)"],
+    };
+    const facts = [
+      tactic,
+      typeFact("Fighter::x2224"),
+      typeFact("CSSIcon"),
+      typeFact("PosArrayFull->missing"),
+      typeFact("RareOnly_80001020"),
+      typeFact("Fighter"),
+      typeFact("Fighter::x2224"),
+      typeFact("Mystery::field"),
+      typeFact("not an identifier"),
+    ];
+    const keptAdvisories = [{
+      fingerprint: "af2:fixture",
+      rule_id: "type_erasing_cast",
+      severity: "info",
+      justification: "The original casts through void*.",
+      evidence: ["cast matches"],
+    }];
+
+    const context = buildTaskContext(
+      store,
+      task("checkpoint_confirmed", JSON.stringify(checkpointPayload({ facts, kept_advisories: keptAdvisories }))),
+      fixtureOptions(store),
+    );
+    const object = context.object as Record<string, unknown>;
+
+    expect(context.task.pathway).toBe("checkpoint_confirmed");
+    expect(context.task.instruction).toContain("never restated");
+    expect(context.drift_gate).toBeTrue();
+    expect(object.submission).toEqual({
+      locator: "attempt://run/run:ws-7/submission/3",
+      id: "run:ws-7:sub:3",
+      worker_run_id: "run:ws-7",
+      seq: 3,
+      score: 100,
+      description: "checkpoint 3 scored 100",
+      hypothesis: null,
+      submitted_at: "2026-01-23T00:15:00.000Z",
+    });
+    expect(object.checkpoint).toEqual({
+      id: "checkpoint-7",
+      epoch_id: "epoch-4",
+      integration_id: "integration-9",
+      integrated_rev: "abc1234",
+      save_point_commit: "def5678",
+      confirmation: "epoch-settled",
+    });
+    expect(object.facts).toEqual(facts);
+    expect(object.kept_advisories).toEqual(keptAdvisories);
+    expect(JSON.stringify(object)).not.toContain("Checkpoint run narrative");
+    expect(object.fact_subjects).toEqual([
+      { subject: "Fighter::x2224", entity_locator: "struct://Fighter#x2224", entity_kind: "struct_field" },
+      { subject: "CSSIcon", entity_locator: "struct://CSSIcon", entity_kind: "struct" },
+      { subject: "PosArrayFull->missing", entity_locator: "struct://PosArrayFull", entity_kind: "struct" },
+      { subject: "RareOnly_80001020", target_stable_key: "main/other:RareOnly_80001020" },
+      { subject: "Fighter", entity_locator: "struct://Fighter", entity_kind: "struct" },
+      { subject: "Mystery::field", unresolved: "not_found" },
+      { subject: "not an identifier", unresolved: "not_an_identifier" },
+    ]);
+    expect(context.touched.map((subject) =>
+      subject.kind === "entity" ? subject.entity_locator : subject.target_stable_key)).toEqual([
+      "src/main.c",
+      "parameter://ftCo/state",
+      "struct://Fighter",
+      "struct://Fighter#x2224",
+      "struct://CSSIcon",
+      "struct://PosArrayFull",
+      "main/other:RareOnly_80001020",
+      "main/melee/ft/ftcommon:ftCo_800BFFD0",
+    ]);
+    expect(context.touched.every((subject) => subject.drift !== undefined)).toBeTrue();
+    expect(context.supporting.map(({ entity_locator }) => entity_locator)).toEqual(["concept://guard"]);
+    assertOrderingAndScope(context);
+  });
+
+  test("touches at most CHECKPOINT_FACT_SUBJECT_LIMIT type-fact subjects", () => {
+    const store = openFixture();
+    insertConfirmedCheckpointRun(store);
+    const insertStruct = store.db.query(`INSERT INTO entity
+      (id, kind, locator, parent_entity_id, identity_status, merged_into_id)
+      VALUES (?, 'struct', ?, NULL, 'active', NULL)`);
+    const names = Array.from({ length: CHECKPOINT_FACT_SUBJECT_LIMIT + 2 }, (_, index) => `CapStruct${index}`);
+    for (const name of names) insertStruct.run(`struct-${name}`, `struct:${name}`);
+
+    const context = buildTaskContext(
+      store,
+      task("checkpoint_confirmed", JSON.stringify(checkpointPayload({ facts: names.map(typeFact) }))),
+      fixtureOptions(store),
+    );
+
+    const touchedLocators = context.touched.flatMap((subject) =>
+      subject.kind === "entity" && subject.entity_locator.startsWith("struct:CapStruct") ? [subject.entity_locator] : []);
+    expect(touchedLocators).toEqual(names.slice(0, CHECKPOINT_FACT_SUBJECT_LIMIT).map((name) => `struct:${name}`));
+    expect((context.object as { fact_subjects: unknown[] }).fact_subjects.slice(-2)).toEqual(
+      names.slice(-2).map((subject) => ({ subject, unresolved: "subject_cap" })),
+    );
+  });
+
+  test("fails closed on malformed or inconsistent checkpoint_confirmed payloads", () => {
+    const store = openFixture();
+    insertConfirmedCheckpointRun(store);
+    const cases: Array<[string, string]> = [
+      ["not json", "checkpoint_confirmed payload is malformed"],
+      [JSON.stringify(checkpointPayload({ schema: "checkpoint_confirmed_v0" })), "is not checkpoint_confirmed_v1"],
+      [JSON.stringify(checkpointPayload({ checkpoint_id: "" })), "must name a checkpoint and a worker run"],
+      [JSON.stringify(checkpointPayload({ submission_seq: "3" })), "must name a submission_seq"],
+      [JSON.stringify(checkpointPayload({ facts: {} })), "facts must be an array of objects"],
+      [JSON.stringify(checkpointPayload({ kept_advisories: ["kept"] })), "kept_advisories must be an array of objects"],
+      [JSON.stringify(checkpointPayload({ worker_run_id: "run:missing" })), "Worker run not found: run:missing"],
+      [JSON.stringify(checkpointPayload({ submission_seq: 9, submission_id: "run:ws-7:sub:9" })), "Submission not found: attempt://run/run:ws-7/submission/9"],
+      [JSON.stringify(checkpointPayload({ submission_id: "run:ws-7:sub:2" })), "does not match attempt://run/run:ws-7/submission/3"],
+      [JSON.stringify(checkpointPayload({ checkpoint_id: "checkpoint-other" })), "does not record checkpoint checkpoint-other"],
+    ];
+
+    for (const [payload, message] of cases) {
+      const context = buildTaskContext(store, task("checkpoint_confirmed", payload), {
+        ...fixtureOptions(store),
+        checkoutRev: "fixture-head",
+      });
+      expect((context.object as { error?: string }).error).toContain(message);
+      expect(context.touched).toEqual([]);
+      expect(context.scope).toEqual({ targetStableKeys: [], entityLocators: [] });
+    }
   });
 
   test("returns no-op contexts for malformed and dangling payloads", () => {

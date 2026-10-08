@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
-import { QA_LINT_REPAIR_INSTRUCTION, type WorkerChangeValidation, type WorkerQaLint } from "@server/core/agent-catalog/agents/running/worker/change-validation";
+import {
+  failForPendingAdvisories,
+  QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE,
+  QA_LINT_REPAIR_INSTRUCTION,
+  type WorkerChangeValidation,
+  type WorkerQaLint,
+} from "@server/core/agent-catalog/agents/running/worker/change-validation";
 import type { QaScanFinding } from "@server/core/validation/qa";
+import { advisoryFingerprint } from "@server/core/validation/qa/advisory-fingerprint.js";
+import { openState } from "@server/core/orchestrator-state";
 import type { PiRunResult } from "@server/core/shared/types";
 import { FakeSandboxProvider } from "@server/core/job-queue/sandbox.js";
 import {
@@ -31,6 +39,7 @@ import {
   workerPiSessionRetryDecision,
   workerFacingRepairRequest,
   probeExistingWorkerCanonicalToolPaths,
+  recordAcceptedAdvisories,
   WORKER_CANONICAL_TOOL_PATH_PROBE_TIMEOUT_MS,
   REPAIR_REQUEST_DIFF_INLINE_LIMIT,
   REPAIR_REQUEST_OUTPUT_TAIL_LIMIT,
@@ -324,6 +333,27 @@ describe("workerAttemptRepairReasons", () => {
   test("clean qaLint on a passed attempt yields no repair reasons", () => {
     const qaLint: WorkerQaLint = { status: "clean", exitCode: 0, findings: [], scanPath: null, toolError: null };
     expect(workerAttemptRepairReasons({ runnerValidation: passedValidation(qaLint) })).toEqual([]);
+  });
+
+  test("an enforce-accepted advisory produces no qa_lint_finding line and no repair instruction", () => {
+    const advisory = finding({ rule_id: "type_erasing_cast", severity: "warning", detail: { llm_review: true } });
+    const validation: WorkerChangeValidation = {
+      ...passedValidation(warningsQaLint([advisory])),
+      advisoryResolution: { acceptedFingerprints: ["af2:accepted"], remaining: [] },
+    };
+    expect(workerAttemptRepairReasons({ runnerValidation: validation })).toEqual([]);
+  });
+
+  test("a rejected advisory is fed back with the enforce advisory instruction instead of the standing one", () => {
+    const advisory = finding({ rule_id: "type_erasing_cast", severity: "warning", detail: { llm_review: true } });
+    const pending: WorkerChangeValidation = { ...passedValidation(warningsQaLint([advisory])), advisoryGate: "pending" };
+    const reasons = workerAttemptRepairReasons({
+      runnerValidation: failForPendingAdvisories(pending, ["llm_review advisory type_erasing_cast rejected: justification missing"]),
+    });
+    expect(reasons).toContain("runner validation: llm_review advisory type_erasing_cast rejected: justification missing");
+    expect(reasons.filter((reason) => reason.startsWith("qa_lint_finding: warning type_erasing_cast"))).toHaveLength(1);
+    expect(reasons.at(-1)).toBe(QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE);
+    expect(reasons).not.toContain(QA_LINT_REPAIR_INSTRUCTION);
   });
 
   test("skipped runner validation does not request repair for a changed diff", () => {
@@ -885,6 +915,34 @@ describe("classifyWorkerError with QA lint violations", () => {
     expect(classification).toBeNull();
   });
 
+  test("an enforce-accepted advisory reads clean through the effective view: no QA rejection", () => {
+    const advisory = finding({ rule_id: "type_erasing_cast", severity: "warning", detail: { llm_review: true } });
+    const validation: WorkerChangeValidation = {
+      ...passedValidation(warningsQaLint([advisory])),
+      advisoryResolution: { acceptedFingerprints: ["af2:accepted"], remaining: [] },
+    };
+    expect(classifyWorkerError({ result: piResult(), agentNote: { status: "validation_ready" }, runnerValidation: validation })).toBeNull();
+    // The raw scan is evidence and stays on the validation.
+    expect(validation.qaLint?.status).toBe("warnings");
+  });
+
+  test("an advisory the adjudication did not accept is a rework rejection naming only that advisory", () => {
+    const accepted = finding({ rule_id: "type_erasing_cast", severity: "warning", line: 10, excerpt: "(int)(u8)a", detail: { llm_review: true } });
+    const rejected = finding({ rule_id: "type_erasing_cast", severity: "warning", line: 11, excerpt: "(int)(u8)b", detail: { llm_review: true } });
+    const pending: WorkerChangeValidation = { ...passedValidation(warningsQaLint([accepted, rejected])), advisoryGate: "pending" };
+    const validation: WorkerChangeValidation = {
+      ...failForPendingAdvisories(pending, ["llm_review advisory type_erasing_cast at src/melee/mn/mncount.c:11 rejected: judged unjustified (p=0.12)"]),
+      advisoryResolution: { acceptedFingerprints: ["af2:accepted"], remaining: [rejected] },
+    };
+    const classification = classifyWorkerError({ result: piResult(), agentNote: { status: "validation_ready" }, runnerValidation: validation });
+    expect(classification?.kind).toBe("runner_validation_qa_lint_failed");
+    expect(isReworkErrorKind(classification!.kind)).toBe(true);
+    expect(classification?.summary).toContain("1 QA finding(s) requiring repair");
+    expect(classification?.reasons.filter((reason) => reason.startsWith("qa_lint_finding:"))).toEqual([
+      expect.stringContaining("src/melee/mn/mncount.c:11"),
+    ]);
+  });
+
   test("violations outrank the generic runner_validation_<status> kind", () => {
     const validation: WorkerChangeValidation = {
       status: "no_official_score_change",
@@ -898,5 +956,102 @@ describe("classifyWorkerError with QA lint violations", () => {
     });
     expect(classification?.kind).toBe("runner_validation_qa_lint_failed");
     expect(classification?.reasons).toContain("target did not improve");
+  });
+});
+
+describe("recordAcceptedAdvisories", () => {
+  const file = "src/melee/gm/gmtoulib.c";
+  const patch = [
+    `diff --git a/${file} b/${file}`,
+    `--- a/${file}`,
+    `+++ b/${file}`,
+    "@@ -1,3 +1,6 @@",
+    " void f(void) {",
+    "+    x = *(char**)   &lbl_A;",
+    "     y = 0;",
+    "+    x = *(char**) &lbl_A;",
+    "+    z = *(char**) &lbl_B;",
+    " }",
+    "",
+  ].join("\n");
+  const cast = (line: number, excerpt: string, overrides: Partial<QaScanFinding> = {}) =>
+    finding({ rule_id: "type_erasing_cast", severity: "warning", file, line, excerpt, detail: { llm_review: true, cast: "(char**)" }, ...overrides });
+
+  function adjudicated(f: QaScanFinding, fingerprint: string | null, result: "pass" | "noted" = "pass") {
+    return {
+      fingerprint,
+      rule_id: f.rule_id,
+      standard_id: f.standard_id,
+      severity: f.severity as "warning" | "info",
+      file: f.file,
+      line: f.line,
+      excerpt: f.excerpt,
+      hunk: null,
+      hunk_sha256: null,
+      justification: "the original binary loads through the cast",
+      evidence: [],
+      result,
+      probability: 0.93,
+      decision: { run_id: `decision-${f.line}`, served_model: "typesafe/jev-1.13.0", thresholds: { passAt: 0.85, failAt: 0.15 } },
+    };
+  }
+
+  test("one row per accepted fingerprint, crediting each physical occurrence; unreadable lines and info advisories are never recorded", async () => {
+    const stateDir = await mkdtemp(join(tmpdir(), "accepted-advisory-"));
+    try {
+      const store = openState(stateDir);
+      try {
+        const first = cast(2, "x = *(char**)   &lbl_A;");
+        const second = cast(4, "x = *(char**) &lbl_A;");
+        // Whitespace inside the line normalizes away, so both copies share one af2 fingerprint.
+        const shared = advisoryFingerprint(first, "    x = *(char**)   &lbl_A;");
+        expect(advisoryFingerprint(second, "    x = *(char**) &lbl_A;")).toBe(shared);
+        // Accepted, but its excerpt does not match the patch line: unreadable evidence.
+        const mismatched = cast(5, "w = *(char**) &lbl_B;");
+        const info = cast(5, "z = *(char**) &lbl_B;", { severity: "info" });
+        const adjudication = {
+          schema: "llm_review_adjudication_v1",
+          requested_mode: "enforce",
+          mode: "enforce",
+          verdict: "pass",
+          applied: true,
+          advisories: [
+            adjudicated(first, shared),
+            adjudicated(second, shared),
+            adjudicated(mismatched, "af2:mismatched"),
+            adjudicated(info, "af2:info", "noted"),
+          ],
+          accepted_fingerprints: [shared, "af2:mismatched"],
+          extraction: { status: "ok" },
+          sources: { note_sha256: null, patch_sha256: null },
+          model: { requested: "typesafe/jev-1.13.0" },
+          thresholds: { passAt: 0.85, failAt: 0.15, qualification: "enforcement-qualified" },
+          duration_ms: 10,
+        } as const;
+
+        const params = { checkpointId: "checkpoint-1", runId: "run-1", adjudication: adjudication as never, patchText: patch, acceptedAt: "2026-10-07T00:00:00.000Z" };
+        expect(recordAcceptedAdvisories(store, params)).toEqual([shared]);
+        // Replays are idempotent per (fingerprint, checkpoint).
+        expect(recordAcceptedAdvisories(store, params)).toEqual([shared]);
+        expect(store.db.query("SELECT * FROM accepted_advisory").all()).toEqual([{
+          fingerprint: shared,
+          checkpoint_id: "checkpoint-1",
+          run_id: "run-1",
+          rule_id: "type_erasing_cast",
+          file,
+          full_line: "x = *(char**) &lbl_A;",
+          occurrences: 2,
+          decision_run_id: "decision-2",
+          probability: 0.93,
+          served_model: "typesafe/jev-1.13.0",
+          thresholds_json: JSON.stringify({ passAt: 0.85, failAt: 0.15 }),
+          accepted_at: "2026-10-07T00:00:00.000Z",
+        }]);
+      } finally {
+        store.db.close();
+      }
+    } finally {
+      await rm(stateDir, { recursive: true, force: true });
+    }
   });
 });

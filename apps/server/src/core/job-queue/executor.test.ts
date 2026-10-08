@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { defaultConfigureCommand, LocalProcessExecutor } from "./executor.js";
+import { advisoryAdjudicationArg, parse } from "@server/core/game-registry/runtime-options.js";
+import { defaultConfigureCommand, LocalProcessExecutor, workerCommand } from "./executor.js";
 import type { TaskHandle, TaskSpec } from "./types.js";
 
 function task(command: string[], timeoutMs: number | null = null): TaskSpec {
@@ -75,5 +76,22 @@ describe("defaultConfigureCommand", () => {
 
   test("keeps require-protos for Melee", () => {
     expect(defaultConfigureCommand({ ...paths, game: { kind: "doldecomp-melee" } as any })).toContain("--require-protos");
+  });
+});
+
+describe("workerCommand", () => {
+  test("passes advisory_adjudication to the worker in a form its parser reads back", () => {
+    const command = workerCommand(
+      {
+        repoRoot: "/nonexistent/worker-command/repo", stateDir: "/nonexistent/worker-command/state",
+        dryRunAgents: true, provider: "test-provider", model: "test-model", thinkingLevel: "medium",
+      },
+      {
+        runId: "run-1", workerId: "worker-1", baseRev: "base", ttlSeconds: 60, thinkingLevel: "medium",
+        postReturnCheckCommand: "", workerConfigureCommand: "", graphDbPath: "/nonexistent/graph.db", leaseId: "lease-1",
+        writeSetFlags: { writeSetWidening: "off" }, advisoryAdjudication: "off",
+      },
+    );
+    expect(advisoryAdjudicationArg(parse(command.slice(2)).args, {})).toBe("off");
   });
 });

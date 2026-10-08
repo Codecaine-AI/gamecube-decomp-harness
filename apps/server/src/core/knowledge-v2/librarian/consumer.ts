@@ -51,18 +51,20 @@ const DRIFT_RECHECK_CHILD_SIZE = 12;
 export const LIBRARIAN_PATHWAYS: readonly LibrarianPathway[] = [
   "run_closed",
   "regression",
+  "checkpoint_confirmed",
   "pr_imported",
   "archival_ingest",
   "drift_recheck",
 ];
 
 /**
- * Claim order: per-target pathways first (a worker may be waiting on them), then imported PRs,
- * then archival slices, then drift rechecks. FIFO within a pathway.
+ * Claim order: per-target pathways first (a worker may be waiting on them), then confirmed
+ * checkpoints and imported PRs, then archival slices, then drift rechecks. FIFO within a rank.
  */
 const PATHWAY_RANK: Record<LibrarianPathway, number> = {
   run_closed: 0,
   regression: 0,
+  checkpoint_confirmed: 1,
   pr_imported: 1,
   archival_ingest: 2,
   drift_recheck: 3,
@@ -894,6 +896,7 @@ function queuedCandidates(
       CASE pathway
         WHEN 'run_closed' THEN ${PATHWAY_RANK.run_closed}
         WHEN 'regression' THEN ${PATHWAY_RANK.regression}
+        WHEN 'checkpoint_confirmed' THEN ${PATHWAY_RANK.checkpoint_confirmed}
         WHEN 'pr_imported' THEN ${PATHWAY_RANK.pr_imported}
         WHEN 'archival_ingest' THEN ${PATHWAY_RANK.archival_ingest}
         WHEN 'drift_recheck' THEN ${PATHWAY_RANK.drift_recheck}

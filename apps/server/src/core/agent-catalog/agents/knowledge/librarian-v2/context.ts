@@ -66,7 +66,7 @@ The index_task, including its pathway and payload:
 </task>
 
 <object>
-The triggering object (run with submissions and proposal, pull_request with archived discussion references, appended source slice, or flagged facts):
+The triggering object (run with submissions and proposal, confirmed checkpoint facts, pull_request with archived discussion references, appended source slice, or flagged facts):
 \`\`\`json
 {{OBJECT_JSON}}
 \`\`\`
