@@ -37,6 +37,7 @@ async function fixture() {
   await mkdir(resolve(report, ".."), { recursive: true }); await writeFile(report, "accepted");
   let response: Record<string, unknown> = { value: { ok: true }, artifacts: ["/work/sms/build/GMSJ01/report.json", "/tmp/build-task-logs/task.log"] };
   let onRun = async () => {};
+  let onDownload = async () => {};
   let deleted = 0;
   const uploads = new Map<string, string>();
   const commands: string[][] = [];
@@ -48,12 +49,12 @@ async function fixture() {
       return { exitCode: 0, stderr: "", stdout: command.join(" ") === "git write-tree" ? (await buildSourceIdentity(repo)).tree : "" };
     },
     uploadFile: async (local, remote) => { if (remote.endsWith(".bundle")) await copyFile(local, resolve(root, "source.bundle")); uploads.set(remote, await readFile(local, "utf8")); },
-    downloadFile: async (remote, local) => { await writeFile(local, remote.endsWith(".log") ? "diagnostic" : "fresh"); },
+    downloadFile: async (remote, local) => { await onDownload(); await writeFile(local, remote.endsWith(".log") ? "diagnostic" : "fresh"); },
     readFile: async () => JSON.stringify(response),
     writeFile: async (remote, content) => { uploads.set(remote, content); },
   };
   const provider: SandboxProvider = { create: async params => { expect(params.ephemeral).toBe(true); expect(params.ttlMinutes).toBe(90); return handle; }, get: async () => handle, listByLabels: async () => [], delete: async () => { deleted++; } };
-  return { repo, root, source, report, git, uploads, commands, game, provider, get deleted() { return deleted; }, set response(value: Record<string, unknown>) { response = value; }, set onRun(value: () => Promise<void>) { onRun = value; }, run: (kind: "report" | "command" | "autofix" | "format-apply" | "qa" = "report") => executeDaytonaBuild(repo, { kind, input: {} }, { game, provider, bundleWorker: async path => { await writeFile(path, "// fixture worker"); } }) };
+  return { repo, root, source, report, git, uploads, commands, game, provider, get deleted() { return deleted; }, set response(value: Record<string, unknown>) { response = value; }, set onRun(value: () => Promise<void>) { onRun = value; }, set onDownload(value: () => Promise<void>) { onDownload = value; }, run: (kind: "report" | "command" | "autofix" | "format-apply" | "qa" = "report") => executeDaytonaBuild(repo, { kind, input: {} }, { game, provider, bundleWorker: async path => { await writeFile(path, "// fixture worker"); } }) };
 }
 
 describe("Daytona build execution", () => {
@@ -120,6 +121,15 @@ describe("Daytona build execution", () => {
     f.response = { value: { exitCode: 0, result: { status: "passed" } }, artifacts: ["/work/sms/build/GMSJ01/report.json", "/tmp/build-task-logs/task.log"] };
     expect(await f.run("qa")).toMatchObject({ exitCode: 0, result: { status: "passed" } });
     expect(await readFile(f.report, "utf8")).toBe("accepted"); expect(f.deleted).toBe(1);
+  });
+  test("a QA scan keeps its verdict when the checkout moves during artifact transfer", async () => {
+    const f = await fixture();
+    f.response = { value: { exitCode: 0, result: { status: "passed" } }, artifacts: ["/work/sms/build/GMSJ01/report.json"] };
+    f.onDownload = async () => { await writeFile(resolve(f.repo, "source.c"), "integrated\n"); };
+    expect(await f.run("qa")).toMatchObject({ exitCode: 0 });
+    expect(await readFile(f.report, "utf8")).toBe("accepted");
+    f.onDownload = async () => { await writeFile(resolve(f.repo, "source.c"), "integrated again\n"); };
+    await expect(f.run()).rejects.toThrow("during artifact transfer");
   });
   test("nonzero command result cannot replace reports", async () => {
     const f = await fixture(); f.response = { value: { exitCode: 1, stdout: "", stderr: "failed" }, artifacts: ["/work/sms/build/GMSJ01/report.json"] };

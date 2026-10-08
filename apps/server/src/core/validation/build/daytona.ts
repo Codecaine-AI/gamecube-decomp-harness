@@ -293,8 +293,10 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
       stagedArtifacts.push([staged, local]);
     }
     try {
-      if (!failed && !checkoutMoved && (await captureSourceIdentity(repoRoot)).digest !== source.digest) throw new Error("Checkout changed during artifact transfer; rejecting stale artifacts");
-      for (const [staged, local] of stagedArtifacts) {
+      const movedDuringTransfer = !failed && !checkoutMoved && (await captureSourceIdentity(repoRoot)).digest !== source.digest;
+      // Same rule as the post-build check: a QA verdict stands, its artifacts are not published.
+      if (movedDuringTransfer && task.kind !== "qa") throw new Error("Checkout changed during artifact transfer; rejecting stale artifacts");
+      for (const [staged, local] of movedDuringTransfer ? [] : stagedArtifacts) {
         const adjacent = `${local}.${id}.tmp`;
         try { await copyFile(staged, adjacent); await rename(adjacent, local); }
         finally { await rm(adjacent, { force: true }); }
