@@ -1,5 +1,6 @@
-import { readFile, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
 
 export type PolicyMergeSide = "ours" | "upstream";
@@ -102,6 +103,8 @@ export interface PolicyMergeFileLog {
   result: PolicyMergeResult | null;
   wholeFileFallbackReason: string | null;
   upstreamReportFallbackReason: string | null;
+  /** Set when a non-C contested file was resolved by a line-based three-way merge. */
+  textMergeReason?: string | null;
 }
 
 export interface ApplyScoreMergePolicyInput {
@@ -1129,6 +1132,9 @@ export function policyMergeFileMessage(entry: Omit<PolicyMergeFileLog, "message"
   const reportFallback = entry.upstreamReportFallbackReason
     ? ` upstream-report-fallback=${entry.upstreamReportFallbackReason.replace(/\s+/g, " ").trim()}`
     : "";
+  if (entry.textMergeReason) {
+    return `${entry.path}: strategy=three_way_merge reason=[${entry.textMergeReason.replace(/\s+/g, " ").trim()}]${reportFallback}`;
+  }
   if (!entry.result) {
     return `${entry.path}: ours=[] upstream=[whole-file] strategy=majority_fallback${wholeFileFallback}${reportFallback}`;
   }
@@ -1175,6 +1181,97 @@ async function takeUpstreamFileWhole(
   );
 }
 
+/**
+ * Resolves a contested path the C function policy cannot parse (C++ sources,
+ * headers, data) with a line-based three-way merge. Upstream is taken whole
+ * only when ours left the file as it was at base. A conflict that would drop
+ * accepted local changes fails closed: a path git already left unmerged stays
+ * unmerged for the caller's operator review, and anything else throws so the
+ * caller aborts the merge.
+ */
+async function mergeNonCContestedFile(
+  input: ApplyScoreMergePolicyInput,
+  path: string,
+): Promise<{ entry: PolicyMergeFileLog; rewritten: boolean }> {
+  const logEntry = (fields: { wholeFileFallbackReason?: string; textMergeReason?: string }): PolicyMergeFileLog => {
+    const partial = {
+      path,
+      result: null,
+      wholeFileFallbackReason: fields.wholeFileFallbackReason ?? null,
+      upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
+      textMergeReason: fields.textMergeReason ?? null,
+    };
+    return { ...partial, message: policyMergeFileMessage(partial) };
+  };
+  const [base, ours, upstream] = await Promise.all([
+    gitFileText(input.runGit, input.worktreePath, input.baseRevision, path),
+    gitFileText(input.runGit, input.worktreePath, input.oursRevision, path),
+    gitFileText(input.runGit, input.worktreePath, input.upstreamRevision, path),
+  ]);
+  const unavailable = [
+    base.error ? `base: ${base.error}` : null,
+    ours.error ? `ours: ${ours.error}` : null,
+    upstream.error ? `upstream: ${upstream.error}` : null,
+  ].filter((value): value is string => value !== null);
+  if (unavailable.length > 0) {
+    throw new Error(`policy merge cannot read parent text for contested file ${path} (${unavailable.join("; ")}); refusing to discard accepted local changes`);
+  }
+
+  const oursUnchanged = ours.exists === base.exists && ours.text === base.text;
+  const parentsIdentical = ours.exists === upstream.exists && ours.text === upstream.text;
+  if (oursUnchanged || parentsIdentical) {
+    await takeUpstreamFileWhole(input.runGit, input.worktreePath, input.upstreamRevision, path);
+    return {
+      entry: logEntry({
+        wholeFileFallbackReason: oursUnchanged
+          ? "non-C contested file: ours unchanged from base"
+          : "non-C contested file: ours and upstream identical",
+      }),
+      rewritten: false,
+    };
+  }
+
+  let conflictDetail: string;
+  if (!ours.exists || !upstream.exists) {
+    conflictDetail = `${ours.exists ? "upstream" : "ours"} deleted the file while the other side changed it`;
+  } else {
+    const scratch = await mkdtemp(join(tmpdir(), "policy-merge-"));
+    try {
+      const files = { ours: join(scratch, "ours"), base: join(scratch, "base"), upstream: join(scratch, "upstream") };
+      await Promise.all([
+        writeFile(files.ours, ours.text),
+        writeFile(files.base, base.exists ? base.text : ""),
+        writeFile(files.upstream, upstream.text),
+      ]);
+      const merged = await input.runGit(input.worktreePath, [
+        "merge-file", "-p", "-L", "ours", "-L", "base", "-L", "upstream", files.ours, files.base, files.upstream,
+      ]);
+      if (merged.exitCode === 0) {
+        await writeFile(resolve(input.worktreePath, path), merged.stdout);
+        return { entry: logEntry({ textMergeReason: "non-C contested file: clean three-way merge" }), rewritten: true };
+      }
+      if (merged.exitCode === null || merged.exitCode < 1 || merged.exitCode > 127) {
+        throw new Error(`policy merge three-way merge for ${path} failed: ${gitOutput(merged)}; refusing to discard accepted local changes`);
+      }
+      conflictDetail = `${merged.exitCode} conflicting hunk(s)`;
+    } finally {
+      await rm(scratch, { recursive: true, force: true });
+    }
+  }
+
+  const unmerged = await input.runGit(input.worktreePath, ["ls-files", "-u", "--", path]);
+  if (unmerged.exitCode === 0 && unmerged.stdout.trim() !== "") {
+    return {
+      entry: logEntry({ textMergeReason: `non-C contested file: three-way merge conflict (${conflictDetail}) left unmerged for operator review` }),
+      rewritten: false,
+    };
+  }
+  throw new Error(
+    `policy merge stopped at contested file ${path}: three-way merge conflict (${conflictDetail}) between accepted local changes and upstream; `
+    + "refusing to take upstream wholesale, resolve it for operator review",
+  );
+}
+
 export function policyContestedPaths(input: {
   upstreamChangedFiles: string[];
   locallyChangedFiles: string[];
@@ -1191,15 +1288,12 @@ export async function applyScoreMergePolicy(
   const files: PolicyMergeFileLog[] = [];
   const rewrittenPaths: string[] = [];
   for (const path of contestedPaths) {
+    // The function policy parses plain C only; C++ member functions, overloads,
+    // and mangled report names would collide or misparse, so other files merge by line.
     if (!path.endsWith(".c")) {
-      await takeUpstreamFileWhole(input.runGit, input.worktreePath, input.upstreamRevision, path);
-      const partial = {
-        path,
-        result: null,
-        wholeFileFallbackReason: "non-C contested file",
-        upstreamReportFallbackReason: input.reports.upstreamReportFallbackReason,
-      };
-      files.push({ ...partial, message: policyMergeFileMessage(partial) });
+      const merged = await mergeNonCContestedFile(input, path);
+      files.push(merged.entry);
+      if (merged.rewritten) rewrittenPaths.push(path);
       continue;
     }
     const [base, ours, upstream] = await Promise.all([

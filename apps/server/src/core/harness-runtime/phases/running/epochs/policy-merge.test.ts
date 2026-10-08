@@ -1,6 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { parse, syncMergePolicyArg } from "@server/core/game-registry/runtime-options.js";
 import {
+  applyScoreMergePolicy,
   functionScoresForSourcePath,
   functionScoresForUnit,
   mergeCFileByPolicy,
@@ -880,4 +884,126 @@ test("sync merge policy defaults to score and accepts the theirs escape hatch", 
   expect(syncMergePolicyArg(parse(["run-loop", "--sync-merge-policy=theirs"]).args)).toBe("theirs");
   expect(syncMergePolicyArg(parse(["run-loop", "--sync-merge-policy", "THEIRS"]).args)).toBe("theirs");
   expect(() => syncMergePolicyArg(parse(["run-loop", "--sync-merge-policy=hybrid"]).args)).toThrow("score, theirs");
+});
+
+describe("non-C contested files", () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  function git(cwd: string, args: string[]): string {
+    const result = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
+    if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+    return result.stdout.toString().trim();
+  }
+
+  const runGit = async (cwd: string, args: string[]) => {
+    const result = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
+    return { exitCode: result.exitCode, stdout: result.stdout.toString(), stderr: result.stderr.toString() };
+  };
+
+  const lines = (count: number, edits: Record<number, string> = {}) =>
+    `${Array.from({ length: count }, (_, index) => edits[index] ?? `void Obj::line${index}() { mValue = ${index}; }`).join("\n")}\n`;
+
+  /** Commits base, ours, and upstream, then starts the boundary-sync merge (`-X theirs --no-commit`). */
+  function contestedRepo(path: string, texts: { base: string; ours: string; upstream: string }, strategyArgs = ["-X", "theirs"]) {
+    const repo = mkdtempSync(join(tmpdir(), "policy-merge-cpp-"));
+    roots.push(repo);
+    git(repo, ["init", "-b", "main"]);
+    git(repo, ["config", "user.email", "test@example.com"]);
+    git(repo, ["config", "user.name", "Policy Test"]);
+    const write = (text: string) => {
+      mkdirSync(dirname(join(repo, path)), { recursive: true });
+      writeFileSync(join(repo, path), text);
+      git(repo, ["add", "."]);
+    };
+    write(texts.base);
+    git(repo, ["commit", "-m", "base"]);
+    const base = git(repo, ["rev-parse", "HEAD"]);
+    git(repo, ["checkout", "-b", "upstream"]);
+    write(texts.upstream);
+    git(repo, ["commit", "-m", "upstream"]);
+    const upstream = git(repo, ["rev-parse", "HEAD"]);
+    git(repo, ["checkout", "main"]);
+    write(texts.ours);
+    if (texts.ours !== texts.base) git(repo, ["commit", "-m", "ours"]);
+    const ours = git(repo, ["rev-parse", "HEAD"]);
+    // The operator Sync merges without -X theirs, so git may stop with a conflict.
+    Bun.spawnSync(["git", "merge", "--no-edit", "--no-ff", "--no-commit", ...strategyArgs, upstream], { cwd: repo, stdout: "pipe", stderr: "pipe" });
+    const apply = () => applyScoreMergePolicy({
+      worktreePath: repo,
+      baseRevision: base,
+      oursRevision: ours,
+      upstreamRevision: upstream,
+      upstreamChangedFiles: [path],
+      locallyChangedFiles: [path],
+      reports: { ours: {}, upstream: {}, scoreMode: "reports", upstreamReportFallbackReason: null },
+      runGit,
+    });
+    return { repo, apply, read: () => readFileSync(join(repo, path), "utf8") };
+  }
+
+  test("the C function parser cannot split C++ member functions, so C++ stays out of function-level policy", () => {
+    const cpp = (value: number) => `void A::init() { x = ${value}; }\nvoid B::init() { y = 0; }\nint A::get() const { return x; }\n`;
+    const result = mergeCFileByPolicy({ path: "src/a.cpp", baseText: cpp(0), oursText: cpp(1), upstreamText: cpp(2) });
+
+    expect(result.strategy).toBe("majority_fallback");
+    expect(result.fallback?.detail).toContain("duplicate function 'init'");
+  });
+
+  test("merges a contested .cpp cleanly when ours and upstream touch different regions", async () => {
+    const path = "src/MoveBG/MapObjMare.cpp";
+    const fixture = contestedRepo(path, {
+      base: lines(20),
+      ours: lines(20, { 2: "void Obj::line2() { mValue = 200; }" }),
+      upstream: lines(20, { 17: "void Obj::line17() { mValue = 1700; }" }),
+    });
+
+    const applied = await fixture.apply();
+
+    expect(fixture.read()).toBe(lines(20, { 2: "void Obj::line2() { mValue = 200; }", 17: "void Obj::line17() { mValue = 1700; }" }));
+    expect(applied.rewrittenPaths).toEqual([path]);
+    expect(applied.files[0]?.message).toBe(`${path}: strategy=three_way_merge reason=[non-C contested file: clean three-way merge]`);
+  });
+
+  test("fails closed instead of taking upstream wholesale when a .cpp conflict would drop our changes", async () => {
+    const path = "src/MoveBG/MapObjMare.cpp";
+    const fixture = contestedRepo(path, {
+      base: lines(5),
+      ours: lines(5, { 2: "void Obj::line2() { mValue = 200; }" }),
+      upstream: lines(5, { 2: "void Obj::line2() { mValue = -2; }" }),
+    });
+
+    await expect(fixture.apply()).rejects.toThrow(`policy merge stopped at contested file ${path}: three-way merge conflict (1 conflicting hunk(s))`);
+    // Boundary sync aborts the merge on this error, restoring the accepted file.
+    git(fixture.repo, ["merge", "--abort"]);
+    expect(fixture.read()).toBe(lines(5, { 2: "void Obj::line2() { mValue = 200; }" }));
+  });
+
+  test("leaves a conflict git already left unmerged for the operator Sync's review", async () => {
+    const path = "include/MoveBG/MapObjMare.hpp";
+    const fixture = contestedRepo(path, {
+      base: lines(3),
+      ours: lines(3, { 1: "ours();" }),
+      upstream: lines(3, { 1: "upstream();" }),
+    }, []);
+
+    const applied = await fixture.apply();
+
+    expect(git(fixture.repo, ["diff", "--name-only", "--diff-filter=U"])).toBe(path);
+    expect(applied.rewrittenPaths).toEqual([]);
+    expect(applied.files[0]?.message).toContain("left unmerged for operator review");
+  });
+
+  test("still takes upstream whole when ours left the contested file as it was at base", async () => {
+    const path = "src/MoveBG/MapObjMare.cpp";
+    const upstreamText = lines(5, { 2: "void Obj::line2() { mValue = -2; }" });
+    const fixture = contestedRepo(path, { base: lines(5), ours: lines(5), upstream: upstreamText });
+
+    const applied = await fixture.apply();
+
+    expect(fixture.read()).toBe(upstreamText);
+    expect(applied.files[0]?.message).toContain("fallback=whole_file_upstream:non-C contested file: ours unchanged from base");
+  });
 });

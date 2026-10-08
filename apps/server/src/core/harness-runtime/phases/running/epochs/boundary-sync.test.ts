@@ -71,8 +71,9 @@ describe("boundary sync", () => {
     const notes: unknown[] = [];
     let failNote = true;
     let publications = 0;
+    // Both sides rewrote the same line; only the explicit theirs policy may let upstream win it.
     const input = {
-      repoRoot: fixture.repo, anchorSha: fixture.anchor, stateDir: join(fixture.repo, ".state"), reportRelPath,
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, stateDir: join(fixture.repo, ".state"), reportRelPath, mergePolicy: "theirs" as const,
       targets: [{ targetKey: `${unit}::same`, sourcePath, unit, symbol: "same", priorKind: "improvement" as const, priorScore: 12 }],
       buildFixerEnabled: false,
       hooks: {
@@ -98,6 +99,20 @@ describe("boundary sync", () => {
     expect(notes).toContainEqual(expect.objectContaining({ targetKey: `${unit}::same`, priorScore: 100, afterScore: 70, priorHeadSha: beforeHead }));
     expect(publications).toBe(1);
     expect(existsSync(join(input.stateDir, "boundary_recovery/pending.json"))).toBe(false);
+  });
+
+  test("score policy stops instead of taking upstream over a conflicting C++ epoch change", async () => {
+    const fixture = fixtureRepo("same", "src/Enemy/test.cpp", "mario/Enemy/test");
+    const head = git(fixture.repo, ["rev-parse", "HEAD"]);
+    let advanced = false;
+    await expect(runBoundarySync({
+      repoRoot: fixture.repo, anchorSha: fixture.anchor, targets: [], buildFixerEnabled: false,
+      hooks: { ingestMergedUpstream: async () => {}, appendOverrideNote: () => {}, requeueTarget: () => {}, rebuildKnowledgeGraph: async () => {}, recomputeReport: async () => ({}), writePrSyncSavePoint: () => {}, advanceAnchor: () => {}, advanceHarnessHead: () => { advanced = true; } },
+    })).rejects.toThrow("policy merge stopped at contested file src/Enemy/test.cpp");
+    expect(git(fixture.repo, ["rev-parse", "HEAD"])).toBe(head);
+    expect(readFileSync(join(fixture.repo, "src/Enemy/test.cpp"), "utf8")).toBe("int same(void) { return 1; }\n");
+    expect(git(fixture.repo, ["status", "--porcelain"])).toBe("");
+    expect(advanced).toBe(false);
   });
 
   test("blocks before a merge when the pre-merge recovery report is missing", async () => {
