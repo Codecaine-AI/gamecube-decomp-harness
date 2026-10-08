@@ -47,6 +47,7 @@ import {
 import { completeUnitNames, linkCompleteUnitsFromReport, type LinkCompleteUnitsCheckResult } from "./link-complete-units.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 import { asBoundaryStepError, PhaseTracker, stepFailureCheckpoint } from "./step-failure.js";
+import { baselineSourcePath, prepareEpochBaseline, writeBaselineSource } from "./epoch-baseline.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
@@ -1312,13 +1313,39 @@ async function runEpochSettlementInnerTracked(
   }
 
   const worktreeBaselinePath = resolve(options.worktreeDir, baselineRelPath);
+  revalidateLease();
+  // Diff only against the report of the commit this epoch started from; a
+  // persisted baseline from an older head yields false regressions.
+  const baselineDecision = await prepareEpochBaseline({
+    store, stateDir, epochId, gameId: options.gameId, baselinePath: worktreeBaselinePath,
+  });
+  if (baselineDecision.status === "unverified") {
+    console.error(`[epoch] baseline unverified, regressions not computed this epoch: ${baselineDecision.reason}`);
+    progress({
+      label, phase: "baseline_verify", status: "warning",
+      message: `baseline unverified; resetting baseline so no regressions are computed: ${baselineDecision.reason}`,
+      start_head: baselineDecision.startHead, stale_baseline_commit: baselineDecision.staleCommit,
+    });
+  } else {
+    progress({
+      label, phase: "baseline_verify", status: "finished",
+      message: baselineDecision.status === "seeded"
+        ? `baseline reseeded from accepted report for epoch start ${baselineDecision.startHead.slice(0, 10)}`
+        : `baseline verified at epoch start ${baselineDecision.startHead.slice(0, 10)}`,
+      start_head: baselineDecision.startHead,
+      ...(baselineDecision.status === "seeded"
+        ? { seeded_from: baselineDecision.seededFrom, save_point_id: baselineDecision.savePointId, stale_baseline_commit: baselineDecision.staleCommit }
+        : {}),
+    });
+  }
+  const resetBaseline = baselineDecision.resetBaseline || !existsSync(worktreeBaselinePath);
   progress({
     label,
     phase: "report_build",
     status: "started",
-    message: `building objdiff report in epoch worktree${existsSync(worktreeBaselinePath) ? "" : " with baseline reset"}`,
+    message: `building objdiff report in epoch worktree${resetBaseline ? " with baseline reset" : ""}`,
     artifact_dir: artifactDir,
-    reset_baseline: !existsSync(worktreeBaselinePath),
+    reset_baseline: resetBaseline,
     worktree_dir: options.worktreeDir,
   });
   revalidateLease();
@@ -1326,7 +1353,7 @@ async function runEpochSettlementInnerTracked(
     configureCommand,
     ...reportPaths,
     logDir: artifactDir,
-    resetBaseline: !existsSync(worktreeBaselinePath),
+    resetBaseline,
     timeoutMs: reportBuildTimeoutMs(),
     toolPlatform,
   });
@@ -1659,6 +1686,8 @@ async function runEpochSettlementInnerTracked(
   // is flagged (and readmitted) exactly once, then tracked through epoch targets.
   revalidateLease();
   await copyFile(worktreeReportPath, worktreeBaselinePath);
+  if (snapshot.commitSha) await writeBaselineSource(worktreeBaselinePath, snapshot.commitSha, worktreeReportPath);
+  else await rm(baselineSourcePath(worktreeBaselinePath), { force: true });
 
   progress({
     label,
@@ -1684,7 +1713,9 @@ async function runEpochSettlementInnerTracked(
     label,
     phase: "regression_repair",
     status: "finished",
-    message: plan.paused
+    message: baselineDecision.status === "unverified"
+      ? `regression repair skipped: ${baselineDecision.reason}`
+      : plan.paused
       ? `repair planning paused on ${plan.summary.regressedFunctions} regressed function(s)`
       : `boundary findings deferred: ${plan.repairCandidates.length} regression target(s), no boundary repair admission`,
     paused: plan.paused,
