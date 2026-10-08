@@ -28,7 +28,10 @@ async function git(root: string, args: string[]): Promise<string> {
 
 export async function buildSourceIdentity(repoRoot: string): Promise<{ head: string; patch: string; files: Array<{ path: string; bytes: Buffer; executable: boolean }>; digest: string; tree: string }> {
   const head = (await git(repoRoot, ["rev-parse", "HEAD"])).trim();
-  const patch = await git(repoRoot, ["diff", "--binary", "--no-ext-diff", "HEAD"]);
+  // Pin every later read to this commit: an integration can move HEAD while the
+  // identity is captured, and a tree from one commit with a patch against another
+  // never matches the sandbox checkout.
+  const patch = await git(repoRoot, ["diff", "--binary", "--no-ext-diff", head]);
   const submodules = await git(repoRoot, ["submodule", "status", "--recursive"]);
   if (submodules.trim()) throw new Error("Remote build source capture requires explicit submodule bundles; refusing an incomplete source snapshot");
   const names = (await git(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean).sort();
@@ -41,7 +44,7 @@ export async function buildSourceIdentity(repoRoot: string): Promise<{ head: str
   const indexDir = await mkdtemp(resolve(tmpdir(), "build-index-"));
   let tree: string;
   try {
-    for (const args of [["read-tree", "HEAD"], ["add", "-A"], ["write-tree"]]) {
+    for (const args of [["read-tree", head], ["add", "-A"], ["write-tree"]]) {
       const result = await runCommand(repoRoot, ["git", ...args], { env: { GIT_INDEX_FILE: resolve(indexDir, "index") } });
       if (result.exitCode !== 0) throw new Error(`Build input tree capture failed: ${result.stderr}`);
       if (args[0] === "write-tree") tree = result.stdout.trim();
