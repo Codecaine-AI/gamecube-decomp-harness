@@ -86,7 +86,7 @@ interface DaytonaClient {
     autoStopInterval: number;
     autoDeleteInterval?: number;
     ttlMinutes: number;
-  }): Promise<DaytonaSandbox>;
+  }, options?: { timeout?: number }): Promise<DaytonaSandbox>;
   get(sandboxId: string): Promise<DaytonaSandbox>;
   list(query: { labels: Record<string, string> }): unknown;
   delete?(sandbox: DaytonaSandbox, timeoutSeconds?: number, wait?: boolean): Promise<void>;
@@ -104,6 +104,9 @@ export interface DaytonaSandboxProviderOptions {
 }
 
 const DEFAULT_TRANSIENT_RETRY_DELAYS_MS = [2_000, 5_000] as const;
+// The SDK waits 60s for a new sandbox to start; under load Daytona regularly takes
+// longer, and the timed-out sandbox is left behind to fail on its own.
+const CREATE_START_TIMEOUT_SECONDS = 180;
 // The gateway sometimes answers with its raw HTML error page instead of a JSON error.
 const TRANSIENT_DAYTONA_FAILURE = /status code 50[234]\b|\b50[234] (?:Bad Gateway|Service Temporarily Unavailable|Service Unavailable|Gateway Time-out|Gateway Timeout)\b|socket hang up|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed/i;
 
@@ -296,7 +299,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       autoStopInterval: params.ephemeral ? params.ttlMinutes : 0,
       ...(params.ephemeral ? { autoDeleteInterval: 0 } : {}),
       ttlMinutes: params.ttlMinutes,
-    });
+    }, { timeout: CREATE_START_TIMEOUT_SECONDS });
     const sandbox = params.ephemeral ? await retryTransient(this.retryDelaysMs, createOnce) : await createOnce();
     return handle(sandbox, this.retryDelaysMs);
   }
