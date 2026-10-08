@@ -99,6 +99,32 @@ export type DaytonaClientFactory = (
 export interface DaytonaSandboxProviderOptions {
   clientFactory?: DaytonaClientFactory;
   readApiKey?: () => string | undefined;
+  /** Waits between retries of idempotent sandbox calls after a transient gateway failure. */
+  transientRetryDelaysMs?: readonly number[];
+}
+
+const DEFAULT_TRANSIENT_RETRY_DELAYS_MS = [2_000, 5_000] as const;
+const TRANSIENT_DAYTONA_FAILURE = /status code 50[234]\b|socket hang up|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed/i;
+
+export function isTransientDaytonaFailure(error: unknown): boolean {
+  return TRANSIENT_DAYTONA_FAILURE.test(error instanceof Error ? error.message : String(error));
+}
+
+/**
+ * Retries an idempotent Daytona call through gateway blips (502/503/504,
+ * dropped sockets). Command execution is not routed here: re-running a
+ * command whose response was lost could apply it twice.
+ */
+async function retryTransient<T>(delaysMs: readonly number[], operation: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      const delayMs = delaysMs[attempt];
+      if (delayMs === undefined || !isTransientDaytonaFailure(error)) throw error;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, delayMs));
+    }
+  }
 }
 
 function shellQuote(value: string): string {
@@ -146,8 +172,15 @@ async function defaultDaytonaClientFactory(config: { apiKey: string }): Promise<
 class DaytonaSandboxHandle implements SandboxHandle {
   readonly sandboxId: string;
 
-  constructor(private readonly sandbox: DaytonaSandbox) {
+  constructor(
+    private readonly sandbox: DaytonaSandbox,
+    private readonly retryDelaysMs: readonly number[] = DEFAULT_TRANSIENT_RETRY_DELAYS_MS,
+  ) {
     this.sandboxId = sandbox.id;
+  }
+
+  private retry<T>(operation: () => Promise<T>): Promise<T> {
+    return retryTransient(this.retryDelaysMs, operation);
   }
 
   async stop(): Promise<void> {
@@ -163,7 +196,7 @@ class DaytonaSandboxHandle implements SandboxHandle {
     opts: { cwd?: string; env?: Record<string, string>; timeoutMs: number },
   ): Promise<SandboxExecResult> {
     const sessionId = `orch-exec-${randomUUID()}`;
-    await this.sandbox.process.createSession(sessionId);
+    await this.retry(() => this.sandbox.process.createSession(sessionId));
     let operationFailed = true;
     try {
       const result = await this.sandbox.process.executeSessionCommand(
@@ -185,31 +218,31 @@ class DaytonaSandboxHandle implements SandboxHandle {
         stderr: result.stderr ?? "",
       };
     } finally {
-      const cleanup = this.sandbox.process.deleteSession(sessionId);
+      const cleanup = this.retry(() => this.sandbox.process.deleteSession(sessionId));
       if (operationFailed) await cleanup.catch(() => undefined);
       else await cleanup;
     }
   }
 
   async uploadFile(localPath: string, remotePath: string): Promise<void> {
-    await this.sandbox.fs.uploadFile(localPath, remotePath);
+    await this.retry(() => this.sandbox.fs.uploadFile(localPath, remotePath));
   }
 
   async downloadFile(remotePath: string, localPath: string): Promise<void> {
-    await this.sandbox.fs.downloadFile(remotePath, localPath);
+    await this.retry(() => this.sandbox.fs.downloadFile(remotePath, localPath));
   }
 
   async readFile(remotePath: string): Promise<string> {
-    return (await this.sandbox.fs.downloadFile(remotePath)).toString("utf8");
+    return (await this.retry(() => this.sandbox.fs.downloadFile(remotePath))).toString("utf8");
   }
 
   async writeFile(remotePath: string, content: string): Promise<void> {
-    await this.sandbox.fs.uploadFile(Buffer.from(content, "utf8"), remotePath);
+    await this.retry(() => this.sandbox.fs.uploadFile(Buffer.from(content, "utf8"), remotePath));
   }
 }
 
-function handle(sandbox: DaytonaSandbox): SandboxHandle {
-  return new DaytonaSandboxHandle(sandbox);
+function handle(sandbox: DaytonaSandbox, retryDelaysMs?: readonly number[]): SandboxHandle {
+  return new DaytonaSandboxHandle(sandbox, retryDelaysMs);
 }
 
 async function collectSandboxes(value: unknown): Promise<DaytonaSandbox[]> {
@@ -231,11 +264,13 @@ async function collectSandboxes(value: unknown): Promise<DaytonaSandbox[]> {
 export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly clientFactory: DaytonaClientFactory;
   private readonly readApiKey: () => string | undefined;
+  private readonly retryDelaysMs: readonly number[];
   private clientPromise?: Promise<DaytonaClient>;
 
   constructor(options: DaytonaSandboxProviderOptions = {}) {
     this.clientFactory = options.clientFactory ?? defaultDaytonaClientFactory;
     this.readApiKey = options.readApiKey ?? (() => process.env.DAYTONA_API_KEY);
+    this.retryDelaysMs = options.transientRetryDelaysMs ?? DEFAULT_TRANSIENT_RETRY_DELAYS_MS;
   }
 
   private client(): Promise<DaytonaClient> {
@@ -257,12 +292,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       ...(params.ephemeral ? { autoDeleteInterval: 0 } : {}),
       ttlMinutes: params.ttlMinutes,
     });
-    return handle(sandbox);
+    return handle(sandbox, this.retryDelaysMs);
   }
 
   async get(sandboxId: string): Promise<SandboxHandle | null> {
     try {
-      return handle(await (await this.client()).get(sandboxId));
+      const client = await this.client();
+      return handle(await retryTransient(this.retryDelaysMs, () => client.get(sandboxId)), this.retryDelaysMs);
     } catch (error) {
       if (isNotFound(error)) return null;
       throw error;

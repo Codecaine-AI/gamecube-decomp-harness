@@ -288,6 +288,63 @@ describe("DaytonaSandboxProvider", () => {
     expect(createCalls.at(-1)).toMatchObject({ autoStopInterval: 90, autoDeleteInterval: 0, ttlMinutes: 90 });
   });
 
+  test("retries idempotent calls through gateway failures but never re-runs a command", async () => {
+    const failures = new Map<string, number>([["createSession", 1], ["deleteSession", 2], ["downloadFile", 1]]);
+    const calls: string[] = [];
+    const flaky = async (name: string) => {
+      calls.push(name);
+      const remaining = failures.get(name) ?? 0;
+      if (remaining > 0) {
+        failures.set(name, remaining - 1);
+        throw new Error("Request failed with status code 502");
+      }
+    };
+    function flakyDownload(remotePath: string): Promise<Buffer>;
+    function flakyDownload(remotePath: string, localPath: string): Promise<void>;
+    async function flakyDownload(_remotePath: string, localPath?: string): Promise<Buffer | void> {
+      await flaky("downloadFile");
+      if (!localPath) return Buffer.from("remote");
+    }
+    const sdkSandbox = {
+      id: "daytona-flaky",
+      labels: {},
+      process: {
+        createSession: () => flaky("createSession"),
+        executeSessionCommand: async () => {
+          await flaky("executeSessionCommand");
+          return { exitCode: 0, stdout: "ok", stderr: "" };
+        },
+        deleteSession: () => flaky("deleteSession"),
+      },
+      fs: {
+        uploadFile: async (_source: string | Buffer, remotePath: string) => {
+          await flaky("uploadFile");
+          if (remotePath === "/denied") throw new Error("permission denied");
+        },
+        downloadFile: flakyDownload,
+      },
+      stop: async () => undefined,
+      start: async () => undefined,
+      delete: async () => undefined,
+    };
+    const provider = new DaytonaSandboxProvider({
+      readApiKey: () => "test-key",
+      clientFactory: () => ({ create: async () => sdkSandbox, get: async () => sdkSandbox, list: () => [] }),
+      transientRetryDelaysMs: [0, 0],
+    });
+    const sandbox = await provider.create(createParams);
+
+    expect(await sandbox.exec(["true"], { timeoutMs: 1_000 })).toEqual({ exitCode: 0, stdout: "ok", stderr: "" });
+    expect(await sandbox.readFile("/workspace/read.txt")).toBe("remote");
+    expect(calls.filter((name) => name === "createSession")).toHaveLength(2);
+    expect(calls.filter((name) => name === "executeSessionCommand")).toHaveLength(1);
+    expect(calls.filter((name) => name === "deleteSession")).toHaveLength(3);
+    expect(calls.filter((name) => name === "downloadFile")).toHaveLength(2);
+
+    await expect(sandbox.writeFile("/denied", "x")).rejects.toThrow("permission denied");
+    expect(calls.filter((name) => name === "uploadFile")).toHaveLength(1);
+  });
+
   test("throws a clear missing-key error only when first used", async () => {
     const provider = new DaytonaSandboxProvider({
       readApiKey: () => undefined,
