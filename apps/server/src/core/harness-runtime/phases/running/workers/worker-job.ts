@@ -430,6 +430,18 @@ export function workerJobDescriptor(
         resolve(artifactDir, `task_failure.${outcome.endedAt}.log`),
         `stdout:\n${outcome.stdout}\nstderr:\n${outcome.stderr}`,
       );
+      // A failed task never runs again in its sandbox: a retry reprovisions and a
+      // recovered claim gets a new job. The failure output is on the host now, so
+      // tear the sandbox down instead of leaving it stopped until reconciliation.
+      if (!deps.sandboxProvider || sandboxDeletionFired.has(job.jobId)) return;
+      const freshJob = typeof job.payload.sandbox_id === "string" && job.payload.sandbox_id ? job : getJob(ctx.store, job.jobId);
+      if (!freshJob || typeof freshJob.payload.sandbox_id !== "string" || !freshJob.payload.sandbox_id) return;
+      sandboxDeletionFired.add(job.jobId);
+      const deletion = Promise.resolve()
+        .then(() => deleteSandboxForJob(ctx.store, freshJob, "settlement", deps))
+        .then(() => undefined)
+        .catch((error) => console.warn(`[sandbox] failed-task teardown failed for job ${job.jobId}`, error));
+      deps.trackSandboxDeletion?.(deletion);
     },
     onPoll: (job) => {
       if (sandboxDeletionFired.has(job.jobId) || !deps.sandboxProvider) return;

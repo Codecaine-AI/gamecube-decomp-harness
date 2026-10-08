@@ -1,6 +1,6 @@
 import { createAcceptedRun as createRun } from "../test-fixture.js";
 import { afterAll, describe, expect, spyOn, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initializeDispatchState, listGameEvents, releaseDispatch, requestDispatch, StaleLeaseError } from "@server/core/harness-state";
@@ -808,6 +808,40 @@ describe("worker job kind", () => {
         resolve(f.stateDir, "runs", f.run.id, "worker_state", workerStateId, `task_failure.${endedAt}.log`),
         "utf8",
       )).toBe("stdout:\ncomplete stdout\nstderr:\ncomplete stderr");
+    } finally { f.store.db.close(); }
+  });
+
+  test("tears down a failed task's sandbox after writing its failure log", async () => {
+    const f = fixture();
+    try {
+      const provider = new FakeSandboxProvider();
+      const result = await sandboxClaim(f, provider);
+      const tracked: Promise<void>[] = [];
+      const descriptor = workerJobDescriptor(f.ctx, {
+        sandboxProvider: provider,
+        trackSandboxDeletion: (deletion) => tracked.push(deletion),
+      });
+      if (!descriptor.onTaskFailure) throw new Error("Expected worker task failure hook");
+      const outcome = {
+        exitCode: 1,
+        signal: null,
+        stdout: "",
+        stderr: "Request failed with status code 502",
+        timedOut: false,
+        startedAt: "2026-08-30T00:02:00.000Z",
+        endedAt: "2026-08-30T00:02:25.000Z",
+      };
+
+      // The claimed job object predates sandbox attachment; the hook must read the fresh row.
+      await descriptor.onTaskFailure(result.claimedJob, outcome);
+      await descriptor.onTaskFailure(result.claimedJob, outcome);
+      await Promise.all(tracked);
+
+      expect(tracked).toHaveLength(1);
+      expect(provider.deletedSandboxes.map((deleted) => deleted.sandboxId)).toEqual([result.sandbox.sandboxId]);
+      expect(existsSync(resolve(
+        f.stateDir, "runs", f.run.id, "worker_state", String(result.job.payload.worker_state_id), `task_failure.${outcome.endedAt}.log`,
+      ))).toBeTrue();
     } finally { f.store.db.close(); }
   });
 
