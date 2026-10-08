@@ -284,11 +284,13 @@ function scoreFromRow(row: Record<string, unknown>): number {
 function objectTargetFromSourcePath(
   sourcePath: string,
   validation?: GameBuildValidation | null,
+  unit?: string | null,
 ): string | null {
   if (!sourcePath) return null;
   const withoutExtension = sourcePath.replace(/\.[^./\\]+$/, "");
   if (withoutExtension === sourcePath) return null;
-  return gameBuildLayout(validation).objectPathForSource(sourcePath);
+  const layout = gameBuildLayout(validation);
+  return (unit ? layout.objectPathForUnit(unit) : null) ?? layout.objectPathForSource(sourcePath);
 }
 
 function scoredSideRows(side: unknown): ObjdiffSideRows {
@@ -644,7 +646,7 @@ export async function captureWorkerChangeBaseline(params: {
   const unit = stringValue(params.target.unit);
   const symbol = stringValue(params.target.symbol);
   const sourcePath = stringValue(params.target.source_path);
-  const objectTarget = objectTargetFromSourcePath(sourcePath, params.validation);
+  const objectTarget = objectTargetFromSourcePath(sourcePath, params.validation, unit);
   const reasons: string[] = [];
 
   if (params.dryRun) {
@@ -1319,7 +1321,8 @@ function scopedArtifactSlug(sourcePath: string): string {
 async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<ScopedUnitCheck> {
   const slug = scopedArtifactSlug(options.sourcePath);
   const prefix = `attempt-${options.attemptIndex}.scoped-${slug}`;
-  const objectTarget = objectTargetFromSourcePath(options.sourcePath, options.validation);
+  const scopedUnit = await objdiffUnitNameForSource(options.repoRoot, options.sourcePath, options.workspaceExec);
+  const objectTarget = objectTargetFromSourcePath(options.sourcePath, options.validation, scopedUnit);
   if (!objectTarget) {
     return {
       sourcePath: options.sourcePath,
@@ -1347,7 +1350,7 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
     };
   }
 
-  const unit = await objdiffUnitNameForSource(options.repoRoot, options.sourcePath, options.workspaceExec);
+  const unit = scopedUnit ?? await objdiffUnitNameForSource(options.repoRoot, options.sourcePath, options.workspaceExec);
   if (!unit) {
     return {
       sourcePath: options.sourcePath,
@@ -1755,7 +1758,7 @@ export async function validateWorkerChange(params: {
   const undefinedSymbolGate = await evaluateUndefinedSymbolGate({
     enabled: flags.undefinedSymbols,
     objectTarget: objectBuilt
-      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path), params.validation))
+      ? (params.baseline.objectTarget ?? objectTargetFromSourcePath(stringValue(params.target.source_path), params.validation, stringValue(params.target.unit)))
       : null,
     baselineUndefined: params.baseline.undefinedSymbols ?? null,
     workspaceExec: params.workspaceExec,
@@ -1889,7 +1892,7 @@ async function validateWorkerScoreChange(
   const unit = stringValue(params.target.unit);
   const symbol = stringValue(params.target.symbol);
   const sourcePath = stringValue(params.target.source_path);
-  const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath, params.validation);
+  const objectTarget = params.baseline.objectTarget ?? objectTargetFromSourcePath(sourcePath, params.validation, unit);
   if (!unit || !symbol || !sourcePath || !objectTarget) {
     return {
       validation: {

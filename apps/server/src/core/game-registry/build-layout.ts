@@ -23,6 +23,12 @@ export interface GameBuildLayout {
   buildDir: string;
   configDir: string;
   objectPathForSource(sourcePath: string): string;
+  /**
+   * Object path for a report unit (`<module>/<object>`). dtk-template names
+   * objects after the unit, so this holds when configure remaps a source
+   * directory (e.g. `libs/<lib>/src/...`) and `objectPathForSource` does not.
+   */
+  objectPathForUnit(unit: string): string | null;
   symbolsTxtPath: string;
   splitsTxtPath: string;
   objRoot: string;
@@ -54,6 +60,12 @@ export function gameBuildLayout(validation?: GameBuildValidation | null): GameBu
       const normalized = normalizeRepoPath(sourcePath);
       const withoutExtension = normalized.replace(/\.[^/.]+$/, "");
       return `${buildDir}/${withoutExtension}.o`;
+    },
+    objectPathForUnit(unit: string): string | null {
+      const objectName = normalizeRepoPath(unit).split("/").slice(1).join("/");
+      // Report units never carry a source extension; anything else is not a unit name.
+      if (!objectName || /\.[^/.]+$/.test(objectName)) return null;
+      return `${buildDir}/src/${objectName}.o`;
     },
     symbolsTxtPath: `${configDir}/symbols.txt`,
     splitsTxtPath: `${configDir}/splits.txt`,

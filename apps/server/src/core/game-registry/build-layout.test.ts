@@ -32,6 +32,18 @@ describe("gameBuildLayout", () => {
     expect(layout.objectPathForSource("./src/MarioUtil/DrawUtil.cpp")).toBe("build/GMSJ01/src/MarioUtil/DrawUtil.o");
   });
 
+  test("names objects after the report unit when configure remaps a source directory", () => {
+    const sms = gameBuildLayout({ reportPath: "build/GMSJ01/report.json" });
+    const melee = gameBuildLayout();
+
+    // Sunshine's configure.py builds libs/THPPlayer/src/THPPlayer.c as src/THPPlayer/THPPlayer.o.
+    expect(sms.objectPathForUnit("mario/THPPlayer/THPPlayer")).toBe("build/GMSJ01/src/THPPlayer/THPPlayer.o");
+    // Melee's libs/dolphin/src/dolphin/... keeps the dolphin/ prefix once.
+    expect(melee.objectPathForUnit("main/dolphin/amcstubs/AmcExi2Stubs")).toBe("build/GALE01/src/dolphin/amcstubs/AmcExi2Stubs.o");
+    expect(sms.objectPathForUnit("mario")).toBeNull();
+    expect(sms.objectPathForUnit("MarioUtil/DrawUtil.cpp")).toBeNull();
+  });
+
   test("uses the directory containing an absolute report path", () => {
     const layout = gameBuildLayout({ reportPath: "/work/sms/build/GMSJ01/report.json" });
 
