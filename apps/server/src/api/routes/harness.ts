@@ -3,6 +3,8 @@ import { getRun } from "@server/core/harness-runtime/run-state";
 import { getHarnessState, getHarnessTimeline, transitionHarnessState, type HarnessState } from "@server/core/harness-state/state.js";
 import { getDispatchState } from "@server/core/harness-state/lease.js";
 import { withLiveUpstreamDrift, type UpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
+import { runningProcessConfigurationConflicts } from "@server/core/harness-runtime/phases/running/process-command.js";
+import { retireHarnessRun } from "@server/core/harness-runtime/phases/running/retire-run.js";
 
 type JsonObject = Record<string, unknown>;
 export interface HarnessControlDeps {
@@ -18,6 +20,19 @@ const starting = new Set<string>();
 const runSettingKeys = ["maxWorkers", "sandboxProfile", "provider", "model", "thinkingLevel", "agentTimeoutSeconds", "dryRunAgents", "goalKind", "goalValue", "epochTargetCap", "workerConfigureCommand", "epochConfigureCommand"];
 function runSettings(body: JsonObject): JsonObject {
   return Object.fromEntries(runSettingKeys.filter((key) => body[key] !== undefined).map((key) => [key, body[key]]));
+}
+/** Settings that disagree with the attached Run's immutable snapshot; checked before any intent or lease. */
+function runSettingConflicts(store: StateStore, runId: string | null, body: JsonObject) {
+  const run = runId ? getRun(store, runId) : null;
+  return run?.inputs ? runningProcessConfigurationConflicts(body, run.inputs, run.id) : [];
+}
+function conflictResponse(harness: HarnessState, conflicts: ReturnType<typeof runningProcessConfigurationConflicts>): Response {
+  return Response.json({
+    harness, outcome: "blocked",
+    error: `Run settings conflict with the attached Run's immutable configuration: ${conflicts.map((conflict) => conflict.field).join(", ")}. Retire the Run to start one with new settings.`,
+    blockers: conflicts.map((conflict) => conflict.blocker),
+    conflicts: conflicts.map(({ blocker: _blocker, ...conflict }) => conflict),
+  }, { status: 409 });
 }
 
 /** Desired state persists before process work; retries reconcile the existing run. */
@@ -37,6 +52,7 @@ export async function handleHarnessApiRoute(req: Request, url: URL, deps: Harnes
       return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
     } finally { store?.db.close(); }
   }
+  if (req.method === "POST" && url.pathname === "/api/harness/retire-run") return retireRunRoute(req, deps);
   if (req.method !== "POST" || !["/api/harness/run", "/api/harness/pause"].includes(url.pathname)) return null;
   const body = await req.json().catch(() => null) as JsonObject | null;
   if (!body || typeof body.gameId !== "string" || !body.gameId.trim() || typeof body.commandId !== "string" || !body.commandId.trim() || !Number.isInteger(body.expectedRevision) || Number(body.expectedRevision) < 0) {
@@ -49,6 +65,10 @@ export async function handleHarnessApiRoute(req: Request, url: URL, deps: Harnes
     store = deps.openStore(body);
     const before = getHarnessState(store.db, gameId);
     if (!before) return Response.json({ error: "Initial Sync must initialize this game first" }, { status: 409 });
+    if (desired === "run") {
+      const conflicts = runSettingConflicts(store, before.history.run_id, body);
+      if (conflicts.length) return conflictResponse(before, conflicts);
+    }
     transitionHarnessState(store.db, {
       gameId, commandId: body.commandId, expectedRevision: Number(body.expectedRevision),
       patch: { execution: { desired } },
@@ -95,6 +115,7 @@ export async function reconcileDesiredHarnessRun(body: JsonObject, deps: Harness
     if (starting.has(startKey)) { startKey = null; return Response.json({ harness: read(), outcome: "starting" }, { status: 202 }); }
     starting.add(startKey);
     let runId = read().history.run_id;
+    const attachedRunId = runId;
     if (!runId) {
       runId = await deps.initializeRun({ ...body, commandId: `${intent?.command_id ?? body.commandId}:initialize` });
       const current = read();
@@ -114,6 +135,9 @@ export async function reconcileDesiredHarnessRun(body: JsonObject, deps: Harness
     const run = getRun(store, runId);
     if (!run || run.gameId !== gameId) throw new Error("The harness run does not belong to this game");
     if (!["ready", "active", "paused"].includes(run.status)) return Response.json({ harness: read(), outcome: "recovery_required" }, { status: 202 });
+    // An existing Run keeps its immutable settings; refuse before resume takes the lease.
+    const conflicts = runSettingConflicts(store, attachedRunId, body);
+    if (conflicts.length) return conflictResponse(read(), conflicts);
     const runBody = { ...body, runId, commandId: `${body.commandId}:start` };
     if (run.status === "paused") await deps.resumeRun(runBody);
     const response = await deps.startRun(runBody);
@@ -125,4 +149,25 @@ export async function reconcileDesiredHarnessRun(body: JsonObject, deps: Harness
     if (startKey) starting.delete(startKey);
     store?.db.close();
   }
+}
+
+/** Operator command: detach a settled Run so the next Run request creates a fresh one. */
+async function retireRunRoute(req: Request, deps: HarnessControlDeps): Promise<Response> {
+  const body = await req.json().catch(() => null) as JsonObject | null;
+  if (!body || typeof body.gameId !== "string" || !body.gameId.trim() || typeof body.commandId !== "string" || !body.commandId.trim()
+    || !Number.isInteger(body.expectedRevision) || typeof body.runId !== "string" || !body.runId.trim() || typeof body.reason !== "string" || !body.reason.trim()) {
+    return Response.json({ error: "gameId, commandId, expectedRevision, runId, and reason are required" }, { status: 400 });
+  }
+  if (body.confirmed !== true) return Response.json({ error: "harness.retire_run requires operator confirmation" }, { status: 409 });
+  let store: StateStore | undefined;
+  try {
+    store = deps.openStore(body);
+    const result = retireHarnessRun({
+      store, gameId: body.gameId, runId: body.runId, expectedRevision: Number(body.expectedRevision),
+      commandId: body.commandId, reason: body.reason, processActive: deps.processActive(store.stateDir),
+    });
+    return Response.json({ harness: result.harness, run: result.run, outcome: "retired" });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
+  } finally { store?.db.close(); }
 }

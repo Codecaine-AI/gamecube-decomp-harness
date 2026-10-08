@@ -244,3 +244,99 @@ test("reconciliation resumes the existing paused Run after Sync", async () => {
   expect(resumed).toBe(runId);
   expect(f.counts()).toEqual({ initialized: 1, started: 2 });
 });
+
+describe("Run settings and retirement", () => {
+  function pausedRun(f: ReturnType<typeof fixture>, epochStatuses: string[] = []) {
+    const store = f.deps.openStore({});
+    try {
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "melee", repoRoot: "/fixture" } as never, { baseRevision: "head" });
+      store.db.query("UPDATE runs SET status = 'paused' WHERE id = ?").run(run.id);
+      epochStatuses.forEach((status, index) => store.db.query(
+        "INSERT INTO epochs (id, run_id, ordinal, worker_pool_size, status, created_at) VALUES (?, ?, ?, 1, ?, '2026-10-07T00:00:00Z')",
+      ).run(`epoch-${index + 1}`, run.id, index + 1, status));
+      return run.id;
+    } finally { store.db.close(); }
+  }
+  const retire = (f: ReturnType<typeof fixture>, body: Record<string, unknown>) => f.call("retire-run", { gameId: "melee", commandId: "retire", reason: "new model", confirmed: true, ...body });
+
+  test("a Run request whose settings conflict with the attached Run is refused before intent, lease, or resume", async () => {
+    const f = fixture();
+    pausedRun(f);
+    let resumed = 0;
+    f.deps.resumeRun = () => { resumed++; };
+    const before = f.read();
+    const response = await f.call("run", { gameId: "melee", commandId: "run-new-model", expectedRevision: before.state.identity.revision, model: "gpt-6.1-sol", thinkingLevel: "xhigh" });
+    expect(response?.status).toBe(409);
+    expect((await response!.json()).conflicts.map((conflict: { field: string }) => conflict.field)).toEqual(["model", "thinkingLevel"]);
+    expect(f.read()).toEqual(before);
+    expect(resumed).toBe(0);
+    expect(f.counts()).toEqual({ initialized: 0, started: 0 });
+  });
+
+  test("reconciling a persisted conflicting intent does not resume the Run", async () => {
+    const f = fixture();
+    const runId = pausedRun(f);
+    let resumed = 0;
+    f.deps.resumeRun = () => { resumed++; };
+    const store = f.deps.openStore({});
+    const harness = getHarnessState(store.db, "melee")!;
+    transitionHarnessState(store.db, { gameId: "melee", expectedRevision: harness.identity.revision, commandId: "legacy-intent", patch: { execution: { desired: "run" } },
+      boundary: { eventId: "legacy-intent", kind: "resumed", outcome: "requested", evidence: { requested_run_settings: { model: "gpt-6.1-sol" } } } });
+    store.db.close();
+    const response = await reconcileDesiredHarnessRun({ gameId: "melee" }, f.deps);
+    expect(response.status).toBe(409);
+    expect(resumed).toBe(0);
+    const check = f.deps.openStore({});
+    try { expect(check.db.query("SELECT status FROM runs WHERE id = ?").get(runId)).toEqual({ status: "paused" }); } finally { check.db.close(); }
+  });
+
+  test("retiring a paused Run with completed epochs completes it, clears the harness run, and replays by command id", async () => {
+    const f = fixture();
+    const runId = pausedRun(f, ["completed", "completed"]);
+    const revision = f.read().state.identity.revision;
+    const response = await retire(f, { runId, expectedRevision: revision });
+    expect(response?.status).toBe(200);
+    const payload = await response!.json();
+    expect(payload.run.status).toBe("completed");
+    const { state, timeline } = f.read();
+    expect(state.identity.revision).toBe(revision + 1);
+    expect(state.history).toMatchObject({ run_id: null, epoch_id: null });
+    expect(state.readiness).toEqual({ build: "ready", sources: "ready", sandbox: "ready", evidence: "ready" });
+    expect(timeline.at(-1)).toMatchObject({ kind: "operator", outcome: "run_retired", runId, epochId: "epoch-2",
+      evidence: { run_id: runId, reason: "new model", last_epoch_id: "epoch-2", epoch_count: 2, epochs_completed: true } });
+    expect((await retire(f, { runId, expectedRevision: revision }))?.status).toBe(200);
+    expect(f.read().state.identity.revision).toBe(revision + 1);
+    expect((await retire(f, { runId, expectedRevision: revision, reason: "other" }))?.status).toBe(409);
+  });
+
+  test("retiring a paused Run with an unfinished epoch cancels it with the reason", async () => {
+    const f = fixture();
+    const runId = pausedRun(f, ["completed", "active"]);
+    const response = await retire(f, { runId, expectedRevision: f.read().state.identity.revision });
+    expect((await response!.json()).run).toMatchObject({ status: "cancelled" });
+  });
+
+  test("retirement is refused for stale revisions, live work, unpaused intent, or missing confirmation", async () => {
+    const f = fixture();
+    const runId = pausedRun(f, ["completed"]);
+    const revision = f.read().state.identity.revision;
+    expect((await retire(f, { runId, expectedRevision: revision, confirmed: false }))?.status).toBe(409);
+    expect((await retire(f, { runId, expectedRevision: revision - 1 }))?.status).toBe(409);
+    f.setActive();
+    const live = await retire(f, { runId, expectedRevision: revision });
+    expect((await live!.json()).error).toContain("managed scheduler process is live");
+    expect(f.read().state.history.run_id).toBe(runId);
+    const store = f.deps.openStore({});
+    try { expect(store.db.query("SELECT status FROM runs WHERE id = ?").get(runId)).toEqual({ status: "paused" }); } finally { store.db.close(); }
+  });
+
+  test("after retirement a Run request initializes a fresh Run with the requested settings", async () => {
+    const f = fixture();
+    const runId = pausedRun(f, ["completed"]);
+    await retire(f, { runId, expectedRevision: f.read().state.identity.revision });
+    const response = await f.call("run", { gameId: "melee", commandId: "run-fresh", expectedRevision: f.read().state.identity.revision, model: "gpt-6-astra" });
+    expect(response?.status).toBe(200);
+    expect(f.counts()).toEqual({ initialized: 1, started: 1 });
+    expect(f.read().state.history.run_id).not.toBe(runId);
+  });
+});

@@ -23,7 +23,7 @@ export interface HarnessState {
 }
 export interface HarnessBoundary {
   eventId: string;
-  kind: "sandbox_validated" | "initial_sync_accepted" | "epoch_completed" | "sync_completed" | "remote_application" | "epoch_prepared" | "epoch_admitted" | "pause_requested" | "resumed" | "recovered" | "failed" | "save_point" | "upstream_drift" | "legacy";
+  kind: "sandbox_validated" | "initial_sync_accepted" | "epoch_completed" | "sync_completed" | "remote_application" | "epoch_prepared" | "epoch_admitted" | "pause_requested" | "resumed" | "recovered" | "failed" | "save_point" | "upstream_drift" | "operator" | "legacy";
   outcome: string;
   runId?: string | null;
   epochId?: string | null;

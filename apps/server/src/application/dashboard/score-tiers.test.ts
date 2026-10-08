@@ -201,6 +201,22 @@ describe("score tiers projection", () => {
     } finally { store.db.close(); }
   });
 
+  test("projects a sync publication save point anchored by its boundary event id", async () => {
+    const store = fixture();
+    try {
+      addPoint(store, "save-point-sync", "head", 91.5, "2026-08-26T02:00:00Z", undefined, "sync");
+      const current = getHarnessState(store.db, "melee")!;
+      transitionHarnessState(store.db, {
+        gameId: "melee", expectedRevision: current.identity.revision, commandId: "publish:save-point",
+        patch: { history: { save_point_id: "save-point-sync" } },
+        boundary: { eventId: "save-point-sync", kind: "save_point", outcome: "anchored", evidence: { anchored_commit: "head", artifact_paths: [] } },
+      });
+      const projection = await scoreTiersProjection(store, "melee", fresh);
+      expect(projection.timeline.map(point => [point.savePointId, point.score])).toEqual([["baseline", 90.8], ["confirmed", 91.08], ["save-point-sync", 91.5]]);
+      expect(projection.confirmed).toMatchObject({ savePointId: "save-point-sync", score: 91.5 });
+    } finally { store.db.close(); }
+  });
+
   test("keeps score evidence stable across run changes and dashboard artifacts", async () => {
     const store = fixture();
     try {

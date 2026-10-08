@@ -7,7 +7,7 @@ const THINKING_LEVEL_SETTINGS_VERSION = 3;
 const RUN_SETTINGS_VERSION = 7;
 const DEFAULT_THINKING_LEVEL = "medium";
 
-export const RUN_MODEL_OPTIONS = ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
+export const RUN_MODEL_OPTIONS = ["gpt-6.1-sol", "gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"] as const;
 
 export function schedulingForWorkers(workers: number) {
   const maxWorkers = Number.isFinite(workers) && workers > 0 ? Math.trunc(workers) : 12;

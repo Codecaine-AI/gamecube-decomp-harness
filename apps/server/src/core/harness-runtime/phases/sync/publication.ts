@@ -861,7 +861,7 @@ function anchorPublishedRemoteApplication(
     patch: { history: { save_point_id: savePointId } },
     boundary: { eventId: savePointId, kind: "save_point", outcome: "anchored",
       runId: harness.history.run_id, syncId: sync.sync_id,
-      evidence: { ...payload, anchored_commit: publication.new_head, artifact_paths: [] } },
+      evidence: { ...payload, save_point_id: savePointId, anchored_commit: publication.new_head, artifact_paths: [] } },
   });
 }
 

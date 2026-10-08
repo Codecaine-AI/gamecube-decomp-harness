@@ -379,6 +379,7 @@ describe("sync atomic publication", () => {
         kind: "save_point",
         evidence: expect.objectContaining({
           remote_application_id: published.publication?.remote_application_id,
+          save_point_id: expect.stringMatching(/^save-point-/),
           anchored_commit: published.publication?.new_head,
         }),
       }),

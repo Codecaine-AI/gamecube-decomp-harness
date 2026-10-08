@@ -38,6 +38,17 @@ describe("run settings", () => {
       thinkingLevel: "medium",
     });
   });
+
+  test("keeps a saved GPT-6.1 Sol model with xhigh thinking", () => {
+    localStorage.setItem("runSettings.v1", JSON.stringify({
+      model: "gpt-6.1-sol",
+      thinkingLevel: "xhigh",
+      thinkingLevelVersion: 3,
+      settingsVersion: 7,
+    }));
+
+    expect(initialForm()).toMatchObject({ model: "gpt-6.1-sol", thinkingLevel: "xhigh" });
+  });
 });
 
 describe("run configuration form hydration", () => {

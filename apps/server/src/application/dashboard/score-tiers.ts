@@ -248,6 +248,8 @@ export async function scoreTiersProjection(
              s.report_path, s.payload_json, s.created_at
       FROM save_points s JOIN harness_timeline_entries t
         ON s.id = json_extract(t.payload_json, '$.evidence.save_point_id')
+        -- Sync publication anchors its save point as the boundary event itself.
+        OR (t.kind = 'save_point' AND s.id = t.event_id)
       WHERE t.game_id = ? ORDER BY s.created_at ASC, s.id ASC
     `).all(gameId) as SavePointRow[];
     const run = canonicalState.history.run_id
