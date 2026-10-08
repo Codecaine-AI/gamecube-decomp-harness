@@ -280,7 +280,13 @@ export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
     opts.command ??
       `advisory-calibration freeze-replay --source-root ${source.root} --game ${source.game} --run ${runId} --worker-state ${workerStateId} --attempt ${attempt} --out ${opts.outDir}`,
   );
-  const sourcePaths = { summary: shown(summaryPath), patch: shown(patchPath), note: shown(outputPath ?? `${row.id}:metadata.agent_note`) };
+  // Every manifest field from history is scrubbed here, before the refusal check below.
+  const sourcePaths = {
+    summary: shown(summaryPath),
+    patch: shown(patchPath),
+    note: shown(outputPath ?? `${row.id}:metadata.agent_note`),
+    checkpoint: shown(`${source.orchestratorDbPath}#worker_checkpoints/${row.id}`),
+  };
   const manifestSource = sanitizeDeep(
     { game: source.game, run_id: runId, worker_state_id: workerStateId, attempt, checkpoint_id: row.id, target_key: targetKey },
     sanitize,
@@ -301,7 +307,7 @@ export function freezeReplay(opts: FreezeReplayOptions): ReplayFixtureManifest {
       summary: { path: sourcePaths.summary, sha256: sha256Hex(summaryText) },
       patch: { path: sourcePaths.patch, sha256: sha256Hex(patchText) },
       note: { path: sourcePaths.note, sha256: sha256Hex(noteRaw) },
-      checkpoint: { path: "<source-root>/" + source.relative(source.orchestratorDbPath) + `#worker_checkpoints/${row.id}`, sha256: sha256Hex(row.metadata_json) },
+      checkpoint: { path: sourcePaths.checkpoint, sha256: sha256Hex(row.metadata_json) },
     },
     trimmed,
     command,

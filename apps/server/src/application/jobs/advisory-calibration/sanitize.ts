@@ -4,8 +4,11 @@
 // becomes `<home>`, values of secret-looking environment variables and any
 // token-like string are replaced. Credentials are located on the original text
 // in one pass (redactSecrets), so a secret inside a token never splits it; each
-// long secret is also matched in its URL-encoded and base64 forms, and token
-// schemes match in any case. Structured data is scrubbed after decoding, key by
+// long secret is also found in percent-encoded runs (any case, any escaped
+// character) and base64 runs (standard or URL-safe, padded or not, whitespace
+// inside) by their decoded bytes, and token schemes match in any case.
+// Boundary: one standard decoding step is covered; multi-step or non-standard
+// encodings (base64 of percent-encoding, custom alphabets, encryption) are not. Structured data is scrubbed after decoding, key by
 // key and value by value (numbers, booleans and null by their text form), and
 // serialized afterwards (sanitizeDeep), so a pattern never eats JSON
 // punctuation and no escape sequence hides a secret. Every non-empty value of a secret-looking variable is
@@ -28,6 +31,11 @@ export const SECRET_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|COOK
  * AUTH). Allowlisted by name only; no value is ever judged harmless.
  */
 export const NOT_CREDENTIALS: ReadonlySet<string> = new Set(["SSH_AUTH_SOCK", "XAUTHORITY", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_AUTHOR_DATE"]);
+/** A whitespace-free run holding at least one %XX escape (raw characters inside it decode as themselves). */
+const PERCENT_RUN = /\S*%[0-9A-Fa-f]{2}\S*/g;
+const PERCENT_ESCAPE = /^%[0-9A-Fa-f]{2}/;
+/** Base64 characters (both alphabets) with whitespace inside, then optional padding. */
+const BASE64_RUN = /[A-Za-z0-9+/_-](?:[A-Za-z0-9+/_-]|\s)*={0,2}/g;
 /** Shorter values are too likely to occur by chance to replace everywhere; the kernel refuses credentials this short anyway. */
 const MIN_SECRET_LENGTH = 8;
 /** Text as pieces: input the sanitizer kept, and replacements it generated (never rewritten or scanned again). */
@@ -85,8 +93,84 @@ interface Span {
  * `<redacted:token>`, so a secret inside a token never splits it and leaves a
  * suffix behind. Everything outside the spans is kept input.
  */
-function redactSecrets(text: string, secrets: ReadonlyArray<[string, string]>): Piece[] {
+/** Every occurrence of `needle` in `bytes`, as [first byte, last byte]. */
+function byteMatches(bytes: Buffer, needle: Buffer): Array<[number, number]> {
+  const found: Array<[number, number]> = [];
+  for (let at = bytes.indexOf(needle); at >= 0; at = bytes.indexOf(needle, at + 1)) found.push([at, at + needle.length - 1]);
+  return found;
+}
+
+/**
+ * Secrets inside percent-encoded runs (any case, escaped unreserved characters,
+ * raw characters mixed in), matched on the decoded bytes; the span covers
+ * exactly the characters that encode them.
+ */
+function percentEncodedSpans(text: string, secrets: ReadonlyArray<[string, Buffer]>): Span[] {
   const spans: Span[] = [];
+  for (const match of text.matchAll(PERCENT_RUN)) {
+    const run = match[0];
+    const bytes: number[] = [];
+    const starts: number[] = [];
+    const ends: number[] = [];
+    for (let i = 0; i < run.length; ) {
+      const escape = PERCENT_ESCAPE.exec(run.slice(i));
+      const char = escape ? escape[0] : String.fromCodePoint(run.codePointAt(i)!);
+      const encoded = escape ? [Number.parseInt(char.slice(1), 16)] : [...Buffer.from(char, "utf8")];
+      for (const byte of encoded) {
+        bytes.push(byte);
+        starts.push(match.index + i);
+        ends.push(match.index + i + char.length);
+      }
+      i += char.length;
+    }
+    const decoded = Buffer.from(bytes);
+    for (const [name, needle] of secrets) {
+      for (const [first, last] of byteMatches(decoded, needle)) {
+        spans.push({ start: starts[first]!, end: ends[last]!, token: false, name, nameLength: needle.length });
+      }
+    }
+  }
+  return spans;
+}
+
+/**
+ * Secrets inside base64 runs, matched on the decoded bytes at each of the
+ * four alignments, whitespace inside the run ignored; the span covers the
+ * base64 groups that encode them.
+ */
+function base64Spans(text: string, secrets: ReadonlyArray<[string, Buffer]>): Span[] {
+  const spans: Span[] = [];
+  const shortest = Math.min(...secrets.map(([, needle]) => needle.length));
+  for (const match of text.matchAll(BASE64_RUN)) {
+    const positions: number[] = [];
+    let stripped = "";
+    for (let i = 0; i < match[0].length; i += 1) {
+      const char = match[0][i]!;
+      if (/\s/.test(char) || char === "=") continue;
+      positions.push(match.index + i);
+      stripped += char;
+    }
+    if (stripped.length < Math.ceil((shortest * 4) / 3)) continue;
+    for (let offset = 0; offset < 4; offset += 1) {
+      const decoded = Buffer.from(stripped.slice(offset), "base64");
+      for (const [name, needle] of secrets) {
+        for (const [first, last] of byteMatches(decoded, needle)) {
+          const startChar = offset + Math.floor(first / 3) * 4;
+          const endChar = Math.min(stripped.length, offset + Math.floor(last / 3) * 4 + 4);
+          let end = positions[endChar - 1]! + 1;
+          // The run's own padding goes with its last group.
+          if (endChar === stripped.length) while (text[end] === "=") end += 1;
+          spans.push({ start: positions[startChar]!, end, token: false, name, nameLength: needle.length });
+        }
+      }
+    }
+  }
+  return spans;
+}
+
+function redactSecrets(text: string, secrets: ReadonlyArray<[string, string]>, decodedSecrets: ReadonlyArray<[string, Buffer]> = []): Piece[] {
+  const spans: Span[] = [];
+  if (decodedSecrets.length > 0) spans.push(...percentEncodedSpans(text, decodedSecrets), ...base64Spans(text, decodedSecrets));
   for (const match of text.matchAll(TOKEN_LIKE)) {
     spans.push({ start: match.index, end: match.index + match[0].length, token: true, name: "", nameLength: 0 });
   }
@@ -139,6 +223,9 @@ export function createSanitizer(opts: SanitizerOptions): Sanitize {
     .filter(([, value]) => value.length >= MIN_SECRET_LENGTH)
     .flatMap(([name, value]) => encodedForms(value).map((form): [string, string] => [name, form]))
     .sort((a, b) => b[1].length - a[1].length);
+  const decodedSecrets = sensitive
+    .filter(([, value]) => value.length >= MIN_SECRET_LENGTH)
+    .map(([name, value]): [string, Buffer] => [name, Buffer.from(value, "utf8")]);
   const shortSecrets = sensitive.filter(([, value]) => value.length < MIN_SECRET_LENGTH);
   const seen = new Set<string>();
   // Longest prefix first, so the source root wins over the home directory that contains it.
@@ -150,7 +237,7 @@ export function createSanitizer(opts: SanitizerOptions): Sanitize {
     .filter((root) => root.prefix.length > 1)
     .sort((a, b) => b.prefix.length - a.prefix.length);
   const sanitize = (text: string) => {
-    let pieces = redactSecrets(text, secrets);
+    let pieces = redactSecrets(text, secrets, decodedSecrets);
     for (const root of roots) pieces = replaceLiteral(pieces, root.prefix, root.replacement);
     if (shortSecrets.length > 0) {
       // Every kept input piece, scanned on its own: only the replacements generated above are exempt.

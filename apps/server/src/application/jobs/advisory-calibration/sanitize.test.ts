@@ -140,6 +140,25 @@ describe("history sanitizer", () => {
     }
   });
 
+  test("non-canonical percent and base64 encodings are matched by their decoded bytes (F18)", () => {
+    const secret = "abc/def+ghi";
+    const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SERVICE_PASSWORD: secret } });
+    const marker = "<redacted:env:SERVICE_PASSWORD>";
+    for (const form of ["abc%2fdef%2bghi", "%61bc%2Fdef%2Bghi", "abc/def%2bghi", "YWJjL2Rl ZitnaGk=", "YWJj\nL2RlZitn aGk"]) {
+      const text = sanitize(`https://svc:${form}@host/x and ${form}.`);
+      expect(text).toBe(`https://svc:${marker}@host/x and ${marker}.`);
+      const scrubbed = JSON.stringify(sanitizeDeep({ [form]: form, list: [`basic ${form}`] }, sanitize));
+      expect(scrubbed).toBe(`{"${marker}":"${marker}","list":["basic ${marker}"]}`);
+    }
+    // At any alignment inside a longer base64 blob (HTTP basic auth "svc:<secret>"), only the groups that carry it go.
+    const basic = Buffer.from(`svc:${secret}`).toString("base64");
+    const scrubbed = sanitize(`Authorization: Basic ${basic}`);
+    expect(scrubbed).toContain(marker);
+    expect(Buffer.from(scrubbed.replace(/.*Basic /, "").replace(marker, ""), "base64").toString("latin1")).not.toContain("def+ghi");
+    // Ordinary prose and paths around an encoded secret are kept.
+    expect(sanitize("see %2Fusr%2Fbin and the YWJjL2RlZitnaGk= value")).toBe(`see %2Fusr%2Fbin and the ${marker} value`);
+  });
+
   test("keys are scrubbed like values, and keys that scrub to one name are kept apart", () => {
     const sanitize = createSanitizer({ sourceRoot: ROOT, home: "/home/u", env: { SECRET_TOKEN: "abcdefgh" } });
     const scrubbed = sanitizeDeep(

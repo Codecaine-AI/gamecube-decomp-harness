@@ -229,6 +229,24 @@ describe("freeze-replay", () => {
     }
   });
 
+  test("a checkpoint id equal to a configured secret appears in no fixture or manifest field (F17)", async () => {
+    const history = tree();
+    const saved = process.env.FIXTURE_CHECKPOINT_TOKEN;
+    process.env.FIXTURE_CHECKPOINT_TOKEN = history.checkpointId;
+    try {
+      const out = outDir();
+      const manifest = await freeze(history, out);
+      for (const name of readdirSync(out)) expect(readFileSync(join(out, name), "utf8")).not.toContain(history.checkpointId);
+      expect(manifest.sources.checkpoint!.path).toBe(
+        "<source-root>/games/melee/runtime/state/orchestrator.sqlite#worker_checkpoints/<redacted:env:FIXTURE_CHECKPOINT_TOKEN>",
+      );
+      expect(manifest.source.checkpoint_id).toBe("<redacted:env:FIXTURE_CHECKPOINT_TOKEN>");
+    } finally {
+      if (saved === undefined) delete process.env.FIXTURE_CHECKPOINT_TOKEN;
+      else process.env.FIXTURE_CHECKPOINT_TOKEN = saved;
+    }
+  });
+
   test("a patch over 64 KB is trimmed to the findings' hunks", async () => {
     const history = tree({ castsPatchPadding: MAX_FIXTURE_FILE_BYTES + 4_096 });
     const out = outDir();
