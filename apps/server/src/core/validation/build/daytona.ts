@@ -26,6 +26,8 @@ async function git(root: string, args: string[]): Promise<string> {
   return result.stdout;
 }
 
+const FINDER_METADATA = /(?:^|\/)\.DS_Store$/;
+
 type BuildSourceIdentity = { head: string; patch: string; files: Array<{ path: string; bytes: Buffer; executable: boolean }>; digest: string; tree: string };
 
 /**
@@ -53,7 +55,9 @@ async function captureSourceIdentity(repoRoot: string): Promise<BuildSourceIdent
   const patch = await git(repoRoot, ["diff", "--binary", "--no-ext-diff", head]);
   const submodules = await git(repoRoot, ["submodule", "status", "--recursive"]);
   if (submodules.trim()) throw new Error("Remote build source capture requires explicit submodule bundles; refusing an incomplete source snapshot");
-  const names = (await git(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean).sort();
+  // macOS rewrites Finder metadata at will; it is never build input and would churn the identity.
+  const names = (await git(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean)
+    .filter((path) => !FINDER_METADATA.test(path)).sort();
   const files: Array<{ path: string; bytes: Buffer; executable: boolean }> = [];
   for (const path of names) {
     if (!within(repoRoot, resolve(repoRoot, path))) throw new Error(`Invalid build input: ${path}`);
@@ -63,7 +67,7 @@ async function captureSourceIdentity(repoRoot: string): Promise<BuildSourceIdent
   const indexDir = await mkdtemp(resolve(tmpdir(), "build-index-"));
   let tree: string;
   try {
-    for (const args of [["read-tree", head], ["add", "-A"], ["write-tree"]]) {
+    for (const args of [["read-tree", head], ["add", "-A", "--", ".", ":(exclude,glob)**/.DS_Store"], ["write-tree"]]) {
       const result = await runCommand(repoRoot, ["git", ...args], { env: { GIT_INDEX_FILE: resolve(indexDir, "index") } });
       if (result.exitCode !== 0) throw new Error(`Build input tree capture failed: ${result.stderr}`);
       if (args[0] === "write-tree") tree = result.stdout.trim();

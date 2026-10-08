@@ -86,6 +86,16 @@ describe("Daytona build execution", () => {
     ];
     for (const call of calls) await expect(call()).rejects.toThrow("No registered");
   });
+  test("source identity ignores Finder metadata the OS rewrites", async () => {
+    const f = await fixture();
+    await writeFile(resolve(f.repo, ".DS_Store"), "finder one");
+    const first = await buildSourceIdentity(f.repo);
+    await writeFile(resolve(f.repo, ".DS_Store"), "finder two");
+    const second = await buildSourceIdentity(f.repo);
+    expect(second.digest).toBe(first.digest);
+    expect(second.files).toEqual([]);
+  });
+
   test("source identity waits for a checkout that is mid-write to settle", async () => {
     const f = await fixture();
     let writes = 0;
