@@ -468,7 +468,7 @@ async function runToolRunners(context: ToolRuntimeContext, options: KnowledgeMai
         { toolId: "ghidra", script: "export_xrefs.py" },
         { toolId: "opseq", script: "extract_opcode_sequences.py" },
         { toolId: "mismatch_db", script: "analyze_objdiff_mismatches.py" },
-        { toolId: "mwcc_debug", script: "probe_mwcc_compiler.py" },
+        // No mwcc_debug probe: it runs mwcceppc.exe under Wine, and the host never runs the compiler.
       ];
   return Promise.all(
     runners.map(async ({ toolId, script: scriptName, timeoutMs }) => {
