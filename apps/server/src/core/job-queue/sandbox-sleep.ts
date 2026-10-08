@@ -4,6 +4,8 @@ export interface SandboxSleepOptions {
   debounceMs: number;
   log?: (message: string) => void;
   now?: () => number;
+  /** Waits between wake retries while Daytona still reports the previous stop in progress. */
+  transitionRetryDelaysMs?: readonly number[];
 }
 
 export interface SandboxSleepStats {
@@ -29,6 +31,10 @@ type SandboxSleepState =
   | "closed";
 
 const START_RETRY_DELAY_MS = 25;
+// A stop can still be settling on Daytona's side when the next operation wakes the
+// sandbox; those wakes need to wait out the transition rather than fail the worker.
+const TRANSITION_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000, 30_000] as const;
+const TRANSITIONAL_SANDBOX_STATE = /state change in progress|not in a (?:stoppable|startable) state/i;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,14 +55,16 @@ class SandboxSleepController {
   private readonly idleWaiters = new Set<() => void>();
   private readonly now: () => number;
   private readonly log: (message: string) => void;
+  private readonly transitionRetryDelaysMs: readonly number[];
   private readonly counters: SandboxSleepStats;
 
   constructor(
     private readonly handle: SandboxHandle,
     private readonly debounceMs: number,
-    options: Pick<SandboxSleepOptions, "log" | "now">,
+    options: Pick<SandboxSleepOptions, "log" | "now" | "transitionRetryDelaysMs">,
   ) {
     this.now = options.now ?? Date.now;
+    this.transitionRetryDelaysMs = options.transitionRetryDelaysMs ?? TRANSITION_RETRY_DELAYS_MS;
     this.log = options.log ?? (() => undefined);
     this.counters = {
       stopCount: 0,
@@ -151,6 +159,7 @@ class SandboxSleepController {
     this.setState("starting", at);
     const transition = (async () => {
       let lastError: unknown;
+      let transitionWaits = 0;
       for (let attempt = 0; attempt < 2; attempt += 1) {
         if (attempt > 0) await delay(START_RETRY_DELAY_MS);
         try {
@@ -164,6 +173,13 @@ class SandboxSleepController {
           this.log(
             `sandbox sleep start attempt ${attempt + 1} failed for ${this.handle.sandboxId}: ${errorMessage(error)}`,
           );
+          // A transitional state does not use up an ordinary retry; it waits for the transition.
+          const transitionDelay = this.transitionRetryDelaysMs[transitionWaits];
+          if (transitionDelay !== undefined && TRANSITIONAL_SANDBOX_STATE.test(errorMessage(error))) {
+            transitionWaits += 1;
+            attempt -= 1;
+            await delay(transitionDelay);
+          }
         }
       }
 

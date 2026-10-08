@@ -38,7 +38,7 @@ function pause(ms: number): Promise<void> {
 
 async function fixture(
   provider = new FakeSandboxProvider(),
-  options: { debounceMs?: number; now?: () => number; log?: (message: string) => void } = {},
+  options: { debounceMs?: number; now?: () => number; log?: (message: string) => void; transitionRetryDelaysMs?: number[] } = {},
 ): Promise<{
   provider: FakeSandboxProvider;
   raw: SandboxHandle;
@@ -49,6 +49,7 @@ async function fixture(
     debounceMs: options.debounceMs ?? 1_000,
     now: options.now,
     log: options.log,
+    transitionRetryDelaysMs: options.transitionRetryDelaysMs,
   });
   return { provider, raw, sleeping };
 }
@@ -165,6 +166,19 @@ describe("wrapSandboxHandleWithSleep lifecycle and failures", () => {
     expect(provider.startCalls).toHaveLength(2);
     expect(provider.execCalls).toHaveLength(0);
     expect(sleeping.stats()).toMatchObject({ startCount: 0, startFailures: 2 });
+    await sleeping.close();
+  });
+
+  test("waits out a stop Daytona is still settling before waking", async () => {
+    const settling = new Error("Sandbox state change in progress");
+    const provider = new FakeSandboxProvider().scriptStart(settling, settling, settling);
+    const { sleeping } = await fixture(provider, { transitionRetryDelaysMs: [0, 0, 0, 0] });
+    await sleeping.stop();
+
+    await sleeping.exec(["true"], { timeoutMs: 100 });
+    expect(provider.startCalls).toHaveLength(4);
+    expect(provider.execCalls).toHaveLength(1);
+    expect(sleeping.stats()).toMatchObject({ startCount: 1, startFailures: 3 });
     await sleeping.close();
   });
 
