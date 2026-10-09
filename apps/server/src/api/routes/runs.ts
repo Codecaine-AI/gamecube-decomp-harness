@@ -1,4 +1,5 @@
 import type { ActionProjection } from "@server/application/dashboard/read-model";
+import { isDesiredWorkerCount, MAX_DESIRED_WORKERS } from "@server/core/harness-runtime/run-state";
 
 type JsonObject = Record<string, unknown>;
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
@@ -12,6 +13,7 @@ export interface RunsApiRouteDeps {
   recoverRun: (body: JsonObject) => Promise<unknown>;
   resumeRun: (body: JsonObject) => unknown;
   runActionProjection: (body: JsonObject, actionId: RunActionId) => ActionProjection;
+  setDesiredWorkers: (body: JsonObject) => unknown;
 }
 
 async function requestBody(req: Request): Promise<JsonObject> {
@@ -66,6 +68,20 @@ export async function handleRunsApiRoute(req: Request, url: URL, deps: RunsApiRo
     }
     try {
       return deps.json(await deps.forceReleaseLease(body));
+    } catch (error) {
+      return deps.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
+    }
+  }
+  if (url.pathname === "/api/run/desired-workers") {
+    const body = await requestBody(req);
+    if (typeof body.gameId !== "string" || !body.gameId.trim()) {
+      return deps.json({ error: "run.desired_workers requires gameId" }, { status: 400 });
+    }
+    if (!isDesiredWorkerCount(body.workers)) {
+      return deps.json({ error: `workers must be an integer from 1 to ${MAX_DESIRED_WORKERS}` }, { status: 400 });
+    }
+    try {
+      return deps.json(deps.setDesiredWorkers(body));
     } catch (error) {
       return deps.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
     }

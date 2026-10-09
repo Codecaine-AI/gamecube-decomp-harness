@@ -14,7 +14,9 @@ import {
   getRun,
   openState,
   policyRevisionForConfiguration,
+  readRunDesiredWorkers,
   setRunDesiredWorkers,
+  setRunDesiredWorkersLive,
   setRunSchedulerCondition,
   StaleRunRevisionError,
   transitionRun,
@@ -521,3 +523,55 @@ describe("harness run ownership", () => {
      "unknown-liveness-settings",
    )).toThrow("process liveness could not be determined");
  });
+
+describe("live desired workers", () => {
+  test("changes only the worker count on an active run and keeps it for a restart", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+    acquireRunLease(store, ready.id);
+    const active = updateRunStatus(store, ready.id, "active", "operator");
+    const epoch = startSchedulerEpoch(store, active.id, { workerPoolSize: 4 });
+
+    const raised = setRunDesiredWorkersLive(store, active.id, 120, { commandId: "live-raise" });
+
+    expect(raised.previousDesiredWorkers).toBe(4);
+    expect(raised.run).toMatchObject({ status: "active", desiredWorkers: 120, revision: active.revision + 1 });
+    expect(raised.run.inputs?.configuration_snapshot).toEqual({ desired_workers: 120, nested: { beta: 2, alpha: 1 } });
+    expect(raised.run.inputs?.base_revision).toBe(active.inputs?.base_revision);
+    expect(raised.run.inputs?.policy_revision).toBe(policyRevisionForConfiguration({ desired_workers: 120, nested: { beta: 2, alpha: 1 } }));
+    expect(readRunDesiredWorkers(store, active.id)).toBe(120);
+    expect(activeSchedulerEpoch(store, active.id)).toMatchObject({ id: epoch.id, workerPoolSize: 120 });
+    expect(eventsForSubject(store.db, "run", active.id).at(-1)).toMatchObject({
+      eventType: "run.configured",
+      causationId: "live-raise",
+      payload: { old_values: { desired_workers: 4 }, new_values: { desired_workers: 120 } },
+    });
+
+    const lowered = setRunDesiredWorkersLive(store, active.id, 8);
+    expect(lowered).toMatchObject({ previousDesiredWorkers: 120, run: { desiredWorkers: 8, revision: active.revision + 2 } });
+    expect(setRunDesiredWorkersLive(store, active.id, 8).run.revision).toBe(active.revision + 2);
+  });
+
+  test("changes a paused run while its dispatch lease is still held", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+    acquireRunLease(store, ready.id);
+    const paused = updateRunStatus(store, updateRunStatus(store, ready.id, "active", "operator").id, "paused", "operator");
+
+    expect(setRunDesiredWorkersLive(store, paused.id, 64).run).toMatchObject({ status: "paused", desiredWorkers: 64 });
+  });
+
+  test("refuses counts outside 1..256 and finished runs", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+    for (const workers of [0, 257, 1.5, Number.NaN]) {
+      expect(() => setRunDesiredWorkersLive(store, ready.id, workers)).toThrow("from 1 to 256");
+    }
+    expect(setRunDesiredWorkersLive(store, ready.id, 256).run.desiredWorkers).toBe(256);
+    acquireRunLease(store, ready.id);
+    const completed = updateRunStatus(store, updateRunStatus(store, ready.id, "active", "operator").id, "completed", "operator");
+
+    expect(() => setRunDesiredWorkersLive(store, completed.id, 12)).toThrow("is completed");
+    expect(getRun(store, completed.id)?.desiredWorkers).toBe(256);
+  });
+});

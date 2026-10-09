@@ -1,4 +1,4 @@
-import { updatePreparedRunConfiguration } from "@server/core/harness-runtime/run-state/runs";
+import { setRunDesiredWorkersLive, updatePreparedRunConfiguration } from "@server/core/harness-runtime/run-state/runs";
 import { handleHarnessApiRoute, reconcileDesiredHarnessRun, type HarnessControlDeps } from "@server/api/routes/harness.js";
 import { getHarnessState } from "@server/core/harness-state/state.js";
 import { observeUpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
@@ -783,6 +783,17 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       return { ...resumed, process };
     },
     runActionProjection,
+    setDesiredWorkers: (body) => {
+      const store = openState(gameContext.resolveDashboardGame(body).stateDir);
+      try {
+        const runId = getHarnessState(store.db, String(body.gameId))?.history.run_id;
+        if (!runId) throw new Error("Initialize a Run before changing workers");
+        const { previousDesiredWorkers, run } = setRunDesiredWorkersLive(store, runId, Number(body.workers), {
+          commandId: `run-desired-workers-${randomUUID()}`,
+        });
+        return { runId, previousDesiredWorkers, desiredWorkers: run.desiredWorkers, run };
+      } finally { store.db.close(); }
+    },
   });
   if (runs) return runs;
 

@@ -797,3 +797,64 @@ export function updatePreparedRunConfiguration(
     return result;
   });
 }
+
+/** Live worker-count bounds shared by the run-loop, the CLI, and the dashboard route. */
+export const MAX_DESIRED_WORKERS = 256;
+
+export function isDesiredWorkerCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= MAX_DESIRED_WORKERS;
+}
+
+/** The stored worker count; one primary-key read the run-loop makes every iteration. */
+export function readRunDesiredWorkers(store: StateStore, runId: string): number | null {
+  const row = store.db.query("SELECT desired_workers FROM runs WHERE id = ?").get(runId) as { desired_workers: number } | null;
+  return row ? Number(row.desired_workers) : null;
+}
+
+/**
+ * Change only desired_workers on a ready, active, or paused Run. It is the same
+ * run.configured revision as a prepared settings edit, so the configuration
+ * snapshot keeps the value across a restart, and a live run-loop applies it on
+ * its next iteration: a raise claims more workers, a cut stops new claims while
+ * in-flight workers finish.
+ */
+export function setRunDesiredWorkersLive(
+  store: StateStore,
+  runId: string,
+  workers: number,
+  context: RunCommandContext = {},
+): { previousDesiredWorkers: number; run: RunRecord } {
+  if (!isDesiredWorkerCount(workers)) throw new Error(`desired_workers must be an integer from 1 to ${MAX_DESIRED_WORKERS}`);
+  // BEGIN IMMEDIATE serializes this read and the revision CAS against the run-loop's writes.
+  return immediateTransaction(store.db, () => {
+    const run = getRun(store, runId);
+    if (!run) throw new Error(`Run not found: ${runId}`);
+    if (run.status !== "ready" && run.status !== "active" && run.status !== "paused") {
+      throw new Error(`Run ${runId} is ${run.status}; workers can only change on a ready, active, or paused Run`);
+    }
+    if (!run.inputs) throw new Error(`Run ${runId} has no prepared configuration`);
+    const previousDesiredWorkers = run.desiredWorkers;
+    const snapshotWorkers = run.inputs.configuration_snapshot.desired_workers;
+    if (previousDesiredWorkers === workers && snapshotWorkers === workers) return { previousDesiredWorkers, run };
+    const configuration = { ...run.inputs.configuration_snapshot, desired_workers: workers };
+    const policy = policyRevisionForConfiguration(configuration);
+    const changed = transitionRun(store, runId, {
+      actor: "operator",
+      causationId: context.causationId,
+      commandId: context.commandId ?? `command-run-desired-workers-live-${randomUUID()}`,
+      correlationId: runId,
+      eventType: "run.configured",
+      expectedRevision: run.revision,
+      patch: { desiredWorkers: workers, inputs: { ...run.inputs, configuration_snapshot: configuration, policy_revision: policy } },
+      payload: {
+        previous_policy_revision: run.inputs.policy_revision,
+        policy_revision: policy,
+        old_values: { desired_workers: (snapshotWorkers ?? previousDesiredWorkers) as JsonValue },
+        new_values: { desired_workers: workers },
+      },
+      spanId: context.spanId ?? newSpanId(),
+    });
+    store.db.query("UPDATE epochs SET worker_pool_size = ? WHERE run_id = ? AND status IN ('active', 'paused')").run(workers, runId);
+    return { previousDesiredWorkers, run: changed };
+  });
+}

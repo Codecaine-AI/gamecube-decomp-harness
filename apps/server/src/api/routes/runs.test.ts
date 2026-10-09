@@ -54,6 +54,55 @@ describe("handleRunsApiRoute", () => {
     expect((await response?.json()).error).toContain(message);
   });
 
+  test("routes a live worker-count change and reports a refused run as a conflict", async () => {
+    const received: Record<string, unknown>[] = [];
+    const route = (setDesiredWorkers: RunsApiRouteDeps["setDesiredWorkers"]) => handleRunsApiRoute(
+      new Request("http://localhost/api/run/desired-workers", {
+        body: JSON.stringify({ gameId: "sms", workers: 120 }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      new URL("http://localhost/api/run/desired-workers"),
+      { json: (data: unknown, init?: ResponseInit) => Response.json(data, init), setDesiredWorkers } as unknown as RunsApiRouteDeps,
+    );
+
+    const response = await route((body) => {
+      received.push(body);
+      return { previousDesiredWorkers: 64, desiredWorkers: 120 };
+    });
+    expect(response?.status).toBe(200);
+    expect(received).toEqual([{ gameId: "sms", workers: 120 }]);
+    expect(await response?.json()).toEqual({ previousDesiredWorkers: 64, desiredWorkers: 120 });
+
+    const refused = await route(() => { throw new Error("Run run-1 is completed"); });
+    expect(refused?.status).toBe(409);
+    expect((await refused?.json()).error).toContain("is completed");
+  });
+
+  test.each([
+    [{ workers: 120 }, "requires gameId"],
+    [{ gameId: "sms", workers: 0 }, "from 1 to 256"],
+    [{ gameId: "sms", workers: 257 }, "from 1 to 256"],
+    [{ gameId: "sms", workers: "120" }, "from 1 to 256"],
+  ] as const)("refuses an invalid worker-count request %#", async (body, message) => {
+    const deps = {
+      json: (data: unknown, init?: ResponseInit) => Response.json(data, init),
+      setDesiredWorkers: () => { throw new Error("must not execute"); },
+    } as unknown as RunsApiRouteDeps;
+    const response = await handleRunsApiRoute(
+      new Request("http://localhost/api/run/desired-workers", {
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+      new URL("http://localhost/api/run/desired-workers"),
+      deps,
+    );
+
+    expect(response?.status).toBe(400);
+    expect((await response?.json()).error).toContain(message);
+  });
+
   test.each([
     ["/api/run/resume", "resumeRun", "run.resume"],
     ["/api/run/hard-stop", "hardStopRun", "run.hard_stop"],

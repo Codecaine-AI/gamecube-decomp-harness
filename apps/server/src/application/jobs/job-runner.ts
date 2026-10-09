@@ -33,6 +33,7 @@ import { tick } from "@server/core/harness-runtime/phases/running/scheduler/tick
 import { runLoop } from "@server/core/harness-runtime/phases/running/scheduler/run-loop.js";
 import { initRun } from "@server/core/harness-runtime/phases/running/service/init-run.js";
 import { prepareEpoch } from "@server/core/harness-runtime/phases/running/service/prepare-epoch.js";
+import { setDesiredWorkers } from "@server/core/harness-runtime/phases/running/service/set-desired-workers.js";
 import { status } from "@server/core/harness-runtime/phases/running/service/status.js";
 import { workerTask } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
@@ -91,6 +92,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "checkpoint-knowledge") await checkpointKnowledge(globals, args, argv);
     else if (command === "init-run") await initRun(globals, args);
     else if (command === "prepare-epoch") await prepareEpoch(globals, args);
+    else if (command === "set-desired-workers") await setDesiredWorkers(globals, args);
     else if (command === "tick") await tick(globals, args);
     else if (command === "worker-task") await workerTask(globals, args);
     else if (command === "run-loop") await runLoop(globals, args);
