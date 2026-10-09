@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
-import { cancelJob, claimNextJob } from "@server/core/job-queue/kernel.js";
+import { attachJobPayload, cancelJob, claimNextJob } from "@server/core/job-queue/kernel.js";
 import type { ClaimToken } from "@server/core/job-queue/types.js";
 import {
   admitEpochTargets,
@@ -138,4 +138,60 @@ describe("worker-state claim token fencing", () => {
       expect(() => exercise(name, "host")).not.toThrow();
     });
   }
+});
+
+describe("worker-state reclaim fencing", () => {
+  test("a worker cannot settle a worker state reclaimed by another worker", () => {
+    const { store, claimed, token } = fixture();
+    try {
+      attachJobPayload(store, token, { worker_id: claimed.workerId });
+      // Expired-claim recovery requeues the target while the first worker is still settling.
+      closeWorkerState(store, {
+        workerStateId: claimed.workerStateId,
+        lifecycleStatus: "error",
+        epochTargetStatus: "admitted",
+        authority: { host: "claim-recovery" },
+      });
+      const reclaimed = claimNextEpochTarget({
+        store,
+        runId: claimed.runId,
+        workerId: "worker-2",
+        baseRev: "base-test",
+        ttlSeconds: 1_800,
+      });
+      expect(reclaimed?.workerStateId).toBe(claimed.workerStateId);
+      expect(reclaimed?.claimId).toBe(claimed.claimId);
+
+      expect(() =>
+        closeWorkerState(store, { workerStateId: claimed.workerStateId, lifecycleStatus: "timeout", authority: token })
+      ).toThrow("was reclaimed by worker-2");
+      expect(() => appendWorkerSessionId(store, claimed.workerStateId, "late-session", token)).toThrow("was reclaimed by worker-2");
+
+      const claim = store.db.query("SELECT status, worker_id FROM target_claims WHERE id = ?").get(claimed.claimId) as {
+        status: string;
+        worker_id: string;
+      };
+      expect(claim).toEqual({ status: "active", worker_id: "worker-2" });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a worker can still settle its own recovered worker state before it is reclaimed", () => {
+    const { store, claimed, token } = fixture();
+    try {
+      attachJobPayload(store, token, { worker_id: claimed.workerId });
+      closeWorkerState(store, {
+        workerStateId: claimed.workerStateId,
+        lifecycleStatus: "error",
+        epochTargetStatus: "admitted",
+        authority: { host: "claim-recovery" },
+      });
+      expect(() =>
+        closeWorkerState(store, { workerStateId: claimed.workerStateId, lifecycleStatus: "timeout", authority: token })
+      ).not.toThrow();
+    } finally {
+      store.db.close();
+    }
+  });
 });

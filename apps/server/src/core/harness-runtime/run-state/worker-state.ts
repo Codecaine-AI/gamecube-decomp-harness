@@ -79,9 +79,23 @@ export interface WorkerStateCloseInput {
   authority: WorkerWriteAuthority;
 }
 
-function verifyWorkerWriteAuthority(store: StateStore, authority: WorkerWriteAuthority): void {
+function verifyWorkerWriteAuthority(store: StateStore, authority: WorkerWriteAuthority, workerStateId?: string): void {
   if ("host" in authority) return;
-  verifyClaimToken(store, authority);
+  const job = verifyClaimToken(store, authority);
+  if (workerStateId === undefined) return;
+  // Claim recovery can close an expired claim while its worker is still settling, and the
+  // next claim of that target reuses the worker state for another worker. A job may only
+  // write a worker state that still names the worker it claimed.
+  const jobWorkerId = job.payload.worker_id;
+  if (typeof jobWorkerId !== "string" || !jobWorkerId) return;
+  const row = store.db.query("SELECT worker_id FROM worker_state WHERE id = ?").get(workerStateId) as
+    | { worker_id: unknown }
+    | null;
+  if (row && String(row.worker_id) !== jobWorkerId) {
+    throw new Error(
+      `Worker state ${workerStateId} was reclaimed by ${String(row.worker_id)}; job ${job.jobId} (${jobWorkerId}) no longer owns it`,
+    );
+  }
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -603,7 +617,7 @@ export function setClaimWorktreePath(
   authority: WorkerWriteAuthority,
 ): void {
   immediateTransaction(store.db, () => {
-    verifyWorkerWriteAuthority(store, authority);
+    verifyWorkerWriteAuthority(store, authority, workerStateId);
     store.db.query("UPDATE target_claims SET worktree_path = ? WHERE id = ?").run(worktreePath, claimId);
     store.db.query("UPDATE worker_state SET worktree_path = ? WHERE id = ?").run(worktreePath, workerStateId);
   });
@@ -616,7 +630,7 @@ export function appendWorkerSessionId(
   authority: WorkerWriteAuthority,
 ): void {
   immediateTransaction(store.db, () => {
-    verifyWorkerWriteAuthority(store, authority);
+    verifyWorkerWriteAuthority(store, authority, workerStateId);
     const row = store.db.query("SELECT worker_session_ids_json FROM worker_state WHERE id = ?").get(workerStateId) as
       | Record<string, unknown>
       | undefined;
@@ -635,7 +649,7 @@ export function updateWorkerStateBaselineScore(
   const baseline = finiteOrNull(score);
   if (baseline === null) return;
   immediateTransaction(store.db, () => {
-    verifyWorkerWriteAuthority(store, authority);
+    verifyWorkerWriteAuthority(store, authority, workerStateId);
     store.db
       .query(
         `
@@ -743,7 +757,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
   const selectable = input.hardGatesPassed && improvedOverBaseline;
 
   immediateTransaction(store.db, () => {
-    verifyWorkerWriteAuthority(store, authority);
+    verifyWorkerWriteAuthority(store, authority, input.workerStateId);
     store.db
       .query(
         `
@@ -807,7 +821,7 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
 export function closeWorkerState(store: StateStore, input: WorkerStateCloseInput): void {
   const endedAt = now();
   immediateTransaction(store.db, () => {
-    verifyWorkerWriteAuthority(store, input.authority);
+    verifyWorkerWriteAuthority(store, input.authority, input.workerStateId);
     const row = store.db
       .query(
         `
