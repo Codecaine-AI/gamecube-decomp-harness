@@ -531,6 +531,14 @@ export function createKnowledgeMaintenanceClock(intervalMs: number, initializedA
   };
 }
 
+function integrationRetryDue(store: StateStore, runId: string): boolean {
+  return Boolean(
+    store.db
+      .query("SELECT 1 FROM jobs WHERE kind = 'integration' AND run_id = ? AND status = 'waiting' AND next_attempt_at <= ? LIMIT 1")
+      .get(runId, new Date().toISOString()),
+  );
+}
+
 export async function waitForRestingTrigger(
   idleSleepMs: number,
   extras: Array<Promise<void> | null> = [],
@@ -991,6 +999,9 @@ export async function runRunLoop(
         console.error(`[run-loop] reaped worker jobs and recovered ${reaped.recovered} active claim(s)`);
         didWork = true;
       }
+      // A drain otherwise starts only when a worker settles; an integration job in retry
+      // backoff (e.g. a transient git index.lock) would wait for the next settle.
+      if (!integrationFlushPending && !runningIntegrationDrain && integrationRetryDue(store, runId)) integrationFlushPending = true;
       if (integrationFlushPending && !runningIntegrationDrain) {
         integrationFlushPending = false;
         let task: Promise<void>;
