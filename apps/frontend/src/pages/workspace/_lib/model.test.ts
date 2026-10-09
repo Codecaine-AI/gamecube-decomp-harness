@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Dashboard, FormState } from "@/lib/format";
-import { deriveHarnessView, harnessStateAction, harnessStateReadModel } from "./model";
+import { deriveHarnessView, harnessStateAction, harnessStateReadModel, workerCountChoices } from "./model";
 const form = { gameId: "melee", processName: "melee-live" } as FormState;
 function dashboard(): Dashboard { return {
   status: { run: {}, activeClaims: 0 }, process: {},
@@ -47,5 +47,12 @@ describe("canonical harness projection", () => {
     const state = harnessStateReadModel(dashboard())!;
     expect(state.run?.progress.baseline_score).toBeNull();
     expect(state.run?.progress.confirmed_score).toBeNull();
+  });
+});
+describe("worker count choices", () => {
+  test("offers counts above 64 and keeps a count set outside the presets", () => {
+    expect(workerCountChoices(64).at(-1)).toBe(160);
+    expect(workerCountChoices(100)).toEqual([12, 16, 20, 32, 48, 64, 80, 96, 100, 120, 128, 160]);
+    expect(workerCountChoices(120)).toHaveLength(11);
   });
 });

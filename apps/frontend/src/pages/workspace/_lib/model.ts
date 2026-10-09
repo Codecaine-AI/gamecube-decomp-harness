@@ -39,7 +39,12 @@ export function schedulingForWorkers(
   };
 }
 
-export const workerCountOptions = [12, 16, 20, 32, 48, 64] as const;
+export const workerCountOptions = [12, 16, 20, 32, 48, 64, 80, 96, 120, 128, 160] as const;
+
+/** The preset counts plus the current one, so a count set elsewhere (the CLI) still shows. */
+export function workerCountChoices(current: number): number[] {
+  return [...new Set<number>([...workerCountOptions, current])].sort((left, right) => left - right);
+}
 
 export function statusClass(value: unknown): string {
   const status = text(value);

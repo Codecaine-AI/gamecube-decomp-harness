@@ -14,7 +14,7 @@ import {
 } from "@/components/primitives";
 import {
   schedulingForWorkers,
-  workerCountOptions,
+  workerCountChoices,
 } from "@/pages/workspace/_lib/model";
 import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
 import type {
@@ -57,6 +57,8 @@ export function RunSetupSection({
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const editable = view.runStatus === "ready" && view.harnessState?.state?.execution.desired === "paused";
+  // Outside prepared editing, the worker count alone stays live on a ready, active, or paused Run.
+  const liveWorkers = !editable && ["ready", "active", "paused"].includes(view.runStatus);
   useEffect(() => {
     setRevision(null);
     if (!gameId || !editable) return;
@@ -79,10 +81,21 @@ export function RunSetupSection({
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
     finally { setSaving(false); }
   }
+  async function applyWorkers() {
+    setSaving(true);
+    try {
+      const data = await postJson<{ previousDesiredWorkers: number; desiredWorkers: number }>("/api/run/desired-workers", {
+        gameId, workers: Number(form.maxWorkers),
+      });
+      setMessage(`Workers ${data.previousDesiredWorkers} → ${data.desiredWorkers}. The run applies it within seconds.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+    finally { setSaving(false); }
+  }
   const timeoutMinutes = workerTimeoutMinutes(form.agentTimeoutSeconds);
   return (
     <div className="grid gap-3 p-3">
       {editable && <button type="button" disabled={saving || revision === null} onClick={saveSettings} className="rounded border p-2">{saving ? "Saving…" : "Save Worker Settings"}</button>}
+      {liveWorkers && <button type="button" disabled={saving || !gameId} onClick={applyWorkers} className="rounded border p-2">{saving ? "Applying…" : "Apply Worker Count"}</button>}
       {message && <p role="status">{message}</p>}
       <div className="grid gap-3">
         <ConfigCard label="Worker Config">
@@ -96,7 +109,7 @@ export function RunSetupSection({
                     schedulingForWorkers(Number(event.currentTarget.value)),
                   )
                 }
-                options={[...workerCountOptions]}
+                options={workerCountChoices(form.maxWorkers)}
                 value={form.maxWorkers}
               />
               <Field
