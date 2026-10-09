@@ -1446,6 +1446,18 @@ async function inferredHeaderOwner(
   return null;
 }
 
+/** Both sides of every file a `git diff` text touches. */
+export function diffTouchedPaths(diffText: string): string[] {
+  const paths = new Set<string>();
+  for (const line of diffText.split(/\r?\n/)) {
+    const match = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    if (!match) continue;
+    paths.add(normalizeRepoPath(match[1]!));
+    paths.add(normalizeRepoPath(match[2]!));
+  }
+  return [...paths];
+}
+
 /**
  * Run §8 scope-following checks after the existing target-TU validation.
  * This function never runs a full build. A passing result is explicitly only
@@ -1460,6 +1472,11 @@ export async function validateWidenedChange(params: {
   writeSetEntries: WriteSetEntry[];
   baseRev: string;
   runStateDir: string;
+  /**
+   * Paths the attempt's cumulative write-set diff touches. A widened entry outside
+   * it is identical to baseRev, so it cannot change any other unit and is not checked.
+   */
+  changedPaths?: string[];
   maxConsumers?: number;
   headerOwnerByPath?: Record<string, string>;
   gameValidation?: GameBuildValidation | null;
@@ -1497,8 +1514,10 @@ export async function validateWidenedChange(params: {
   };
 
   const resolveConsumers = params.runners?.resolveHeaderConsumers ?? resolveHeaderConsumers;
+  const changedPaths = params.changedPaths ? new Set(params.changedPaths.map(normalizeRepoPath)) : null;
   for (const entry of params.writeSetEntries) {
     if (entry.category === "target-source") continue;
+    if (changedPaths && !changedPaths.has(normalizeRepoPath(entry.path))) continue;
     if (entry.category === "foreign-source") {
       addUnit(entry.path, "strict-object", entry.path);
       continue;

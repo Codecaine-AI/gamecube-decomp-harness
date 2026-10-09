@@ -23,6 +23,7 @@ import {
   extendWorkerChangeBaselineSourceSnapshot,
   failForPendingAdvisories,
   qaLintRepairReasons,
+  diffTouchedPaths,
   validateWidenedChange,
   type QaScanRunner,
   type WorkerChangeValidation,
@@ -2511,6 +2512,7 @@ async function executeClaimedWorker(params: {
             writeSetEntries: currentEntries,
             baseRev,
             runStateDir: resolve(globals.stateDir, "runs", runId),
+            changedPaths: diffTouchedPaths(postAttemptDiff.stdout),
             gameValidation: globals.game?.validation,
             workspaceExec,
           })

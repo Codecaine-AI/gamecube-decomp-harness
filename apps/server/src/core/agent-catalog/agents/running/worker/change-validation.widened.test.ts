@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { WorkspaceExec } from "@server/infrastructure/shell";
 import {
   configHunkAddresses,
+  diffTouchedPaths,
   parseSplitUnitRanges,
   validateWidenedChange,
   type ScopedUnitCheckRunnerOptions,
@@ -95,6 +96,47 @@ describe("validateWidenedChange", () => {
     ]);
     const evidence = JSON.parse(await readFile(join(outputDir, "attempt-2.widened_validation.json"), "utf8")) as Record<string, unknown>;
     expect(evidence).toMatchObject({ status: "passed", verdict: "tentative" });
+  });
+
+  test("checks only the widened paths the attempt's write-set diff still changes", async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), "widened-validation-"));
+    const calls: string[] = [];
+    let consumerLookups = 0;
+    // The header was widened and edited in an earlier attempt, then restored to base.
+    const diff = [
+      "diff --git a/src/melee/ft/target.c b/src/melee/ft/target.c",
+      "--- a/src/melee/ft/target.c",
+      "+++ b/src/melee/ft/target.c",
+      "diff --git a/src/melee/lb/foreign.c b/src/melee/lb/foreign.c",
+    ].join("\n");
+    expect(diffTouchedPaths(diff)).toEqual(["src/melee/ft/target.c", "src/melee/lb/foreign.c"]);
+    const validation = await validateWidenedChange({
+      validation: passedValidation(),
+      repoRoot: "/repo",
+      outputDir,
+      attemptIndex: 3,
+      targetSourcePath: "src/melee/ft/target.c",
+      writeSetEntries: [...writeSetEntries],
+      baseRev: "base-sha",
+      runStateDir: "/state/runs/run-1",
+      changedPaths: diffTouchedPaths(diff),
+      workspaceExec: fakeWorkspaceExec(),
+      runners: {
+        resolveHeaderConsumers: async () => {
+          consumerLookups += 1;
+          return { consumers: ["src/melee/direct_a.c"], derivedFrom: "ninja-deps", truncated: false, cachePath: "/tmp/map.json" };
+        },
+        resolveConfigUnits: async () => ["src/melee/config_a.c"],
+        checkUnit: async (options) => {
+          calls.push(options.sourcePath);
+          return { sourcePath: options.sourcePath, mode: options.mode, triggerPaths: options.triggerPaths, status: "passed", reasons: [] };
+        },
+      },
+    });
+
+    expect(calls).toEqual(["src/melee/lb/foreign.c"]);
+    expect(consumerLookups).toBe(0);
+    expect(validation.scopedChecks).toMatchObject({ status: "passed", verdict: "tentative", consumerMaps: [] });
   });
 
   test("folds a scoped failure into a passed worker validation without discarding target evidence", async () => {
