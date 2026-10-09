@@ -94,7 +94,7 @@ async function fixture(sandboxProvider = new FakeSandboxProvider()): Promise<{
   if (dispatch.queued) throw new Error("Expected test dispatch lease");
   const ctx: WorkerJobRunContext = {
     store, globals, runId: run.id, dispatchLeaseId: dispatch.leaseId, baseRev: "base-test",
-    ttlSeconds: 1800, sandboxSleep: false, sandboxSleepDebounceMs: 1_000,
+    ttlSeconds: 3600, sandboxSleep: false, sandboxSleepDebounceMs: 1_000,
     concurrencyLimit: 1, thinkingLevel: "medium",
     postReturnCheckCommand: "check", workerConfigureCommand: "configure", graphDbPath: resolve(stateDir, "graph.db"),
     writeSetFlags: { writeSetWidening: "off" }, advisoryAdjudication: "shadow", workerIdPrefix: "test",
@@ -120,7 +120,7 @@ async function fixture(sandboxProvider = new FakeSandboxProvider()): Promise<{
     worker_state_id: workerStateId,
     base_rev: "base-test",
     artifact_dir: resolve(stateDir, "artifacts"),
-    ttl_seconds: 1800,
+    ttl_seconds: 3600,
     sandbox_sleep: false,
     sandbox_sleep_debounce_ms: 1_000,
     thinking_level: "medium",

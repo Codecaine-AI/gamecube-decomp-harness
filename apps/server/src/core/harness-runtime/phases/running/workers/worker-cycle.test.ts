@@ -31,6 +31,7 @@ import {
   WORKER_PROVIDER_OUTAGE_RETRY_POLICY,
   workerAgentDeadlineMs,
   workerAttemptTimeoutMs,
+  workerClaimGraceSeconds,
   workerContinuationDecision,
   workerAgentToolEnvironment,
   outOfWriteSetCategoryCounts,
@@ -696,6 +697,21 @@ describe("worker attempt deadline", () => {
     expect(workerAttemptTimeoutMs(5400, agentDeadlineMs, Date.parse("2026-10-09T06:40:08.000Z"))).toBe(1_000);
     expect(workerAttemptTimeoutMs(undefined, agentDeadlineMs)).toBeUndefined();
     expect(workerAttemptTimeoutMs(5400, workerAgentDeadlineMs(Number.NaN))).toBe(5_400_000);
+  });
+});
+
+describe("workerClaimGraceSeconds", () => {
+  test("uses the grace the claim TTL was built with, not this process's constant", () => {
+    // A run-loop started with a 600s grace hands out 6000s claims for a 5400s agent timeout.
+    expect(workerClaimGraceSeconds(6000, 5400)).toBe(600);
+    expect(workerClaimGraceSeconds(7200, 5400)).toBe(1800);
+    const claimDeadlineMs = Date.parse("2026-10-09T16:00:00.000Z");
+    expect(workerAgentDeadlineMs(claimDeadlineMs, workerClaimGraceSeconds(6000, 5400))).toBe(Date.parse("2026-10-09T15:50:00.000Z"));
+  });
+
+  test("falls back to the configured grace without a usable agent timeout", () => {
+    expect(workerClaimGraceSeconds(3600, undefined)).toBe(1800);
+    expect(workerClaimGraceSeconds(3600, 3600)).toBe(1800);
   });
 });
 

@@ -782,8 +782,20 @@ function latestBestSelectableCheckpoint(checkpoints: WorkerContinuationCheckpoin
  * settlement. Every attempt must end inside the agent window, so a continuation that
  * starts late gets only the time left, never a fresh full timeout.
  */
-export function workerAgentDeadlineMs(claimDeadlineMs: number): number | null {
-  return Number.isFinite(claimDeadlineMs) ? claimDeadlineMs - CLAIM_TTL_GRACE_SECONDS * 1000 : null;
+export function workerAgentDeadlineMs(
+  claimDeadlineMs: number,
+  graceSeconds: number = CLAIM_TTL_GRACE_SECONDS,
+): number | null {
+  return Number.isFinite(claimDeadlineMs) ? claimDeadlineMs - graceSeconds * 1000 : null;
+}
+
+/**
+ * The grace the run-loop built this claim's TTL with. Workers load code fresh while the
+ * run-loop keeps the value it started with, so a changed grace must not shorten agents.
+ */
+export function workerClaimGraceSeconds(ttlSeconds: number, agentTimeoutSeconds: number | null | undefined): number {
+  const agentTimeout = Math.trunc(agentTimeoutSeconds ?? 0);
+  return agentTimeout > 0 && ttlSeconds > agentTimeout ? ttlSeconds - agentTimeout : CLAIM_TTL_GRACE_SECONDS;
 }
 
 export function workerAttemptTimeoutMs(
@@ -1974,7 +1986,10 @@ async function executeClaimedWorker(params: {
     let transientCycleRetryCount = 0;
     let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
-    const agentDeadlineMs = workerAgentDeadlineMs(claimDeadlineMs);
+    const agentDeadlineMs = workerAgentDeadlineMs(
+      claimDeadlineMs,
+      workerClaimGraceSeconds(ttlSeconds, globals.agentTimeoutSeconds),
+    );
     while (true) {
       const currentPacket = {
         ...packet,
