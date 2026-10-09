@@ -545,6 +545,26 @@ describe("workerPiSessionRetryDecision", () => {
     });
   });
 
+  test("backs off codex-lb operation-status cooldowns instead of failing the worker", () => {
+    const result = {
+      ...piResult(),
+      providerError:
+        "upstream_operation_status_unknown: The previous response operation may still be running; retry after the cooldown.",
+    };
+
+    expect(workerPiSessionRetryDecision({
+      result,
+      transientRetryCount: 0,
+      dryRun: false,
+      claimDeadlineMs: Date.now() + 600_000,
+    })).toMatchObject({
+      shouldRetry: true,
+      providerOutage: true,
+      reason: "provider_outage_backoff",
+      backoffMs: 15_000,
+    });
+  });
+
   test("backs off provider outages at 15s, 60s, and 180s before exhausting their separate retry budget", () => {
     const result = { ...piResult(), providerError: "invalid_request_error: no_biscuit_no_service" };
     const deadline = 1_000_000;

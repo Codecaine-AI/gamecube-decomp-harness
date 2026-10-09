@@ -4,6 +4,8 @@ export const PROVIDER_OUTAGE_PATTERNS = [
   /\bno_biscuit_no_service\b/i,
   /\binvalid_request_error\b/i,
   /\bbridge_continuity_persistence_failed\b/i,
+  // codex-lb: "The previous response operation may still be running; retry after the cooldown."
+  /\bupstream_operation_status_unknown\b/i,
   /\bstream[_ -]?incomplete\b/i,
   /\bserver_is_overloaded\b/i,
   /\b(?:connection|socket|stream|websocket)\s+(?:refused|reset)\b/i,
