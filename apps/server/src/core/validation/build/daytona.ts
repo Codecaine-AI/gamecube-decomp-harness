@@ -36,13 +36,15 @@ type BuildSourceIdentity = { head: string; patch: string; files: Array<{ path: s
  * different checkouts and the sandbox tree never matches. Accept a capture only
  * once two consecutive reads agree.
  */
-export async function buildSourceIdentity(repoRoot: string, attempts = 5): Promise<BuildSourceIdentity> {
+export async function buildSourceIdentity(repoRoot: string, attempts = 10): Promise<BuildSourceIdentity> {
   let previous = await captureSourceIdentity(repoRoot);
   for (let attempt = 1; attempt < attempts; attempt += 1) {
     const current = await captureSourceIdentity(repoRoot);
     if (current.digest === previous.digest) return current;
     previous = current;
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
+    // Integrations land in bursts while many workers run; back off (0.25s doubling to 2s,
+    // about 13s in all) so a burst can finish instead of exhausting the captures.
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, Math.min(2_000, 250 * 2 ** (attempt - 1))));
   }
   throw new Error(`Build source kept changing across ${attempts} captures; refusing an inconsistent snapshot`);
 }
