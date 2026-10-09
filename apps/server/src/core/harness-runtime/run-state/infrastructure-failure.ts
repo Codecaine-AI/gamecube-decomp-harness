@@ -6,6 +6,10 @@ export const PROVIDER_OUTAGE_PATTERNS = [
   /\bbridge_continuity_persistence_failed\b/i,
   // codex-lb: "The previous response operation may still be running; retry after the cooldown."
   /\bupstream_operation_status_unknown\b/i,
+  // Upstream and codex-lb errors whose message asks the caller to retry.
+  /\bprevious_response_owner_unavailable\b/i,
+  /\bservice_unavailable_error\b/i,
+  /\bserver_error\b/i,
   /\bstream[_ -]?incomplete\b/i,
   /\bserver_is_overloaded\b/i,
   /\b(?:connection|socket|stream|websocket)\s+(?:refused|reset)\b/i,

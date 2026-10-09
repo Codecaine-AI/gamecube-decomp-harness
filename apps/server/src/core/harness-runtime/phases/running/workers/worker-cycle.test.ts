@@ -545,6 +545,21 @@ describe("workerPiSessionRetryDecision", () => {
     });
   });
 
+  test("backs off upstream errors that ask the caller to retry", () => {
+    for (const providerError of [
+      "previous_response_owner_unavailable: Previous response owner account is unavailable; retry later.",
+      "service_unavailable_error: Unable to verify model access right now. Please retry.",
+      "server_error: An error occurred while processing your request. You can retry your request.",
+    ]) {
+      expect(workerPiSessionRetryDecision({
+        result: { ...piResult(), providerError },
+        transientRetryCount: 0,
+        dryRun: false,
+        claimDeadlineMs: Date.now() + 600_000,
+      })).toMatchObject({ shouldRetry: true, providerOutage: true, reason: "provider_outage_backoff" });
+    }
+  });
+
   test("backs off codex-lb operation-status cooldowns instead of failing the worker", () => {
     const result = {
       ...piResult(),
