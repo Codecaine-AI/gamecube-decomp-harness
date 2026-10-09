@@ -114,6 +114,7 @@ import {
   type WriteSetWideningMode,
 } from "@server/core/game-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/harness-runtime/phases/running/jobs/shared.js";
+import { CLAIM_TTL_GRACE_SECONDS } from "@server/core/harness-runtime/phases/running/worker-ttl.js";
 import { verifyClaimToken } from "@server/core/job-queue/kernel.js";
 import type { ClaimToken } from "@server/core/job-queue/types.js";
 import {
@@ -773,6 +774,26 @@ function latestBestSelectableCheckpoint(checkpoints: WorkerContinuationCheckpoin
     }
   }
   return { attemptIndex: bestAttemptIndex, score: bestScore };
+}
+
+/**
+ * The claim TTL is the agent timeout plus a grace window for final validation and
+ * settlement. Every attempt must end inside the agent window, so a continuation that
+ * starts late gets only the time left, never a fresh full timeout.
+ */
+export function workerAgentDeadlineMs(claimDeadlineMs: number): number | null {
+  return Number.isFinite(claimDeadlineMs) ? claimDeadlineMs - CLAIM_TTL_GRACE_SECONDS * 1000 : null;
+}
+
+export function workerAttemptTimeoutMs(
+  agentTimeoutSeconds: number | null | undefined,
+  agentDeadlineMs: number | null,
+  nowMs: number = Date.now(),
+): number | undefined {
+  if (!agentTimeoutSeconds) return undefined;
+  const timeoutMs = agentTimeoutSeconds * 1000;
+  if (agentDeadlineMs == null) return timeoutMs;
+  return Math.max(1_000, Math.min(timeoutMs, agentDeadlineMs - nowMs));
 }
 
 export function workerContinuationDecision(params: {
@@ -1952,6 +1973,7 @@ async function executeClaimedWorker(params: {
     let transientCycleRetryCount = 0;
     let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
+    const agentDeadlineMs = workerAgentDeadlineMs(claimDeadlineMs);
     while (true) {
       const currentPacket = {
         ...packet,
@@ -2050,7 +2072,7 @@ async function executeClaimedWorker(params: {
           provider: globals.provider,
           model: globals.model,
           thinkingLevel,
-          timeoutMs: globals.agentTimeoutSeconds ? globals.agentTimeoutSeconds * 1000 : undefined,
+          timeoutMs: workerAttemptTimeoutMs(globals.agentTimeoutSeconds, agentDeadlineMs),
           env: workerAgentEnv,
           // Whole-file writes conflict with the preserve-dirty-work rule and were
           // used in 0% of confirmed exacts (-51pt lift); edit/bash cover the need.
@@ -2304,7 +2326,7 @@ async function executeClaimedWorker(params: {
           result,
           contextRetryIndex,
           dryRun: globals.dryRunAgents,
-          claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+          claimDeadlineMs: agentDeadlineMs,
         });
         if (contextRetryDecision.shouldRetry) {
           const nextRetryIndex = contextRetryDecision.nextRetryIndex ?? contextRetryIndex + 1;
@@ -2362,7 +2384,7 @@ async function executeClaimedWorker(params: {
           result,
           transientRetryCount: transientCycleRetryCount,
           dryRun: globals.dryRunAgents,
-          claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+          claimDeadlineMs: agentDeadlineMs,
         });
         if (retryDecision.shouldRetry) {
           const nextRetryIndex = retryDecision.nextRetryIndex ?? transientCycleRetryCount + 1;
@@ -2658,7 +2680,7 @@ async function executeClaimedWorker(params: {
         checkpoints: workerCheckpointsForWorkerState(store, claimed.workerStateId),
         repairReasons,
         dryRun: result.dryRun,
-        claimDeadlineMs: Number.isFinite(claimDeadlineMs) ? claimDeadlineMs : null,
+        claimDeadlineMs: agentDeadlineMs,
       });
       const continuationDecision: WorkerContinuationDecision = wideningRoutedCrossModule
         ? {
