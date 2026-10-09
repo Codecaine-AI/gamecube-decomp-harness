@@ -659,6 +659,7 @@ export async function runRunLoop(
   let runningScheduler: Promise<void> | null = null;
   let runningKnowledgeMaintenance: Promise<void> | null = null;
   let runningProviderProbe: Promise<void> | null = null;
+  let startupSandboxReconciliation: Promise<unknown> | null = null;
   let stoppedReason = "running";
   let stopRequested = false;
   let iterations = 0;
@@ -712,7 +713,10 @@ export async function runRunLoop(
     const sandboxProvider = deps.sandboxProvider
       ?? (process.env.DAYTONA_API_KEY?.trim() ? new DaytonaSandboxProvider() : undefined);
     if (sessionGameId) {
-      await reconcileSandboxes(store, { gameId: sessionGameId }, { sandboxProvider });
+      // Deleting a stalled Daytona sandbox can take minutes per sandbox. Reconciliation only
+      // touches sandboxes listed before any claim, so workers start without waiting for it.
+      startupSandboxReconciliation = reconcileSandboxes(store, { gameId: sessionGameId }, { sandboxProvider })
+        .catch((cause) => console.warn("[sandbox] startup reconciliation failed", cause));
     }
     observedRunId = runId;
     setRunSchedulerCondition(store, runId, "idle");
@@ -1398,6 +1402,7 @@ export async function runRunLoop(
       }
     }
     if (runningProviderProbe) await runningProviderProbe;
+    if (startupSandboxReconciliation) await startupSandboxReconciliation;
     if (stopWorkerSummary) await stopWorkerSummary({ maxWaitMs: 15_000 });
     if (stopLibrarianConsumer) await stopLibrarianConsumer({ maxWaitMs: 15_000 });
     // Final synchronous catch-up of both kinds, then stop the lanes.
