@@ -182,6 +182,28 @@ describe("wrapSandboxHandleWithSleep lifecycle and failures", () => {
     await sleeping.close();
   });
 
+  test("wakes and retries once when a timed-out stop left the sandbox not running", async () => {
+    const notRunning = new Error("bad request: failed to resolve container IP after 3 attempts: no IP address found. Is the Sandbox started?");
+    const provider = new FakeSandboxProvider().scriptExec(notRunning, { exitCode: 0, stdout: "ok", stderr: "" });
+    const { sleeping } = await fixture(provider);
+
+    expect(await sleeping.exec(["build"], { timeoutMs: 100 })).toEqual({ exitCode: 0, stdout: "ok", stderr: "" });
+    expect(provider.execCalls).toHaveLength(2);
+    expect(provider.startCalls).toHaveLength(1);
+    expect(sleeping.stats()).toMatchObject({ startCount: 1 });
+    await sleeping.close();
+  });
+
+  test("does not retry other operation errors", async () => {
+    const provider = new FakeSandboxProvider().scriptExec(new Error("command failed"));
+    const { sleeping } = await fixture(provider);
+
+    await expect(sleeping.exec(["build"], { timeoutMs: 100 })).rejects.toThrow("command failed");
+    expect(provider.execCalls).toHaveLength(1);
+    expect(provider.startCalls).toHaveLength(0);
+    await sleeping.close();
+  });
+
   test("recovers from a failed stop without wedging operations", async () => {
     const logs: string[] = [];
     const provider = new FakeSandboxProvider().scriptStop(new Error("stop unavailable"));

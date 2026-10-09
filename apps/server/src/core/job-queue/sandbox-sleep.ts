@@ -35,6 +35,9 @@ const START_RETRY_DELAY_MS = 25;
 // sandbox; those wakes need to wait out the transition rather than fail the worker.
 const TRANSITION_RETRY_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000, 30_000] as const;
 const TRANSITIONAL_SANDBOX_STATE = /state change in progress|not in a (?:stoppable|startable) state/i;
+// Daytona's proxy rejects the request before it reaches the container, so the
+// operation never ran and is safe to repeat once the sandbox is awake again.
+const SANDBOX_NOT_RUNNING = /failed to resolve container IP|Is the Sandbox started\?/i;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -230,20 +233,36 @@ class SandboxSleepController {
   }
 
   private async operation<T>(run: () => Promise<T>): Promise<T> {
-    this.assertOpen();
-    this.cancelPendingStop();
-    while (true) {
-      await this.ensureStarted();
+    for (let attempt = 0; ; attempt += 1) {
       this.assertOpen();
-      if (this.state !== "started") continue;
-      this.activeOperations += 1;
-      break;
+      this.cancelPendingStop();
+      while (true) {
+        await this.ensureStarted();
+        this.assertOpen();
+        if (this.state !== "started") continue;
+        this.activeOperations += 1;
+        break;
+      }
+      try {
+        return await run();
+      } catch (error) {
+        if (attempt > 0 || !SANDBOX_NOT_RUNNING.test(errorMessage(error))) throw error;
+        // A stop that timed out can still complete on Daytona's side after this
+        // controller assumed the sandbox stayed started. Wake it and retry once.
+        this.log(`sandbox ${this.handle.sandboxId} was not running for an operation; waking it and retrying: ${errorMessage(error)}`);
+      } finally {
+        this.finishOperation();
+      }
+      this.markStoppedAfterNotRunning();
     }
-    try {
-      return await run();
-    } finally {
-      this.finishOperation();
-    }
+  }
+
+  private markStoppedAfterNotRunning(): void {
+    this.cancelPendingStop();
+    if (this.state !== "started") return;
+    const at = this.now();
+    this.stoppedAt = at;
+    this.setState("stopped", at);
   }
 
   private waitUntilIdle(): Promise<void> {
