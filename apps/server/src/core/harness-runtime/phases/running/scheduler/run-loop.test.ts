@@ -24,6 +24,7 @@ import {
   boundaryRetryLogTransition,
   boundaryRetryRest,
   launchBoundaryRetryIfDue,
+  liveWorkerConcurrency,
   createKnowledgeMaintenanceClock,
   createProviderCircuitBreaker,
   providerCircuitConfigFromArgs,
@@ -193,6 +194,18 @@ describe("selectRunLoopSchedulerCondition", () => {
     expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: true, planning: true, fallback: "dispatching" })).toBe("boundary");
     expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: false, planning: true, fallback: "waiting" })).toBe("planning");
     expect(selectRunLoopSchedulerCondition({ blocked: false, boundary: false, planning: false, fallback: "waiting" })).toBe("waiting");
+  });
+});
+
+describe("liveWorkerConcurrency", () => {
+  test("applies a stored worker change above the spawn-time limit and ignores invalid or unchanged values", () => {
+    expect(liveWorkerConcurrency(64, 64)).toBeNull();
+    expect(liveWorkerConcurrency(120, 64)).toBe(120);
+    expect(liveWorkerConcurrency(8, 64)).toBe(8);
+    expect(liveWorkerConcurrency(256, 64)).toBe(256);
+    expect(liveWorkerConcurrency(257, 64)).toBeNull();
+    expect(liveWorkerConcurrency(0, 64)).toBeNull();
+    expect(liveWorkerConcurrency(null, 64)).toBeNull();
   });
 });
 

@@ -10,10 +10,12 @@ import {
   blockingWorkerOutputIntegrationCount,
   getLatestRun,
   getRun,
+  isDesiredWorkerCount,
   markEventHandled,
   nextUnhandledEvent,
   openState,
   admittedTargetCount,
+  readRunDesiredWorkers,
   schedulerEpochProgress,
   schedulableTargetCount,
   setRunSchedulerCondition,
@@ -621,6 +623,15 @@ export function selectRunLoopSchedulerCondition(params: {
   return params.fallback;
 }
 
+/**
+ * Live worker-count control: a change to the run's stored desired_workers (from
+ * set-desired-workers or the dashboard) becomes the claim limit, uncapped by the
+ * spawn-time --max-workers. Null while the stored value is unchanged or outside 1..256.
+ */
+export function liveWorkerConcurrency(stored: number | null, lastStored: number): number | null {
+  return stored !== lastStored && isDesiredWorkerCount(stored) ? stored : null;
+}
+
 function schedulerTickArgs(
   args: Map<string, string | true>,
   params: { runId: string },
@@ -719,7 +730,8 @@ export async function runRunLoop(
       },
     });
     const requestedMaxWorkers = numberArg(args, "--max-workers", run.desiredWorkers);
-    const maxWorkers = Math.max(0, Math.min(run.desiredWorkers, requestedMaxWorkers));
+    let maxWorkers = Math.max(0, Math.min(run.desiredWorkers, requestedMaxWorkers));
+    let observedDesiredWorkers = run.desiredWorkers;
     if (requestedMaxWorkers > run.desiredWorkers) {
       console.error(
         `[run-loop] --max-workers ${requestedMaxWorkers} exceeds run desired_workers ${run.desiredWorkers}; clamping to ${maxWorkers}. ` +
@@ -946,6 +958,19 @@ export async function runRunLoop(
         gameId,
       });
       schedulerBlocked = dispatchLease.status === "blocked";
+      // The consumer re-reads the descriptor limit every tick: a raise claims more,
+      // a cut stops new claims and lets in-flight workers finish.
+      const liveWorkers = liveWorkerConcurrency(withBusyRetry(() => readRunDesiredWorkers(store, runId)), observedDesiredWorkers);
+      if (liveWorkers !== null) {
+        observedDesiredWorkers = liveWorkers;
+        if (liveWorkers !== maxWorkers) {
+          console.error(`[run-loop] worker concurrency ${maxWorkers} -> ${liveWorkers}`);
+          maxWorkers = liveWorkers;
+          workerCtx.concurrencyLimit = liveWorkers;
+          workerDescriptor.concurrencyLimit = liveWorkers;
+          schedulerEpochConfig.workerPoolSize = liveWorkers;
+        }
+      }
       const desiredPause = (gameId ? getHarnessState(store.db, gameId)?.execution.desired : undefined) === "paused";
       syncSchedulerCondition("planning");
       let didWork = false;
@@ -1322,7 +1347,7 @@ export async function runRunLoop(
       stoppedReason,
       iterations,
       idleIterations,
-      desiredWorkers: run.desiredWorkers,
+      desiredWorkers: observedDesiredWorkers,
       maxWorkers,
       schedulerTicks: schedulerResults.filter((result) => result.status !== "no_unhandled_events").length,
       epochSettlement: epochSettlementEnabled,

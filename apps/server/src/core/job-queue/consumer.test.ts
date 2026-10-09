@@ -117,6 +117,33 @@ describe("startJobConsumer", () => {
     await stop.stop();
   });
 
+  test("follows a live change to the descriptor concurrency limit", async () => {
+    const queue = ["one", "two", "three", "four"].map((id) => job(id));
+    const kernel = kernelFor(queue);
+    const releases: Array<() => void> = [];
+    const handler = mock(async () => {
+      await new Promise<void>((resolve) => releases.push(resolve));
+      return {};
+    });
+    const descriptor = inlineDescriptor(handler, 1);
+    const consumer = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
+    await until(() => handler.mock.calls.length === 1);
+
+    // A raise claims up to the new limit on the next tick.
+    descriptor.concurrencyLimit = 3;
+    await until(() => handler.mock.calls.length === 3);
+
+    // A cut claims nothing new until in-flight work falls below it.
+    descriptor.concurrencyLimit = 1;
+    releases.shift()!();
+    await Bun.sleep(20);
+    expect(handler).toHaveBeenCalledTimes(3);
+    releases.splice(0).forEach((release) => release());
+    await until(() => handler.mock.calls.length === 4);
+    releases.splice(0).forEach((release) => release());
+    await consumer.stop();
+  });
+
   test("completes inline work and threads onComplete through", async () => {
     const kernel = kernelFor([job("one")]);
     const onComplete = mock(() => undefined);
