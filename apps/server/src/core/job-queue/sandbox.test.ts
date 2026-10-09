@@ -369,6 +369,29 @@ describe("DaytonaSandboxProvider", () => {
     expect(creates).toBe(3);
   });
 
+  test("retries an ephemeral create that timed out starting, never worker creation", async () => {
+    let creates = 0;
+    const sdkSandbox = { id: "daytona-build", labels: {} };
+    const provider = new DaytonaSandboxProvider({
+      readApiKey: () => "test-key",
+      clientFactory: () => ({
+        create: async () => {
+          creates += 1;
+          if (creates % 2 === 1) throw new Error("Failed to create and start sandbox within 180 seconds. Operation timed out.");
+          return sdkSandbox as never;
+        },
+        get: async () => sdkSandbox as never,
+        list: () => [],
+      }),
+      transientRetryDelaysMs: [0, 0],
+    });
+
+    expect((await provider.create({ ...createParams, ephemeral: true })).sandboxId).toBe("daytona-build");
+    expect(creates).toBe(2);
+    await expect(provider.create(createParams)).rejects.toThrow("within 180 seconds");
+    expect(creates).toBe(3);
+  });
+
   test("throws a clear missing-key error only when first used", async () => {
     const provider = new DaytonaSandboxProvider({
       readApiKey: () => undefined,

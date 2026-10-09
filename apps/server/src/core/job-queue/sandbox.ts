@@ -108,7 +108,9 @@ const DEFAULT_TRANSIENT_RETRY_DELAYS_MS = [2_000, 5_000] as const;
 // longer, and the timed-out sandbox is left behind to fail on its own.
 const CREATE_START_TIMEOUT_SECONDS = 180;
 // The gateway sometimes answers with its raw HTML error page instead of a JSON error.
-const TRANSIENT_DAYTONA_FAILURE = /status code 50[234]\b|\b50[234] (?:Bad Gateway|Service Temporarily Unavailable|Service Unavailable|Gateway Time-out|Gateway Timeout)\b|socket hang up|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed/i;
+// A create that outlives CREATE_START_TIMEOUT_SECONDS is a Daytona capacity stall; a fresh
+// ephemeral create usually lands on a healthier runner.
+const TRANSIENT_DAYTONA_FAILURE = /status code 50[234]\b|\b50[234] (?:Bad Gateway|Service Temporarily Unavailable|Service Unavailable|Gateway Time-out|Gateway Timeout)\b|socket hang up|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed|Failed to create and start sandbox within \d+ seconds/i;
 
 export function isTransientDaytonaFailure(error: unknown): boolean {
   return TRANSIENT_DAYTONA_FAILURE.test(error instanceof Error ? error.message : String(error));
