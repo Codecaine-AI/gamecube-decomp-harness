@@ -998,7 +998,13 @@ describe("worker job kind", () => {
       expect(outcome.reaped).toHaveLength(1);
       expect(outcome.recovered).toBe(1);
       expect(outcome.expiredClaimsRecovered).toBe(0);
-      expect(calls[0]).toMatchObject({ claimIdFilter: result.job.payload.target_claim_id, force: true, leaseId: f.ctx.dispatchLeaseId, processIntegrations: false });
+      expect(calls[0]).toMatchObject({
+        claimIdFilter: result.job.payload.target_claim_id,
+        workerIdFilter: result.job.payload.worker_id,
+        force: true,
+        leaseId: f.ctx.dispatchLeaseId,
+        processIntegrations: false,
+      });
       expect(calls).toHaveLength(1);
       expect(getJob(f.store, result.job.jobId)?.status).toBe("waiting");
     } finally { f.store.db.close(); }

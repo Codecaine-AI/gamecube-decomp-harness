@@ -498,6 +498,9 @@ export async function reapWorkerJobs(
         repoRoot: ctx.globals.repoRoot,
         force: true,
         claimIdFilter: claimId,
+        // A claim recovered at its TTL can be reclaimed by another worker before this
+        // job's lease runs out; only recover it while it still belongs to this job.
+        workerIdFilter: typeof job.payload.worker_id === "string" ? job.payload.worker_id : "",
         leaseId: ctx.dispatchLeaseId,
         reason: "worker job lease expired (queue reap)",
         processIntegrations: false,
