@@ -184,6 +184,9 @@ export function runningProcessConfigurationConflicts(
   const conflicts: RunningProcessConfigurationConflict[] = [];
   for (const field of Object.keys(POLICY_FIELDS) as RunningProcessPolicyField[]) {
     if (body[field] === undefined) continue;
+    // Desired workers changes live through set-desired-workers; the stored value wins at spawn,
+    // so a stale request (e.g. a persisted resume intent) must not block a restart.
+    if (field === "maxWorkers") continue;
     const requested = normalizePolicyValue(field, body[field]);
     const stored = policySnapshotValue(field, runInputs.configuration_snapshot);
     if (canonicalJson(requested) === canonicalJson(stored)) continue;

@@ -210,7 +210,7 @@ describe("process control runtime", () => {
     const response = await runtime.startManagedProcess({
       gameId: "melee",
       runId: run.id,
-      maxWorkers: 8,
+      model: "gpt-5.5",
     });
     const payload = (await response.json()) as Record<string, unknown>;
 
@@ -218,7 +218,7 @@ describe("process control runtime", () => {
     expect(payload).toMatchObject({
       blocker: { code: "run_configuration_conflict", source_id: run.id },
       blocked_by: [{ code: "run_configuration_conflict", source_id: run.id }],
-      conflicts: [{ field: "maxWorkers", requested: 8, stored: 2 }],
+      conflicts: [{ field: "model", requested: "gpt-5.5", stored: "gpt-6-astra" }],
     });
     expect(spawned).toBe(false);
 

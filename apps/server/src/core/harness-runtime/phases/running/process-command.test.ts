@@ -44,14 +44,17 @@ describe("running process command", () => {
     expect(runningProcessConfigurationConflicts({ maxWorkers: 8, model: "gpt-5.5", sandboxProfile: "4-core" }, inputs, "run-1"))
       .toEqual([
         expect.objectContaining({
-          field: "maxWorkers",
-          requested: 8,
-          stored: 4,
+          field: "model",
+          requested: "gpt-5.5",
+          stored: "gpt-6-astra",
           blocker: expect.objectContaining({ code: "run_configuration_conflict", source_id: "run-1" }),
         }),
-        expect.objectContaining({ field: "model", requested: "gpt-5.5", stored: "gpt-6-astra" }),
         expect.objectContaining({ field: "sandboxProfile", requested: "4-core", stored: "2-core" }),
       ]);
+  });
+
+  test("never treats a stale worker count as a conflict: it changes live", () => {
+    expect(runningProcessConfigurationConflicts({ maxWorkers: 8 }, runInputs({ desired_workers: 120 }), "run-1")).toEqual([]);
   });
 
   test("builds the run-loop command owned by the running phase", () => {
