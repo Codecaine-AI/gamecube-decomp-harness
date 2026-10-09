@@ -687,12 +687,12 @@ describe("worker attempt deadline", () => {
   test("ends every attempt inside the agent window before the claim grace", () => {
     const claimDeadlineMs = Date.parse("2026-10-09T06:41:12.000Z");
     const agentDeadlineMs = workerAgentDeadlineMs(claimDeadlineMs);
-    expect(agentDeadlineMs).toBe(Date.parse("2026-10-09T06:31:12.000Z"));
+    expect(agentDeadlineMs).toBe(Date.parse("2026-10-09T06:11:12.000Z"));
 
     // A first attempt keeps the full agent timeout.
-    expect(workerAttemptTimeoutMs(5400, agentDeadlineMs, Date.parse("2026-10-09T05:01:12.000Z"))).toBe(5_400_000);
+    expect(workerAttemptTimeoutMs(5400, agentDeadlineMs, Date.parse("2026-10-09T04:41:12.000Z"))).toBe(5_400_000);
     // A continuation started late gets only what is left of the agent window.
-    expect(workerAttemptTimeoutMs(5400, agentDeadlineMs, Date.parse("2026-10-09T06:21:12.000Z"))).toBe(600_000);
+    expect(workerAttemptTimeoutMs(5400, agentDeadlineMs, Date.parse("2026-10-09T06:01:12.000Z"))).toBe(600_000);
     expect(workerAttemptTimeoutMs(5400, agentDeadlineMs, Date.parse("2026-10-09T06:40:08.000Z"))).toBe(1_000);
     expect(workerAttemptTimeoutMs(undefined, agentDeadlineMs)).toBeUndefined();
     expect(workerAttemptTimeoutMs(5400, workerAgentDeadlineMs(Number.NaN))).toBe(5_400_000);

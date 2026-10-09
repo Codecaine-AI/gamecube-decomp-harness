@@ -1,6 +1,6 @@
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 
-export const CLAIM_TTL_GRACE_SECONDS = 600;
+export const CLAIM_TTL_GRACE_SECONDS = 1800;
 
 export function workerTtlSeconds(globals: Pick<GlobalArgs, "agentTimeoutSeconds">, args: Map<string, string | true>): number {
   if (args.has("--ttl-seconds")) {
