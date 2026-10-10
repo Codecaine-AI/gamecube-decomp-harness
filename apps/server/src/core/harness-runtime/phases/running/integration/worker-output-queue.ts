@@ -579,6 +579,12 @@ export async function processWorkerOutputIntegrationQueue(params: {
   dryRun: boolean;
   leaseId: string;
   limit?: number;
+  /**
+   * Called as soon as a job's integration commit lands, before the job is
+   * completed. headRev arrives only if the whole drain returns, but a commit
+   * landed earlier in a drain that later throws is already the checkout head.
+   */
+  onIntegrated?: (integratedRev: string) => void;
   repoRoot: string;
   runId: string;
   stateDir: string;
@@ -613,6 +619,7 @@ export async function processWorkerOutputIntegrationQueue(params: {
           store: params.store,
           record,
       });
+      if (result.integratedRev) params.onIntegrated?.(result.integratedRev);
       completeJob(params.store, claimed.token, { resultRef: result.id });
       processed.push(result);
       if (result.integratedRev) headRev = result.integratedRev;

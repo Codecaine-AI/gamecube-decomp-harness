@@ -936,6 +936,13 @@ export async function runRunLoop(
             ? job.payload.claimed_epoch_target_id
             : "";
           if (epochTargetId) requeueAdmittedWorkerJob(store, epochTargetId);
+          // Recovery queues the worker's integration job after this settle asked
+          // for a drain, and that drain may already have run empty. Ask again:
+          // the job holds its source_path unclaimable until it settles.
+          if (recovery.workerOutputIntegration?.queued.length) {
+            integrationFlushPending = true;
+            runLoopWakeResolve?.();
+          }
           const ownershipSkip = recovery.skippedActiveClaims.find((claim) =>
             claim.claimId === recoveryFilters.claimIdFilter && claim.reason === "worker_id_filter"
           );
@@ -1028,6 +1035,9 @@ export async function runRunLoop(
         console.error(`[run-loop] reaped worker jobs and recovered ${reaped.recovered} active claim(s)`);
         didWork = true;
       }
+      // Reaped and expired claims queue their integration jobs without a drain;
+      // each job holds its source_path unclaimable until it settles.
+      if (reaped.recovered > 0 || reaped.expiredClaimsRecovered > 0) integrationFlushPending = true;
       // A drain otherwise starts only when a worker settles; an integration job in retry
       // backoff (e.g. a transient git index.lock) would wait for the next settle.
       if (!integrationFlushPending && !runningIntegrationDrain && integrationRetryDue(store, runId)) integrationFlushPending = true;
@@ -1037,6 +1047,10 @@ export async function runRunLoop(
         task = processWorkerOutputIntegrationQueue({
           dryRun: globals.dryRunAgents,
           leaseId,
+          // Advance per commit, not only when the drain resolves: a drain that
+          // throws after an applied job would otherwise leave baseRev behind a
+          // commit whose job is already succeeded and no longer holds its file.
+          onIntegrated: (integratedRev) => { workerCtx.baseRev = integratedRev; },
           repoRoot: globals.repoRoot,
           runId,
           stateDir: globals.stateDir,

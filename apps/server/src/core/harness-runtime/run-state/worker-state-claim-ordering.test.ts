@@ -5,11 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { claimNextJob, completeJob, failJob } from "@server/core/job-queue/kernel.js";
 import {
   admitEpochTargets,
   claimNextEpochTarget,
   closeWorkerState,
   createRun,
+  enqueueWorkerOutputIntegration,
   recordWorkerCheckpoint,
   startSchedulerEpoch,
 } from "./index.js";
@@ -80,6 +82,30 @@ function recordAppliedOutcome(store: StateStore, claimed: ClaimedTarget, checkpo
     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'applied', datetime('now'), datetime('now'))
   `).run(`applied-${checkpointId}`, claimed.runId, claimed.epochId, claimed.epochTargetId,
     claimed.claimId, claimed.workerStateId, checkpointId);
+}
+
+/** Closes a worker with a selected checkpoint and queues its output, as the worker's normal close path does. */
+function finishWithQueuedIntegration(store: StateStore, claimed: ClaimedTarget) {
+  const best = checkpoint(store, claimed);
+  closeWorkerState(store, {
+    workerStateId: claimed.workerStateId,
+    authority: { host: "worker-state-claim-ordering-test" },
+    lifecycleStatus: "exact",
+  });
+  return enqueueWorkerOutputIntegration(store, {
+    runId: claimed.runId,
+    epochId: claimed.epochId,
+    epochTargetId: claimed.epochTargetId,
+    targetClaimId: claimed.claimId,
+    workerStateId: claimed.workerStateId,
+    workerCheckpointId: best.id,
+  });
+}
+
+function claimIntegrationJob(store: StateStore, runId: string) {
+  const claimed = claimNextJob(store, { kind: "integration", concurrencyLimit: 1, leaseMs: 60_000, runId });
+  if (!claimed) throw new Error("expected a claimable integration job");
+  return claimed;
 }
 
 function readmitClosedClaim(store: StateStore, claimed: ClaimedTarget) {
@@ -251,6 +277,49 @@ describe("worker target claim ordering", () => {
       });
 
       expect(claim(store, run.id, "worker-4")?.target.symbol).toBe("fn_2");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("holds a file while a finished target's integration job on it is queued, claimed or retrying", () => {
+    const store = tempState();
+    try {
+      const run = setupEpoch(store, [
+        candidate(1, "src/shared.c"),
+        candidate(2, "src/shared.c"),
+        candidate(3, "src/other.c"),
+      ]);
+      const first = claim(store, run.id, "worker-1")!;
+      finishWithQueuedIntegration(store, first);
+
+      expect(claim(store, run.id, "worker-2")?.target.symbol).toBe("fn_3");
+      expect(claim(store, run.id, "worker-3")).toBeNull();
+
+      const applying = claimIntegrationJob(store, run.id);
+      expect(claim(store, run.id, "worker-3")).toBeNull();
+
+      expect(failJob(store, applying.token, "index.lock exists").status).toBe("waiting");
+      expect(claim(store, run.id, "worker-3")).toBeNull();
+      expect(store.db.query("SELECT status FROM epoch_targets WHERE symbol = 'fn_2'").get()).toEqual({ status: "admitted" });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test.each(["succeeded", "failed"] as const)("releases the file once its integration job has %s", (settled) => {
+    const store = tempState();
+    try {
+      const run = setupEpoch(store, [candidate(1, "src/shared.c"), candidate(2, "src/shared.c")]);
+      const first = claim(store, run.id, "worker-1")!;
+      finishWithQueuedIntegration(store, first);
+      expect(claim(store, run.id, "worker-2")).toBeNull();
+
+      const applying = claimIntegrationJob(store, run.id);
+      if (settled === "succeeded") completeJob(store, applying.token, { resultRef: "applied" });
+      else failJob(store, applying.token, "patch failed", { terminal: true });
+
+      expect(claim(store, run.id, "worker-2")?.target.symbol).toBe("fn_2");
     } finally {
       store.db.close();
     }

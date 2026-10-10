@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { initializeDispatchState, requestDispatch } from "@server/core/harness-state";
+import { claimNextJob, completeJob } from "@server/core/job-queue/kernel.js";
 import {
   activeClaimsForRun,
   admitEpochTargets,
@@ -174,6 +175,68 @@ describe("recoverActiveClaims", () => {
         | Record<string, unknown>
         | undefined;
       expect(worker?.lifecycle_status).toBe("error");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a recovered worker's queued integration holds its file until the job settles", async () => {
+    const { dir, store } = tempState();
+    try {
+      const patchPath = writePatch(dir);
+      seedRunHarness(store, "test", "base-test", dir);
+      const run = createRun(store, "matched_code_percent", 100, 3, { gameId: "test" }, { baseRevision: "base-test" });
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 3 });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [
+          { kind: "function", unit: "enemy", symbol: "walkTo", sourcePath: "src/enemy.cpp", size: 64, fuzzy: 99 },
+          { kind: "function", unit: "enemy", symbol: "zigzag", sourcePath: "src/enemy.cpp", size: 64, fuzzy: 98 },
+          { kind: "function", unit: "other", symbol: "other", sourcePath: "src/other.cpp", size: 64, fuzzy: 97 },
+        ],
+        workerPoolSize: 3,
+      });
+      const walkTo = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-1", baseRev: "base" });
+      if (walkTo?.target.symbol !== "walkTo") throw new Error("expected the walkTo claim");
+      recordWorkerCheckpoint(store, {
+        workerStateId: walkTo.workerStateId,
+        authority: { host: "recover-claims-test" },
+        runId: run.id,
+        epochId: walkTo.epochId,
+        epochTargetId: walkTo.epochTargetId,
+        targetClaimId: walkTo.claimId,
+        attemptIndex: 0,
+        oldScore: 99,
+        newScore: 100,
+        exactMatch: true,
+        hardGatesPassed: true,
+        validationStatus: "passed",
+        patchPath,
+        diffPath: patchPath,
+        writeSet: ["src/enemy.cpp"],
+      });
+
+      const recovery = await recoverActiveClaims({
+        globals: globalsFor(dir),
+        store,
+        runId: run.id,
+        repoRoot: dir,
+        force: true,
+        claimIdFilter: walkTo.claimId,
+        reason: "run-loop recovered failed worker job: Daytona sandbox error",
+        processIntegrations: false,
+      });
+      expect(recovery.workerOutputIntegration?.queued).toHaveLength(1);
+
+      expect(claimNextEpochTarget({ store, runId: run.id, workerId: "worker-2", baseRev: "base" })?.target.symbol).toBe("other");
+      expect(claimNextEpochTarget({ store, runId: run.id, workerId: "worker-3", baseRev: "base" })).toBeNull();
+
+      const integration = claimNextJob(store, { kind: "integration", concurrencyLimit: 1, leaseMs: 60_000, runId: run.id });
+      if (!integration) throw new Error("expected the recovered integration job");
+      completeJob(store, integration.token, { resultRef: "applied" });
+
+      expect(claimNextEpochTarget({ store, runId: run.id, workerId: "worker-3", baseRev: "integrated" })?.target.symbol).toBe("zigzag");
     } finally {
       store.db.close();
     }

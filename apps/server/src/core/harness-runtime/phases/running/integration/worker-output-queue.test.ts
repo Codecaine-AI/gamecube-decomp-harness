@@ -274,6 +274,47 @@ describe("apply-on-accept worker output integration", () => {
     }
   });
 
+  test("reports a landed commit even when the drain throws before it returns headRev", async () => {
+    const stateDir = tempDir("worker-integration-on-integrated-state-");
+    const store = openState(stateDir);
+    try {
+      const repo = setupRepo();
+      const patchPath = patchFile(stateDir);
+      seedRunHarness(store, "test", "base-test", repo);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      insertQueued(store, patchPath, run.id, "integration-1");
+      insertQueued(store, patchPath, run.id, "integration-2");
+      const leaseId = acquireLease(store, "run", run.id);
+      // The run lease is lost right after the first commit, so the drain throws
+      // when it revalidates before claiming the second job.
+      const losingRunner: typeof runCommand = async (cwd, command, options) => {
+        const result = await runCommand(cwd, command, options);
+        if (command[0] === "git" && command[1] === "commit") {
+          releaseDispatch(store, { actor: "operator", commandId: "command-release-after-commit", correlationId: run.id, leaseId, gameId: "test" });
+        }
+        return result;
+      };
+      const integrated: string[] = [];
+
+      await expect(processWorkerOutputIntegrationQueue({
+        commandRunner: losingRunner,
+        dryRun: false,
+        leaseId,
+        onIntegrated: (rev) => integrated.push(rev),
+        repoRoot: repo,
+        runId: run.id,
+        stateDir,
+        store,
+      })).rejects.toBeInstanceOf(StaleLeaseError);
+
+      expect(integrated).toEqual([git(repo, ["rev-parse", "HEAD"])]);
+      expect(integration(store, "integration-1").status).toBe("applied");
+      expect(integration(store, "integration-2").status).toBe("queued");
+    } finally {
+      store.db.close();
+    }
+  });
+
   test("a stale lease cannot claim or mutate queued checkout work", async () => {
     const stateDir = tempDir("worker-integration-stale-lease-state-");
     const store = openState(stateDir);

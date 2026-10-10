@@ -357,6 +357,11 @@ export function claimNextEpochTarget(params: {
     }
 
     const claimableAt = now();
+    // A file is also held while a finished worker's output on it still waits
+    // for integration: until that job settles, the run-loop's baseRev lacks
+    // the output, so a new worktree on the same file would be built from a
+    // base its patch cannot apply over. Both the normal close path and claim
+    // recovery enqueue the job with the payload's epoch_target_id.
     const target = params.store.db
       .query(
         `
@@ -376,7 +381,17 @@ export function claimNextEpochTarget(params: {
                     julianday(active_claims.ttl) IS NULL
                     OR julianday(active_claims.ttl) > julianday(?)
                   )
-              ) AS active_source_claims
+              ) AS active_source_claims,
+              EXISTS (
+                SELECT 1
+                FROM jobs AS pending_integrations
+                JOIN epoch_targets AS integrated_targets
+                  ON integrated_targets.id = json_extract(pending_integrations.payload_json, '$.epoch_target_id')
+                WHERE pending_integrations.kind = 'integration'
+                  AND pending_integrations.run_id = epoch_targets.run_id
+                  AND pending_integrations.status IN ('queued', 'claimed', 'running', 'waiting')
+                  AND integrated_targets.source_path = epoch_targets.source_path
+              ) AS pending_source_integrations
             FROM epoch_targets
             JOIN epochs ON epochs.id = epoch_targets.epoch_id
             WHERE epoch_targets.run_id = ?
@@ -384,6 +399,7 @@ export function claimNextEpochTarget(params: {
               AND epoch_targets.status = 'admitted'
           ) AS claimable_targets
           WHERE active_source_claims = 0
+            AND pending_source_integrations = 0
           ORDER BY admission_index ASC
           LIMIT 1
         `,
