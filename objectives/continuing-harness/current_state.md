@@ -112,3 +112,4 @@
 - Follow-up 2026-10-10 02:29Z (workers 48 -> 64): the Daytona total held under 150 (131, 130; dead about 73). Raised to 64; concurrency is effectively bound near 56 by files with open targets. Progress: 1419 finished, 345 exact, 567 remaining.
 - Follow-up 2026-10-10 02:39Z (workers 64 -> 40): stepping up to 56 effective workers produced 5 create timeouts (02:30 to 02:36Z), and the Daytona total rose to 173 (destroying 65, error 38). Lowered to 40. Two claimed targets are at 2 infra strikes. Pattern: Daytona handles about 32 to 48 workers' churn; above that, burst creates time out and stuck deletes pile up.
 </intervention>
+- 2026-10-10T02:59Z: workers 40 -> 48 (live set-desired-workers). Daytona held 120-134 total over three checks (dead ~73, disk 1.2-1.3 TiB); 52 files have open targets, 12 idle, so 48 is the effective cap headroom. Pause rule unchanged: pause if total nears 190.
