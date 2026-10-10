@@ -1247,7 +1247,11 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
     }
 
     if (!globals.dryRunAgents && config.fullKgMaintenanceMode !== "skip" && config.fullKgMaintenanceMode !== "none" && config.fullKgMaintenanceMode !== "off") {
-      const maintenanceGlobals = boundaryResult?.worktreeDir ? { ...globals, repoRoot: boundaryResult.worktreeDir } : globals;
+      // A Sync that moved source left the accepted report in the checkout, which
+      // admission checks the board against; the settlement worktree is stale then.
+      const acceptedHead = harnessGameId ? getHarnessState(store.db, harnessGameId)?.source.head : null;
+      const syncMovedSource = Boolean(acceptedHead && boundaryResult?.commitSha && acceptedHead !== boundaryResult.commitSha);
+      const maintenanceGlobals = boundaryResult?.worktreeDir && !syncMovedSource ? { ...globals, repoRoot: boundaryResult.worktreeDir } : globals;
       console.error(`[run-loop] epoch ${epochOrdinal}: full knowledge refresh started (${config.fullKgMaintenanceMode})`);
       addEvent(store, runId, "epoch_full_refresh_started", "run-loop", {
         epoch: epochOrdinal,

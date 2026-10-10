@@ -339,6 +339,37 @@ describe("harness epoch handoff", () => {
       expect(heldEvents()).toHaveLength(2);
     } finally { value.store.db.close(); }
   });
+  function knowledgeRoots(moveSource: boolean) {
+    const fixture = holdFixture();
+    const roots: string[] = [];
+    Object.assign(fixture.input.dependencies!, {
+      runBoundarySync: async () => {
+        const current = getHarnessState(fixture.value.store.db, "test")!;
+        transitionHarnessState(fixture.value.store.db, { gameId: "test", expectedRevision: current.identity.revision, commandId: "sync-source",
+          patch: { ...(moveSource ? { source: { head: "synced-head" } } : {}), execution: { workflow: "none", status: "idle", blockers: [] } },
+          boundary: { eventId: "sync-source", kind: "sync_completed", outcome: "no_source_change", epochId: fixture.value.epochId } });
+        return { changed: moveSource, headSha: moveSource ? "synced-head" : fixture.head, plan: { drifted: false } } as never;
+      },
+      runKnowledgeMaintenance: (async (globals: { repoRoot: string }) => { roots.push(globals.repoRoot); return {}; }) as never,
+    });
+    return { ...fixture, roots };
+  }
+  test("a Sync that moves source refreshes knowledge from the checkout, not the settlement worktree", async () => {
+    const { value, input, roots } = knowledgeRoots(true);
+    try {
+      const outcome = await runEpochBoundary(input);
+      expect(outcome.error).toBeUndefined();
+      expect(roots).toEqual([input.globals.repoRoot]);
+    } finally { value.store.db.close(); }
+  });
+  test("a Sync that leaves source unchanged refreshes knowledge from the settlement worktree", async () => {
+    const { value, input, roots } = knowledgeRoots(false);
+    try {
+      const outcome = await runEpochBoundary(input);
+      expect(outcome.error).toBeUndefined();
+      expect(roots).toEqual([value.dir]);
+    } finally { value.store.db.close(); }
+  });
   test("a cleared hold leaves the boundary unchanged", async () => {
     const { value, calls, input, epochRow, heldEvents } = holdFixture();
     try {
