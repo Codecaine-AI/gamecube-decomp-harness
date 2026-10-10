@@ -370,6 +370,41 @@ describe("harness epoch handoff", () => {
       expect(roots).toEqual([value.dir]);
     } finally { value.store.db.close(); }
   });
+  test("a retry after a recorded Sync gates and publishes the accepted head, not the settlement commit", async () => {
+    const { value, head, input } = holdFixture();
+    const gated: string[] = [];
+    const published: unknown[] = [];
+    let admissions = 0;
+    try {
+      Object.assign(input.dependencies!, {
+        runBoundarySync: async () => {
+          const current = getHarnessState(value.store.db, "test")!;
+          transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: current.identity.revision, commandId: "sync-moved",
+            patch: { source: { head: "synced-head" }, execution: { workflow: "none", status: "idle", blockers: [] } },
+            boundary: { eventId: "sync-moved", kind: "sync_completed", outcome: "no_source_change", epochId: value.epochId } });
+          value.store.db.query(`INSERT INTO save_points (id, campaign_id, run_id, trigger_kind, commit_sha, report_changes_path, payload_json, created_at)
+            VALUES ('pr-sync', 'campaign', ?, 'pr_sync', 'synced-head', NULL, ?, ?)`).run(value.runId, JSON.stringify({ epoch_id: value.epochId, boundary_attempt: 1 }), new Date().toISOString());
+          return { changed: true, headSha: "synced-head", plan: { drifted: false } } as never;
+        },
+        runCiParityGate: async ({ sha }: { sha: string }) => {
+          gated.push(sha);
+          return { status: gated.length === 1 ? "error" : "passed", reasons: [], warnings: [], steps: [] } as never;
+        },
+        publishHarnessDraftPr: async ({ commitSha }: { commitSha: string }) => { published.push(commitSha); return { status: "updated", commitSha } as never; },
+        ensureSchedulerEpochFromBoard: (() => {
+          if (++admissions === 1) throw new Error("Epoch admission refused");
+          return { epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 } };
+        }) as never,
+      });
+      expect((await runEpochBoundary(input)).ok).toBe(false);
+      const retry = await runEpochBoundary(input);
+      expect(retry.error).toBeUndefined();
+      expect(retry).toMatchObject({ ok: true, reconciled: true });
+      expect(head).not.toBe("synced-head");
+      expect(gated).toEqual(["synced-head", "synced-head"]);
+      expect(published).toEqual(["synced-head"]);
+    } finally { value.store.db.close(); }
+  });
   test("a cleared hold leaves the boundary unchanged", async () => {
     const { value, calls, input, epochRow, heldEvents } = holdFixture();
     try {

@@ -807,6 +807,9 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           }
           trackPhase("master_breakage_gate", "finished");
         } else reconcileSkippedSteps.push("master_breakage_gate");
+        // A Sync recorded by an earlier attempt already moved the accepted head;
+        // gating or publishing the settlement commit would switch source away from it.
+        const acceptedHead = boundarySync?.headSha ?? (harnessGameId ? getHarnessState(store.db, harnessGameId)?.source.head : null) ?? retained.completed.commitSha;
         const gateEvidence = completedBoundaryEvent(store, runId, retained.completed.epochId, boundaryAttempt, "ci_parity_gate");
         const reusableGateStatus = (status: unknown) => status === "passed";
         const rerunCiParity = config.ciParityEnabled && !reusableGateStatus(gateEvidence?.ci_parity_status);
@@ -816,7 +819,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         if (rerunCiParity) {
           reconcileRerunSteps.push("ci_parity_gate");
           trackPhase("ci_parity_gate", "started");
-          ciParity = await (params.dependencies?.runCiParityGate ?? runCiParityGateDefault)({ worktreeDir: globals.repoRoot, sha: boundarySync?.headSha ?? retained.completed.commitSha });
+          ciParity = await (params.dependencies?.runCiParityGate ?? runCiParityGateDefault)({ worktreeDir: globals.repoRoot, sha: acceptedHead });
           trackPhase("ci_parity_gate", "finished");
         } else reconcileSkippedSteps.push("ci_parity_gate");
         const gitSwitchFailed = ciParity?.status === "error"
@@ -855,7 +858,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             reconcileRerunSteps.push("draft_pr_publish");
             trackPhase("draft_pr_publish", "started");
             const publish = await publishHarnessDraftPr({
-              baseRef: globals.game?.baseRef, commitSha: boundarySync?.headSha ?? retained.completed.commitSha,
+              baseRef: globals.game?.baseRef, commitSha: acceptedHead,
               epochLabel: label, epochOrdinal, matchedCodePercent: null,
               gameId: globals.game?.gameId ?? globals.gameId ?? null, qaGate: null,
               regressions: boundaryResult.regressions as unknown as Record<string, unknown>, repoRoot: globals.repoRoot,
