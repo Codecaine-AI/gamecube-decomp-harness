@@ -2,9 +2,9 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { initializeHarnessState, getHarnessState, transitionHarnessState, getHarnessTimeline } from "@server/core/harness-state/state.js";
+import { initializeHarnessState, getHarnessState, transitionHarnessState, getHarnessTimeline, requestHarnessExecution } from "@server/core/harness-state/state.js";
 import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
-import { addEvent, createRun, openState, startSchedulerEpoch, type StateStore } from "@server/core/harness-runtime/run-state";
+import { addEvent, createRun, openState, setRunBoundarySyncHoldLive, startSchedulerEpoch, type StateStore } from "@server/core/harness-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { boundaryFindingKnowledgeEvent, runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
 const tempDirs: string[] = [];
@@ -270,6 +270,87 @@ describe("harness epoch handoff", () => {
       const timeline = getHarnessTimeline(value.store.db, "test");
       expect(timeline.filter(e => e.kind === "epoch_completed")).toHaveLength(1);
       expect(timeline.filter(e => e.kind === "save_point")).toHaveLength(1);
+    } finally { value.store.db.close(); }
+  });
+  function holdFixture() {
+    const { value, head } = readyFixture();
+    const calls = { snapshots: 0, syncs: 0, breakage: 0, ciParity: 0, preCommit: 0, publishes: 0, knowledge: 0, admissions: 0 };
+    const passed = { status: "passed", reasons: [], warnings: [], steps: [] } as never;
+    const input = params(value, { globals: { ...value.globals, dryRunAgents: false, gameId: "test" }, dependencies: {
+      reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+      runEpochSettlement: async () => { calls.snapshots++; return { ...completedBoundary(value), commitSha: head, scoreDelta: 0, savePointId: "save",
+        savePointEvidence: { status: "recorded", savePointId: "save", artifactPaths: [], commitSha: head } } as never; },
+      runBoundarySync: async () => {
+        calls.syncs++;
+        const current = getHarnessState(value.store.db, "test")!;
+        transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: current.identity.revision, commandId: `sync-${calls.syncs}`,
+          patch: { execution: { workflow: "none", status: "idle", blockers: [] } },
+          boundary: { eventId: `sync-${calls.syncs}`, kind: "sync_completed", outcome: "no_source_change", epochId: value.epochId } });
+        return { changed: false, headSha: head, plan: { drifted: false } } as never;
+      },
+      runMasterBreakageGate: async () => { calls.breakage++; return { status: "clean", breakages: [], moved: [], reasons: [] } as never; },
+      runCiParityGate: async () => { calls.ciParity++; return passed; },
+      runPreCommitGate: async () => { calls.preCommit++; return passed; },
+      publishHarnessDraftPr: async () => { calls.publishes++; return { status: "updated", commitSha: head } as never; },
+      runKnowledgeMaintenance: (async () => { calls.knowledge++; return {}; }) as never,
+      ensureSchedulerEpochFromBoard: (() => { calls.admissions++; return { epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 } }; }) as never,
+    } });
+    Object.assign(input.config, { breakageGateEnabled: true, ciParityEnabled: true, preCommitGateEnabled: true, harnessDraftPrEnabled: true, fullKgMaintenanceMode: "full" });
+    const resume = (commandId: string) => {
+      const current = getHarnessState(value.store.db, "test")!;
+      requestHarnessExecution(value.store.db, { gameId: "test", commandId, expectedRevision: current.identity.revision, desired: "run" });
+    };
+    const epochRow = () => value.store.db.query("SELECT status, boundary_status FROM epochs WHERE id = ?").get(value.epochId);
+    const heldEvents = () => (value.store.db.query("SELECT payload_json FROM events WHERE event_type = 'boundary_sync_held'").all() as { payload_json: string }[])
+      .map(row => JSON.parse(row.payload_json));
+    return { value, head, calls, input, resume, epochRow, heldEvents };
+  }
+  test("operator hold parks the harness paused after the save point and before Sync, then resumes into Sync", async () => {
+    const { value, head, calls, input, resume, epochRow, heldEvents } = holdFixture();
+    try {
+      setRunBoundarySyncHoldLive(value.store, value.runId, true);
+      const held = await runEpochBoundary(input);
+      expect(held).toMatchObject({ ok: true, paused: true, reconciled: false });
+      expect(held.error).toBeUndefined();
+      expect(calls).toEqual({ snapshots: 1, syncs: 0, breakage: 0, ciParity: 0, preCommit: 0, publishes: 0, knowledge: 0, admissions: 0 });
+      expect(epochRow()).toEqual({ status: "completed", boundary_status: "sync_held" });
+      expect(heldEvents()).toEqual([{ epoch: 1, epoch_id: value.epochId, boundary_attempt: 1, commit_sha: head, save_point_id: "save", created_by: "run-loop" }]);
+      expect(value.store.db.query("SELECT COUNT(*) AS count FROM events WHERE event_type = 'boundary_sync'").get()).toEqual({ count: 0 });
+      expect(getHarnessState(value.store.db, "test")!.execution).toMatchObject({ desired: "paused", workflow: "none", status: "paused" });
+      expect(getHarnessTimeline(value.store.db, "test").at(-1)).toMatchObject({
+        kind: "pause_requested", outcome: "requested", runId: value.runId, epochId: value.epochId, evidence: { reason: "boundary_sync_hold", save_point_id: "save" },
+      });
+
+      resume("resume-held");
+      const heldAgain = await runEpochBoundary(input);
+      expect(heldAgain).toMatchObject({ ok: true, paused: true, reconciled: true });
+      expect(calls).toMatchObject({ snapshots: 1, syncs: 0, admissions: 0, knowledge: 0 });
+      expect(heldEvents()).toHaveLength(2);
+      expect(epochRow()).toEqual({ status: "completed", boundary_status: "sync_held" });
+      expect(getHarnessState(value.store.db, "test")!.execution.desired).toBe("paused");
+
+      setRunBoundarySyncHoldLive(value.store, value.runId, false);
+      resume("resume-cleared");
+      const synced = await runEpochBoundary(input);
+      expect(synced.error).toBeUndefined();
+      expect(synced).toMatchObject({ ok: true, paused: false, reconciled: true });
+      expect(calls).toEqual({ snapshots: 1, syncs: 1, breakage: 1, ciParity: 1, preCommit: 1, publishes: 1, knowledge: 1, admissions: 1 });
+      expect(epochRow()).toEqual({ status: "completed", boundary_status: "success" });
+      expect(heldEvents()).toHaveLength(2);
+    } finally { value.store.db.close(); }
+  });
+  test("a cleared hold leaves the boundary unchanged", async () => {
+    const { value, calls, input, epochRow, heldEvents } = holdFixture();
+    try {
+      setRunBoundarySyncHoldLive(value.store, value.runId, true);
+      setRunBoundarySyncHoldLive(value.store, value.runId, false);
+      const outcome = await runEpochBoundary(input);
+      expect(outcome.error).toBeUndefined();
+      expect(outcome).toMatchObject({ ok: true, paused: false, reconciled: false });
+      expect(calls).toEqual({ snapshots: 1, syncs: 1, breakage: 1, ciParity: 1, preCommit: 1, publishes: 1, knowledge: 1, admissions: 1 });
+      expect(epochRow()).toEqual({ status: "completed", boundary_status: "success" });
+      expect(heldEvents()).toEqual([]);
+      expect(getHarnessState(value.store.db, "test")!.execution.desired).toBe("run");
     } finally { value.store.db.close(); }
   });
 

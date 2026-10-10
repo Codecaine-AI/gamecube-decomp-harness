@@ -1,6 +1,6 @@
 import type { StateStore } from "@server/core/harness-runtime/run-state";
 import { getRun } from "@server/core/harness-runtime/run-state";
-import { getHarnessState, getHarnessTimeline, transitionHarnessState, type HarnessState } from "@server/core/harness-state/state.js";
+import { getHarnessState, getHarnessTimeline, requestHarnessExecution, transitionHarnessState, type HarnessState } from "@server/core/harness-state/state.js";
 import { getDispatchState } from "@server/core/harness-state/lease.js";
 import { withLiveUpstreamDrift, type UpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 import { runningProcessConfigurationConflicts } from "@server/core/harness-runtime/phases/running/process-command.js";
@@ -69,10 +69,9 @@ export async function handleHarnessApiRoute(req: Request, url: URL, deps: Harnes
       const conflicts = runSettingConflicts(store, before.history.run_id, body);
       if (conflicts.length) return conflictResponse(before, conflicts);
     }
-    transitionHarnessState(store.db, {
-      gameId, commandId: body.commandId, expectedRevision: Number(body.expectedRevision),
-      patch: { execution: { desired } },
-      boundary: { eventId: `harness-${desired}-${body.commandId}`, kind: desired === "paused" ? "pause_requested" : "resumed", outcome: "requested", ...(desired === "run" ? { evidence: { requested_run_settings: runSettings(body) } } : {}) },
+    requestHarnessExecution(store.db, {
+      gameId, commandId: body.commandId, expectedRevision: Number(body.expectedRevision), desired,
+      ...(desired === "run" ? { boundary: { evidence: { requested_run_settings: runSettings(body) } } } : {}),
     });
     const read = () => getHarnessState(store!.db, gameId)!;
     if (desired === "paused") {

@@ -20,6 +20,7 @@ export type EventType =
   | "pool_below_target"
   | "boundary_breakage_gate"
   | "boundary_sync"
+  | "boundary_sync_held"
   | "ci_parity_gate"
   | "draft_pr_publish"
   | "epoch_regression_pause"

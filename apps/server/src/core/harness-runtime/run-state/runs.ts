@@ -858,3 +858,53 @@ export function setRunDesiredWorkersLive(
     return { previousDesiredWorkers, run: changed };
   });
 }
+
+/** The operator's boundary Sync hold, read fresh at every epoch boundary. */
+export function readRunBoundarySyncHold(store: StateStore, runId: string): boolean {
+  const row = store.db
+    .query("SELECT json_extract(inputs_json, '$.configuration_snapshot.boundary_sync_hold') AS hold FROM runs WHERE id = ?")
+    .get(runId) as { hold: number | null } | null;
+  return Number(row?.hold) === 1;
+}
+
+/**
+ * Turn the boundary Sync hold on or off on a ready, active, or paused Run. It is a
+ * run.configured revision like a live worker change, so a restart keeps it; a held
+ * boundary parks the harness paused after the epoch's save point, before Sync.
+ */
+export function setRunBoundarySyncHoldLive(
+  store: StateStore,
+  runId: string,
+  hold: boolean,
+  context: RunCommandContext = {},
+): { previousHold: boolean; run: RunRecord } {
+  return immediateTransaction(store.db, () => {
+    const run = getRun(store, runId);
+    if (!run) throw new Error(`Run not found: ${runId}`);
+    if (run.status !== "ready" && run.status !== "active" && run.status !== "paused") {
+      throw new Error(`Run ${runId} is ${run.status}; the boundary Sync hold can only change on a ready, active, or paused Run`);
+    }
+    if (!run.inputs) throw new Error(`Run ${runId} has no prepared configuration`);
+    const previousHold = run.inputs.configuration_snapshot.boundary_sync_hold === true;
+    if (previousHold === hold) return { previousHold, run };
+    const configuration = { ...run.inputs.configuration_snapshot, boundary_sync_hold: hold };
+    const policy = policyRevisionForConfiguration(configuration);
+    const changed = transitionRun(store, runId, {
+      actor: "operator",
+      causationId: context.causationId,
+      commandId: context.commandId ?? `command-run-boundary-sync-hold-${randomUUID()}`,
+      correlationId: runId,
+      eventType: "run.configured",
+      expectedRevision: run.revision,
+      patch: { inputs: { ...run.inputs, configuration_snapshot: configuration, policy_revision: policy } },
+      payload: {
+        previous_policy_revision: run.inputs.policy_revision,
+        policy_revision: policy,
+        old_values: { boundary_sync_hold: previousHold },
+        new_values: { boundary_sync_hold: hold },
+      },
+      spanId: context.spanId ?? newSpanId(),
+    });
+    return { previousHold, run: changed };
+  });
+}

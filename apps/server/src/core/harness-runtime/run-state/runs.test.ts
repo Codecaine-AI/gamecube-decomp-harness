@@ -14,7 +14,9 @@ import {
   getRun,
   openState,
   policyRevisionForConfiguration,
+  readRunBoundarySyncHold,
   readRunDesiredWorkers,
+  setRunBoundarySyncHoldLive,
   setRunDesiredWorkers,
   setRunDesiredWorkersLive,
   setRunSchedulerCondition,
@@ -573,5 +575,42 @@ describe("live desired workers", () => {
 
     expect(() => setRunDesiredWorkersLive(store, completed.id, 12)).toThrow("is completed");
     expect(getRun(store, completed.id)?.desiredWorkers).toBe(256);
+  });
+});
+
+describe("live boundary Sync hold", () => {
+  test("turns on and off an active run's hold, keeps it in the snapshot, and skips no-op writes", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+    acquireRunLease(store, ready.id);
+    const active = updateRunStatus(store, ready.id, "active", "operator");
+    expect(readRunBoundarySyncHold(store, active.id)).toBe(false);
+    expect(setRunBoundarySyncHoldLive(store, active.id, false).run.revision).toBe(active.revision);
+
+    const held = setRunBoundarySyncHoldLive(store, active.id, true, { commandId: "hold-on" });
+    expect(held.previousHold).toBe(false);
+    expect(held.run).toMatchObject({ status: "active", desiredWorkers: 4, revision: active.revision + 1 });
+    expect(held.run.inputs?.configuration_snapshot).toEqual({ desired_workers: 4, nested: { beta: 2, alpha: 1 }, boundary_sync_hold: true });
+    expect(readRunBoundarySyncHold(store, active.id)).toBe(true);
+    expect(eventsForSubject(store.db, "run", active.id).at(-1)).toMatchObject({
+      eventType: "run.configured",
+      causationId: "hold-on",
+      payload: { old_values: { boundary_sync_hold: false }, new_values: { boundary_sync_hold: true } },
+    });
+    expect(setRunBoundarySyncHoldLive(store, active.id, true).run.revision).toBe(active.revision + 1);
+
+    const cleared = setRunBoundarySyncHoldLive(store, active.id, false);
+    expect(cleared).toMatchObject({ previousHold: true, run: { revision: active.revision + 2 } });
+    expect(readRunBoundarySyncHold(store, active.id)).toBe(false);
+  });
+
+  test("refuses finished runs", () => {
+    const { store } = testStore();
+    const ready = readyRun(store);
+    acquireRunLease(store, ready.id);
+    const completed = updateRunStatus(store, updateRunStatus(store, ready.id, "active", "operator").id, "completed", "operator");
+
+    expect(() => setRunBoundarySyncHoldLive(store, completed.id, true)).toThrow("is completed");
+    expect(readRunBoundarySyncHold(store, completed.id)).toBe(false);
   });
 });

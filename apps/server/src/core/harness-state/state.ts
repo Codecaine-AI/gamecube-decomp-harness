@@ -143,6 +143,17 @@ export function transitionHarnessState(db: Database, input: TransitionHarnessSta
     return state;
   });
 }
+/** Run/pause intent as POST /api/harness/run|pause persists it; `execution` lands in the same transition. */
+export function requestHarnessExecution(db: Database, input: {
+  gameId: string; commandId: string; expectedRevision: number; desired: HarnessState["execution"]["desired"];
+  execution?: Omit<Partial<HarnessState["execution"]>, "desired">; boundary?: Pick<HarnessBoundary, "runId" | "epochId" | "evidence">;
+}): HarnessState {
+  return transitionHarnessState(db, {
+    gameId: input.gameId, commandId: input.commandId, expectedRevision: input.expectedRevision,
+    patch: { execution: { ...input.execution, desired: input.desired } },
+    boundary: { eventId: `harness-${input.desired}-${input.commandId}`, kind: input.desired === "paused" ? "pause_requested" : "resumed", outcome: "requested", ...input.boundary },
+  });
+}
 export function getHarnessTimeline(db: Database, gameId: string, options: { after?: number; before?: number; order?: "asc" | "desc"; limit?: number } = {}): HarnessTimelineEntry[] {
   required(gameId, "gameId");
   const rows = db.query(`SELECT * FROM harness_timeline_entries WHERE game_id = ? AND id > ? AND id < ? ORDER BY id ${options.order === "desc" ? "DESC" : "ASC"} LIMIT ?`)

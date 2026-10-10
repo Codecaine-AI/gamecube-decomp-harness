@@ -427,6 +427,35 @@ function boundaryErrorEpoch(store: StateStore, runId: string): BoundaryErrorEpoc
     : null;
 }
 
+/**
+ * The latest epoch settled with saved evidence but its boundary Sync never ran: an
+ * operator hold, or a process that died between the save point and Sync. Resume
+ * relaunches that boundary instead of admitting over it; its close moves it off.
+ */
+export function heldBoundarySyncEpoch(store: StateStore, runId: string): { id: string; ordinal: number } | null {
+  if (activeSchedulerEpoch(store, runId)) return null;
+  const row = withBusyRetry(
+    () =>
+      store.db
+        .query(
+          `SELECT id, ordinal, status, boundary_status FROM epochs
+           WHERE run_id = ? AND COALESCE(boundary_status, '') NOT LIKE 'manual_discarded%'
+           ORDER BY ordinal DESC LIMIT 1`,
+        )
+        .get(runId) as Record<string, unknown> | undefined,
+  );
+  if (!row || String(row.status) !== "completed" || !["sync_pending", "sync_held"].includes(String(row.boundary_status))) return null;
+  const evidence = withBusyRetry(() =>
+    store.db
+      .query(
+        `SELECT 1 FROM events WHERE run_id = ? AND event_type = 'epoch_checkpoint_progress'
+           AND json_extract(payload_json, '$.phase') = 'epoch_settled_evidence' AND json_extract(payload_json, '$.epoch_id') = ? LIMIT 1`,
+      )
+      .get(runId, String(row.id)),
+  );
+  return evidence ? { id: String(row.id), ordinal: Number(row.ordinal) } : null;
+}
+
 function isBoundarySettled(boundaryError: BoundaryErrorEpoch, noActiveWork: boolean): boolean {
   return boundaryError.finished >= boundaryError.admitted || noActiveWork;
 }
@@ -1151,6 +1180,7 @@ export async function runRunLoop(
           const noActiveWork = workerConsumer.inFlight() === 0 && pendingSettleWork.size === 0 && !integrationFlushPending;
           const boundarySettled = boundaryError && isBoundarySettled(boundaryError, noActiveWork);
           const boundaryRetryDue = boundaryError && (!boundaryError.nextAttemptAt || Date.parse(boundaryError.nextAttemptAt) <= Date.now());
+          const heldBoundary = !boundaryError && !desiredPause && !epochPaused ? heldBoundarySyncEpoch(store, runId) : null;
           if (boundaryError?.terminal) {
             epochPaused = true;
             schedulerBlocked = true;
@@ -1197,6 +1227,10 @@ export async function runRunLoop(
                 stoppedReason = "paused";
               }
             }
+          } else if (heldBoundary) {
+            didWork = true;
+            console.error(`[run-loop] epoch ${heldBoundary.ordinal}: settled with boundary Sync pending; resuming its boundary`);
+            launchEpochSettlement("resume held boundary sync", heldBoundary.id);
           } else if (!epochPaused) {
             const epochResult = ensureSchedulerEpochFromBoard({
               config: schedulerEpochConfig,

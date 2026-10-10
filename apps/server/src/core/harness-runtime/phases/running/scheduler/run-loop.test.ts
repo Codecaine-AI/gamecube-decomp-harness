@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   activeClaimsForRun,
+  addEvent,
   admitEpochTargets,
   claimNextEpochTarget,
   closeSchedulerEpoch,
@@ -23,6 +24,7 @@ import {
   epochOrdinalForBoundary,
   boundaryRetryLogTransition,
   boundaryRetryRest,
+  heldBoundarySyncEpoch,
   launchBoundaryRetryIfDue,
   liveWorkerConcurrency,
   createKnowledgeMaintenanceClock,
@@ -469,6 +471,54 @@ describe("epochBoundaryWorkPending", () => {
       expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-27T12:02:00.000Z"))).toBe(true);
       store.db.query("UPDATE epochs SET boundary_status = 'retry_exhausted', boundary_next_attempt_at = NULL WHERE id = ?").run(epoch.id);
       expect(epochBoundaryWorkPending(store, run.id, new Date("2026-08-28T12:00:00.000Z"))).toBe(false);
+    } finally {
+      store.db.close();
+    }
+  });
+});
+
+describe("heldBoundarySyncEpoch", () => {
+  function settledEpoch(store: StateStore, runId: string, boundaryStatus: string, evidence = true) {
+    const epoch = startSchedulerEpoch(store, runId, { workerPoolSize: 1 });
+    closeSchedulerEpoch(store, epoch.id, { status: boundaryStatus === "error" ? "error" : "completed", boundaryStatus });
+    if (evidence) addEvent(store, runId, "epoch_checkpoint_progress", "run-loop", { phase: "epoch_settled_evidence", epoch_id: epoch.id, attempt: 1, result: {} });
+    return epoch;
+  }
+
+  test("finds the latest settled epoch whose Sync is pending or held", () => {
+    const { store } = tempState();
+    try {
+      seedRunHarness(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      settledEpoch(store, run.id, "success");
+      const pending = settledEpoch(store, run.id, "sync_pending");
+      expect(heldBoundarySyncEpoch(store, run.id)).toEqual({ id: pending.id, ordinal: 2 });
+      store.db.query("UPDATE epochs SET boundary_status = 'sync_held' WHERE id = ?").run(pending.id);
+      expect(heldBoundarySyncEpoch(store, run.id)).toEqual({ id: pending.id, ordinal: 2 });
+      closeSchedulerEpoch(store, pending.id, { status: "completed", boundaryStatus: "success" });
+      expect(heldBoundarySyncEpoch(store, run.id)).toBeNull();
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("ignores success, error, active, and evidence-less epochs", () => {
+    const { store } = tempState();
+    try {
+      seedRunHarness(store);
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+      expect(heldBoundarySyncEpoch(store, run.id)).toBeNull();
+      settledEpoch(store, run.id, "success");
+      expect(heldBoundarySyncEpoch(store, run.id)).toBeNull();
+      const failed = settledEpoch(store, run.id, "error");
+      expect(heldBoundarySyncEpoch(store, run.id)).toBeNull();
+      closeSchedulerEpoch(store, failed.id, { status: "completed", boundaryStatus: "success" });
+      settledEpoch(store, run.id, "sync_pending", false);
+      expect(heldBoundarySyncEpoch(store, run.id)).toBeNull();
+      const held = settledEpoch(store, run.id, "sync_held");
+      expect(heldBoundarySyncEpoch(store, run.id)?.id).toBe(held.id);
+      startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      expect(heldBoundarySyncEpoch(store, run.id)).toBeNull();
     } finally {
       store.db.close();
     }

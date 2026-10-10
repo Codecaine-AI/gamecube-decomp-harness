@@ -1,6 +1,6 @@
 import { publishHarnessEpochSync } from "./harness-sync-publication.js";
 import { requireLease } from "@server/core/harness-state";
-import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
+import { getHarnessState, requestHarnessExecution, transitionHarnessState } from "@server/core/harness-state/state.js";
 import { recordUpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 import { createHash, randomUUID } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
@@ -45,6 +45,7 @@ import {
   closeSchedulerEpochWithEvidence,
   activeClaimsForRun,
   blockingWorkerOutputIntegrationCount,
+  readRunBoundarySyncHold,
   recordEpochBoundaryRetryFailure,
   type SchedulerEpochConfig,
   type StateStore,
@@ -618,6 +619,32 @@ function epochProgress(store: StateStore, runId: string, event: BoundaryProgress
   });
 }
 
+/**
+ * Operator boundary Sync hold: the settled epoch keeps its save point and reads
+ * sync_held, and the harness parks paused the way a user pause does, releasing the
+ * Sync workflow its evidence opened. Resuming with the hold cleared runs the Sync.
+ */
+function holdBoundarySync(params: EpochBoundaryParams, held: { boundaryAttempt: number; commitSha: string; savePointId: string | null }): void {
+  const { store, globals, runId, schedulerEpochId, epochOrdinal } = params;
+  const gameId = globals.game?.gameId ?? globals.gameId;
+  const evidence = { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? null, boundary_attempt: held.boundaryAttempt, commit_sha: held.commitSha, save_point_id: held.savePointId };
+  store.db.transaction(() => {
+    if (schedulerEpochId) {
+      store.db.query("UPDATE epochs SET boundary_status = 'sync_held' WHERE id = ? AND status = 'completed' AND boundary_status IN ('sync_pending', 'sync_held')").run(schedulerEpochId);
+    }
+    addEvent(store, runId, "boundary_sync_held", "run-loop", { ...evidence, created_by: "run-loop" });
+    const harness = gameId ? getHarnessState(store.db, gameId) : null;
+    const releaseSync = harness?.execution.workflow === "sync" && harness.execution.status === "active";
+    if (gameId && harness && (harness.execution.desired !== "paused" || releaseSync)) requestHarnessExecution(store.db, {
+      gameId, desired: "paused", expectedRevision: harness.identity.revision,
+      commandId: `boundary-sync-hold:${schedulerEpochId ?? runId}:${harness.identity.revision}`,
+      ...(releaseSync ? { execution: { workflow: "none" as const, status: "paused" as const } } : {}),
+      boundary: { runId, epochId: schedulerEpochId ?? null, evidence: { reason: "boundary_sync_hold", ...evidence } },
+    });
+  })();
+  console.error(`[run-loop] epoch ${epochOrdinal}: settled; holding before boundary Sync (operator hold)`);
+}
+
 export async function runEpochBoundary(params: EpochBoundaryParams): Promise<EpochBoundaryOutcome> {
   const {
     store,
@@ -709,6 +736,10 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         if (savedResult) { boundaryResult = savedResult.result; epochEvidenceRecorded = true; }
         const boundarySyncEvidence = completedBoundaryEvent(store, runId, retained.completed.epochId, boundaryAttempt, "boundary_sync");
         const prSyncRecorded = hasPrSyncSavePoint(store, runId, retained.completed.epochId, boundaryAttempt);
+        if (config.boundarySyncEnabled && (!boundarySyncEvidence || !prSyncRecorded) && readRunBoundarySyncHold(store, runId)) {
+          holdBoundarySync(params, { boundaryAttempt, commitSha: retained.completed.commitSha, savePointId: boundaryResult.savePointId ?? null });
+          return { ok: true, boundaryResult, reconciled, paused: true };
+        }
         if (config.boundarySyncEnabled && (!boundarySyncEvidence || !prSyncRecorded)) {
           reconcileRerunSteps.push("boundary_sync");
           trackPhase("boundary_sync", "started");
@@ -898,6 +929,10 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             addEvent(store, runId, "epoch_checkpoint_progress", "run-loop", { phase: "epoch_settled_evidence", epoch_id: schedulerEpochId, attempt: boundaryAttempt ?? 1, result });
           })();
           trackPhase("epoch_evidence", "finished");
+        }
+        if (config.boundarySyncEnabled && result.commitSha && schedulerEpochId && readRunBoundarySyncHold(store, runId)) {
+          holdBoundarySync(params, { boundaryAttempt: boundaryAttempt ?? 1, commitSha: result.commitSha, savePointId: result.savePointId ?? null });
+          return { ok: true, boundaryResult, reconciled, paused: true };
         }
         if (config.boundarySyncEnabled && result.commitSha) {
           const gameId = globals.game?.gameId ?? globals.gameId;
