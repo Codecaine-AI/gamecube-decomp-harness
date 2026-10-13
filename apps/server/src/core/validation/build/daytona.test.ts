@@ -118,6 +118,17 @@ describe("Daytona build execution", () => {
     expect(f.uploads.get("/tmp/build-input.patch")).toContain("+dirty");
     expect(await readFile(f.report, "utf8")).toBe("fresh"); expect(f.deleted).toBe(1);
   });
+  test("builds provision the configured build profile instead of the worker default", async () => {
+    const f = await fixture();
+    const base = f.game.sandbox.profiles[f.game.sandbox.default_profile] ?? f.game.sandbox;
+    const game = { ...f.game, sandbox: { ...f.game.sandbox, build_profile: "8-core", profiles: { ...f.game.sandbox.profiles, "8-core": { ...base, snapshot_name: "build-8c", resource_class: { cpu: 8, memory_gib: 16, disk_gib: 10 } } } } };
+    const created: Array<{ snapshot?: string; resources?: { cpu?: number } }> = [];
+    const provider: SandboxProvider = { ...f.provider, create: async params => { created.push(params); return f.provider.create(params); } };
+    await executeDaytonaBuild(f.repo, { kind: "report", input: {} }, { game, provider, bundleWorker: async path => { await writeFile(path, "// fixture worker"); } });
+    expect(created).toHaveLength(1);
+    expect(created[0].snapshot).toBe("build-8c");
+    expect(created[0].resources?.cpu).toBe(8);
+  });
   test("failed build retains accepted report and deletes sandbox", async () => {
     const f = await fixture(); f.response = { failure: { message: "compiler failed" }, artifacts: ["/work/sms/build/GMSJ01/report.json", "/tmp/build-task-logs/task.log"] };
     await expect(f.run()).rejects.toThrow("compiler failed"); expect(await readFile(f.report, "utf8")).toBe("accepted"); expect(f.deleted).toBe(1);

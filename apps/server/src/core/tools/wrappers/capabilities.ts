@@ -12,6 +12,7 @@ import type { AgentToolRegistration, AgentToolRuntimeContext } from "../types.js
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 import { validateMwccAllocAnalyzeArgs } from "./mwcc-alloc.js";
 import { mwccDebugCompilerProvisioned } from "./mwcc-debug-capability.js";
+import { scaleTimeout, toolTimeoutScale } from "../timeout-scale.js";
 
 const evidenceToolRoles = [
   "worker",
@@ -218,7 +219,7 @@ export const checkdiffRunToolRegistration = knowledgeApiTool({
   args(params, context) {
     const fn = stringParam(params, "function");
     if (!fn) return { status: "missing_function" };
-    const args = ["--repo-root", context.repoRoot, "--function", fn, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 180, 10, 900))];
+    const args = ["--repo-root", context.repoRoot, "--function", fn, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, scaleTimeout(180, toolTimeoutScale(context), 900), 10, 900))];
     if (boolParam(params, "full_diff")) args.push("--full-diff");
     return args;
   },
@@ -313,7 +314,7 @@ export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
       "--candidate-object",
       gamePath(context, candidate),
       "--timeout-seconds",
-      String(boundedNumber(params.timeout_seconds, 60, 5, 300)),
+      String(boundedNumber(params.timeout_seconds, scaleTimeout(60, toolTimeoutScale(context), 300), 5, 300)),
     ];
     const unit = stringParam(params, "unit");
     if (unit) args.push("--unit", unit);
@@ -493,7 +494,7 @@ export function sourcePermuterRunArgs(params: Record<string, unknown>, context: 
     "--max-iters",
     String(boundedNumber(params.max_iters, 32, 1, 10_000)),
     "--timeout-seconds",
-    String(boundedNumber(params.timeout_seconds, 90, 5, 900)),
+    String(boundedNumber(params.timeout_seconds, scaleTimeout(90, toolTimeoutScale(context), 900), 5, 900)),
     "--seed",
     String(boundedNumber(params.seed, 0, 0, 2_147_483_647)),
     "--apply",

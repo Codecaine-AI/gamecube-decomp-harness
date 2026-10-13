@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { resolveGame, sandboxRuntimeOptions } from "./resolver.js";
+import { buildSandboxRuntimeOptions, resolveGame, sandboxRuntimeOptions, sandboxTimeoutScale } from "./resolver.js";
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -279,5 +279,65 @@ describe("game registry layout resolution", () => {
       snapshot_baked_rev: "baked-rev",
       workspace_root: "/workspace/melee",
     });
+  });
+
+  test("selects a separate build profile and per-profile timeout scale", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-build-profile-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(join(gameDir, "config"), { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      sandbox: {
+        default_profile: "2-core",
+        build_profile: "8-core",
+        profiles: {
+          "2-core": { snapshot_name: "melee-2c", timeout_scale: 2 },
+          "8-core": { snapshot_name: "melee-8c", resource_class: { cpu: 8, memory_gib: 16, disk_gib: 10 } },
+        },
+      },
+    });
+    const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
+    expect(game.sandbox.build_profile).toBe("8-core");
+    expect(buildSandboxRuntimeOptions(game)).toEqual(sandboxRuntimeOptions(game, "8-core"));
+    expect(buildSandboxRuntimeOptions(game).resource_class.cpu).toBe(8);
+    expect(sandboxRuntimeOptions(game)).not.toHaveProperty("timeout_scale");
+    expect(sandboxTimeoutScale(game)).toBe(2);
+    expect(sandboxTimeoutScale(game, "8-core")).toBe(1);
+    expect(sandboxTimeoutScale(game, "missing")).toBe(1);
+
+    writeJson(join(gameDir, "config/local.json"), { sandbox: { build_profile: "2-core" } });
+    expect(buildSandboxRuntimeOptions(resolveGame({ orchestratorRoot: root, gameId: "melee" })).snapshot_name).toBe("melee-2c");
+  });
+
+  test("build profile defaults to the default profile", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-build-profile-default-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      sandbox: { default_profile: "2-core", profiles: { "2-core": { snapshot_name: "melee-2c" }, "4-core": { snapshot_name: "melee-4c" } } },
+    });
+    const game = resolveGame({ orchestratorRoot: root, gameId: "melee" });
+    expect(game.sandbox.build_profile).toBe("2-core");
+    expect(buildSandboxRuntimeOptions(game).snapshot_name).toBe("melee-2c");
+    expect(sandboxTimeoutScale(game)).toBe(1);
+  });
+
+  test("rejects unknown build profiles and invalid timeout scales", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-build-profile-invalid-"));
+    const gameDir = join(root, "games", "melee");
+    mkdirSync(gameDir, { recursive: true });
+    writeJson(join(gameDir, "game.json"), {
+      id: "melee",
+      sandbox: { default_profile: "2-core", build_profile: "16-core", profiles: { "2-core": { snapshot_name: "melee-2c" } } },
+    });
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "melee" })).toThrow("Sandbox build profile 16-core is not defined");
+    for (const timeout_scale of [0, -1, "2"]) {
+      writeJson(join(gameDir, "game.json"), {
+        id: "melee",
+        sandbox: { profiles: { "2-core": { snapshot_name: "melee-2c", timeout_scale } } },
+      });
+      expect(() => resolveGame({ orchestratorRoot: root, gameId: "melee" })).toThrow("invalid timeout_scale");
+    }
   });
 });

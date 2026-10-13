@@ -1,5 +1,6 @@
 import type { SandboxExecResult, SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import type { ResolvedRegisteredTool } from "../resolver.js";
+import { scaleTimeout } from "../timeout-scale.js";
 
 export const SANDBOX_TOOLPACK_ROOT = "/opt/toolpacks";
 
@@ -38,12 +39,16 @@ export function commandPayload(params: {
   };
 }
 
-function timeoutMs(args: string[]): number {
+const MAX_TIMEOUT_MS = 1_800_000;
+
+/** Exec timeout for a tool call; the default and floor scale with the sandbox profile, the cap does not. */
+export function workspaceToolTimeoutMs(args: string[], scale = 1): number {
+  const fallback = scaleTimeout(300_000, scale, MAX_TIMEOUT_MS);
   const index = args.indexOf("--timeout-seconds");
-  if (index < 0 || index + 1 >= args.length) return 300_000;
+  if (index < 0 || index + 1 >= args.length) return fallback;
   const seconds = Number(args[index + 1]);
-  if (!Number.isFinite(seconds)) return 300_000;
-  return Math.min(1_800_000, Math.max(120_000, (seconds + 180) * 1_000));
+  if (!Number.isFinite(seconds)) return fallback;
+  return Math.min(MAX_TIMEOUT_MS, Math.max(scaleTimeout(120_000, scale, MAX_TIMEOUT_MS), (seconds + 180) * 1_000));
 }
 
 async function toolpackReady(sandboxHandle: SandboxHandle, toolpackId: string): Promise<boolean> {
@@ -65,6 +70,7 @@ export async function runWorkspaceToolApi(params: {
   resolvedTool: Record<string, unknown>;
   scriptName: string;
   args: string[];
+  timeoutScale?: number;
 }): Promise<Record<string, unknown>> {
   const { sandboxHandle, resolved, scriptName, args } = params;
   const toolPath = resolved.registryEntry.path ?? resolved.toolId;
@@ -108,7 +114,7 @@ export async function runWorkspaceToolApi(params: {
   const result: SandboxExecResult = await sandboxHandle.exec(command, {
     cwd: resolved.gameRepoRoot,
     env,
-    timeoutMs: timeoutMs(args),
+    timeoutMs: workspaceToolTimeoutMs(args, params.timeoutScale),
   });
   return {
     ...commandPayload({

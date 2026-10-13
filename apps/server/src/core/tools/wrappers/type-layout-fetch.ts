@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve } from "node:path";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { contextGenerationCommand, resolveSandboxProjectLayout } from "./sandbox-project-layout.js";
+import { scaleTimeout } from "../timeout-scale.js";
 
 const CONTEXT_PATH = "build/ctx.c";
 const CONTEXT_CHECK_TIMEOUT_MS = 10_000;
 const BUILD_TIMEOUT_MS = 120_000;
+const MAX_BUILD_TIMEOUT_MS = 1_800_000;
 const MODES = new Set(["dups", "near", "unions", "casts", "summary"]);
 
 export interface SandboxTypeLayoutIndexFallbackInput {
@@ -16,6 +18,8 @@ export interface SandboxTypeLayoutIndexFallbackInput {
   gameId: string;
   worktreeCacheRoot: string;
   args: string[];
+  /** Sandbox profile multiplier for the CPU-bound context build. */
+  timeoutScale?: number;
   runHostApi(args: string[]): Promise<Record<string, unknown>>;
   runHostRunner(args: string[]): Promise<Record<string, unknown>>;
   tempParent?: string;
@@ -145,7 +149,7 @@ export async function runSandboxTypeLayoutIndexFallback(
       }
       const generated = await input.sandboxHandle.exec(
         contextCommand,
-        { cwd: input.workspaceRoot, timeoutMs: BUILD_TIMEOUT_MS },
+        { cwd: input.workspaceRoot, timeoutMs: scaleTimeout(BUILD_TIMEOUT_MS, input.timeoutScale ?? 1, MAX_BUILD_TIMEOUT_MS) },
       );
       if (generated.exitCode !== 0) {
         return buildFailure(

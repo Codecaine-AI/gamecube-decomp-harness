@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { listGames, resolveGame, sandboxRuntimeOptions, type ResolvedGame } from "@server/core/game-registry/resolver.js";
+import { buildSandboxRuntimeOptions, listGames, resolveGame, type ResolvedGame } from "@server/core/game-registry/resolver.js";
 import { DaytonaSandboxProvider, type SandboxHandle, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
 import { ensureSandboxToolpack } from "@server/core/job-queue/provisioning.js";
 import { runCommand } from "@server/infrastructure/shell/run-command.js";
@@ -123,7 +123,7 @@ export interface BuildDependencies { provider?: SandboxProvider; game?: Resolved
 export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, dependencies: BuildDependencies = {}): Promise<T> {
   const repoRoot = resolve(checkout);
   const game = dependencies.game ?? await gameForCheckout(repoRoot);
-  const profile = sandboxRuntimeOptions(game);
+  const profile = buildSandboxRuntimeOptions(game);
   if (!profile.snapshot_name) throw new Error(`No Daytona snapshot configured for ${game.gameId}; refusing local build fallback`);
   const source = await buildSourceIdentity(repoRoot);
   const id = `build-${randomUUID()}`;

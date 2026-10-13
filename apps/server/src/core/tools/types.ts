@@ -32,6 +32,8 @@ export interface AgentToolRuntimeContext {
   sandboxHandle?: SandboxHandle;
   /** Worker-startup sandbox probe result for the instrumented MWCC compiler. */
   mwccDebugProvisioned?: boolean;
+  /** Active sandbox profile's CPU-sensitive tool timeout multiplier (default 1). */
+  timeoutScale?: number;
   /** Claim-authorized in-session write-set widening callback. */
   requestWriteSetWidening?: RequestWriteSetWideningHandler;
 }

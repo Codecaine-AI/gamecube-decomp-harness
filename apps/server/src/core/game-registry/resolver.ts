@@ -76,10 +76,14 @@ export interface GameSandboxProfileConfig {
   snapshot_name?: string;
   snapshot_baked_rev?: string;
   workspace_root?: string;
+  /** Multiplier for CPU-sensitive tool timeout defaults; must be positive. */
+  timeout_scale?: number;
 }
 
 export interface GameSandboxConfig extends GameSandboxProfileConfig {
   default_profile?: string;
+  /** Profile used for Daytona builds (Sync, settlement, final validation, CI); defaults to default_profile. */
+  build_profile?: string;
   profiles?: Record<string, GameSandboxProfileConfig>;
 }
 
@@ -90,9 +94,14 @@ export interface SandboxRuntimeOptions {
   workspace_root: string;
 }
 
-export interface ResolvedSandboxConfig extends SandboxRuntimeOptions {
+export interface ResolvedSandboxProfile extends SandboxRuntimeOptions {
+  timeout_scale: number;
+}
+
+export interface ResolvedSandboxConfig extends ResolvedSandboxProfile {
   default_profile: string;
-  profiles: Record<string, SandboxRuntimeOptions>;
+  build_profile: string;
+  profiles: Record<string, ResolvedSandboxProfile>;
 }
 
 export interface GameDescriptor {
@@ -409,6 +418,13 @@ function sandboxProfileFromObject(value: unknown): GameSandboxProfileConfig | un
   if (snapshotBakedRev !== undefined) config.snapshot_baked_rev = snapshotBakedRev;
   const workspaceRoot = stringField(value.workspace_root);
   if (workspaceRoot !== undefined) config.workspace_root = workspaceRoot;
+  if (value.timeout_scale !== undefined) {
+    const scale = value.timeout_scale;
+    if (typeof scale !== "number" || !Number.isFinite(scale) || scale <= 0) {
+      throw new Error(`Sandbox profile has invalid timeout_scale: ${String(scale)}`);
+    }
+    config.timeout_scale = scale;
+  }
   return config;
 }
 
@@ -417,6 +433,8 @@ function sandboxFromObject(value: unknown): GameSandboxConfig | undefined {
   const config: GameSandboxConfig = sandboxProfileFromObject(value) ?? {};
   const defaultProfile = stringField(value.default_profile);
   if (defaultProfile !== undefined) config.default_profile = defaultProfile;
+  const buildProfile = stringField(value.build_profile);
+  if (buildProfile !== undefined) config.build_profile = buildProfile;
   if (isObject(value.profiles)) {
     const profiles = Object.fromEntries(
       Object.entries(value.profiles)
@@ -506,6 +524,7 @@ function mergeSandbox(
   return {
     ...merged,
     default_profile: override?.default_profile ?? base?.default_profile,
+    build_profile: override?.build_profile ?? base?.build_profile,
     ...(Object.keys(profiles).length > 0 ? { profiles } : {}),
   };
 }
@@ -583,23 +602,25 @@ function requiredNested<T extends object>(defaults: Required<T>, value: T | unde
 }
 
 function requiredSandboxProfile(
-  base: SandboxRuntimeOptions,
+  base: ResolvedSandboxProfile,
   value: GameSandboxProfileConfig | undefined,
-): SandboxRuntimeOptions {
+): ResolvedSandboxProfile {
   return {
     resource_class: requiredNested(base.resource_class, value?.resource_class),
     snapshot_name: value?.snapshot_name ?? base.snapshot_name,
     snapshot_baked_rev: value?.snapshot_baked_rev ?? base.snapshot_baked_rev,
     workspace_root: value?.workspace_root ?? base.workspace_root,
+    timeout_scale: value?.timeout_scale ?? base.timeout_scale,
   };
 }
 
 function requiredSandbox(value: GameSandboxConfig | undefined): ResolvedSandboxConfig {
-  const base = {
+  const base: ResolvedSandboxProfile = {
     resource_class: requiredNested(defaultSandbox.resource_class, value?.resource_class),
     snapshot_name: value?.snapshot_name ?? defaultSandbox.snapshot_name,
     snapshot_baked_rev: value?.snapshot_baked_rev ?? defaultSandbox.snapshot_baked_rev,
     workspace_root: value?.workspace_root ?? defaultSandbox.workspace_root,
+    timeout_scale: value?.timeout_scale ?? 1,
   };
   const profiles = Object.fromEntries(
     Object.entries(value?.profiles ?? {}).map(([name, profile]) => [
@@ -611,27 +632,55 @@ function requiredSandbox(value: GameSandboxConfig | undefined): ResolvedSandboxC
   if (defaultProfile && !profiles[defaultProfile]) {
     throw new Error(`Sandbox default profile ${defaultProfile} is not defined`);
   }
+  const buildProfile = value?.build_profile ?? defaultProfile;
+  if (buildProfile && !profiles[buildProfile]) {
+    throw new Error(`Sandbox build profile ${buildProfile} is not defined`);
+  }
   for (const [name, profile] of Object.entries({ base, ...profiles })) {
     for (const [resource, amount] of Object.entries(profile.resource_class)) {
       if (!Number.isInteger(amount) || amount <= 0) throw new Error(`Sandbox profile ${name} has invalid ${resource}: ${amount}`);
     }
     if (!profile.workspace_root.startsWith("/")) throw new Error(`Sandbox profile ${name} workspace_root must be absolute`);
   }
-  return { ...base, default_profile: defaultProfile, profiles };
+  return { ...base, default_profile: defaultProfile, build_profile: buildProfile, profiles };
+}
+
+function selectedSandboxProfile(
+  game: Pick<ResolvedGame, "sandbox"> | null | undefined,
+  profileName: string | undefined,
+): ResolvedSandboxProfile {
+  const sandbox: ResolvedSandboxConfig = game?.sandbox ?? {
+    ...defaultSandbox,
+    timeout_scale: 1,
+    default_profile: "",
+    build_profile: "",
+    profiles: {},
+  };
+  const selectedProfile = profileName?.trim() || sandbox.default_profile;
+  const selected = selectedProfile ? sandbox.profiles[selectedProfile] : sandbox;
+  if (!selected) throw new Error(`Sandbox profile ${selectedProfile} is not defined`);
+  return selected;
+}
+
+/** Runtime options for Daytona builds (Sync, settlement, final validation, CI). */
+export function buildSandboxRuntimeOptions(game?: Pick<ResolvedGame, "sandbox"> | null): SandboxRuntimeOptions {
+  return sandboxRuntimeOptions(game, game?.sandbox?.build_profile || undefined);
+}
+
+/** CPU-sensitive tool timeout multiplier for a profile; 1 when unset or the profile is unknown. */
+export function sandboxTimeoutScale(game?: Pick<ResolvedGame, "sandbox"> | null, profileName?: string): number {
+  try {
+    return selectedSandboxProfile(game, profileName).timeout_scale ?? 1;
+  } catch {
+    return 1;
+  }
 }
 
 export function sandboxRuntimeOptions(
   game?: Pick<ResolvedGame, "sandbox"> | null,
   profileName?: string,
 ): SandboxRuntimeOptions {
-  const sandbox: ResolvedSandboxConfig = game?.sandbox ?? {
-    ...defaultSandbox,
-    default_profile: "",
-    profiles: {},
-  };
-  const selectedProfile = profileName?.trim() || sandbox.default_profile;
-  const selected = selectedProfile ? sandbox.profiles[selectedProfile] : sandbox;
-  if (!selected) throw new Error(`Sandbox profile ${selectedProfile} is not defined`);
+  const selected = selectedSandboxProfile(game, profileName);
   return {
     resource_class: { ...selected.resource_class },
     snapshot_name: selected.snapshot_name,

@@ -15,6 +15,7 @@ import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
 import { runSandboxTypeLayoutIndexFallback } from "./wrappers/type-layout-fetch.js";
 import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
 import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-exec.js";
+import { toolTimeoutScale } from "./timeout-scale.js";
 
 export { SANDBOX_TOOLPACK_ROOT } from "./wrappers/workspace-tool-exec.js";
 
@@ -36,6 +37,8 @@ export interface ToolRuntimeContext {
   claimId?: string;
   packet?: Record<string, unknown>;
   sandboxHandle?: SandboxHandle;
+  /** Active sandbox profile's CPU-sensitive tool timeout multiplier (default 1). */
+  timeoutScale?: number;
 }
 
 export interface RegisteredToolApiDependencies {
@@ -376,7 +379,7 @@ export async function runRegisteredToolApi(
   }
   if (toolId === "mwcc_alloc" && context.sandboxHandle) {
     if (scriptName === "analyze.py") {
-      const payload = await runSandboxMwccAllocAnalyze({ sandboxHandle: context.sandboxHandle, workspaceRoot: resolved.gameRepoRoot, args });
+      const payload = await runSandboxMwccAllocAnalyze({ sandboxHandle: context.sandboxHandle, workspaceRoot: resolved.gameRepoRoot, args, timeoutScale: toolTimeoutScale(context) });
       return { ...payload, resolved_tool: resolvedTool };
     }
     if (scriptName === "snapshot.py") {
@@ -384,6 +387,7 @@ export async function runRegisteredToolApi(
         sandboxHandle: context.sandboxHandle,
         workspaceRoot: resolved.gameRepoRoot,
         args,
+        timeoutScale: toolTimeoutScale(context),
       });
       return { ...payload, resolved_tool: resolvedTool };
     }
@@ -392,6 +396,7 @@ export async function runRegisteredToolApi(
         sandboxHandle: context.sandboxHandle,
         workspaceRoot: resolved.gameRepoRoot,
         args,
+        timeoutScale: toolTimeoutScale(context),
       });
       return { ...payload, resolved_tool: resolvedTool };
     }
@@ -405,6 +410,7 @@ export async function runRegisteredToolApi(
       gameId: resolved.gameId,
       worktreeCacheRoot: resolved.worktreeCacheRoot,
       args,
+      timeoutScale: toolTimeoutScale(context),
       runHostApi: async (hostArgs) => {
         const command = ["python3", scriptPath, ...hostArgs];
         const result = await commandRunner(cwd, command, { env: resolved.env });
@@ -430,6 +436,7 @@ export async function runRegisteredToolApi(
       resolvedTool,
       scriptName,
       args,
+      timeoutScale: toolTimeoutScale(context),
     });
   }
 

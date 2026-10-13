@@ -75,6 +75,20 @@ describe("sandbox mwcc allocator wrappers", () => {
     expect(result).toMatchObject({ operation: "tool:mwcc_alloc:snapshot.py", exit_code: 0 });
   });
 
+  test("scales default capture and compare timeouts by the sandbox profile within the 30-minute cap", async () => {
+    const { provider, handle } = await fakeSandbox();
+    const probe = { exitCode: 0, stdout: "", stderr: "" };
+    const ok = { exitCode: 0, stdout: JSON.stringify({ status: "ok" }), stderr: "" };
+    provider.scriptExec(probe, ok, probe, ok, probe, ok);
+    await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: snapshotArgs(), timeoutScale: 1.5 });
+    expect(provider.execCalls[1].command).toContain("1350");
+    expect(provider.execCalls[1].opts.timeoutMs).toBe(1_410_000);
+    await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: snapshotArgs(), timeoutScale: 4 });
+    expect(provider.execCalls[3].command).toContain("1800");
+    await runSandboxMwccAllocCompare({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: ["--repo-root", WORKSPACE_ROOT, "--before", "build/mwcc-alloc/before.json", "--after", "build/mwcc-alloc/after.json", "--json"], timeoutScale: 2 });
+    expect(provider.execCalls[5].opts.timeoutMs).toBe(120_000);
+  });
+
   test("rejects unsafe units, captures, and symbols before sandbox access", async () => {
     const { provider, handle } = await fakeSandbox();
     for (const args of [

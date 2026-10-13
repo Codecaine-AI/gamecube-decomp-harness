@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
+import { scaleTimeout } from "../timeout-scale.js";
 
 const PROBE_TIMEOUT_MS = 10_000;
 const COMPARE_TIMEOUT_MS = 60_000;
@@ -15,6 +16,8 @@ interface SandboxMwccAllocInput {
   sandboxHandle: SandboxHandle;
   workspaceRoot: string;
   args: string[];
+  /** Sandbox profile multiplier for compiler-bound defaults. */
+  timeoutScale?: number;
 }
 
 interface ParsedSnapshotArgs {
@@ -67,7 +70,7 @@ function rejected(operation: string, summary: string): Record<string, unknown> {
   return toolError(operation, "rejected_arguments", "sandbox_exec_contract_rejected", summary);
 }
 
-function parseSnapshotArgs(args: string[], operation: string): ParsedSnapshotArgs | Record<string, unknown> {
+function parseSnapshotArgs(args: string[], operation: string, scale = 1): ParsedSnapshotArgs | Record<string, unknown> {
   const values = new Map<string, string>();
   let jsonSeen = false;
   const valueArgs = new Set(["--repo-root", "--unit", "--function", "--capture", "--timeout-seconds", "--trace-detail"]);
@@ -97,7 +100,7 @@ function parseSnapshotArgs(args: string[], operation: string): ParsedSnapshotArg
   const traceDetail = values.get("--trace-detail");
   if (traceDetail !== undefined && (capture !== "trace" || !["stages", "full"].includes(traceDetail))) return rejected(operation, "--trace-detail requires capture=trace and must be stages or full");
   const rawTimeout = values.get("--timeout-seconds");
-  const numericTimeout = rawTimeout === undefined ? DEFAULT_CAPTURE_TIMEOUT_SECONDS : Number(rawTimeout);
+  const numericTimeout = rawTimeout === undefined ? scaleTimeout(DEFAULT_CAPTURE_TIMEOUT_SECONDS, scale, MAX_CAPTURE_TIMEOUT_SECONDS) : Number(rawTimeout);
   if (!Number.isFinite(numericTimeout)) return rejected(operation, "--timeout-seconds must be a finite number");
   const timeoutSeconds = Math.min(MAX_CAPTURE_TIMEOUT_SECONDS, Math.max(MIN_CAPTURE_TIMEOUT_SECONDS, Math.trunc(numericTimeout)));
   return { unit, functionName, capture, timeoutSeconds, traceDetail };
@@ -200,7 +203,7 @@ async function executeJsonTool(input: {
 /** Run an MWCC allocator capture inside the worker sandbox. */
 export async function runSandboxMwccAllocSnapshot(input: SandboxMwccAllocInput): Promise<Record<string, unknown>> {
   const operation = "tool:mwcc_alloc:snapshot.py";
-  const parsed = parseSnapshotArgs(input.args, operation);
+  const parsed = parseSnapshotArgs(input.args, operation, input.timeoutScale);
   if (isToolError(parsed)) return parsed;
   const probePath = parsed.capture === "trace"
     ? "/opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py"
@@ -247,7 +250,7 @@ export async function runSandboxMwccAllocCompare(input: SandboxMwccAllocInput): 
     operation,
     probePath: "build/tools/mwcc-alloc/compare_coloring_snapshots.py",
     command,
-    timeoutMs: COMPARE_TIMEOUT_MS,
+    timeoutMs: scaleTimeout(COMPARE_TIMEOUT_MS, input.timeoutScale ?? 1, MAX_CAPTURE_TIMEOUT_SECONDS * 1_000),
   });
 }
 
@@ -327,6 +330,6 @@ export async function runSandboxMwccAllocAnalyze(input: SandboxMwccAllocInput): 
     operation: "tool:mwcc_alloc:analyze.py",
     probePath,
     command: ["python3", probePath, ...args],
-    timeoutMs: COMPARE_TIMEOUT_MS,
+    timeoutMs: scaleTimeout(COMPARE_TIMEOUT_MS, input.timeoutScale ?? 1, MAX_CAPTURE_TIMEOUT_SECONDS * 1_000),
   });
 }

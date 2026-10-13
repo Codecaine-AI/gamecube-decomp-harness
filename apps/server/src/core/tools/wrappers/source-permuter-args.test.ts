@@ -22,4 +22,15 @@ describe("source permuter wrapper arguments", () => {
     expect(jobsArgs(sourcePermuterRunArgs({ function: "fn" }, context(false)))).toEqual(["--jobs", "1"]);
     expect(jobsArgs(sourcePermuterRunArgs({ function: "fn", jobs: 32 }, context(true)))).toEqual(["--jobs", "16"]);
   });
+
+  test("scales the default timeout by the sandbox profile and keeps explicit values clamped", () => {
+    const timeout = (args: string[] | Record<string, unknown>) => {
+      if (!Array.isArray(args)) throw new Error("expected argument list");
+      return args[args.indexOf("--timeout-seconds") + 1];
+    };
+    expect(timeout(sourcePermuterRunArgs({ function: "fn" }, context(true)))).toBe("90");
+    expect(timeout(sourcePermuterRunArgs({ function: "fn" }, { ...context(true), timeoutScale: 2 }))).toBe("180");
+    expect(timeout(sourcePermuterRunArgs({ function: "fn" }, { ...context(true), timeoutScale: 20 }))).toBe("900");
+    expect(timeout(sourcePermuterRunArgs({ function: "fn", timeout_seconds: 5000 }, { ...context(true), timeoutScale: 2 }))).toBe("900");
+  });
 });
