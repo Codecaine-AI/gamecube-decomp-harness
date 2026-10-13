@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { BoardMeasures, BoardSnapshot, TargetCandidate } from "@server/core/shared/types/index.js";
 import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
-import { candidateFromReportFunction, objdiffSourceMap } from "./candidates.js";
+import { isRecordedStackOnly } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
+import { candidateFromReportFunction, objdiffSourceMap, type StackOnlyIndex } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
 
 function readJson(path: string): JsonObject {
@@ -14,6 +15,8 @@ export interface LoadBoardSnapshotOptions {
   reportPath?: string;
   objdiffPath?: string;
   targetExcludePrefixes?: string[];
+  /** stop_at_frame games: functions done up to the stack frame, skipped while still at their recorded score. */
+  stackOnly?: StackOnlyIndex;
 }
 
 function excludedSource(sourcePath: string, options: LoadBoardSnapshotOptions): boolean {
@@ -42,6 +45,7 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
         unitName,
         sourcePath,
         fn: asObject(fnValue),
+        stackOnly: options.stackOnly,
       });
       if (candidate) candidates.push(candidate);
     }
@@ -98,6 +102,27 @@ export function loadExactTargetKeys(repoRoot: string, options: LoadBoardSnapshot
   return exactKeys;
 }
 
+/** Report functions still at the score they were recorded stack-only with; the scheduler retires them like exact ones. */
+export function loadStackOnlyTargetKeys(repoRoot: string, options: LoadBoardSnapshotOptions = {}): Set<string> {
+  const keys = new Set<string>();
+  if (!options.stackOnly || options.stackOnly.size === 0) return keys;
+  const reportPath = resolve(repoRoot, options.reportPath ?? "build/GALE01/report.json");
+  if (!existsSync(reportPath)) return keys;
+  const report = readJson(reportPath);
+  for (const unitValue of asArray(report.units)) {
+    const unit = asObject(unitValue);
+    const unitName = stringValue(unit.name);
+    if (!unitName) continue;
+    for (const fnValue of asArray(unit.functions)) {
+      const fn = asObject(fnValue);
+      const symbol = stringValue(fn.name);
+      const key = `${unitName}::${symbol}`;
+      if (symbol && isRecordedStackOnly(options.stackOnly, key, numberValue(fn.fuzzy_match_percent, 100))) keys.add(key);
+    }
+  }
+  return keys;
+}
+
 function loadBoardSnapshotFromCodeGraphIndex(
   reportPath: string,
   objdiffPath: string,
@@ -132,6 +157,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
       continue;
     }
     if (excludedSource(sourcePath, options)) continue;
+    if (isRecordedStackOnly(options.stackOnly, `${unit}::${symbol}`, fuzzy)) continue;
     candidates.push({
       unit,
       sourcePath,

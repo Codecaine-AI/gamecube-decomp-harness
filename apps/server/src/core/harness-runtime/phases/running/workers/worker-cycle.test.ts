@@ -887,6 +887,20 @@ describe("workerContinuationDecision", () => {
     expect(decision.exhausted).toBe(false);
     expect(decision.stopReason).toBe("dry_run");
   });
+
+  test("stop_at_frame: an accepted stack-only checkpoint stops the worker as done; without the flag it continues", () => {
+    const checkpoints = [continuationCheckpoint(0, { hardGatesPassed: true, selectable: true, newScore: 97.5 })];
+    const base = { attemptIndex: 0, checkpoints, repairReasons: [], dryRun: false, claimDeadlineMs: futureDeadline };
+
+    const smsDecision = workerContinuationDecision({ ...base, acceptedStackOnly: true });
+    expect(smsDecision.shouldContinue).toBe(false);
+    expect(smsDecision.exhausted).toBe(false);
+    expect(smsDecision.stopReason).toBe("accepted_stack_only");
+
+    const meleeDecision = workerContinuationDecision(base);
+    expect(meleeDecision.shouldContinue).toBe(true);
+    expect(meleeDecision.continueReason).toBe("attempt_budget_available");
+  });
 });
 
 describe("classifyWorkerError with QA lint violations", () => {

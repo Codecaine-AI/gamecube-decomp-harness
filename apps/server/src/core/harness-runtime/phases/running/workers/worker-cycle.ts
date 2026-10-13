@@ -3,6 +3,9 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { delimiter, isAbsolute, relative, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
+import { recordStackOnlyFunction } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
+import { stopsAtFrame } from "@server/core/validation/stack/stack-check.js";
+import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import {
   appendWorkerActivityEvent,
   captureWorkerChangeBaseline,
@@ -22,6 +25,7 @@ import {
   effectiveQaLint,
   extendWorkerChangeBaselineSourceSnapshot,
   failForPendingAdvisories,
+  promoteWorkerStackReference,
   qaLintRepairReasons,
   diffTouchedPaths,
   validateWidenedChange,
@@ -678,6 +682,10 @@ export const WORKER_ATTEMPT_BUDGET_POLICY = {
   bonusAttemptsPerImprovement: 2,
 } as const;
 
+/** Repair continuation for stop_at_frame games (SMS): the frame is not a target. */
+export const STOP_AT_FRAME_CONTINUE_INSTRUCTION =
+  "Continue toward exact from the current source, ignoring stack frame size: a function whose only remaining difference from the target is the stack frame is done, so fix instruction, register, branch, relocation and data mismatches only, and never edit just to change the frame.";
+
 export const REPAIR_REQUEST_DIFF_INLINE_LIMIT = 30_000;
 export const REPAIR_REQUEST_OUTPUT_TAIL_LIMIT = 10_000;
 export const REPAIR_REQUEST_PATHS_NOTE =
@@ -816,6 +824,12 @@ export function workerContinuationDecision(params: {
   dryRun: boolean;
   claimDeadlineMs?: number | null;
   nowMs?: number;
+  /**
+   * stop_at_frame games: this attempt was accepted (selectable, hard gates
+   * passed) and the target's only remaining difference is the stack frame.
+   * That is done for the game, so the worker stops like an exact match.
+   */
+  acceptedStackOnly?: boolean;
 }): WorkerContinuationDecision {
   const attemptIndex = Math.max(0, Math.trunc(params.attemptIndex));
   const checkpoints = orderedContinuationCheckpoints(params.checkpoints, attemptIndex);
@@ -874,6 +888,7 @@ export function workerContinuationDecision(params: {
   });
 
   if (acceptedExact) return stop("accepted_exact", false);
+  if (params.acceptedStackOnly) return stop("accepted_stack_only", false);
   if (params.dryRun) return stop("dry_run", false);
   if (stoppedByDeadline) return stop("claim_deadline", false);
   if (attemptIndex + 1 >= attemptBudget) return stop("attempt_budget_exhausted", true);
@@ -1454,7 +1469,7 @@ export function recordAcceptedAdvisories(store: StateStore, params: {
 function runnerValidationCompiled(validation: WorkerRunnerValidation): boolean {
   if (validation.status === "build_failed") return false;
   if (validation.status === "passed" || validation.status === "failed") return Boolean(validation.target) || validation.exitCode === 0;
-  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression") return true;
+  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation") return true;
   // snapshot_unavailable after a successful object build still carries the unit
   // diff command; pre-build failures carry no command at all.
   return typeof validation.command === "string" && validation.command.includes("objdiff");
@@ -1793,12 +1808,16 @@ async function executeClaimedWorker(params: {
       formatting: globals.game?.validation?.workerFormattingGate ?? true,
       symbolValidation: globals.game?.validation?.workerSymbolValidationGate ?? true,
     };
+    const stackFramePolicy = globals.game?.matching?.stackFramePolicy ?? null;
+    const stopAtFrame = stopsAtFrame(stackFramePolicy);
+    const stackGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId ?? "";
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
       target,
       dryRun: globals.dryRunAgents,
       validation: globals.game?.validation,
+      stackFramePolicy,
       // Tracked paths already modified outside the write set (e.g. seeded
       // report artifacts) join the QA snapshot so any worker edit to them is
       // visible to the L1 QA lint diff.
@@ -1807,6 +1826,7 @@ async function executeClaimedWorker(params: {
       workspaceExec,
     });
     const measuredBaselineScore = finiteNumber(workerChangeBaseline.snapshot?.targetScore);
+    const boardBaselineScore = finiteNumber(target.fuzzy_match_percent);
     if (measuredBaselineScore !== null) {
       updateWorkerStateBaselineScore(store, claimed.workerStateId, measuredBaselineScore, token);
       target.fuzzy_match_percent = measuredBaselineScore;
@@ -1978,6 +1998,102 @@ async function executeClaimedWorker(params: {
         providerFailure: false,
         errorKind: error.kind,
         error: summaryText,
+      };
+    }
+    if (
+      stopAtFrame &&
+      workerChangeBaseline.stackRemaining?.class === "stack_only" &&
+      (measuredBaselineScore === null || measuredBaselineScore < EXACT_SCORE)
+    ) {
+      // Lazy backfill: the function was already done up to the stack frame
+      // when claimed. Record it so the board stops re-queueing it, and close
+      // without running the agent.
+      const remaining = workerChangeBaseline.stackRemaining;
+      const summaryText = `Target ${targetSymbol} differs from the target only in the stack frame (${remaining.frameCompiled ?? "?"} vs ${remaining.frameTarget ?? "?"}); done for this game's stop_at_frame policy.`;
+      if (stackGameId) {
+        recordStackOnlyFunction(store, {
+          gameId: stackGameId,
+          unit: targetUnit,
+          symbol: targetSymbol,
+          // The board's score: the board compares this exact value to skip the function.
+          fuzzy: boardBaselineScore ?? measuredBaselineScore,
+          frameCompiled: remaining.frameCompiled,
+          frameTarget: remaining.frameTarget,
+          source: "claim",
+          runId,
+          evidence: { worker_state_id: claimed.workerStateId, baseline_summary_path: baselineSummaryPath, measured_score: measuredBaselineScore },
+        });
+      }
+      appendWorkerActivityEvent(outputDir, {
+        claim_id: claimed.claimId,
+        phase: "setup",
+        event_type: "claim_stack_only",
+        unit: targetUnit,
+        symbol: targetSymbol,
+        summary: clampSummary(summaryText),
+        artifact_path: baselineSummaryPath,
+      });
+      const sandboxSleepStats = await finalizeSandboxSleep();
+      const workerStateSummary = {
+        run_id: runId,
+        epoch_id: claimed.epochId,
+        epoch_target_id: claimed.epochTargetId,
+        target_claim_id: claimed.claimId,
+        worker_state_id: claimed.workerStateId,
+        worker_id: claimed.workerId,
+        target,
+        write_set: currentWriteSet,
+        baseline: {
+          kind: "worker_baseline",
+          status: workerChangeBaseline.status,
+          score: measuredBaselineScore,
+          summary_path: baselineSummaryPath,
+          artifact_path: workerChangeBaseline.snapshotPath ?? null,
+        },
+        worker_worktree_path: workerRepoRoot,
+        lifecycle_status: "finished",
+        selected_checkpoint_id: null,
+        selected_score: null,
+        exact: false,
+        stack_only: true,
+        stack_remaining: remaining,
+        continuation_attempts: { policy: WORKER_ATTEMPT_BUDGET_POLICY.mode, stop_reason: "accepted_stack_only", decision: null },
+        sandbox_sleep: { enabled: sandboxSleepEnabled, debounce_ms: sandboxSleepDebounceMs, ...sandboxSleepStats },
+        created_at: new Date().toISOString(),
+      };
+      await writeFile(summaryPath, JSON.stringify(workerStateSummary, null, 2));
+      closeWorkerState(store, {
+        authority: token,
+        workerStateId: claimed.workerStateId,
+        lifecycleStatus: "finished",
+        summary: workerStateSummary,
+      });
+      const wakeEvent = addEvent(store, runId, "worker_finished", "worker", {
+        worker_state_id: claimed.workerStateId,
+        target_claim_id: claimed.claimId,
+        epoch_target_id: claimed.epochTargetId,
+        worker_id: claimed.workerId,
+        lifecycle_status: "finished",
+        selected_checkpoint_id: null,
+        exact: false,
+        stack_only: true,
+        summary_path: summaryPath,
+      });
+      return {
+        runId,
+        claimId: claimed.claimId,
+        workerStateId: claimed.workerStateId,
+        epochTargetId: claimed.epochTargetId,
+        target: claimed.targetId,
+        writeSet: currentWriteSet,
+        workerStatePath: summaryPath,
+        lifecycleStatus: "finished",
+        bestCheckpointId: null,
+        bestScore: null,
+        exact: false,
+        wakeEvent,
+        dryRun: globals.dryRunAgents,
+        sandboxSleep: { enabled: sandboxSleepEnabled, debounceMs: sandboxSleepDebounceMs, ...sandboxSleepStats },
       };
     }
     let repairRequest: Record<string, unknown> | null = null;
@@ -2516,6 +2632,7 @@ async function executeClaimedWorker(params: {
         qaScanRunner,
         retainPreQa: advisoryMode.mode !== "off",
         deferAdvisories: advisoryMode.mode === "enforce",
+        stackFramePolicy,
       });
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
         ? await validateWidenedChange({
@@ -2692,12 +2809,17 @@ async function executeClaimedWorker(params: {
         artifact_path: runnerValidation.summaryPath,
       });
       const repairReasons = workerAttemptRepairReasons({ runnerValidation, reviewLint, outOfWriteSetChanges, wideningReasons });
+      const acceptedCheckpoint = checkpoint.selectable && checkpoint.hardGatesPassed;
+      if (stopAtFrame && acceptedCheckpoint) {
+        await promoteWorkerStackReference({ workspaceExec, baseline: workerChangeBaseline });
+      }
       const policyContinuationDecision = workerContinuationDecision({
         attemptIndex,
         checkpoints: workerCheckpointsForWorkerState(store, claimed.workerStateId),
         repairReasons,
         dryRun: result.dryRun,
         claimDeadlineMs: agentDeadlineMs,
+        acceptedStackOnly: stopAtFrame && acceptedCheckpoint && runnerValidation.stackPolicy?.targetStackOnly === true,
       });
       const continuationDecision: WorkerContinuationDecision = wideningRoutedCrossModule
         ? {
@@ -2776,7 +2898,7 @@ async function executeClaimedWorker(params: {
       const repairInstruction =
         latestCheckpoint?.exactMatch && !latestCheckpoint.hardGatesPassed
           ? `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`
-          : `${repairReasons.length > 0 ? `Your last submission was rejected: ${repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${scoreText}.`} Continue toward exact from the current source. Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+          : `${repairReasons.length > 0 ? `Your last submission was rejected: ${repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${scoreText}.`} ${stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : "Continue toward exact from the current source."} Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
       repairRequest = {
         attempt: attemptIndex + 1,
         previous_agent_output_path: result.outputPath,
@@ -2853,11 +2975,29 @@ async function executeClaimedWorker(params: {
             reasons: agentToolErrors.fatal,
           }
         : null);
-    const lifecycleStatus = errorClassification ? "error" : bestCheckpoint?.exactMatch ? "exact" : "timeout";
+    const stoppedStackOnly = finalEvaluation.continuationDecision.stopReason === "accepted_stack_only";
+    const lifecycleStatus = errorClassification ? "error" : bestCheckpoint?.exactMatch ? "exact" : stoppedStackOnly ? "finished" : "timeout";
+    if (stoppedStackOnly && !errorClassification && stackGameId && bestCheckpoint) {
+      const remaining = finalEvaluation.runnerValidation.stackPolicy?.remaining ?? null;
+      recordStackOnlyFunction(store, {
+        gameId: stackGameId,
+        unit: targetUnit,
+        symbol: targetSymbol,
+        // Re-queued (and re-classified at claim time) if the board's score after integration differs.
+        fuzzy: bestCheckpoint.newScore,
+        frameCompiled: remaining?.frameCompiled ?? null,
+        frameTarget: remaining?.frameTarget ?? null,
+        source: "attempt",
+        runId,
+        evidence: { worker_state_id: claimed.workerStateId, checkpoint_id: bestCheckpoint.id },
+      });
+    }
     const summaryText =
       errorClassification?.summary ??
       (bestCheckpoint?.exactMatch
         ? `Runner selected exact checkpoint ${bestCheckpoint.id}.`
+        : stoppedStackOnly && bestCheckpoint
+          ? `Runner selected checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}): only the stack frame differs from the target, done under stop_at_frame.`
         : bestCheckpoint
           ? `Runner closed (${finalEvaluation.continuationDecision.stopReason}) and selected best checkpoint ${bestCheckpoint.id} (${bestCheckpoint.newScore ?? "unknown"}).`
           : `Runner closed (${finalEvaluation.continuationDecision.stopReason}) at baseline; no checkpoint passed hard gates and improved over baseline.`);

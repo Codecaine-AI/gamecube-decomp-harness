@@ -33,6 +33,22 @@ import {
 import { changedSourcePathsFromDiff, runClangFormatCheck } from "@server/core/validation/format/clang-format.js";
 import { SYMBOL_BASELINE_DIR, SYMBOL_CHECK_SOURCE_RE, changedCppPathsFromDiff, runSymbolCheck, snapshotBaselineObjects } from "@server/core/validation/symbols/symbol-check.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
+import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
+import {
+  STACK_HUNK_CHECK_MAX_HUNKS,
+  checkStackHunks,
+  compareStackObjects,
+  countDiffHunks,
+  stackOnlyPerturbationReason,
+  stackPerturbation,
+  stackRemainingForSymbol,
+  stopsAtFrame,
+  targetObjectPathForUnit,
+  workspaceStackCheckRunner,
+  type StackCheckRunner,
+  type StackRemaining,
+  type WorkerStackPolicyResult,
+} from "@server/core/validation/stack/stack-check.js";
 
 const SCORE_EPSILON = 0.000001;
 
@@ -137,6 +153,16 @@ export interface WorkerChangeBaseline {
   undefinedSymbolsError?: string | null;
   /** Sandbox directory holding the pre-attempt object (+ objdiff.json) for the symbol validation gate; null when not captured. */
   symbolBaselineDir?: string | null;
+  /**
+   * stop_at_frame games: workspace-relative copy of the last accepted object
+   * (the pre-worker object until an attempt is accepted), the reference for the
+   * stack-only perturbation check; null when the copy failed.
+   */
+  stackReferenceObject?: string | null;
+  /** stop_at_frame games: what the target had left to match before the worker started; null when unclassified. */
+  stackRemaining?: StackRemaining | null;
+  /** stop_at_frame games: why the pre-worker stack classification is missing (fail open). */
+  stackWarnings?: string[];
 }
 
 const FIRST_DIFF_ROW_LIMIT = 40;
@@ -641,6 +667,10 @@ export async function captureWorkerChangeBaseline(params: {
   captureUndefinedSymbols?: boolean;
   validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
+  /** The game's stack-frame policy; `stop_at_frame` also captures the stack reference object and classification. */
+  stackFramePolicy?: StackFramePolicy | null;
+  /** Injectable stack_check.py runner; defaults to the toolpack copy in the sandbox. */
+  stackCheckRunner?: StackCheckRunner;
 }): Promise<WorkerChangeBaseline> {
   await mkdir(params.outputDir, { recursive: true });
   const unit = stringValue(params.target.unit);
@@ -711,6 +741,17 @@ export async function captureWorkerChangeBaseline(params: {
     if (snapshot.exitCode === 0) symbolBaselineDir = SYMBOL_BASELINE_DIR;
   }
 
+  const stackBaseline = stopsAtFrame(params.stackFramePolicy)
+    ? await captureStackBaseline({
+        workspaceExec: params.workspaceExec,
+        runner: params.stackCheckRunner ?? workspaceStackCheckRunner(params.workspaceExec),
+        objectTarget,
+        unit,
+        symbol,
+        validation: params.validation,
+      })
+    : {};
+
   const reportConfigArgs = await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec);
   let firstDiff: WorkerFirstDiff;
   try {
@@ -771,6 +812,7 @@ export async function captureWorkerChangeBaseline(params: {
       undefinedSymbols,
       undefinedSymbolsError,
       symbolBaselineDir,
+      ...stackBaseline,
     };
   }
 
@@ -796,6 +838,7 @@ export async function captureWorkerChangeBaseline(params: {
       undefinedSymbols,
       undefinedSymbolsError,
       symbolBaselineDir,
+      ...stackBaseline,
     };
   }
 
@@ -816,6 +859,7 @@ export async function captureWorkerChangeBaseline(params: {
     undefinedSymbols,
     undefinedSymbolsError,
     symbolBaselineDir,
+    ...stackBaseline,
   };
 }
 
@@ -988,6 +1032,170 @@ export function compareWorkerUnitSnapshots(params: {
     reportPath: params.reportPath,
     baselinePath: params.baselinePath,
   };
+}
+
+const STACK_REFERENCE_DIR = "build/.stack_ref";
+
+function stackReferencePath(objectTarget: string): string {
+  return `${STACK_REFERENCE_DIR}/${objectTarget.replaceAll("\\", "/").replace(/^\.\//, "").replaceAll("/", "__")}`;
+}
+
+async function copyWorkspaceObject(workspaceExec: WorkspaceExec, from: string, to: string): Promise<string | null> {
+  try {
+    const mkdirResult = await workspaceExec.exec(["mkdir", "-p", dirname(to)], { timeoutMs: 30_000 });
+    if (mkdirResult.exitCode !== 0) return mkdirResult.stderr.trim() || `mkdir exited ${mkdirResult.exitCode}`;
+    const copy = await workspaceExec.exec(["cp", from, to], { timeoutMs: 30_000 });
+    return copy.exitCode === 0 ? null : copy.stderr.trim() || `cp exited ${copy.exitCode}`;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+function warnStackCheck(message: string): void {
+  console.warn(`[stack-policy] ${message}; keeping the normal score rules`);
+}
+
+/**
+ * stop_at_frame, pre-worker: keep a copy of the object as the perturbation
+ * reference and classify what the target still has to match. Fails open.
+ */
+async function captureStackBaseline(params: {
+  workspaceExec: WorkspaceExec;
+  runner: StackCheckRunner;
+  objectTarget: string;
+  unit: string;
+  symbol: string;
+  validation?: GameBuildValidation | null;
+}): Promise<Pick<WorkerChangeBaseline, "stackReferenceObject" | "stackRemaining" | "stackWarnings">> {
+  const warnings: string[] = [];
+  const reference = stackReferencePath(params.objectTarget);
+  const copyError = await copyWorkspaceObject(params.workspaceExec, params.objectTarget, reference);
+  if (copyError) warnings.push(`could not keep the pre-worker object as the stack reference: ${copyError}`);
+  let stackRemaining: StackRemaining | null = null;
+  const targetObject = targetObjectPathForUnit(params.unit, params.validation);
+  if (!targetObject) {
+    warnings.push(`no target object path for unit ${params.unit}`);
+  } else if (!params.symbol.startsWith(".")) {
+    const compared = await compareStackObjects(params.runner, params.objectTarget, targetObject);
+    if (compared.ok) stackRemaining = stackRemainingForSymbol(compared.value, params.symbol);
+    else warnings.push(compared.error);
+  }
+  for (const warning of warnings) warnStackCheck(warning);
+  return { stackReferenceObject: copyError ? null : reference, stackRemaining, stackWarnings: warnings };
+}
+
+/**
+ * stop_at_frame, per attempt: classify the target against the target object
+ * (stack-only = done), and the attempt against the reference object (every
+ * changed function stack-only = banned perturbation). With at most
+ * STACK_HUNK_CHECK_MAX_HUNKS hunks, a leave-one-out pass names any hunk whose
+ * only effect is the stack frame. Every checker failure fails open.
+ */
+export async function evaluateWorkerStackPolicy(params: {
+  runner: StackCheckRunner;
+  baseline: WorkerChangeBaseline;
+  objectTarget: string;
+  unit: string;
+  symbol: string;
+  validation?: GameBuildValidation | null;
+  postAttemptDiffText?: string;
+  baseRevision?: string | null;
+}): Promise<WorkerStackPolicyResult> {
+  const warnings: string[] = [];
+  let unavailable = false;
+  let remaining: StackRemaining | null = null;
+  const targetObject = targetObjectPathForUnit(params.unit, params.validation);
+  if (!targetObject) {
+    warnings.push(`no target object path for unit ${params.unit}`);
+  } else if (!params.symbol.startsWith(".")) {
+    const compared = await compareStackObjects(params.runner, params.objectTarget, targetObject);
+    if (compared.ok) remaining = stackRemainingForSymbol(compared.value, params.symbol);
+    else {
+      unavailable = true;
+      warnings.push(compared.error);
+    }
+  }
+
+  let perturbation: WorkerStackPolicyResult["perturbation"] = null;
+  if (params.baseline.stackReferenceObject) {
+    const compared = await compareStackObjects(params.runner, params.baseline.stackReferenceObject, params.objectTarget);
+    if (compared.ok) perturbation = stackPerturbation(compared.value);
+    else {
+      unavailable = true;
+      warnings.push(compared.error);
+    }
+  } else {
+    warnings.push("no stack reference object; perturbation check skipped");
+  }
+
+  let hunks: WorkerStackPolicyResult["hunks"] = null;
+  if (!perturbation?.stackOnly && (perturbation?.changedFunctions.length ?? 0) > 0) {
+    const diffText = params.postAttemptDiffText ?? "";
+    const count = countDiffHunks(diffText);
+    const paths = changedSourcePathsFromDiff(diffText);
+    if (count === 0 || paths.length === 0) {
+      hunks = { status: "skipped", count, reason: "no source hunks in the attempt diff", stackOnly: [] };
+    } else if (!params.baseRevision) {
+      hunks = { status: "skipped", count, reason: "no claim base revision", stackOnly: [] };
+    } else if (count > STACK_HUNK_CHECK_MAX_HUNKS) {
+      hunks = { status: "skipped", count, reason: `more than ${STACK_HUNK_CHECK_MAX_HUNKS} hunks`, stackOnly: [] };
+    } else {
+      const checked = await checkStackHunks(params.runner, { baseRevision: params.baseRevision, paths });
+      if (checked.ok) {
+        hunks = { status: "evaluated", count, stackOnly: checked.value.filter((hunk) => hunk.class === "stack_only") };
+      } else {
+        warnings.push(checked.error);
+        hunks = { status: "unavailable", count, reason: checked.error, stackOnly: [] };
+      }
+    }
+  }
+
+  const rejectedByFunctions = perturbation?.stackOnly === true;
+  const rejectedByHunks = (hunks?.stackOnly.length ?? 0) > 0;
+  const reason = rejectedByFunctions
+    ? stackOnlyPerturbationReason({ functions: perturbation!.stackOnlyFunctions })
+    : rejectedByHunks
+      ? stackOnlyPerturbationReason({ hunks: hunks!.stackOnly })
+      : null;
+  for (const warning of warnings) warnStackCheck(warning);
+  return {
+    policy: "stop_at_frame",
+    status: unavailable ? "unavailable" : "evaluated",
+    warnings,
+    remaining,
+    targetStackOnly: remaining?.class === "stack_only",
+    perturbation,
+    hunks,
+    rejected: rejectedByFunctions || rejectedByHunks,
+    reason,
+  };
+}
+
+/** A rejected stack-only perturbation fails the attempt; anything else only records the classification. */
+export function applyStackPolicyToValidation<T extends WorkerRunnerValidation>(validation: T, stackPolicy: WorkerStackPolicyResult): T {
+  if (!stackPolicy.rejected) return { ...validation, stackPolicy };
+  return {
+    ...validation,
+    status: "stack_only_perturbation",
+    reasons: [...validation.reasons, stackPolicy.reason ?? stackOnlyPerturbationReason({})],
+    stackPolicy,
+  };
+}
+
+/** stop_at_frame: an accepted attempt's object becomes the reference for the next perturbation check. */
+export async function promoteWorkerStackReference(params: {
+  workspaceExec: WorkspaceExec;
+  baseline: WorkerChangeBaseline;
+}): Promise<void> {
+  const reference = params.baseline.stackReferenceObject;
+  const objectTarget = params.baseline.objectTarget;
+  if (!reference || !objectTarget) return;
+  const error = await copyWorkspaceObject(params.workspaceExec, objectTarget, reference);
+  if (error) {
+    // A stale reference would compare later attempts against an older object; drop it instead.
+    params.baseline.stackReferenceObject = null;
+    warnStackCheck(`could not promote the accepted object to the stack reference: ${error}`);
+  }
 }
 
 /**
@@ -1736,6 +1944,10 @@ export async function validateWorkerChange(params: {
   retainPreQa?: boolean;
   /** Advisory adjudication enforce only: defer advisory-only QA failures of an otherwise passing attempt (`advisoryGate: "pending"`). */
   deferAdvisories?: boolean;
+  /** The game's stack-frame policy; `stop_at_frame` classifies the attempt and rejects stack-only perturbations. */
+  stackFramePolicy?: StackFramePolicy | null;
+  /** Injectable stack_check.py runner; defaults to the toolpack copy in the sandbox. */
+  stackCheckRunner?: StackCheckRunner;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
@@ -1766,7 +1978,9 @@ export async function validateWorkerChange(params: {
   const qaLint = params.retainPreQa || params.deferAdvisories ? withQaLintAdvisory(scannedQaLint) : scannedQaLint;
   const flags = params.microGateFlags ?? DEFAULT_WORKER_MICRO_GATE_FLAGS;
   const layout = gameBuildLayout(params.validation);
-  const { validation: scoreValidation, afterSnapshot } = await validateWorkerScoreChange(params, summaryPath);
+  const scored = await validateWorkerScoreChange(params, summaryPath);
+  const { afterSnapshot } = scored;
+  let scoreValidation = scored.validation;
   const sectionParity = evaluateSectionParityGate({
     enabled: flags.sectionParity,
     before: params.baseline.snapshot,
@@ -1774,6 +1988,19 @@ export async function validateWorkerChange(params: {
   });
   // The rebuilt object only exists when the attempt's object build succeeded.
   const objectBuilt = scoreValidation.status !== "build_failed" && afterSnapshot !== null;
+  if (stopsAtFrame(params.stackFramePolicy) && objectBuilt && scoreValidation.objectTarget) {
+    const stackPolicy = await evaluateWorkerStackPolicy({
+      runner: params.stackCheckRunner ?? workspaceStackCheckRunner(params.workspaceExec),
+      baseline: params.baseline,
+      objectTarget: scoreValidation.objectTarget,
+      unit: stringValue(params.target.unit),
+      symbol: stringValue(params.target.symbol),
+      validation: params.validation,
+      postAttemptDiffText: params.postAttemptDiffText,
+      baseRevision: params.baseRevision,
+    });
+    scoreValidation = applyStackPolicyToValidation(scoreValidation, stackPolicy);
+  }
   const undefinedSymbolGate = await evaluateUndefinedSymbolGate({
     enabled: flags.undefinedSymbols,
     objectTarget: objectBuilt

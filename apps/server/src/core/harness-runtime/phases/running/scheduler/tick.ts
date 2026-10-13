@@ -8,7 +8,8 @@ import {
   resourceGraphDbPath,
 } from "@server/core/knowledge";
 import { openKnowledgeGraph, readReportProvenance } from "@server/core/knowledge/graph";
-import { loadExactTargetKeys } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
+import { loadExactTargetKeys, loadStackOnlyTargetKeys } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
+import { stackOnlyIndexForGame } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
 import {
   activeWorkerCount,
   activeSchedulerEpoch,
@@ -155,9 +156,15 @@ export function ensureSchedulerEpochFromBoard(params: {
     if ((!progress || progress.admitted === 0) && (params.config.freshReportGate ?? true)) {
       assertFreshBoardReport(params);
     }
+    // stop_at_frame games (SMS): a function whose only difference is the stack frame is done.
+    const stackOnly = stackOnlyIndexForGame(params.store, {
+      gameId,
+      stackFramePolicy: params.globals.game?.matching?.stackFramePolicy,
+    });
     const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
       graphDbPath: params.graphDbPath,
       validation: params.globals.game?.validation,
+      ...(stackOnly ? { stackOnly } : {}),
     });
     if (!progress || progress.admitted === 0) {
       const candidates = params.config.epochTargetCap == null
@@ -175,7 +182,12 @@ export function ensureSchedulerEpochFromBoard(params: {
     if (!epoch || !progress) throw new Error("Scheduler epoch admission did not produce an epoch");
 
     const availabilityRefresh = refreshEpochTargetAvailability(params.store, epoch.id, {
-      exactTargetKeys: loadExactTargetKeys(params.globals.repoRoot, params.globals.game?.validation),
+      exactTargetKeys: stackOnly
+        ? new Set([
+            ...loadExactTargetKeys(params.globals.repoRoot, params.globals.game?.validation),
+            ...loadStackOnlyTargetKeys(params.globals.repoRoot, { ...params.globals.game?.validation, stackOnly }),
+          ])
+        : loadExactTargetKeys(params.globals.repoRoot, params.globals.game?.validation),
     });
     if (harness && gameId && (admission || !params.prepareOnly)) {
       const current = getHarnessState(params.store.db, gameId)!;

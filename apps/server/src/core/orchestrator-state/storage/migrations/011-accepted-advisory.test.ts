@@ -8,13 +8,13 @@ test("migration 011 applies on a v10 store and is recorded", () => {
   try {
     runStorageMigrations(db);
     db.query("INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at) VALUES ('run-1', 'matched_percent', 100, 1, 'active', 'then')").run();
-    db.exec("DROP TABLE accepted_advisory; DROP TABLE model_node_lane_state; DELETE FROM schema_migrations WHERE version = 11");
-    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v10, this build requires v11");
+    db.exec("DROP TABLE accepted_advisory; DROP TABLE model_node_lane_state; DROP TABLE stack_only_functions; DELETE FROM schema_migrations WHERE version >= 11");
+    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v10, this build requires v12");
     const before = databaseFingerprints(db);
 
     runStorageMigrations(db);
 
-    expect(db.query("SELECT version, name FROM schema_migrations WHERE version >= 10 ORDER BY version").all()).toEqual([
+    expect(db.query("SELECT version, name FROM schema_migrations WHERE version >= 10 AND version <= 11 ORDER BY version").all()).toEqual([
       { version: 10, name: "harness_state_names" },
       { version: 11, name: "accepted_advisory" },
     ]);

@@ -38,6 +38,7 @@ import { setDesiredWorkers } from "@server/core/harness-runtime/phases/running/s
 import { status } from "@server/core/harness-runtime/phases/running/service/status.js";
 import { workerTask } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
+import { stackClassify } from "@server/core/validation/jobs/stack-classify.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
@@ -105,6 +106,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "report-run") await reportRun(globals, args);
     else if (command === "save-point") await savePoint(globals, args);
     else if (command === "regression-check") await regressionCheck(globals, args);
+    else if (command === "stack-classify") await stackClassify(globals, args);
     else if (command === "kg-sources") await kgSources();
     else if (command === "kg-status") await kgStatus(globals, args);
     else if (command === "kg-import-agent-state") await kgImportAgentState(args);

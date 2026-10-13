@@ -1,3 +1,5 @@
+import type { WorkerStackPolicyResult } from "@server/core/validation/stack/stack-check.js";
+
 export interface WorkerRunnerValidation {
   status:
     | "passed"
@@ -7,7 +9,9 @@ export interface WorkerRunnerValidation {
     | "snapshot_unavailable"
     | "no_official_score_change"
     | "target_regressed"
-    | "same_unit_regression";
+    | "same_unit_regression"
+    /** stop_at_frame games: every function the attempt changed differs only in the stack frame. */
+    | "stack_only_perturbation";
   reasons: string[];
   command?: string;
   exitCode?: number;
@@ -40,6 +44,8 @@ export interface WorkerRunnerValidation {
     before: number;
     after: number;
   }>;
+  /** stop_at_frame games only: stack-frame classification of the attempt. */
+  stackPolicy?: WorkerStackPolicyResult;
   postReturnCheck?: {
     status: "passed" | "failed" | "skipped";
     reasons: string[];
