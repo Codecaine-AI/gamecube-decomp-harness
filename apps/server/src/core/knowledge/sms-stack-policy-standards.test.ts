@@ -15,6 +15,10 @@ const LEAKS = [
   '// fabricated: authored helper boundary, see objdiff',
   '/// @todo Find a solution without the pragma',
   'keep the wrapper only with `// fabricated`',
+  'The one tolerated ordering anchor is the isolated, @todo-marked order_sdata2 helper',
+  'The only tolerated form is an isolated, `@todo`-marked `order_sdata2`-style helper',
+  'Keep an unavoidable .sdata2 ordering helper isolated',
+  '/// @todo .sdata2 order hack\nstatic void order_sdata2(void)\n{\n    (void) -1.0f;\n    (void) S32_TO_F32;',
 ];
 
 afterEach(() => {
@@ -30,6 +34,9 @@ test('SMS standards render drops global TODO, padding and fabricated-inline advi
   expect(xml).toContain('id="avoid-pragmas-register-asm" scope="game"');
   for (const id of ['sms-no-agent-comments', 'sms-accessor-evidence', 'sms-temporary-tactics']) expect(xml).toContain(id);
   expect(xml).toContain('stops at the stack frame');
+  expect(xml).toContain('id="no-inert-emission" scope="game"');
+  expect(xml).toContain('id="literals-and-data-ownership" scope="game"');
+  expect(xml).toContain('Do not add data-ordering helpers');
 });
 
 test('SMS example pool replaces the leaking global examples', () => {
@@ -37,7 +44,7 @@ test('SMS example pool replaces the leaking global examples', () => {
   const text = JSON.stringify(examples);
   for (const leak of LEAKS) expect(text).not.toContain(leak);
   const ids = examples.map((example) => String(example.id));
-  for (const id of ['matching-helper-replaces-dummy-local', 'codegen-pragma-todo-exception', 'fidelity-single-use-wrapper', 'fidelity-layout-cue-local']) {
+  for (const id of ['matching-helper-replaces-dummy-local', 'codegen-pragma-todo-exception', 'fidelity-single-use-wrapper', 'fidelity-layout-cue-local', 'sdata2-order-helper']) {
     expect(ids.filter((item) => item === id)).toHaveLength(1);
   }
   expect(JSON.stringify(globalStandardsContext(SMS))).not.toContain('nonmatching with a TODO');
@@ -48,5 +55,7 @@ test('Melee still renders the global advice', () => {
   expect(xml).toContain('A pragma carrying a TODO or fabricated marker on an adjacent line is a warning');
   expect(xml).toContain('Mark a temporary fabricated helper per the game');
   expect(xml).toContain('PAD_STACK(N) is the only accepted stack-padding form');
+  expect(xml).toContain('The one tolerated ordering anchor is the isolated, @todo-marked order_sdata2 helper');
+  expect(xml).toContain('The only tolerated form is an isolated, `@todo`-marked `order_sdata2`-style helper');
   expect(xml).not.toContain('sms-no-agent-comments');
 });

@@ -683,6 +683,9 @@ def apply_sms_policy_to_global_findings(findings, repo, mode, file_diffs, merge_
     for found in findings:
         if id(found) not in keep:
             continue
+        if is_game_source(found.get('file')) and 'data_ordering_repair' in (found.get('detail') or {}):
+            # SMS has no data-ordering helper: drop the global order_sdata2 repair hint.
+            found = {**found, 'detail': {k: v for k, v in found['detail'].items() if k != 'data_ordering_repair'}}
         policy = SMS_GLOBAL_POLICY.get(found.get('rule_id'))
         if policy and is_game_source(found.get('file')):
             found = {**found, 'message': first_sentence(found.get('message')) + ' ' + policy}

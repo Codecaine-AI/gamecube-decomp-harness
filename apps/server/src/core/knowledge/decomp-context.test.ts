@@ -33,7 +33,8 @@ test('SMS selection composes the game root with the global standards root',()=>{
  const selection={gameId:'sms',knowledgeRoot:join(import.meta.dir,'../../../../../games/sms/knowledge')};
  const context=globalStandardsContext(selection) as {standards:{id:string;scope:string;status:string}[]};
  const game=context.standards.filter(s=>s.scope==='game');const global=context.standards.filter(s=>s.scope==='global');
- expect(game.length).toBeGreaterThanOrEqual(8);expect(global.length).toBeGreaterThanOrEqual(12);
+ expect(game.length).toBeGreaterThanOrEqual(8);// SMS overrides four global ids (matching-tactics, pragmas, literals, no-inert-emission) with game records.
+ expect(global.length).toBeGreaterThanOrEqual(10);
  expect(context.standards.findIndex(s=>s.scope==='global')).toBeGreaterThan(context.standards.findIndex(s=>s.scope==='game'));
  const xml=globalStandardsPromptXml(selection);
  for(const id of ['sms-fabricated-marker','sms-pch-string-convention','no-symbol-forgery','no-inert-emission','matching-tactics-need-evidence','avoid-pragmas-register-asm'])expect(xml).toContain(id);
