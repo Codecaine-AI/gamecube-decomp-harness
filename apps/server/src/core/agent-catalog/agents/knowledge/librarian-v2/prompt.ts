@@ -310,6 +310,7 @@ export const prompt = definePrompt({
         "Do not invent searches, evidence, locators, subjects, claims, relationships, entities, or merges.",
         "Propose a fact type only when a genuine, evidence-supported claim exists for it; omit a type with nothing supportable instead of filling it with a placeholder or a restatement of another fact.",
         "Treat the injected decomp standards as harness rules, not knowledge: never propose a standard or a restatement of one as a pattern or fact, never cite a standard as evidence, and never propose a new standard.",
+        "When the context carries a <stack_frame_policy> block, never write a tactic it bans as a fact, pattern, link, or reusable idiom; a pattern entity or fact that recommends one is cleared, and the evidence is at most recorded as a rejected approach in a rationale.",
         item("The envelope has exactly five top-level keys — `facts`, `links`, `entities`, `merges`, `follow_ups` — each an array:", [
           bulletList([
             "Any other top-level key makes the envelope malformed and the pass is rejected.",

@@ -10,6 +10,12 @@ import {
 } from "@server/core/knowledge-v2/tools.js";
 import { openKnowledgeIndexDb, type KnowledgeIndexDb } from "@server/core/knowledge-v2/index/db.js";
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
+import {
+  STACK_POLICY_NOTE,
+  filtersStackTactics,
+  redactStackTacticsInPayload,
+  stackFramePolicyForGame,
+} from "@server/core/knowledge-v2/stack-policy-filter.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { sourceViewToolRegistration } from "./source-view.js";
@@ -186,6 +192,25 @@ async function withKnowledgeV2Handles<T extends object>(
   }
 }
 
+/**
+ * History replayed to agents of a stop_at_frame game (SMS) loses every banned
+ * stack-frame tactic and carries a one-line note why. Discord, wiki, and code
+ * stay verbatim: they hold maintainer rulings and the live source.
+ */
+export function applyStackFramePolicy<T extends object>(
+  gameId: string,
+  payload: T,
+): T | (T & { stack_policy_note: string; stack_policy_redactions: number }) {
+  if (!filtersStackTactics(stackFramePolicyForGame(gameId))) return payload;
+  const { value, redactions } = redactStackTacticsInPayload(payload);
+  return { ...value, stack_policy_note: STACK_POLICY_NOTE, stack_policy_redactions: redactions };
+}
+
+function isHistoryLocatorPayload(payload: object): boolean {
+  const kind = (payload as { kind?: unknown }).kind;
+  return kind === "pr" || kind === "attempt";
+}
+
 /** Search archived Discord messages in the knowledge-v2 indexes. */
 export const kv2DiscordSearchToolRegistration: AgentToolRegistration = {
   id: "discord_search",
@@ -255,17 +280,17 @@ export const kv2PrSearchToolRegistration: AgentToolRegistration = {
     return {
       name: "pr_search",
       label: "PR Search",
-      description: "Search archived pull request summaries and discussion for historical evidence. Returns ranked summary and discussion snippets with citeable locators, not proof that a past tactic fits the current checkout. Use it after classifying the first diff to check accepted tactics, rejected work, naming, or review history.",
+      description: "Search archived pull request summaries and discussion for historical evidence. Returns ranked summary and discussion snippets with citeable locators, not proof that a past tactic fits the current checkout. Use it after classifying the first diff to check accepted tactics, rejected work, naming, or review history. In games that stop at the stack frame, banned stack-frame tactics are redacted and a stack_policy_note says so.",
       promptSnippet: "pr_search: find historical pull request evidence and its target or unit subject.",
       promptGuidelines: ["Use this for accepted tactics, rejected work, naming evidence, and review history; resolve locators before quoting details."],
       parameters: prSearchParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => kv2PrSearch(handles, {
+        const payload = await withKnowledgeV2Handles(context, async (handles) => applyStackFramePolicy(handles.gameId, await kv2PrSearch(handles, {
           query: String(params.query ?? "").trim(),
           limit: boundedLimit(params.limit, 10),
           mode: searchMode(params.mode),
-        }));
+        })));
         return jsonToolResult("pr_search", { ...payload });
       },
     };
@@ -288,12 +313,12 @@ export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
       parameters: attemptSearchParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => kv2AttemptSearch(handles, {
+        const payload = await withKnowledgeV2Handles(context, (handles) => applyStackFramePolicy(handles.gameId, kv2AttemptSearch(handles, {
           query: optionalString(params.query),
           target_stable_key: optionalString(params.target_stable_key),
           outcome: attemptOutcome(params.outcome),
           limit: boundedLimit(params.limit, 10),
-        }));
+        })));
         return jsonToolResult("attempt_search", { ...payload });
       },
     };
@@ -316,10 +341,10 @@ export const kv2SubjectRecordToolRegistration: AgentToolRegistration = {
       parameters: subjectRecordParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => kv2SubjectRecord(handles, {
+        const payload = await withKnowledgeV2Handles(context, (handles) => applyStackFramePolicy(handles.gameId, kv2SubjectRecord(handles, {
           target_stable_key: optionalString(params.target_stable_key),
           entity_locator: optionalString(params.entity_locator),
-        }));
+        })));
         return jsonToolResult("knowledge_record", { ...payload });
       },
     };
@@ -369,9 +394,12 @@ export const kv2ResolveLocatorToolRegistration: AgentToolRegistration = {
       parameters: resolveLocatorParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => kv2ResolveLocator(handles, {
-          locator: String(params.locator ?? "").trim(),
-        }));
+        const payload = await withKnowledgeV2Handles(context, (handles) => {
+          const resolved = kv2ResolveLocator(handles, {
+            locator: String(params.locator ?? "").trim(),
+          });
+          return isHistoryLocatorPayload(resolved) ? applyStackFramePolicy(handles.gameId, resolved) : resolved;
+        });
         return jsonToolResult("resolve_locator", { ...payload });
       },
     };
@@ -394,11 +422,11 @@ export const kv2UnitContextToolRegistration: AgentToolRegistration = {
       parameters: unitContextParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => kv2UnitContext(handles, {
+        const payload = await withKnowledgeV2Handles(context, (handles) => applyStackFramePolicy(handles.gameId, kv2UnitContext(handles, {
           unit_locator: optionalString(params.unit_locator),
           target_stable_key: optionalString(params.target_stable_key),
           pr_limit: boundedLimit(params.pr_limit, 15),
-        }));
+        })));
         return jsonToolResult("unit_context", { ...payload });
       },
     };

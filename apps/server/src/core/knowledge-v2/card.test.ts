@@ -295,6 +295,60 @@ describe("knowledge-v2 target cards", () => {
     expect(buildV2TargetCard(store, "GALE01:test:test_symbol", "full")).not.toBeNull();
   });
 
+  test("redacts banned stack tactics for stop_at_frame games and leaves match_frame cards unchanged", () => {
+    const store = fixture();
+    const insertPr = store.db.query(`INSERT INTO pull_request
+      (id, target_id, pr_ref, summary, outcome, merged_at)
+      VALUES (?, 'target', ?, ?, 'match', ?)`);
+    insertPr.run("pr-trash", "#195", "Added `char trash[0x18];` to fix the stack frame.", "2026-02-03");
+    insertPr.run("pr-mixed", "#212", "Matched the loop shape. Swap the declaration order to fix the frame.", "2026-02-02");
+    insertPr.run("pr-clean", "#100", "Matched by restoring the inlined getter.", "2026-02-01");
+    addRun(store, 1);
+    insertRunNarrative(store, {
+      workerRunId: "run-1",
+      summary: "Register flow matched. PAD_STACK(8) closed the last gap.",
+      notableObservations: [
+        { observation: "Add a dummy local to grow the stack frame by 8 bytes.", reusable_when: "Frame is 8 short" },
+        { observation: "The guard flag is read before the timer.", reusable_when: "Same unit" },
+      ],
+      narrative: {},
+      producedBy: "live",
+    });
+
+    const sms = buildV2TargetCard(store, "GALE01:test:test_symbol", "full", { stackFramePolicy: "stop_at_frame" })!;
+    expect(sms.stack_policy_note).toContain("banned");
+    expect(sms.accepted_prs.map((pr) => pr.pr_ref)).toEqual(["#212", "#100"]);
+    expect(sms.accepted_prs[0]!.summary).toBe("Matched the loop shape. [redacted: banned stack-frame tactic]");
+    expect(sms.prior_runs[0]!.summary).toBe("Register flow matched. [redacted: banned stack-frame tactic]");
+    expect(sms.prior_runs[0]!.observations.map((row) => row.observation)).toEqual(["The guard flag is read before the timer."]);
+    expect(JSON.stringify({ ...sms, stack_policy_note: undefined })).not.toMatch(/trash|PAD_STACK\(/);
+
+    const melee = buildV2TargetCard(store, "GALE01:test:test_symbol", "full", { stackFramePolicy: "match_frame" })!;
+    expect(melee.stack_policy_note).toBeUndefined();
+    expect(melee.accepted_prs.map((pr) => pr.pr_ref)).toEqual(["#195", "#212", "#100"]);
+    expect(melee.prior_runs[0]!.summary).toContain("PAD_STACK(8)");
+    expect(buildV2TargetCard(store, "GALE01:test:test_symbol", "full")).toEqual(melee);
+  });
+
+  test("loadV2TargetCard applies the game's stack-frame policy", () => {
+    const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+    const store = fixture();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-pad', 'target', '#1', 'PAD_STACK(0x10) matched it.', 'match', '2026-02-01')`).run();
+    try {
+      process.env.ORCH_GAME_KNOWLEDGE_ROOT = resolve(store.path, "../..");
+      const sms = loadV2TargetCard({ gameId: "sms", unit: "GALE01:test", symbol: "test_symbol", budget: "full" })!;
+      const melee = loadV2TargetCard({ gameId: "melee", unit: "GALE01:test", symbol: "test_symbol", budget: "full" })!;
+      expect(sms.accepted_prs).toEqual([]);
+      expect(sms.stack_policy_note).toBeDefined();
+      expect(melee.accepted_prs.map((pr) => pr.summary)).toEqual(["PAD_STACK(0x10) matched it."]);
+    } finally {
+      if (previous === undefined) delete process.env.ORCH_GAME_KNOWLEDGE_ROOT;
+      else process.env.ORCH_GAME_KNOWLEDGE_ROOT = previous;
+    }
+  });
+
   test("loads existing databases without creating missing files and absorbs corrupt databases", () => {
     const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
     const emptyRoot = mkdtempSync(join(tmpdir(), "knowledge-v2-card-empty-"));

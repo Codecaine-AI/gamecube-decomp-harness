@@ -12,6 +12,10 @@ import {
   stableJson,
   type PromptTemplateValues,
 } from "@server/infrastructure/agent-runtime/runtime";
+import {
+  stackFramePolicyForGame,
+  stackFramePolicyPromptBlock,
+} from "@server/core/knowledge-v2/stack-policy-filter.js";
 
 const loaders = [
   rootContextLoaderDeclaration,
@@ -42,7 +46,7 @@ export const context = defineContext(
 
 const WORKER_SUMMARIZER_CONTEXT_TEMPLATE = `<task>
 Summarize this closed worker run from its digest and transcript.
-</task>
+</task>{{STACK_FRAME_POLICY_BLOCK}}
 
 <target_reference>
 \`\`\`json
@@ -79,6 +83,7 @@ export function buildWorkerSummarizerKernelContext(
     TARGET_CARD_REFERENCE_JSON: stableJson(options.targetCardReference),
     CHECKPOINT_SUBMISSION_DIGEST_JSON: stableJson(options.checkpointSubmissionDigest),
     TRANSCRIPT_JSON: stableJson(options.transcript),
+    STACK_FRAME_POLICY_BLOCK: stackFramePolicyPromptBlock(stackFramePolicyForGame(options.game?.gameId)),
     WORKER_SUMMARIZER_OUTPUT_SCHEMA_JSON: stableJson(
       JSON.parse(readFileSync(schemaPath(), "utf8")),
     ),

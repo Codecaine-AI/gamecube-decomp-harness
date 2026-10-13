@@ -7,6 +7,7 @@ import {
   type KnowledgeIndexDb,
 } from "./db.js";
 import { createPastPrsArchive, type PrArchive } from "./pr-archive.js";
+import { redactBannedStackTactics, stackPolicyQuarantined } from "../stack-policy-filter.js";
 
 export interface BuildFtsOptions {
   allWikiRevisions?: boolean;
@@ -105,6 +106,15 @@ export function buildWikiFts(
   return rows.length;
 }
 
+/**
+ * Indexed PR and attempt history for a store the stack-prune job marked
+ * (a stop_at_frame game) drops banned stack-frame tactics; others index verbatim.
+ */
+function historyText(store: KnowledgeStore): (value: string) => string {
+  if (!store.path || !stackPolicyQuarantined(store.path)) return (value) => value;
+  return (value) => redactBannedStackTactics(value).text;
+}
+
 export function buildPrFts(
   store: KnowledgeStore,
   indexDb: KnowledgeIndexDb,
@@ -118,14 +128,15 @@ export function buildPrFts(
   const insert = indexDb.db.query(
     "INSERT INTO pr_fts (id, title, body, discussion) VALUES (?, ?, ?, ?)",
   );
+  const text = historyText(store);
   indexDb.db.transaction(() => {
     for (const row of rows) {
       const entry = archive.getPr(row.pr_ref) ?? archive.getPr(row.id);
       insert.run(
         formatLocator({ kind: "pr", pullRequestId: row.id }),
         entry?.title ?? row.pr_ref,
-        entry?.body ?? row.summary,
-        archive.getDiscussionBodies(row.pr_ref).join("\n\n"),
+        text(entry?.body ?? row.summary),
+        text(archive.getDiscussionBodies(row.pr_ref).join("\n\n")),
       );
     }
   })();
@@ -161,12 +172,13 @@ export function buildAttemptFts(store: KnowledgeStore, indexDb: KnowledgeIndexDb
   const insert = indexDb.db.query(
     "INSERT INTO attempt_fts (id, hypotheses, transcript) VALUES (?, ?, ?)",
   );
+  const text = historyText(store);
   indexDb.db.transaction(() => {
     for (const run of runs) {
       // Transcript indexing is deferred until run-state artifacts are part of knowledge-v2.
       insert.run(
         formatLocator({ kind: "attempt", runId: run.id }),
-        (searchTextByRun.get(run.id) ?? []).join("\n\n"),
+        text((searchTextByRun.get(run.id) ?? []).join("\n\n")),
         "",
       );
     }

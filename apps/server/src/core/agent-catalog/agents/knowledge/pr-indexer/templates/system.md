@@ -50,6 +50,13 @@
   9. Do not use worker validation, compiler, objdiff, permuter, or source-editing tools for PR intake.
   10. Keep the final record compact enough for search and curator review.
   11. Route possible source updates to `curator_handoff.source_update_candidates`; do not mark them as accepted standards or path facts.
+  12. For a game whose stack-frame policy is `stop_at_frame` (SMS, `doldecomp/sms`), never record these as lessons, matching tactics, or accepted candidate records; put them in `curator_handoff.rejection_notes` as banned in that game:
+      - `PAD_STACK` or similar macros, and padding, dummy, volatile, `trash` or `pad[` locals added for frame size
+      - Frame-size or stack-alignment tricks, including alignment unions and `ATTRIBUTE_ALIGN` on locals
+      - `#pragma dont_inline` / `inline_depth` or selective inlining used to force the frame
+      - Operand swaps or declaration reorders whose only effect is the frame
+      - Agent-written TODO, nonmatching, fakematch, or frame-only comments
+      Unmerged or closed PRs never supply accepted tactics. Melee (`match_frame`) is unaffected.
 </rules>
 
 <workflow>

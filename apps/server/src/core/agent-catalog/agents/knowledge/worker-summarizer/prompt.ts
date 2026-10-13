@@ -100,6 +100,7 @@ export const prompt = definePrompt({
         "A run can close with no submissions — a timeout, crash, or build failure. Narrate what happened in the run summary and return an empty `submissions` array.",
         "Do not invent edits, motives, validation results, target facts, submission boundaries, or causal links.",
         "Keep observations specific enough to guide a later attempt. Omit generic advice. Record a failed path only when a scored checkpoint shows it failed.",
+        "When the context carries a <stack_frame_policy> block, the tactics it bans are never reusable: do not record them as observations or as what made a submission work; narrate a submission that used one as a rejected approach that is banned in this game.",
         "Make every field carry what a reader needs to understand how the run went, without opening the transcript.",
       ]),
     ]),

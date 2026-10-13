@@ -2,7 +2,15 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { gameKnowledgeRoot, knowledgeStorePath } from "../knowledge/paths.js";
+import type { StackFramePolicy } from "../game-registry/resolver.js";
 import type { KnowledgeStoreHandle } from "./records/index.js";
+import {
+  STACK_POLICY_NOTE,
+  STACK_POLICY_REDACTION,
+  filtersStackTactics,
+  redactStackTacticsInPayload,
+  stackFramePolicyForGame,
+} from "./stack-policy-filter.js";
 import {
   knowledgeRecord,
   targetLedger,
@@ -128,6 +136,8 @@ export interface V2TargetCard {
   stable_key: string;
   target: V2TargetSummary;
   context_budget: V2CardBudget;
+  /** Present only for stop_at_frame games: banned stack tactics were redacted from this card. */
+  stack_policy_note?: string;
   ledger: V2CardLedger;
   status: V2TargetStatus | null;
   facts: V2CardFacts;
@@ -160,10 +170,16 @@ const BUDGET_CAPS: Record<V2CardBudget, { ledgerEntries: number; links: number; 
   minimal: { ledgerEntries: 3, links: 2, linkedFacts: 0, priorRuns: 1, acceptedPrs: 1, chars: 1_500 },
 };
 
+export interface V2TargetCardOptions {
+  /** `stop_at_frame` redacts banned stack-frame tactics from every narrative field. */
+  stackFramePolicy?: StackFramePolicy;
+}
+
 export function buildV2TargetCard(
   store: KnowledgeStoreHandle,
   stableKey: string,
   budget: V2CardBudget,
+  options: V2TargetCardOptions = {},
 ): V2TargetCard | null {
   const target = store.db.query<TargetRow, [string]>(
     "SELECT * FROM target WHERE stable_key = ? AND identity_status = 'current'",
@@ -186,7 +202,7 @@ export function buildV2TargetCard(
     ? { match_pct: statusRow.match_pct, linked: Boolean(statusRow.linked), size: statusRow.size }
     : null;
 
-  const card: V2TargetCard = {
+  let card: V2TargetCard = {
     stable_key: stableKey,
     target: {
       kind: target.kind,
@@ -196,6 +212,7 @@ export function buildV2TargetCard(
       identity_status: target.identity_status,
     },
     context_budget: budget,
+    ...(filtersStackTactics(options.stackFramePolicy) ? { stack_policy_note: STACK_POLICY_NOTE } : {}),
     ledger: buildLedger(ledgerRows, budget),
     status,
     facts: {
@@ -206,8 +223,23 @@ export function buildV2TargetCard(
     prior_runs: priorRuns,
     accepted_prs: acceptedPrs,
   };
+  if (filtersStackTactics(options.stackFramePolicy)) card = redactCardStackTactics(card);
   enforceCharacterBudget(card, BUDGET_CAPS[budget].chars);
   return card;
+}
+
+/**
+ * Stop-at-frame games: redact banned stack tactics from every narrative field
+ * and drop accepted PRs and observations that carried nothing else.
+ */
+function redactCardStackTactics(card: V2TargetCard): V2TargetCard {
+  const { value } = redactStackTacticsInPayload(card);
+  const onlyRedaction = (text: string) => text.split(STACK_POLICY_REDACTION).join("").replace(/[\s.,;:…-]+/g, "") === "";
+  value.accepted_prs = value.accepted_prs.filter((pr) => !onlyRedaction(pr.summary));
+  for (const run of value.prior_runs) {
+    run.observations = run.observations.filter((observation) => !onlyRedaction(observation.observation));
+  }
+  return value;
 }
 
 export function targetKnowledgeCardV2Xml(card: V2TargetCard): string {
@@ -236,7 +268,9 @@ export function loadV2TargetCard(options: {
   let db: Database | null = null;
   try {
     db = new Database(dbPath, { readonly: true });
-    return buildV2TargetCard({ db }, stableKey, options.budget);
+    return buildV2TargetCard({ db }, stableKey, options.budget, {
+      stackFramePolicy: stackFramePolicyForGame(options.gameId ?? "melee"),
+    });
   } catch {
     return null;
   } finally {

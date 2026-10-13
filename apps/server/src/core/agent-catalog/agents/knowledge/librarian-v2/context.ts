@@ -13,6 +13,10 @@ import {
   stableJson,
   type PromptTemplateValues,
 } from "@server/infrastructure/agent-runtime/runtime";
+import {
+  stackFramePolicyForGame,
+  stackFramePolicyPromptBlock,
+} from "@server/core/knowledge-v2/stack-policy-filter.js";
 
 const loaders = [
   rootContextLoaderDeclaration,
@@ -98,7 +102,7 @@ House decompilation standards, injected for awareness only. They are QA-owned ha
 \`\`\`json
 {{DECOMP_STANDARDS_JSON}}
 \`\`\`
-</decomp_standards>
+</decomp_standards>{{STACK_FRAME_POLICY_BLOCK}}
 
 <source_reading_view>
 The file excerpts below use proposed names to help you understand the surrounding behavior before writing facts. Inspect the whole control flow for missing operations and inconsistent interpretations.
@@ -168,6 +172,7 @@ export function buildLibrarianV2KernelContext(
     TOUCHED_SUBJECTS_JSON: stableJson(options.touchedSubjects),
     SUPPORTING_SUBJECTS_JSON: stableJson(options.supportingSubjects),
     DECOMP_STANDARDS_JSON: stableJson(options.decompStandards ?? "No standards supplied."),
+    STACK_FRAME_POLICY_BLOCK: stackFramePolicyPromptBlock(stackFramePolicyForGame(options.game?.gameId)),
     LIBRARIAN_V2_OUTPUT_SCHEMA_JSON: stableJson(
       JSON.parse(readFileSync(schemaPath(), "utf8")),
     ),
