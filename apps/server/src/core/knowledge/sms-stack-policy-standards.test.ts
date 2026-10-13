@@ -59,3 +59,16 @@ test('Melee still renders the global advice', () => {
   expect(xml).toContain('The only tolerated form is an isolated, `@todo`-marked `order_sdata2`-style helper');
   expect(xml).not.toContain('sms-no-agent-comments');
 });
+
+test('SMS workers are told to drop invented helpers and odd-looking code (D1/D2)', () => {
+  const xml = globalStandardsPromptXml(SMS);
+  expect(xml).toContain('Do not invent helpers');
+  expect(xml).toContain('planeDistance');
+  expect(xml).toContain('id="sms-plain-code"');
+  expect(xml).toContain('point != 0 || point != 0');
+  const ids = loadStandardExamples(SMS).map((example) => String(example.id));
+  for (const id of ['sms-invented-helper-plane-distance', 'sms-invented-helper-water-hit-count', 'sms-plain-code-repeated-test', 'sms-plain-code-double-negation', 'sms-plain-code-dead-store', 'sms-plain-code-empty-branch']) {
+    expect(ids).toContain(id);
+  }
+  expect(globalStandardsPromptXml(MELEE)).not.toContain('sms-plain-code');
+});

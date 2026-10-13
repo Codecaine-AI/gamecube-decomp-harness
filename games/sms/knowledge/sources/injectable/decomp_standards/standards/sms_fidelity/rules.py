@@ -2,17 +2,22 @@
 source_fidelity family. Covers header ownership of placeholder classes, the
 PCH dummy-string convention, fabricated scaffolding (pragmas, single-use
 helpers, hand-expanded inlines), MSL intrinsic bypasses, the dummy(Vec*)
-emission helper, agent-written comments and accessor/inline evidence.
+emission helper, agent-written comments and accessor/inline evidence, plus
+the D1/D2 drop (user decision 2026-10-13): invented helpers with no upstream
+declaration or map entry (sms_invented_helper) and odd-looking code kept only
+for codegen (sms_nonsense_code).
 
 SMS maintainer rulings (2026-10-13, doldecomp/sms #330/#331): agent comments
 (TODO, fakematch, fabricated, frame notes) are rejected, and a marker comment
 never downgrades or exempts a finding, SMS or global. The post-scan hook
 ``apply_sms_policy_to_global_findings`` keeps global marker/evidence advice
 from reaching SMS workers."""
+import bisect
 import difflib
 import importlib.util
 import os
 import re
+import subprocess
 import sys
 from fnmatch import fnmatch
 from pathlib import Path
@@ -635,6 +640,594 @@ def check_accessor_evidence(hunk):
     return findings + new_header_inlines(hunk)
 
 
+# --- sms_invented_helper ------------------------------------------------------
+# D1 (user decision 2026-10-13, objectives/sms-pr189-split/d1d2-worker-brief.md):
+# a function definition the diff adds is an invented helper when its name is
+# not declared in the pre-change file, not declared in the pre-change text of
+# the headers it includes (or its own header, or, for Class::name, the class
+# body anywhere in include/), and not named by symbols.txt or mario.MAP. It is
+# rejected even when it gains codegen: restore the upstream call sites and
+# leave the function nonmatching. Without a symbols.txt (no map evidence) the
+# rule emits nothing. Map evidence comes from ORCH_GAME_REPO_ROOT, then --repo.
+INVENTED_SOURCES = ['src/*.cpp', 'src/*.c', 'include/**']
+INCLUDE = re.compile(r'^\s*#\s*include\s*[<"](?P<path>[^>"]+)[>"]', re.M)
+SCOPE_BLOCK = re.compile(r'\b(?P<kind>class|struct|union|namespace)\s+(?P<name>[A-Za-z_]\w*)\b[^;{}()]*$')
+NON_DECLARING_WORDS = {'return', 'else', 'case', 'new', 'delete', 'throw', 'goto', 'do', 'sizeof', 'typeid', 'co_return', 'if', 'while', 'for', 'switch'}
+HEADER_WINDOW = 1500  # characters of declaration text before a body worth parsing
+CONTROL_WORDS = {'if', 'for', 'while', 'switch', 'catch', 'sizeof', 'return', 'else', 'do'}
+_INVENTED_PENDING = {}
+_HEADER_CORPUS = {}
+_GIT_BLOBS = {}
+_TREE_GREP = {}
+
+
+def is_lint_path(path):
+    return bool(path) and any(fnmatch(path, p) for p in INVENTED_SOURCES) and not any(fnmatch(path, p) for p in VENDOR_PATHS)
+
+
+def collect_invented_helper_context(hunk):
+    """Per hunk: remember the file's texts; check_invented_helper_post needs repo and merge_base."""
+    path = hunk.get('file')
+    if is_lint_path(path):
+        entry = _INVENTED_PENDING.setdefault(path, {'post': hunk.get('post_file_text'), 'pre': hunk.get('pre_file_text'), 'hunks': []})
+        entry['hunks'].append(hunk)
+    return []
+
+
+def reconstruct_pre(post_text, hunks):
+    """Pre-change text from the post text: drop added lines, put removed lines back at their hunk."""
+    lines = post_text.split('\n')
+    added = {number for hunk in hunks for number, _ in hunk.get('added', [])}
+    inserts = {}
+    for hunk in hunks:
+        if not hunk.get('removed'):
+            continue
+        anchor = hunk['added'][0][0] if hunk.get('added') else (hunk['post_lines'][-1][0] + 1 if hunk.get('post_lines') else len(lines) + 1)
+        inserts.setdefault(anchor, []).extend(hunk['removed'])
+    out = []
+    for number, text in enumerate(lines, 1):
+        out.extend(inserts.pop(number, []))
+        if number not in added:
+            out.append(text)
+    for rest in inserts.values():
+        out.extend(rest)
+    return '\n'.join(out)
+
+
+def sparse_post_text(hunks):
+    rows = {number: text for hunk in hunks for number, text, _ in hunk.get('post_lines', [])}
+    rows.update({number: text for hunk in hunks for number, text in hunk.get('added', [])})
+    return '\n'.join(rows.get(number, '') for number in range(1, max(rows, default=0) + 1))
+
+
+def git_blob(repo, ref, rel_path):
+    key = (str(repo), ref, rel_path)
+    if key not in _GIT_BLOBS:
+        result = subprocess.run(['git', '-C', str(repo), 'show', f'{ref}:{rel_path}'], capture_output=True, text=True, errors='replace')
+        _GIT_BLOBS[key] = result.stdout if result.returncode == 0 else None
+    return _GIT_BLOBS[key]
+
+
+class PreTexts:
+    """Pre-change text of any repo file: merge-base blob, the scanned hunks, or the worktree."""
+
+    def __init__(self, repo, file_diffs, merge_base, pending):
+        self.repo, self.merge_base, self.pending = Path(repo), merge_base, pending
+        self.diffed = {record['file']: record['hunks'] for record in file_diffs}
+        self.cache = {}
+
+    def get(self, rel_path):
+        if rel_path in self.cache:
+            return self.cache[rel_path]
+        text = None
+        entry = self.pending.get(rel_path)
+        if entry and isinstance(entry.get('pre'), str):
+            text = entry['pre']
+        elif self.merge_base:
+            text = git_blob(self.repo, self.merge_base, rel_path)
+        else:
+            path = self.repo / rel_path
+            text = path.read_text(encoding='utf-8', errors='replace') if path.is_file() else None
+            if text is not None and rel_path in self.diffed:
+                text = reconstruct_pre(text, self.diffed[rel_path])
+        self.cache[rel_path] = text
+        return text
+
+    def exists(self, rel_path):
+        return (self.repo / rel_path).is_file() or (self.merge_base is not None and self.get(rel_path) is not None)
+
+    def tree_declarations(self, name):
+        """[(path, cleaned line)] declaring-candidate lines for name anywhere in src/ and include/:
+        `git grep` at the merge base, else over the files on disk minus the diffed ones."""
+        key = (str(self.repo), self.merge_base, name)
+        if key not in _TREE_GREP:
+            if self.merge_base:
+                command = ['git', '-C', str(self.repo), 'grep', '-I', '-n', '-w', '-e', name, self.merge_base, '--', 'src', 'include']
+            else:
+                command = ['git', '-C', str(self.repo), 'grep', '--no-index', '-I', '-n', '-w', '-e', name, '--', 'src', 'include']
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, errors='replace', timeout=60)
+            except (OSError, subprocess.SubprocessError):
+                result = None
+            rows = []
+            for line in (result.stdout.splitlines() if result is not None and result.returncode == 0 else []):
+                if self.merge_base and line.startswith(self.merge_base + ':'):
+                    line = line[len(self.merge_base) + 1:]
+                parts = line.split(':', 2)
+                if len(parts) == 3 and (self.merge_base or parts[0] not in self.diffed):
+                    rows.append((parts[0], clean(parts[2])))
+            _TREE_GREP[key] = rows
+        return _TREE_GREP[key]
+
+    def corpus(self):
+        """Cleaned pre-change text of every header under include/."""
+        key = (str(self.repo), self.merge_base)
+        if key not in _HEADER_CORPUS:
+            names = []
+            if self.merge_base:
+                listed = subprocess.run(['git', '-C', str(self.repo), 'ls-tree', '-r', '--name-only', self.merge_base, '--', 'include'], capture_output=True, text=True)
+                names = [name for name in listed.stdout.splitlines() if name.endswith(('.h', '.hpp'))] if listed.returncode == 0 else []
+            if not names and (self.repo / 'include').is_dir():
+                names = sorted(path.relative_to(self.repo).as_posix() for path in (self.repo / 'include').rglob('*') if path.suffix in ('.h', '.hpp') and path.is_file())
+            texts = []
+            if self.merge_base and names:
+                batch = subprocess.run(['git', '-C', str(self.repo), 'cat-file', '--batch'], input=''.join(f'{self.merge_base}:{name}\n' for name in names).encode(), capture_output=True)
+                data, offset = batch.stdout, 0
+                while offset < len(data):
+                    end = data.find(b'\n', offset)
+                    header = data[offset:end].split()
+                    offset = end + 1
+                    if len(header) == 3 and header[1] == b'blob':
+                        size = int(header[2])
+                        texts.append(data[offset:offset + size].decode('utf-8', 'replace'))
+                        offset += size + 1
+            else:
+                texts = [self.get(name) or '' for name in names]
+            _HEADER_CORPUS.clear()
+            _HEADER_CORPUS[key] = clean('\n'.join(texts))
+        return _HEADER_CORPUS[key]
+
+
+def declares(cleaned, name, scope=None, qualified_only=False):
+    """True when cleaned text declares or defines `name(`: a type-like word right
+    before it (`f32 name(`, `TFoo* name(`), or `Scope::name(` when scope is given.
+    qualified_only accepts only the `Scope::name(` form."""
+    for match in re.finditer(r'(?<![\w.$>])(?P<qual>(?:[A-Za-z_]\w*(?:<[^<>;{}()]*>)?\s*::\s*)*)' + re.escape(name) + r'\s*\(', cleaned):
+        qual = re.sub(r'<[^<>]*>|\s', '', match['qual'])
+        if qual:
+            if scope and qual.rstrip(':').split('::')[-1] == scope:
+                return True
+            continue
+        if qualified_only:
+            continue
+        before = cleaned[max(0, match.start() - 200):match.start()].rstrip()
+        word = re.search(r'([A-Za-z_]\w*)\s*(?:<[^<>;{}()]*>)?\s*[*&]*\s*$', before)
+        if word and word.group(1) not in NON_DECLARING_WORDS and not re.search(r'(?:->|\.)\s*$', before[:word.start()]):
+            return True
+    return False
+
+
+def scope_bodies(cleaned, scope):
+    """Bodies of `class|struct|union|namespace scope { ... }` blocks in cleaned text."""
+    for match in re.finditer(r'\b(?:class|struct|union|namespace)\s+' + re.escape(scope) + r'\b[^;{}()]*\{', cleaned):
+        depth, start = 0, match.end() - 1
+        for index in range(start, len(cleaned)):
+            depth += (cleaned[index] == '{') - (cleaned[index] == '}')
+            if depth == 0:
+                yield cleaned[start:index]
+                break
+
+
+def enclosing_scopes(cleaned, offset):
+    """Names of the class/struct/namespace blocks enclosing offset, outermost first."""
+    stack = []
+    for index, char in enumerate(cleaned[:offset]):
+        if char == '{':
+            line_start = max(cleaned.rfind(';', 0, index), cleaned.rfind('{', 0, index), cleaned.rfind('}', 0, index)) + 1
+            scope = SCOPE_BLOCK.search(cleaned[line_start:index].replace('\n', ' '))
+            stack.append(scope['name'] if scope and scope['kind'] != 'union' else None)
+        elif char == '}' and stack:
+            stack.pop()
+    return [name for name in stack if name]
+
+
+def matching_open(text, close_index):
+    depth = 0
+    for index in range(close_index, -1, -1):
+        depth += (text[index] == ')') - (text[index] == '(')
+        if depth == 0:
+            return index
+    return None
+
+
+def added_definitions(post_text, added_lines):
+    """[(line, name, qualifiers, enclosing scopes)] for function definitions whose name line is added."""
+    cleaned = clean(post_text)
+    newlines = [index for index, char in enumerate(cleaned) if char == '\n']
+    result = []
+    for open_index, _ in base.function_spans(cleaned):
+        window = max(0, open_index - HEADER_WINDOW)
+        first_line, last_line = bisect.bisect_left(newlines, window) + 1, bisect.bisect_left(newlines, open_index) + 1
+        if not any(line in added_lines for line in range(first_line, last_line + 1)):
+            continue  # no added line near this header: not an added definition
+        head = cleaned[window:open_index].rstrip()
+        head = head[:-5].rstrip() if head.endswith('const') else head
+        if not head.endswith(')'):
+            continue
+        close = len(head) - 1
+        while True:
+            start = matching_open(head, close)
+            if start is None:
+                break
+            prefix = head[:start]
+            initializer = re.search(r'(?:(?<!:):(?!:)|,)\s*[A-Za-z_]\w*(?:<[^<>]*>)?\s*$', prefix)
+            if initializer and re.search(r'\)\s*$', prefix[:initializer.start()]):
+                close = len(prefix[:initializer.start()].rstrip()) - 1
+                continue
+            break
+        if start is None:
+            continue
+        name_match = re.search(r'(?P<qual>(?:[A-Za-z_]\w*(?:<[^<>]*>)?\s*::\s*)*)(?P<name>~?[A-Za-z_]\w*)\s*$', head[:start])
+        if not name_match or name_match['name'] in CONTROL_WORDS or re.fullmatch(r'[A-Z][A-Z0-9_]+', name_match['name']):
+            continue
+        statement_start = max(head.rfind(';', 0, name_match.start()), head.rfind('{', 0, name_match.start()), head.rfind('}', 0, name_match.start())) + 1
+        before = '\n'.join(line for line in head[statement_start:name_match.start()].split('\n') if not line.strip().startswith('#')).strip()
+        qualifiers = [re.sub(r'<.*', '', part.strip()) for part in name_match['qual'].split('::') if part.strip()]
+        if re.search(r'\boperator\s*$', before) or (not qualifiers and not before):
+            continue  # operators, macro invocations and in-class constructors
+        line = cleaned.count('\n', 0, window + name_match.start('name')) + 1
+        if line in added_lines:
+            result.append((line, name_match['name'], qualifiers, enclosing_scopes(cleaned, window + name_match.start())))
+    return result
+
+
+def include_paths(texts, rel_path, pre):
+    """Repo paths of the headers this file includes, its own header, and their includes (one level)."""
+    found = []
+
+    def resolve(include, from_path):
+        for candidate in (f'include/{include}', f'src/{include}', (Path(from_path).parent / include).as_posix()):
+            if pre.exists(candidate):
+                return candidate
+        return None
+    for text in texts:
+        for match in INCLUDE.finditer(text or ''):
+            path = resolve(match['path'], rel_path)
+            if path and path not in found:
+                found.append(path)
+    stem = Path(rel_path)
+    if stem.parts and stem.parts[0] == 'src':
+        own_dir = pre.repo / 'include' / Path(*stem.parts[1:-1]) if len(stem.parts) > 2 else pre.repo / 'include'
+        if own_dir.is_dir():
+            for candidate in own_dir.iterdir():
+                if candidate.stem.lower() == stem.stem.lower() and candidate.suffix in ('.h', '.hpp'):
+                    own = candidate.relative_to(pre.repo).as_posix()
+                    if own not in found:
+                        found.append(own)
+    for header in list(found):
+        for match in INCLUDE.finditer(pre.get(header) or ''):
+            path = resolve(match['path'], header)
+            if path and path not in found:
+                found.append(path)
+    return found
+
+
+def invented_helper_evidence(name, qualifiers, scopes, path, pre_cleaned, pre, header_cache, index):
+    """The evidence that makes this definition real, or None."""
+    scope_chain = qualifiers or scopes
+    if map_has(index, name, scope_chain, path):
+        return 'map'
+    owner = scope_chain[-1] if scope_chain else None
+    if owner and name.lstrip('~') == owner:
+        bare = name
+    else:
+        bare = name.lstrip('~')
+    if declares(pre_cleaned, bare, owner) or (owner and any(declares(body, bare) for body in scope_bodies(pre_cleaned, owner))):
+        return 'file'
+    for header in header_cache:
+        text = header_cache[header]
+        if declares(text, bare, owner) or (owner and any(declares(body, bare) for body in scope_bodies(text, owner))):
+            return 'header:' + header
+    if qualifiers and any(declares(body, bare) for body in scope_bodies(pre.corpus(), owner)):
+        return 'class_header'
+    if bare == name and not (owner and bare == owner):
+        # Defined or declared anywhere else in the upstream tree (e.g. a static
+        # helper another unit already has). Qualified definitions need Owner::name.
+        for where, text in pre.tree_declarations(bare):
+            if where != path and declares(text, bare, owner, qualified_only=bool(qualifiers)):
+                return 'tree:' + where
+    return None
+
+
+def map_has(index, name, scopes, path):
+    return base.map_has_function(index, name, tuple(scopes), c_linkage=path.endswith('.c'))
+
+
+def check_invented_helper_post(findings, repo, mode, file_diffs, merge_base):
+    rule = next(r for r in RULES if r['rule_id'] == 'sms_invented_helper')
+    pending = dict(_INVENTED_PENDING)
+    _INVENTED_PENDING.clear()
+    if not pending:
+        return findings
+    roots = [Path(root) for root in (os.environ.get('ORCH_GAME_REPO_ROOT'), str(repo)) if root]
+    index = base.map_function_index(roots)
+    if index is None:
+        return findings  # no symbols.txt: no map evidence to judge by
+    fabricated = {(f.get('file'), f.get('line')) for f in findings if f.get('rule_id') == 'sms_fabricated_marker' and (f.get('detail') or {}).get('helper')}
+    pre = PreTexts(repo, file_diffs, merge_base, pending)
+    for path, entry in pending.items():
+        hunks = entry['hunks']
+        post = entry['post'] if isinstance(entry['post'], str) else base.read_post_file(repo, path)
+        if post is None:
+            post = sparse_post_text(hunks)
+        added = {number for hunk in hunks for number, _ in hunk.get('added', [])}
+        definitions = added_definitions(post, added)
+        if not definitions:
+            continue
+        pre_text = pre.get(path)
+        if pre_text is None:
+            pre_text = reconstruct_pre(post, hunks)
+        pre_cleaned = clean(pre_text)
+        header_cache = {header: clean(pre.get(header) or '') for header in include_paths([pre_text, post], path, pre)}
+        post_lines = post.split('\n')
+        for line, name, qualifiers, scopes in definitions:
+            if (path, line) in fabricated or (name == 'dummy' and not qualifiers):
+                continue
+            if invented_helper_evidence(name, qualifiers, scopes, path, pre_cleaned, pre, header_cache, index):
+                continue
+            label = '::'.join(qualifiers + [name]) if qualifiers else name
+            text = post_lines[line - 1] if line <= len(post_lines) else label
+            findings.append(full_finding(rule, path, line, text,
+                f'Invented helper {label}: the diff adds this function, but no upstream header or pre-change source declares it and symbols.txt/mario.MAP do not name it. SMS drops invented helpers even when they gain codegen. Delete it, restore the upstream code at its call sites, and leave the function nonmatching with no comment.',
+                helper=label, kind='invented_helper'))
+    return findings
+
+
+# --- sms_nonsense_code ------------------------------------------------------
+# D2 (user decision 2026-10-13): code a human would not write, kept only because
+# it steers codegen. Added lines only. Lines with an ALL_CAPS macro call and
+# preprocessor lines are skipped to keep false positives low.
+MACRO_CALL = re.compile(r'\b[A-Z][A-Z0-9_]{2,}\s*\(')
+DOUBLE_MINUS = re.compile(r'(?<![-+])-\s+-(?![-=>])\s*[\w(.]|(?<![-+])-\s*\(\s*-(?![-=>])\s*[\w.>\-\[\]]+\s*\)')
+PLAIN_ASSIGN = re.compile(r'^\s*(?P<lhs>[A-Za-z_]\w*(?:(?:->|\.)[A-Za-z_]\w*|\[[^\[\]]*\])*)\s*=(?!=)\s*(?P<rhs>.+?)\s*;\s*$')
+DECL_ASSIGN = re.compile(r'^\s*(?P<quals>(?:(?:const|static|volatile|unsigned|signed)\s+)*)[A-Za-z_][\w:]*(?:\s*<[^;{}()]*>)?(?:\s*(?P<ptr>[*&]+)\s*|\s+)(?P<lhs>[A-Za-z_]\w*)\s*=(?!=)\s*(?P<rhs>[^,;]+?)\s*;\s*$')
+EMPTY_BRANCH_ONE_LINE = re.compile(r'(?:\bif\s*\(.*\)|\belse)\s*\{\s*\}')
+OPEN_BRANCH = re.compile(r'(?:\bif\s*\(.*\)|\belse)\s*\{$')
+CASE_LABEL = re.compile(r'^\s*(?:case\s+[^:]+|default)\s*:(?!:)\s*(?P<rest>.*)$')
+STATEMENT_KEYWORDS = {'return', 'case', 'default', 'goto', 'break', 'continue', 'if', 'else', 'for', 'while', 'switch', 'do', 'delete', 'throw', 'new'}
+MASKS = [('<<=', '\x07\x07\x06'), ('>>=', '\x08\x08\x06'), ('::', '\x05\x05'), ('==', '\x01\x01'), ('!=', '\x02\x02'), ('<=', '\x03\x03'), ('>=', '\x04\x04')]
+NONSENSE_ADVICE = ' SMS drops code a human would not write, even when it changes codegen: restore the upstream form and leave the function nonmatching with no comment.'
+
+
+def squash(text):
+    return re.sub(r'\s+', '', text)
+
+
+def mask(text):
+    for op, token in MASKS:
+        text = text.replace(op, token)
+    return text
+
+
+def unmask(text):
+    for op, token in reversed(MASKS):
+        text = text.replace(token, op)
+    return text
+
+
+def top_level_split(text, operators):
+    """Split text at depth-0 occurrences of any operator (longest first)."""
+    parts, depth, start, index = [], 0, 0, 0
+    ordered = sorted(operators, key=len, reverse=True)
+    while index < len(text):
+        char = text[index]
+        if char in '([{':
+            depth += 1
+        elif char in ')]}':
+            depth -= 1
+        elif depth == 0:
+            op = next((op for op in ordered if text.startswith(op, index)), None)
+            if op:
+                parts.append(text[start:index])
+                index += len(op)
+                start = index
+                continue
+        index += 1
+    parts.append(text[start:])
+    return parts
+
+
+def paren_groups(text):
+    """The whole text plus the inside of every parenthesis pair."""
+    groups, stack = [text], []
+    for index, char in enumerate(text):
+        if char == '(':
+            stack.append(index)
+        elif char == ')' and stack:
+            groups.append(text[stack.pop() + 1:index])
+    return groups
+
+
+def operand_duplicates(statement):
+    """[(operator, operand)] for identical operands of ||, && and ==/!= in a cleaned statement."""
+    found = []
+    for group in paren_groups(mask(statement)):
+        for piece in top_level_split(group, [';', ',', '?', ':']):
+            piece = re.sub(r'^\s*(?:return|case|else|do)\b', '', piece)
+            side = top_level_split(piece, ['=', '\x06'])[-1]
+            for op in ('||', '&&'):
+                operands = [squash(item) for item in top_level_split(side, [op])]
+                seen = set()
+                for operand in operands if len(operands) > 1 else []:
+                    if operand and operand in seen:
+                        found.append((op, unmask(operand)))
+                    seen.add(operand)
+            for conjunct in top_level_split(side, ['||', '&&']):
+                terms = [squash(term) for term in top_level_split(conjunct, ['\x01\x01', '\x02\x02'])]
+                if len(terms) == 2 and terms[0] and terms[0] == terms[1]:
+                    found.append(('==' if '\x01' in conjunct else '!=', unmask(terms[0])))
+    return found
+
+
+def negated_inequality_conjunction(statement):
+    """`!(a != b && a != c)` in a cleaned statement, or None."""
+    for match in re.finditer(r'!\s*\(', statement):
+        depth = 0
+        for index in range(match.end() - 1, len(statement)):
+            depth += (statement[index] == '(') - (statement[index] == ')')
+            if depth == 0:
+                inner = mask(statement[match.end():index])
+                conjuncts = top_level_split(inner, ['&&'])
+                if len(conjuncts) > 1 and all('||' not in c and len(top_level_split(c, ['\x02\x02'])) == 2 for c in conjuncts):
+                    return statement[match.start():index + 1]
+                break
+    return None
+
+
+def logical_statements(rows):
+    """Join consecutive added rows into statements: [(first line, cleaned text, first raw text)]."""
+    result, current = [], []
+    for number, text in rows:
+        stripped = clean(text).strip()
+        if current and number != current[-1][0] + 1:
+            result.append(current)
+            current = []
+        if not stripped or stripped.startswith('#'):
+            if current:
+                result.append(current)
+                current = []
+            continue
+        current.append((number, text, stripped))
+        if re.search(r'[;{}:]$', stripped) or re.fullmatch(r'else|do', stripped):
+            result.append(current)
+            current = []
+    if current:
+        result.append(current)
+    return [(group[0][0], ' '.join(item[2] for item in group), group[0][1]) for group in result]
+
+
+def reads(expression, name):
+    return re.search(r'(?<![\w.>])' + re.escape(name) + r'\b', expression) is not None
+
+
+def assignment(text):
+    """(lhs, rhs, is_declaration) of a one-line single assignment, or None.
+    Reference and volatile declarations are not stores to a plain local."""
+    first = re.match(r'\s*([A-Za-z_]\w*)', text)
+    if not first or first.group(1) in STATEMENT_KEYWORDS:
+        return None
+    match = PLAIN_ASSIGN.match(text)
+    if match:
+        return match['lhs'], match['rhs'], False
+    match = DECL_ASSIGN.match(text)
+    if match and '&' not in (match['ptr'] or '') and 'volatile' not in match['quals']:
+        return match['lhs'], match['rhs'], True
+    return None
+
+
+def write_pattern(lhs):
+    target = r'\s*'.join(re.escape(char) for char in squash(lhs))
+    return re.compile(r'(?<![\w.>])' + target + r'\s*(?:[-+*/%&|^]|<<|>>)?=(?!=)|(?:\+\+|--)\s*' + target + r'(?!\w)|(?<![\w.>])' + target + r'\s*(?:\+\+|--)|&\s*' + target + r'(?![\w.\[]|->)')
+
+
+def check_nonsense_code(hunk):
+    path = hunk.get('file')
+    if not is_lint_path(path):
+        return []
+    findings, reported = [], set()
+
+    def report(number, text, message, severity=None, **detail):
+        if (number, detail.get('kind')) in reported:
+            return
+        reported.add((number, detail.get('kind')))
+        found = partial(number, text, message + NONSENSE_ADVICE, **detail)
+        if severity:
+            found['severity'] = severity
+        findings.append(found)
+
+    added = dict(hunk.get('added', []))
+    if not added:
+        return []
+    for first, statement, raw in logical_statements(sorted(added.items())):
+        if MACRO_CALL.search(statement):
+            continue
+        for op, operand in operand_duplicates(statement):
+            report(first, raw, f'Repeated identical operand `{operand}` of `{op}`: the second test is redundant.', kind='repeated_operand', operand=operand)
+            break
+        if DOUBLE_MINUS.search(statement):
+            report(first, raw, 'Double negation (`a - -b` or `-(-x)`): write the plain arithmetic.', kind='double_negation')
+        negated = negated_inequality_conjunction(statement)
+        if negated:
+            report(first, raw, f'Negated conjunction of inequalities `{squash(negated)}`: write the plain equality test.', kind='negated_inequalities')
+        self_assign = PLAIN_ASSIGN.match(statement)
+        if self_assign and squash(self_assign['lhs']) == squash(self_assign['rhs']):
+            report(first, raw, f'Self-assignment `{squash(self_assign["lhs"])} = {squash(self_assign["rhs"])};` does nothing.', kind='self_assignment')
+        if EMPTY_BRANCH_ONE_LINE.search(statement):
+            report(first, raw, 'Empty if/else body added.', kind='empty_branch')
+    # Statement-pair patterns over the post image near the added lines.
+    full = hunk.get('post_file_text')
+    if isinstance(full, str):
+        rows = list(enumerate(full.split('\n'), 1))
+    else:
+        known = {number: text for number, text, _ in hunk.get('post_lines', [])}
+        known.update(added)
+        rows = sorted(known.items())
+    known_lines = {number for number, _ in rows}
+    low, high = min(added) - 60, max(added) + 2
+    statements = [(number, text, clean(text).strip()) for number, text in rows if low <= number <= high]
+    statements = [row for row in statements if row[2]]
+
+    def contiguous(a, b):
+        return all(n in known_lines for n in range(a, b + 1))
+
+    for index, (number, text, stripped) in enumerate(statements):
+        following = statements[index + 1] if index + 1 < len(statements) else None
+        previous = statements[index - 1] if index else None
+        if following and not contiguous(number, following[0]):
+            following = None
+        if MACRO_CALL.search(stripped) or stripped.startswith('#'):
+            continue
+        if following and number in added and following[0] in added and OPEN_BRANCH.search(stripped) and following[2].startswith('}'):
+            report(number, text, 'Empty if/else body added.', kind='empty_branch')
+        label = CASE_LABEL.match(stripped)
+        if label and stripped.startswith('case') and number in added and not (previous and CASE_LABEL.match(previous[2]) and not CASE_LABEL.match(previous[2])['rest'].strip()):
+            rest = label['rest'].strip()
+            if rest == 'break;' or (not rest and following and following[0] in added and following[2] == 'break;'):
+                report(number, text, 'Added `case` whose only statement is `break;`. If the switch has no default it is dead code; otherwise confirm the original has it.', severity='warning', kind='empty_case')
+        current = assignment(stripped)
+        if not current or not following or following[2].startswith('#') or MACRO_CALL.search(following[2]):
+            continue
+        lhs, rhs, _ = current
+        nxt = assignment(following[2])
+        if nxt and not nxt[2] and re.fullmatch(r'[A-Za-z_]\w*', lhs) and nxt[0] == lhs and not reads(nxt[1], lhs):
+            if number in added or following[0] in added:
+                if squash(rhs) == squash(nxt[1]):
+                    report(following[0], following[1], f'Same assignment `{lhs} = {squash(rhs)};` repeated on the next line.', kind='repeated_assignment')
+                else:
+                    report(number, text, f'Dead store: `{lhs}` is written here and overwritten by the next statement before any read.', kind='dead_store')
+            continue
+        # Same assignment repeated later in the same block, with no write in between.
+        if current[2] or re.search(r'\w\s*\(', rhs) or (previous and not re.search(r'[;{}]$', previous[2])):
+            continue
+        writes = write_pattern(lhs)
+        depth, prior = 0, stripped
+        for later in statements[index + 1:index + 41]:
+            if not contiguous(number, later[0]):
+                break
+            depth += later[2].count('{') - later[2].count('}')
+            if depth < 0 or CASE_LABEL.match(later[2]) or re.match(r'^[A-Za-z_]\w*\s*:(?!:)', later[2]) or re.search(r'\belse\b', later[2]) or later[2].startswith('#'):
+                break
+            again = assignment(later[2])
+            if depth == 0 and again and not again[2] and squash(again[0]) == squash(lhs) and re.search(r'[;{}]$', prior):
+                if squash(again[1]) == squash(rhs) and (number in added or later[0] in added):
+                    report(later[0], later[1], f'Same assignment `{squash(lhs)} = {squash(rhs)};` repeated with no write to `{squash(lhs)}` in between.', kind='repeated_assignment')
+                break
+            if writes.search(later[2]) or ((not re.fullmatch(r'[A-Za-z_]\w*', lhs) or re.search(r'->|\.|\[|\*', rhs)) and re.search(r'\w\s*\(', later[2])):
+                break  # written, or a call may write through the member/pointer or change the value read
+            prior = later[2]
+    return findings
+
+
 # --- global findings under the SMS policy -------------------------------------
 # Global messages that recommend `// fabricated`/TODO markers or retaining a
 # tactic on objdiff evidence are rewritten for SMS workers. The two llm_review
@@ -704,5 +1297,8 @@ RULES = [
     {'rule_id': 'sms_dummy_vec_helper', 'standard_id': 'global_standard:sms-pch-string-convention', 'severity': 'warning', 'applies_to': GAME_SOURCES, 'check': check_dummy_vec_helper, 'message': 'dummy(Vec*) needs its emitted-symbol comment.'},
     {'rule_id': 'sms_agent_comment', 'standard_id': 'global_standard:sms-no-agent-comments', 'severity': 'error', 'applies_to': ['src/**', 'include/**'], 'check': check_agent_comment, 'message': 'Agent-written comments (TODO, nonmatching, fakematch, frame notes) are rejected in SMS.'},
     {'rule_id': 'sms_accessor_evidence', 'standard_id': 'global_standard:sms-accessor-evidence', 'severity': 'warning', 'llm_review': True, 'applies_to': ['src/*.cpp', 'src/*.c', 'include/**'], 'check': check_accessor_evidence, 'message': 'Accessor and inline swaps need evidence that the accessor exists in the original.'},
+    # D1/D2 (user decision 2026-10-13): invented helpers and odd-looking code are dropped in SMS.
+    {'rule_id': 'sms_invented_helper', 'standard_id': 'global_standard:sms-fabricated-marker', 'severity': 'error', 'applies_to': INVENTED_SOURCES, 'check': collect_invented_helper_context, 'message': 'Functions the diff adds need an upstream declaration or a symbols.txt/mario.MAP entry; invented helpers are dropped.'},
+    {'rule_id': 'sms_nonsense_code', 'standard_id': 'global_standard:sms-plain-code', 'severity': 'error', 'applies_to': INVENTED_SOURCES, 'check': check_nonsense_code, 'message': 'Code a human would not write (repeated tests, double negations, empty branches, dead or repeated stores) is dropped.'},
 ]
-POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post]
+POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post, check_invented_helper_post]

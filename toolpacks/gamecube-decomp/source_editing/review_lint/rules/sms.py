@@ -470,6 +470,72 @@ def map_symbol_names():
     return _SYMBOL_NAMES[key]
 
 
+MAP_FUNCTION_LINE = re.compile(r'^\s+(?:UNUSED\s+[0-9a-fA-F]+\s+\.+|[0-9a-fA-F]{8}\s+[0-9a-fA-F]+\s+[0-9a-fA-F]{8}\s+\d+)\s+(?P<name>[^\s@]\S*)')
+MAP_TREE_LINE = re.compile(r'\]\s+(?P<name>[^\s@]\S*)\s+\((?:func|object)')
+_FUNCTION_INDEX = {}
+
+
+def split_mangled(name):
+    """(base, suffix) of a CodeWarrior name: `planeDistance__FPC12TBGCheckData` -> ('planeDistance', 'FPC12TBGCheckData')."""
+    index = name.find('__', 1)
+    if index < 0:
+        return name.split('<', 1)[0], ''
+    return name[:index].split('<', 1)[0], name[index + 2:]
+
+
+def map_function_index(roots=None):
+    """{base name: {mangled suffixes}} for every name in symbols.txt and mario.MAP
+    (including UNUSED, dead-stripped entries), read from the first root that has
+    a symbols.txt. None when no root has one: callers fail open without evidence."""
+    for root in roots if roots is not None else game_repo_roots():
+        path = Path(root) / SYMBOLS_REL_PATH
+        if not path.is_file():
+            continue
+        key = str(path)
+        if key not in _FUNCTION_INDEX:
+            index = {}
+
+            def add(name):
+                base, suffix = split_mangled(name.split('$', 1)[0] if '$' in name else name)
+                index.setdefault(base, set()).add(suffix)
+            try:
+                for line in path.read_text(encoding='utf-8', errors='replace').splitlines():
+                    match = re.match(r'^([A-Za-z_~][\w$@.<>,~]*)\s*=', line)
+                    if match:
+                        add(match.group(1))
+            except OSError:
+                pass
+            try:
+                for line in (path.parents[2] / MAP_REL_PATH).read_text(encoding='utf-8', errors='replace').splitlines():
+                    match = MAP_FUNCTION_LINE.match(line) or MAP_TREE_LINE.search(line)
+                    if match:
+                        add(match['name'])
+            except OSError:
+                pass
+            _FUNCTION_INDEX[key] = index
+        return _FUNCTION_INDEX[key]
+    return None
+
+
+def mangled_scope(scope):
+    return f'{len(scope)}{scope}'
+
+
+def map_has_function(index, name, scopes=(), c_linkage=False):
+    """True when the map names this function: a free function (`name__F...` or a
+    C name), or a member/namespace function whose suffix names every scope."""
+    if not index:
+        return False
+    if scopes and name.lstrip('~') == scopes[-1]:
+        name = '__dt' if name.startswith('~') else '__ct'
+    suffixes = index.get(name)
+    if not suffixes:
+        return False
+    if scopes:
+        return any(all(mangled_scope(scope) in suffix for scope in scopes) for suffix in suffixes)
+    return c_linkage or any(suffix == '' or suffix.startswith('F') for suffix in suffixes)
+
+
 def in_symbol_map(name, declaration):
     """True when a function-body declaration names a symbol-map entry.
 
