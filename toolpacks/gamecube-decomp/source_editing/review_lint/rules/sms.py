@@ -205,6 +205,31 @@ def nested_aggregate_lines(cleaned, open_index, close_index):
     return excluded
 
 
+AGGREGATE_VARIABLE = re.compile(r'^\s*\}\s*(?P<name>[A-Za-z_]\w*)\s*(?:\[[^\]]*\]\s*)*;')
+
+
+def nested_aggregate_variables(cleaned, open_index, close_index):
+    """[(first_line, closing_line, name)] for `union { ... } name;` locals in a function body.
+
+    nested_aggregate_lines hides the member lines from the unused-local scan;
+    the variable the block declares is still a local and is checked here.
+    """
+    found = []
+    body = cleaned[open_index + 1:close_index]
+    for match in NESTED_AGGREGATE.finditer(body):
+        start = open_index + 1 + match.end() - 1
+        depth = 0
+        for index in range(start, close_index):
+            depth += (cleaned[index] == '{') - (cleaned[index] == '}')
+            if depth == 0:
+                line_end = cleaned.find('\n', index)
+                closing = AGGREGATE_VARIABLE.match(cleaned[index:line_end if line_end >= 0 else None])
+                if closing:
+                    found.append((cleaned[:open_index + 1 + match.start()].count('\n') + 1, cleaned[:index].count('\n') + 1, closing['name']))
+                break
+    return found
+
+
 def statement_text(lines, index, limit=4):
     parts = []
     for offset in range(limit):
@@ -234,6 +259,14 @@ def unused_local_findings(full_text, added_lines, line_map=None):
         if last_line - first_line < 2:
             continue
         excluded = nested_aggregate_lines(cleaned, open_index, close_index)
+        for start_line, closing_line, name in nested_aggregate_variables(cleaned, open_index, close_index):
+            if not ({start_line, closing_line} & added_lines) or (open_index, name) in seen:
+                continue
+            seen.add((open_index, name))
+            if not reference_sites(body, name)[1:]:
+                number = start_line if start_line in added_lines else closing_line
+                excerpt = raw_lines[number - 1] if number <= len(raw_lines) else lines[number - 1]
+                findings.append(partial((line_map or {}).get(number, number), excerpt, f'Unused local storage: aggregate {name} is declared and never referenced in its function. Remove it; do not shape the frame with dummy locals.', name=name, kind='unused_local'))
         for number in range(first_line + 1, last_line):
             if number not in added_lines or number > len(lines) or number in excluded:
                 continue
@@ -272,7 +305,9 @@ def unused_local_findings(full_text, added_lines, line_map=None):
     return findings
 
 
-_ANALYZED_HUNKS = set()  # id() of hunk['added'] lists already analyzed with post_file_text
+# hunk['added'] lists already analyzed with post_file_text, keyed by id(). The
+# list is held so its id cannot be reused by a later hunk before the hook clears it.
+_ANALYZED_HUNKS = {}
 
 
 def added_line_alignment(post_text, additions):
@@ -315,7 +350,7 @@ def check_dummy_padding(hunk):
             findings.append(partial(line, text, 'A new volatile array requires human review of its real purpose; it cannot be used to disguise stack padding.', name=name, requires_human_review=True))
     full_text = hunk.get('post_file_text')
     if isinstance(full_text, str):
-        _ANALYZED_HUNKS.add(id(hunk.get('added')))
+        _ANALYZED_HUNKS[id(hunk.get('added'))] = hunk.get('added')
         findings.extend(unused_local_findings(full_text, {number for number, _ in additions}))
     return findings
 
@@ -326,7 +361,7 @@ def check_unused_locals_fallback(findings, repo, mode, file_diffs, merge_base):
     rule = next(r for r in RULES if r['rule_id'] == 'sms_dummy_stack_padding')
     for record in file_diffs:
         path = record['file']
-        if any(id(h.get('added')) in _ANALYZED_HUNKS for h in record['hunks']) or not fnmatch(path, 'src/*.c*') or any(fnmatch(path, p) for p in VENDOR_PATHS):
+        if any(_ANALYZED_HUNKS.get(id(h.get('added'))) is h.get('added') for h in record['hunks']) or not fnmatch(path, 'src/*.c*') or any(fnmatch(path, p) for p in VENDOR_PATHS):
             continue
         post_text = read_post_file(repo, path)
         if post_text is None:
@@ -513,6 +548,131 @@ def check_maps(findings, repo, mode, file_diffs, merge_base):
     return findings
 
 
+# --- SMS stack-frame policy (maintainer ruling, 2026-10-13) ------------------
+# AI matching stops at the stack frame: a function whose only remaining
+# difference is the frame size stays nonmatching, with no comment. Anything
+# whose only effect is the frame (PAD_STACK, alignment unions, aligned locals,
+# operand swaps that only move r1 offsets) is banned. Text cannot always tell
+# a frame-only edit from a real codegen change, so operand flips are info and
+# point at the build-both-ways check.
+STACK_CHECK_HUNKS = 'toolpacks/gamecube-decomp/_impl/gamecube/tools/stack_check.py hunks'
+FRAME_ONLY_ADVICE = 'When the stack frame is the only remaining difference, leave the function nonmatching with no comment.'
+PAD_STACK = re.compile(r'\bPAD_STACK\s*\(')
+ALIGN_ATTRIBUTE = re.compile(r'\bATTRIBUTE_ALIGN\s*\(|__attribute__\s*\(\(\s*(?:__)?aligned\b|__declspec\s*\(\s*align\b')
+LOCAL_UNION = re.compile(r'\bunion\s*(?:[A-Za-z_]\w*\s*)?\{')
+WIDE_MEMBER = re.compile(r'\b(?:u64|s64|f64|double|__int64|(?:unsigned\s+|signed\s+)?long\s+long)\s+[A-Za-z_]\w*\s*;')
+ARRAY_MEMBER = re.compile(r'\b[A-Za-z_]\w*\s*\[[^\]]+\]\s*;')
+GAME_SOURCES = ('src/*.cpp', 'src/*.c')
+
+
+def check_pad_stack(hunk):
+    findings = []
+    for number, text in hunk.get('added', []):
+        if PAD_STACK.search(clean(text)):
+            findings.append(partial(number, text, 'PAD_STACK is banned in SMS: AI matching stops at the stack frame. Remove it. ' + FRAME_ONLY_ADVICE))
+    return findings
+
+
+def hunk_post_text(hunk):
+    """(text, [line numbers]) of the post image the hunk exposes: the whole file when known."""
+    full = hunk.get('post_file_text')
+    if isinstance(full, str):
+        lines = full.split('\n')
+        return full, list(range(1, len(lines) + 1)), True
+    rows = [(number, text) for number, text, _ in hunk.get('post_lines') or []] or list(hunk.get('added', []))
+    return '\n'.join(text for _, text in rows), [number for number, _ in rows], False
+
+
+def check_alignment_trick(hunk):
+    """Function-local alignment unions and aligned locals (stack alignment tricks)."""
+    added = {number for number, _ in hunk.get('added', [])}
+    if not added:
+        return []
+    text, numbers, whole = hunk_post_text(hunk)
+    cleaned = clean(text)
+    lines = cleaned.split('\n')
+    raw = text.split('\n')
+    spans = function_spans(cleaned)
+    loose = not whole and any(fnmatch(hunk.get('file') or '', p) for p in GAME_SOURCES)
+
+    def in_function(offset, index):
+        if any(open_index < offset < close_index for open_index, close_index in spans):
+            return True
+        # Partial hunk without the function header: an indented .cpp line is a local.
+        return loose and bool(re.match(r'^[ \t]+\S', raw[index]))
+
+    findings, reported = [], set()
+    for match in LOCAL_UNION.finditer(cleaned):
+        first = cleaned[:match.start()].count('\n')
+        if not in_function(match.start(), first):
+            continue
+        depth, end = 0, None
+        for index in range(match.end() - 1, len(cleaned)):
+            depth += (cleaned[index] == '{') - (cleaned[index] == '}')
+            if depth == 0:
+                end = index
+                break
+        last = cleaned[:end].count('\n') if end is not None else len(lines) - 1
+        body = cleaned[match.end():end] if end is not None else cleaned[match.end():]
+        touched = [numbers[i] for i in range(first, last + 1) if i < len(numbers) and numbers[i] in added]
+        if not touched or not (WIDE_MEMBER.search(body) and ARRAY_MEMBER.search(body)):
+            continue
+        line = numbers[first] if numbers[first] in added else touched[0]
+        reported.add(line)
+        findings.append(partial(line, raw[numbers.index(line)], 'Stack alignment trick: a function-local union of a 64-bit member and a byte array only forces frame alignment and size. Banned in SMS; remove it and use the real locals. ' + FRAME_ONLY_ADVICE, kind='alignment_union'))
+    for index, line_text in enumerate(lines):
+        if index >= len(numbers) or numbers[index] not in added or numbers[index] in reported:
+            continue
+        if ALIGN_ATTRIBUTE.search(line_text):
+            offset = sum(len(row) + 1 for row in lines[:index])
+            if in_function(offset + len(line_text) - len(line_text.lstrip()), index):
+                findings.append(partial(numbers[index], raw[index], 'Stack alignment trick: an alignment attribute on a local only shapes the stack frame. Banned in SMS; remove it. ' + FRAME_ONLY_ADVICE, kind='aligned_local'))
+    return findings
+
+
+CONSTANT_OPERAND = r'[-+]?(?:0[xX][0-9a-fA-F]+|\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)[fFuUlL]*'
+CMP_OPERAND = CONSTANT_OPERAND + r'|[A-Za-z_]\w*(?:(?:->|\.|::)[A-Za-z_]\w*|\[[^\[\]]*\]|\([^()]*\))*'
+COMPARISON = re.compile(r'(?P<left>' + CMP_OPERAND + r')(?P<op><=|>=|==|!=|<(?![<=])|>(?![>=]))(?P<right>' + CMP_OPERAND + r')')
+FLIPPED = {'<': '>', '>': '<', '<=': '>=', '>=': '<=', '==': '==', '!=': '!='}
+
+
+def squashed(text):
+    return re.sub(r'\s+', '', clean(text))
+
+
+def comparison_flips(text):
+    """[(flipped text, before, after)] for each single comparison flip and the all-flip."""
+    matches = [m for m in COMPARISON.finditer(text) if m['left'] != m['right']]
+
+    def flip(selected):
+        out, last = [], 0
+        for m in selected:
+            out.append(text[last:m.start()] + m['right'] + FLIPPED[m['op']] + m['left'])
+            last = m.end()
+        return ''.join(out) + text[last:]
+    variants = [(flip([m]), m.group(), m['right'] + FLIPPED[m['op']] + m['left']) for m in matches]
+    if len(matches) > 1:
+        variants.append((flip(matches), ', '.join(m.group() for m in matches), 'all flipped'))
+    return variants
+
+
+def check_operand_flip(hunk):
+    removed = {squashed(text) for text in hunk.get('removed', [])}
+    removed.discard('')
+    findings = []
+    for number, text in hunk.get('added', []):
+        added = squashed(text)
+        if not added or added in removed:
+            continue
+        # A variant is the added line with comparisons flipped back; matching a
+        # removed line means the edit only reordered comparison operands.
+        for variant, edited, original in comparison_flips(added):
+            if variant in removed:
+                findings.append(partial(number, text, f'Comparison operands flipped ({original} became {edited}). SMS allows an operand swap only when it changes non-stack codegen. Build both ways and compare with `{STACK_CHECK_HUNKS}`: if only the frame size and r1 offsets move, revert to the original operand order.', kind='operand_flip', original=original, edited=edited, verify_with=STACK_CHECK_HUNKS))
+                break
+    return findings
+
+
 # --- global double-fire suppression ----------------------------------------
 # SMS owns three policies that a global rule also detects on the same line:
 # pragma marking (sms-fabricated-marker vs codegen_pragma/novel_pragma), the
@@ -559,5 +719,11 @@ RULES = [
     # running the checkout's own validator with a base-revision baseline. This
     # rule is the pr_gate reminder only; the worker surface emits nothing.
     {'rule_id':'sms_symbol_map_validation','standard_id':'global_standard:sms-map-symbols','severity':'info','applies_to':['src/*.cpp'],'surfaces':{'worker':'skip'},'check':no_hunk_check,'message':'Changed C++ units are map-validated by the harness symbol_validation gate and symbol-check task.'},
+    # Stack-frame policy: AI matching stops at the frame (sms-temporary-tactics).
+    {'rule_id':'sms_pad_stack_macro','standard_id':'global_standard:sms-temporary-tactics','severity':'error','applies_to':['src/*.cpp','src/*.c','include/**'],'check':check_pad_stack,'message':'PAD_STACK is banned in SMS.'},
+    {'rule_id':'sms_alignment_trick','standard_id':'global_standard:sms-temporary-tactics','severity':'error','applies_to':['src/*.cpp','src/*.c','include/**'],'check':check_alignment_trick,'message':'Stack alignment tricks are banned in SMS.'},
+    # Text cannot tell a frame-only operand swap from a real codegen change:
+    # info that points the worker at the build-both-ways check.
+    {'rule_id':'sms_operand_flip','standard_id':'global_standard:sms-temporary-tactics','severity':'info','applies_to':['src/*.cpp','src/*.c','include/**'],'check':check_operand_flip,'message':'Comparison operand swaps are allowed only when they change non-stack codegen.'},
 ]
 POST_SCAN_HOOKS = [check_unused_locals_fallback, check_maps, suppress_global_overlaps]

@@ -165,21 +165,24 @@ class PchStringConventionTest(unittest.TestCase):
 
 
 class FabricatedMarkerTest(unittest.TestCase):
-    def test_pragmas_need_marker(self):
+    def test_pragmas_are_errors_marked_or_not(self):
         found = fidelity.check_fabricated_marker(hunk('void a() { }\n\n#pragma dont_inline on\nvoid b() { }\n#pragma dont_inline off\n#pragma inline_depth(2)'))
         self.assertEqual([(f['line'], f.get('severity', 'error')) for f in found], [(3, 'error'), (6, 'error')])
-        found = fidelity.check_fabricated_marker(hunk('// TODO: fakematch, inline not found\n#pragma dont_inline on\nvoid b() { } // fabricated\n#pragma inline_depth(2)'))
-        self.assertEqual([(f['line'], f.get('severity', 'error')) for f in found], [(2, 'warning'), (4, 'warning')])
+        # SMS: a TODO/fabricated marker no longer downgrades the finding.
+        found = [f for f in fidelity.check_fabricated_marker(hunk('// TODO: fakematch, inline not found\n#pragma dont_inline on\nvoid b() { } // fabricated\n#pragma inline_depth(2)')) if f.get('rule_id') is None]
+        self.assertEqual([(f['line'], f.get('severity', 'error'), f['detail']['marker']) for f in found], [(2, 'error', True), (4, 'error', True)])
+        self.assertNotIn('Add a // fabricated', found[0]['message'])
 
     def test_force_active_always_error(self):
-        found = fidelity.check_fabricated_marker(hunk('// fabricated\n#pragma force_active on\nstatic const f32 z[3] = { 0 };\n#pragma force_active off'))
+        found = [f for f in fidelity.check_fabricated_marker(hunk('// fabricated\n#pragma force_active on\nstatic const f32 z[3] = { 0 };\n#pragma force_active off')) if f.get('rule_id') is None]
         self.assertEqual([(f['line'], f.get('severity', 'error')) for f in found], [(2, 'error')])
 
     def test_single_use_static_inline_needs_marker(self):
         source = 'static inline f32 dot(f32 a, f32 b)\n{\n\treturn a * b;\n}\nvoid f() { use(dot(1, 2)); }\n'
         found = fidelity.check_fabricated_marker(hunk(source))
         self.assertEqual([(f['line'], f.get('severity', 'error'), f['detail']['helper']) for f in found], [(1, 'error', 'dot')])
-        self.assertEqual(fidelity.check_fabricated_marker(hunk('// fabricated helper\n' + source))[0]['severity'], 'warning')
+        marked = [f for f in fidelity.check_fabricated_marker(hunk('// fabricated helper\n' + source)) if f.get('rule_id') is None]
+        self.assertEqual([(f['line'], f.get('severity', 'error')) for f in marked], [(2, 'error')])
         self.assertEqual(fidelity.check_fabricated_marker(hunk(source + 'void g() { use(dot(3, 4)); }\n')), [])
         multi = 'static inline TLiveManager*\ngetManagerByNameInline(const char* name)\n{\n\treturn 0;\n}\nvoid f() { getManagerByNameInline("x"); }\n'
         self.assertEqual([f['detail']['helper'] for f in fidelity.check_fabricated_marker(hunk(multi))], ['getManagerByNameInline'])
@@ -209,7 +212,7 @@ class FabricatedMarkerTest(unittest.TestCase):
             self.assertEqual([(f['line'], f['severity'], f['detail']['kind']) for f in found], [(3, 'error', 'duplicated_inline_body')])
             marked = hunk('// TODO: fakematch of makeRotZ\nvoid TFoo::rot(MtxPtr mtx, f32 c, f32 s)\n{\n' + body + '}\n', full=False)
             found = fidelity.check_fabricated_marker_post([], root, 'diff', [{'file': FILE, 'hunks': [marked]}], None)
-            self.assertEqual([f['severity'] for f in found], ['warning'])
+            self.assertEqual([f['severity'] for f in found], ['error'])
             # class member copies do not count as expanded inline bodies
             members = hunk('class TX {\n\tstatic f32 a;\n\tstatic f32 b;\n\tstatic f32 c;\n\tstatic f32 d;\n\tstatic f32 e;\n\tstatic f32 f;\n};\n', full=False)
             self.assertEqual(fidelity.check_fabricated_marker_post([], root, 'diff', [{'file': FILE, 'hunks': [members]}], None), [])
@@ -221,13 +224,14 @@ class IntrinsicBypassTest(unittest.TestCase):
         self.assertEqual([f['detail']['intrinsic'] for f in found], ['__fabsf', '__frsqrte', '__fres'])
         self.assertTrue(all(f['detail']['requires_human_review'] for f in found))
 
-    def test_accessor_field_flips(self):
-        found = fidelity.check_intrinsic_bypass(hunk('\tTMapCollisionBase* base = mgr->getUnk8();', removed='\tTMapCollisionBase* base = mgr->unk8;'))
+    def test_accessor_field_flips_moved_to_accessor_evidence(self):
+        self.assertEqual(fidelity.check_intrinsic_bypass(hunk('\tTMapCollisionBase* base = mgr->getUnk8();', removed='\tTMapCollisionBase* base = mgr->unk8;')), [])
+        found = fidelity.check_accessor_evidence(hunk('\tTMapCollisionBase* base = mgr->getUnk8();', removed='\tTMapCollisionBase* base = mgr->unk8;'))
         self.assertEqual([f['detail']['flip'] for f in found], ['field_to_accessor'])
-        found = fidelity.check_intrinsic_bypass(hunk('\tif (TMapCollisionBase* col = mgr->unk8)', removed='\tif (TMapCollisionBase* col = mgr->getUnk8())'))
+        found = fidelity.check_accessor_evidence(hunk('\tif (TMapCollisionBase* col = mgr->unk8)', removed='\tif (TMapCollisionBase* col = mgr->getUnk8())'))
         self.assertEqual([f['detail']['flip'] for f in found], ['accessor_to_field'])
         # a real change alongside the flip is not a pure toggle
-        self.assertEqual(fidelity.check_intrinsic_bypass(hunk('\tint v = other->getUnk8() + 1;', removed='\tint v = mgr->unk8;')), [])
+        self.assertEqual(fidelity.check_accessor_evidence(hunk('\tint v = other->getUnk8() + 1;', removed='\tint v = mgr->unk8;')), [])
 
 
 class DummyVecHelperTest(unittest.TestCase):

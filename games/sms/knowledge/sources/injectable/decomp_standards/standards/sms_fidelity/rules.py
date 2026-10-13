@@ -1,7 +1,15 @@
 """SMS source-fidelity rules: the game-specific layer above the global
 source_fidelity family. Covers header ownership of placeholder classes, the
-PCH dummy-string convention, the upstream AGENTS.md fabricated-marker rule,
-MSL intrinsic bypasses and the dummy(Vec*) emission helper."""
+PCH dummy-string convention, fabricated scaffolding (pragmas, single-use
+helpers, hand-expanded inlines), MSL intrinsic bypasses, the dummy(Vec*)
+emission helper, agent-written comments and accessor/inline evidence.
+
+SMS maintainer rulings (2026-10-13, doldecomp/sms #330/#331): agent comments
+(TODO, fakematch, fabricated, frame notes) are rejected, and a marker comment
+never downgrades or exempts a finding, SMS or global. The post-scan hook
+``apply_sms_policy_to_global_findings`` keeps global marker/evidence advice
+from reaching SMS workers."""
+import difflib
 import importlib.util
 import os
 import re
@@ -23,7 +31,24 @@ def _baseline():
     return module
 
 
+def _agent_comments():
+    """The shared agent-comment vocabulary (toolpacks/.../tools/agent_comments.py)."""
+    name = '_gcdh_agent_comments'
+    if name in sys.modules:
+        return sys.modules[name]
+    for parent in Path(__file__).resolve().parents:
+        path = parent / 'toolpacks/gamecube-decomp/_impl/gamecube/tools/agent_comments.py'
+        if path.is_file():
+            spec = importlib.util.spec_from_file_location(name, path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            return module
+    raise RuntimeError('review_lint: agent_comments.py not found above ' + str(Path(__file__).resolve()))
+
+
 base = _baseline()
+agent_comments = _agent_comments()
 clean, partial, VENDOR_PATHS = base.clean, base.partial, base.VENDOR_PATHS
 GAME_SOURCES = ['src/*.cpp', 'src/*.c']
 SYMBOLS_PATH = 'config/GMSJ01/symbols.txt'
@@ -56,8 +81,6 @@ NON_STATEMENT = re.compile(r'^\s*(?:static\b|virtual\b|public:|private:|protecte
 
 INTRINSICS = {'__fabsf': 'fabsf', '__fabs': 'fabs', '__frsqrte': 'sqrtf/sqrt (math.h inline)', '__fres': 'a plain division or sqrtf (math.h inline)', '__fsqrt': 'sqrt', '__fsqrts': 'sqrtf', '__fnabs': '-fabs', '__abs': 'abs', '__labs': 'labs', '__fsel': 'a conditional expression', '__fmadd': 'ordinary arithmetic', '__fmadds': 'ordinary arithmetic', '__fmsub': 'ordinary arithmetic', '__fmsubs': 'ordinary arithmetic', '__fnmadd': 'ordinary arithmetic', '__fnmsub': 'ordinary arithmetic', '__frsp': 'a float cast'}
 INTRINSIC_CALL = re.compile(r'(?<![\w.>])(?P<name>__[a-z]\w*)\s*\(')
-ACCESSOR = re.compile(r'\bget(?P<field>Unk[0-9A-Fa-f]+)\s*\(\s*\)')
-FIELD = re.compile(r'(?<=[.>])(?P<field>unk[0-9A-Fa-f]+)\b(?!\s*\()')
 DUMMY_VEC = re.compile(r'^\s*static\s+void\s+dummy\s*\(\s*Vec\s*\*\s*\w*')
 DUMMY_VEC_COMMENT = re.compile(r'//\s*dummy:\s*emits\s+\S')
 
@@ -171,12 +194,12 @@ def check_local_class_owner(findings, repo, mode, file_diffs, merge_base):
                 this_unit = path[len('src/'):] if path.startswith('src/') else path
                 inside = {s: loc for s, loc in owned.items() if unit_for_address({this_unit: units.get(this_unit, [])}, loc[1])}
                 if inside:
-                    findings.append(full_finding(rule, path, number, text, f'class {name} has no header declaration; the map places its symbols in this unit ({", ".join(sorted(inside))}). Move the declaration to include/ and mark it fabricated.', severity='warning', class_name=name, symbols=sorted(inside), requires_human_review=True))
+                    findings.append(full_finding(rule, path, number, text, f'class {name} has no header declaration; the map places its symbols in this unit ({", ".join(sorted(inside))}). Move the declaration to include/ (the header for this unit), with no marker comment.', severity='warning', class_name=name, symbols=sorted(inside), requires_human_review=True))
                 elif owned:
                     owners = sorted({unit_for_address(units, loc[1]) or '<no unit>' for loc in owned.values()})
                     findings.append(full_finding(rule, path, number, text, f'class {name} belongs to {", ".join(owners)} per {SYMBOLS_PATH} ({", ".join(sorted(owned))}); do not define it in {path}.', class_name=name, owner_units=owners, symbols=sorted(owned)))
                 else:
-                    findings.append(full_finding(rule, path, number, text, f'class {name} has no header declaration and no map symbol; move it to include/ and mark it fabricated.', severity='warning', class_name=name, requires_human_review=True))
+                    findings.append(full_finding(rule, path, number, text, f'class {name} has no header declaration and no map symbol; move it to include/ with evidence for its shape (map, sibling decomp), with no marker comment.', severity='warning', class_name=name, requires_human_review=True))
     return findings
 
 
@@ -224,12 +247,12 @@ def call_site_count(full_text, name):
     return len(re.findall(r'(?<![\w.>:])' + re.escape(name) + r'\s*\(', cleaned)) - 1
 
 
+NO_MARKER_EXEMPTION = ' Remove it: in SMS a // fabricated, // fake or // TODO comment does not make scaffolding acceptable. Recognize the real inline from headers, the map or a sibling decomp, or leave the function nonmatching with no comment.'
+
+
 def marker_finding(number, text, lines, message, above=2, **detail):
-    marked = has_marker(lines, number, above)
-    found = partial(number, text, message + (' Marked as fabricated/TODO: keep the marker and record the evidence.' if marked else ' Add a // fabricated or // TODO comment on the line or within two lines above, and record why.'), marker=marked, **detail)
-    if marked:
-        found['severity'] = 'warning'
-    return found
+    """A fabricated-scaffolding finding; an adjacent marker comment is recorded, never an exemption."""
+    return partial(number, text, message + NO_MARKER_EXEMPTION, marker=has_marker(lines, number, above), **detail)
 
 
 def check_fabricated_marker(hunk):
@@ -248,17 +271,74 @@ def check_fabricated_marker(hunk):
             elif pragma['name'] == 'dont_inline' and pragma['arg'] == 'off':
                 continue
             else:
-                findings.append(marker_finding(number, text, lines, f'#pragma {pragma["name"]} is a temporary fakematch under the upstream marker rule.', pragma=pragma['name']))
+                findings.append(marker_finding(number, text, lines, f'#pragma {pragma["name"]} steers inlining to force codegen or the frame; it is banned in SMS autonomous output.', pragma=pragma['name']))
             continue
         name = static_inline_name(lines, number) if STATIC_INLINE.match(text) else None
         if not name:
             continue
         if isinstance(full, str):
             if call_site_count(full, name) == 1:
-                findings.append(marker_finding(number, text, lines, f'static inline {name} has a single call site; a fabricated helper needs the upstream marker.', helper=name, call_sites=1))
+                findings.append(marker_finding(number, text, lines, f'static inline {name} has a single call site: a fabricated helper.', helper=name, call_sites=1))
         else:
             _PENDING_INLINE.setdefault(path, []).append((number, text, name, dict(lines)))
+    findings.extend(marker_blind_global_findings(hunk))
     return findings
+
+
+# --- marker-blind rerun of marker-aware global rules -----------------------
+# Global rules downgrade (codegen_pragma, novel_pragma) or skip
+# (single_use_wrapper, the order_* helper case of discarded_expression) a
+# finding when a TODO/fabricated/fake marker sits nearby. SMS ignores markers:
+# the global checks re-run on a copy of the hunk with marker comments removed,
+# and apply_sms_policy_to_global_findings keeps the marker-blind result.
+MARKER_AWARE_GLOBAL_RULES = ('codegen_pragma', 'novel_pragma', 'single_use_wrapper', 'discarded_expression')
+MARKER_TEXT = re.compile(agent_comments.AGENT_COMMENT_RE.pattern + r'|\bfake\b|@todo', re.IGNORECASE)
+BLOCK_COMMENT = re.compile(r'/\*.*?\*/')
+LINE_COMMENT = re.compile(r'//.*$')
+
+
+def has_marker_comment(line):
+    return any(MARKER_TEXT.search(text) for text in agent_comments.comment_texts(line)) or bool(re.match(r'^\s*\*', line) and MARKER_TEXT.search(line))
+
+
+def strip_marker_comments(line):
+    """Drop comments that carry a marker; code and other comments stay."""
+    line = BLOCK_COMMENT.sub(lambda m: '' if MARKER_TEXT.search(m.group()) else m.group(), line)
+    tail = LINE_COMMENT.search(line)
+    if tail and MARKER_TEXT.search(tail.group()):
+        line = line[:tail.start()].rstrip()
+    if re.match(r'^\s*\*', line) and MARKER_TEXT.search(line):
+        return ''
+    return line
+
+
+def marker_blind_global_findings(hunk):
+    qa = sys.modules.get('_qa_rules')
+    texts = [text for _, text in hunk.get('added', [])] + [text for _, text, _ in hunk.get('post_lines') or []]
+    if qa is None or not any(has_marker_comment(text) for text in texts):
+        return []
+    full = hunk.get('post_file_text')
+    stripped = {**hunk,
+                'added': [(n, strip_marker_comments(t)) for n, t in hunk.get('added', [])],
+                'post_lines': [(n, strip_marker_comments(t), a) for n, t, a in hunk.get('post_lines') or []],
+                'post_file_text': '\n'.join(strip_marker_comments(t) for t in full.split('\n')) if isinstance(full, str) else full}
+    original = dict(hunk.get('added', []))
+    original.update({n: t for n, t, _ in hunk.get('post_lines') or []})
+    found = []
+    for rule in getattr(qa, 'RULES', []):
+        if rule['rule_id'] not in MARKER_AWARE_GLOBAL_RULES or rule.get('check') is None:
+            continue
+        if not qa.path_matches(hunk.get('file'), rule.get('applies_to') or qa.DEFAULT_APPLIES_TO) or qa.path_excluded(hunk.get('file'), rule.get('excludes') or []):
+            continue
+        for item in rule['check'](stripped):
+            item = dict(item)
+            item.update({'rule_id': rule['rule_id'], 'standard_id': item.get('standard_id', rule.get('standard_id')),
+                         'severity': item.get('severity', rule['severity']), 'surfaces': rule.get('surfaces'),
+                         'detail': {**(item.get('detail') or {}), 'marker_blind': True}})
+            if item['line'] in original:
+                item['excerpt'] = original[item['line']].strip()
+            found.append(item)
+    return found
 
 
 def normalized_statements(lines):
@@ -334,7 +414,7 @@ def check_fabricated_marker_post(findings, repo, mode, file_diffs, merge_base):
             if post_text is None:
                 post_text = base.read_post_file(repo, path) or ''
             if post_text and call_site_count(post_text, name) == 1:
-                found = marker_finding(number, text, lines, f'static inline {name} has a single call site; a fabricated helper needs the upstream marker.', helper=name, call_sites=1, post_text_source='repo_fallback')
+                found = marker_finding(number, text, lines, f'static inline {name} has a single call site: a fabricated helper.', helper=name, call_sites=1, post_text_source='repo_fallback')
                 findings.append(full_finding(rule, path, number, text, found['message'], severity=found.get('severity'), **found['detail']))
         for hunk in record['hunks']:
             if len(hunk['added']) < MIN_DUPLICATE_STATEMENTS:
@@ -345,7 +425,7 @@ def check_fabricated_marker_post(findings, repo, mode, file_diffs, merge_base):
                 break
             lines = {n: t for n, t, _ in hunk.get('post_lines', [])}
             for first_line, run in duplicated_body_blocks(hunk, windows):
-                found = marker_finding(first_line, lines.get(first_line, ''), lines, f'Added block of {MIN_DUPLICATE_STATEMENTS}+ statements duplicates a body from include/; recognize the inline instead of expanding it by hand.', above=4, kind='duplicated_inline_body')
+                found = marker_finding(first_line, lines.get(first_line, ''), lines, f'Added block of {MIN_DUPLICATE_STATEMENTS}+ statements duplicates a body from include/: call the inline instead of expanding it by hand.', above=4, kind='duplicated_inline_body')
                 findings.append(full_finding(rule, path, first_line, lines.get(first_line, ''), found['message'], severity=found.get('severity'), **found['detail']))
     _PENDING_INLINE.clear()
     return findings
@@ -361,19 +441,11 @@ def check_intrinsic_bypass(hunk):
     findings = []
     if not is_game_source(hunk.get('file')):
         return findings
-    removed = [normalized(text) for text in hunk.get('removed', [])]
     for number, text in hunk.get('added', []):
         cleaned = clean(text)
         for match in INTRINSIC_CALL.finditer(cleaned):
             if match['name'] in INTRINSICS:
                 findings.append(partial(number, text, f'{match["name"]} bypasses the public MSL wrapper ({INTRINSICS[match["name"]]}); use the wrapper unless the binary proves the intrinsic call.', intrinsic=match['name'], wrapper=INTRINSICS[match['name']], requires_human_review=True))
-        added_norm = normalized(text)
-        to_field = ACCESSOR.sub(lambda m: m['field'][0].lower() + m['field'][1:], added_norm)
-        to_accessor = FIELD.sub(lambda m: 'get' + m['field'][0].upper() + m['field'][1:] + '()', added_norm)
-        if ACCESSOR.search(added_norm) and to_field != added_norm and to_field in removed:
-            findings.append(partial(number, text, 'Field access flipped to an accessor with no other change; accessor/field toggles need binary evidence, not frame-size gains.', flip='field_to_accessor', requires_human_review=True))
-        elif FIELD.search(added_norm) and to_accessor != added_norm and to_accessor in removed:
-            findings.append(partial(number, text, 'Accessor flipped to direct field access with no other change; accessor/field toggles need binary evidence, not frame-size gains.', flip='accessor_to_field', requires_human_review=True))
     return findings
 
 
@@ -393,11 +465,241 @@ def check_dummy_vec_helper(hunk):
     return findings
 
 
+# --- sms_agent_comment ------------------------------------------------------
+# Vocabulary shared with `stack_check.py strip-comments` via agent_comments.py.
+
+def comment_texts_by_line(rows):
+    """{number: [comment text]} for rows [(number, text, added)], following /* */ across lines."""
+    result, in_block, previous = {}, False, None
+    for number, text, _ in rows:
+        if previous is not None and number != previous + 1:
+            in_block = False
+        previous = number
+        texts, line = [], text
+        if in_block:
+            end = line.find('*/')
+            if end < 0:
+                texts.append(line)
+                line = ''
+            else:
+                texts.append(line[:end])
+                line = line[end + 2:]
+                in_block = False
+        texts.extend(agent_comments.comment_texts(line))
+        opener = line.rfind('/*')
+        if opener >= 0 and line.find('*/', opener) < 0 and '//' not in line[:opener]:
+            in_block = True
+            texts.append(line[opener + 2:])
+        result[number] = texts
+    return result
+
+
+def comment_key(text):
+    return re.sub(r'\s+', ' ', text).strip().lower()
+
+
+def check_agent_comment(hunk):
+    path = hunk.get('file') or ''
+    if any(fnmatch(path, p) for p in VENDOR_PATHS):
+        return []
+    added = hunk.get('added', [])
+    rows = hunk.get('post_lines') or [(number, text, True) for number, text in added]
+    texts = comment_texts_by_line(rows)
+    # A comment the hunk only carries over (the removed side already had it)
+    # is upstream text, not an agent note.
+    carried = {comment_key(t) for line in hunk.get('removed', []) for t in agent_comments.comment_texts(line)}
+    findings = []
+    for number, text in added:
+        hits = [t for t in texts.get(number, agent_comments.comment_texts(text)) if agent_comments.is_agent_comment_text(t) and comment_key(t) not in carried]
+        if hits:
+            findings.append(partial(number, text, f'Agent-written comment in SMS source ("{hits[0].strip()[:80]}"). SMS maintainers reject TODO, nonmatching, fakematch, fabricated, frame or stack notes and objdiff notes: they are useless and go out of date. Delete the comment; a nonmatching function stays nonmatching without a note.', comment=hits[0].strip()[:120]))
+    return findings
+
+
+# --- sms_accessor_evidence --------------------------------------------------
+# Generalizes the old getUnkNN()/unkNN flip: any direct member access swapped
+# for a no-argument accessor (or back), any call routed through an extra
+# inline (`a()` -> `b()->a()`, or back), and any new inline body in a game
+# header. Text cannot tell a real accessor from a fabricated one, so these go
+# to llm_review asking for evidence that the accessor exists in the original.
+TOKEN = re.compile(r'[A-Za-z_]\w*|\d[\w.]*|->|::|<<=|>>=|<=|>=|==|!=|&&|\|\||\+\+|--|[-+*/%&|^]=|\S')
+MEMBER_CHAIN = re.compile(r'(?:this->)?[A-Za-z_]\w*(?:\[[^\[\]]*\])?')
+ACCESSOR_CALL = re.compile(r'(?:this->)?(?P<name>[A-Za-z_]\w*)\([^()]*\)')
+MERGE_GAP = 3  # equal tokens allowed between two edits that form one swap (`m[i]` -> `get(i)`)
+INLINE_HOP = re.compile(r'(?P<lead>->|\.)?(?P<name>[A-Za-z_]\w*)\([^()]*\)(?P<trail>->|\.)?')
+HEADER_INLINE = re.compile(r'^\s*(?:(?:static|inline|virtual|explicit|friend)\s+)*(?:[A-Za-z_][\w:<>,*&\s]*?[\s*&])?(?P<name>~?[A-Za-z_]\w*)\s*\([^;{}]*\)\s*(?:const\s*)?(?P<brace>\{)?\s*(?:.*\})?\s*$')
+NOT_FUNCTIONS = {'if', 'for', 'while', 'switch', 'return', 'sizeof', 'do', 'else', 'case', 'catch'}
+EVIDENCE_REQUEST = ' Keep it only with evidence that this accessor or inline exists in the original source: an upstream header, the symbol map (mario.MAP / symbols.txt) or a sibling decomp that uses it at this call site. A frame-size, stack-layout or match-percent gain is not evidence; without evidence revert to the upstream expression.'
+
+
+def member_like(name, tokens, index, call_name):
+    stem = name[1:] if re.match(r'm[A-Z_]', name) else name.lstrip('_')
+    return (index > 0 and tokens[index - 1] in ('->', '.')) or bool(re.match(r'(?:m[A-Z_]|unk|_)', name)) or call_name.lower() == 'get' + stem.lower()
+
+
+def field_name(text):
+    return re.match(r'(?:this->)?([A-Za-z_]\w*)', text).group(1)
+
+
+def statements(rows):
+    """[(first line, tokens)] joining lines until a statement ends (clang-format reflows)."""
+    result, tokens, start = [], [], None
+    for number, text in rows:
+        cleaned = clean(text).strip()
+        line_tokens = TOKEN.findall(cleaned)
+        if line_tokens and start is None:
+            start = number
+        tokens.extend(line_tokens)
+        if tokens and (not cleaned or cleaned.startswith('#') or cleaned[-1] in ';{}:'):
+            result.append((start, tokens))
+            tokens, start = [], None
+    if tokens:
+        result.append((start, tokens))
+    return result
+
+
+def accessor_swap(old, new):
+    """(kind, before, after) when new differs from old only by an accessor or inline hop."""
+    opcodes = difflib.SequenceMatcher(a=old, b=new, autojunk=False).get_opcodes()
+    edits = [index for index, op in enumerate(opcodes) if op[0] != 'equal']
+    if not edits:
+        return None
+    first, last = edits[0], edits[-1]
+    if any(opcodes[index][0] == 'equal' and opcodes[index][2] - opcodes[index][1] > MERGE_GAP for index in range(first, last)):
+        return None
+    tag, i1, j1 = opcodes[first][0], opcodes[first][1], opcodes[first][3]
+    i2, j2 = opcodes[last][2], opcodes[last][4]
+    if first != last:
+        tag = 'replace'
+        while i2 > i1 and j2 > j1 and old[i2 - 1] == new[j2 - 1]:
+            i2, j2 = i2 - 1, j2 - 1
+        while i1 < i2 and j1 < j2 and old[i1] == new[j1]:
+            i1, j1 = i1 + 1, j1 + 1
+    before, after = ''.join(old[i1:i2]), ''.join(new[j1:j2])
+    if tag == 'replace':
+        call = ACCESSOR_CALL.fullmatch(after)
+        field = MEMBER_CHAIN.fullmatch(before)
+        if call and field and member_like(field_name(before), old, i1, call['name']):
+            return 'field_to_accessor', before, after
+        call = ACCESSOR_CALL.fullmatch(before)
+        field = MEMBER_CHAIN.fullmatch(after)
+        if call and field and member_like(field_name(after), new, j1, call['name']):
+            return 'accessor_to_field', before, after
+        return None
+    hop = INLINE_HOP.fullmatch(after if tag == 'insert' else before)
+    if hop and bool(hop['lead']) != bool(hop['trail']):
+        return ('inline_hop_added' if tag == 'insert' else 'inline_hop_removed'), before, after
+    return None
+
+
+def new_header_inlines(hunk):
+    path = hunk.get('file') or ''
+    if not fnmatch(path, 'include/**'):
+        return []
+    removed = clean('\n'.join(hunk.get('removed', [])))
+    added = hunk.get('added', [])
+    following = {number: text for number, text in added}
+    following.update({number: text for number, text, _ in hunk.get('post_lines') or []})
+    findings = []
+    for number, text in added:
+        cleaned = clean(text)
+        match = HEADER_INLINE.match(cleaned)
+        if not match or cleaned.lstrip().startswith('#') or match['name'].lstrip('~') in NOT_FUNCTIONS:
+            continue
+        if not match['brace'] and not clean(following.get(number + 1, '')).strip().startswith('{'):
+            continue
+        if re.search(r'\b' + re.escape(match['name']) + r'\s*\(', removed):
+            continue  # an existing inline was edited, not introduced
+        findings.append(partial(number, text, f'New inline body {match["name"]}() in a game header.' + EVIDENCE_REQUEST, flip='new_header_inline', name=match['name'], requires_human_review=True))
+    return findings
+
+
+def check_accessor_evidence(hunk):
+    path = hunk.get('file') or ''
+    if any(fnmatch(path, p) for p in VENDOR_PATHS):
+        return []
+    removed = [tokens for _, tokens in statements(list(enumerate(hunk.get('removed', []), 1)))]
+    added_text = dict(hunk.get('added', []))
+    findings = []
+    for number, new in statements(hunk.get('added', [])):
+        text = added_text.get(number, '')
+        if any(new == old for old in removed):
+            continue
+        for old in removed:
+            swap = accessor_swap(old, new)
+            if swap:
+                kind, before, after = swap
+                label = {'field_to_accessor': f'Member access `{before}` replaced by accessor `{after}`', 'accessor_to_field': f'Accessor `{before}` replaced by member access `{after}`', 'inline_hop_added': f'Call routed through an extra inline `{after.strip("->.")}`', 'inline_hop_removed': f'Inline hop `{before.strip("->.")}` removed from a call'}[kind]
+                findings.append(partial(number, text, f'{label} with no other change to the statement.' + EVIDENCE_REQUEST, flip=kind, before=before, after=after, requires_human_review=True))
+                break
+    return findings + new_header_inlines(hunk)
+
+
+# --- global findings under the SMS policy -------------------------------------
+# Global messages that recommend `// fabricated`/TODO markers or retaining a
+# tactic on objdiff evidence are rewritten for SMS workers. The two llm_review
+# tactics (layout_cue_local, cancelling_arithmetic) lose llm_review in SMS: the
+# adjudicator accepts "stack layout" as a reason, which SMS bans, so they
+# become info pointing at the build-both-ways check.
+SMS_GLOBAL_POLICY = {
+    'codegen_pragma': 'SMS bans codegen pragmas in autonomous output, marked or not; remove it and find the real source shape, or leave the function nonmatching with no comment.',
+    'novel_pragma': 'SMS bans new pragmas in autonomous output, marked or not; remove it and leave the function nonmatching with no comment if nothing else matches.',
+    'single_use_wrapper': 'SMS rejects fabricated single-use helpers, marked or not; fold it back unless an upstream header, the map or a sibling decomp shows the inline exists.',
+    'storage_widening': f'In SMS a declaration may change only when it changes non-stack codegen: build both ways with `{base.STACK_CHECK_HUNKS}`; if only the frame size and r1 offsets move, revert it.',
+    'layout_cue_local': f'In SMS an extra local is allowed only when it changes non-stack codegen: build both ways with `{base.STACK_CHECK_HUNKS}`; if only the frame size and r1 offsets move, remove it. Stack layout is not a reason to keep it.',
+    'cancelling_arithmetic': f'In SMS this is allowed only when it changes non-stack codegen: build both ways with `{base.STACK_CHECK_HUNKS}`; if only the frame size and r1 offsets move, remove it. Stack layout is not a reason to keep it.',
+}
+SMS_INFO_ONLY = {'layout_cue_local', 'cancelling_arithmetic'}
+
+
+def first_sentence(message):
+    match = re.match(r'(.+?[.!?])(?:\s|$)', message or '')
+    return match.group(1) if match else (message or '')
+
+
+def apply_sms_policy_to_global_findings(findings, repo, mode, file_diffs, merge_base):
+    """Post-scan: marker-blind results win, global advice is rewritten for SMS."""
+    def key(found):
+        return (found.get('rule_id'), found.get('file'), found.get('line'))
+
+    def is_blind(found):
+        return bool((found.get('detail') or {}).get('marker_blind'))
+
+    # One finding per (rule, file, line) where a marker-blind rerun ran: the
+    # unchanged global finding when it already has the marker-blind severity
+    # (no marker was involved), else the marker-blind finding.
+    groups = {}
+    for found in findings:
+        groups.setdefault(key(found), []).append(found)
+    keep = set()
+    for group in groups.values():
+        blind = [f for f in group if is_blind(f)]
+        if not blind:
+            keep.update(id(f) for f in group)
+            continue
+        same = [f for f in group if not is_blind(f) and f.get('severity') == blind[0].get('severity')]
+        keep.add(id(same[0] if same else blind[0]))
+    result = []
+    for found in findings:
+        if id(found) not in keep:
+            continue
+        policy = SMS_GLOBAL_POLICY.get(found.get('rule_id'))
+        if policy and is_game_source(found.get('file')):
+            found = {**found, 'message': first_sentence(found.get('message')) + ' ' + policy}
+            if found['rule_id'] in SMS_INFO_ONLY:
+                detail = {k: v for k, v in (found.get('detail') or {}).items() if k != 'llm_review'}
+                found = {**found, 'severity': 'info', 'detail': {**detail, 'verify_with': base.STACK_CHECK_HUNKS}}
+        result.append(found)
+    return base.suppress_global_overlaps(result, repo, mode, file_diffs, merge_base)
+
+
 RULES = [
     {'rule_id': 'sms_local_class_needs_owner', 'standard_id': 'global_standard:sms-authored-evidence', 'severity': 'error', 'applies_to': GAME_SOURCES, 'check': base.no_hunk_check, 'message': 'File-scope classes in a .cpp need a header owner.'},
     {'rule_id': 'sms_pch_string_convention', 'standard_id': 'global_standard:sms-pch-string-convention', 'severity': 'error', 'applies_to': GAME_SOURCES, 'check': check_pch_strings, 'message': 'Include the PCH dummy-string headers instead of copying them.'},
-    {'rule_id': 'sms_fabricated_marker', 'standard_id': 'global_standard:sms-fabricated-marker', 'severity': 'error', 'applies_to': GAME_SOURCES, 'check': check_fabricated_marker, 'message': 'Fabricated pragmas, helpers and expanded inlines need the upstream marker.'},
-    {'rule_id': 'sms_intrinsic_bypass', 'standard_id': 'global_standard:sms-authored-evidence', 'severity': 'warning', 'applies_to': GAME_SOURCES, 'check': check_intrinsic_bypass, 'message': 'MSL intrinsic bypasses and accessor/field flips need binary evidence.'},
+    {'rule_id': 'sms_fabricated_marker', 'standard_id': 'global_standard:sms-fabricated-marker', 'severity': 'error', 'applies_to': GAME_SOURCES, 'check': check_fabricated_marker, 'message': 'Fabricated pragmas, helpers and expanded inlines are rejected; marker comments do not exempt them.'},
+    {'rule_id': 'sms_intrinsic_bypass', 'standard_id': 'global_standard:sms-authored-evidence', 'severity': 'warning', 'applies_to': GAME_SOURCES, 'check': check_intrinsic_bypass, 'message': 'MSL intrinsic bypasses need binary evidence.'},
     {'rule_id': 'sms_dummy_vec_helper', 'standard_id': 'global_standard:sms-pch-string-convention', 'severity': 'warning', 'applies_to': GAME_SOURCES, 'check': check_dummy_vec_helper, 'message': 'dummy(Vec*) needs its emitted-symbol comment.'},
+    {'rule_id': 'sms_agent_comment', 'standard_id': 'global_standard:sms-no-agent-comments', 'severity': 'error', 'applies_to': ['src/**', 'include/**'], 'check': check_agent_comment, 'message': 'Agent-written comments (TODO, nonmatching, fakematch, frame notes) are rejected in SMS.'},
+    {'rule_id': 'sms_accessor_evidence', 'standard_id': 'global_standard:sms-accessor-evidence', 'severity': 'warning', 'llm_review': True, 'applies_to': ['src/*.cpp', 'src/*.c', 'include/**'], 'check': check_accessor_evidence, 'message': 'Accessor and inline swaps need evidence that the accessor exists in the original.'},
 ]
-POST_SCAN_HOOKS = [check_local_class_owner, check_fabricated_marker_post]
+POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post]

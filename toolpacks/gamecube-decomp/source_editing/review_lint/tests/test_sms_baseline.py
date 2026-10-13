@@ -52,10 +52,10 @@ class SmsBaselineTest(unittest.TestCase):
 
     def test_global_rules_compose_with_sms_rules(self):
         code, payload = self.scan('src/Enemy/example.cpp','#pragma dont_inline on // TODO: temporary matching scope')
-        self.assertEqual(code, 2)
-        # sms_fabricated_marker owns pragma marking; the global codegen_pragma finding on the same line is suppressed.
-        self.assertEqual([r['rule_id'] for r in payload['findings']], ['sms_fabricated_marker', 'sms_symbol_map_validation'])
-        self.assertEqual([r['severity'] for r in payload['findings'] if r['rule_id'] == 'sms_fabricated_marker'], ['warning'])
+        self.assertEqual(code, 1)
+        # sms_fabricated_marker owns the pragma; the global codegen_pragma finding on the same line is suppressed.
+        # The TODO marker no longer downgrades it, and is itself an agent comment.
+        self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_agent_comment', 'error'), ('sms_fabricated_marker', 'error'), ('sms_symbol_map_validation', 'info')])
         code, payload = self.scan('src/Enemy/example.cpp','    float f31 = value;')
         self.assertEqual(code, 0)
         self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_symbol_map_validation', 'info')])
@@ -74,17 +74,17 @@ class SmsBaselineTest(unittest.TestCase):
         self.assertIn('symbol_validation gate', payload['findings'][0]['message'])
         self.assertIn('check-changed-symbol-order.py --baseline-dir', payload['findings'][0]['detail']['command'])
 
-    def test_marked_codegen_pragma_is_warning_on_worker_surface(self):
+    def test_marked_codegen_pragma_is_error_on_worker_surface(self):
         code, payload = self.scan('src/Enemy/example.cpp', '// TODO: fakematch\n#pragma dont_inline on', surface='worker')
-        self.assertEqual(code, 2, payload)
-        self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_fabricated_marker', 'warning')])
+        self.assertEqual(code, 1, payload)
+        self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_agent_comment', 'error'), ('sms_fabricated_marker', 'error')])
         code, payload = self.scan('src/Enemy/example.cpp', '#pragma dont_inline on', surface='worker')
         self.assertEqual(code, 1)
         self.assertEqual([(r['rule_id'], r['severity']) for r in payload['findings']], [('sms_fabricated_marker', 'error')])
         # The closing pragma is accepted by the SMS rule, so the global finding on it is dropped too.
         code, payload = self.scan('src/Enemy/example.cpp', '// TODO: fakematch\n#pragma dont_inline on\nvoid f() { }\n#pragma dont_inline off', surface='worker')
-        self.assertEqual(code, 2, payload)
-        self.assertEqual([(r['rule_id'], r['line'], r['severity']) for r in payload['findings']], [('sms_fabricated_marker', 2, 'warning')])
+        self.assertEqual(code, 1, payload)
+        self.assertEqual([(r['rule_id'], r['line'], r['severity']) for r in payload['findings']], [('sms_agent_comment', 1, 'error'), ('sms_fabricated_marker', 2, 'error')])
 
     def test_pch_guard_predefine_reports_once_under_sms(self):
         code, payload = self.scan('src/Enemy/example.cpp', '#define SYSTEM_DUMMY_STRINGS_HPP\n#include <M3DUtil/InfectiousStrings.hpp>', surface='worker')

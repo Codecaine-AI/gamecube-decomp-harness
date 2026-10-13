@@ -2,7 +2,10 @@
   "family": "sms_fidelity",
   "standards": [
     "global_standard:sms-pch-string-convention",
-    "global_standard:sms-fabricated-marker"
+    "global_standard:sms-fabricated-marker",
+    "global_standard:sms-no-agent-comments",
+    "global_standard:sms-accessor-evidence",
+    "global_standard:avoid-pragmas-register-asm"
   ],
   "rules": [
     {
@@ -33,7 +36,7 @@
         "src/*.cpp",
         "src/*.c"
       ],
-      "message": "Fabricated pragmas, helpers and expanded inlines need the upstream marker."
+      "message": "Fabricated pragmas, helpers and expanded inlines are rejected; marker comments do not exempt them."
     },
     {
       "rule_id": "sms_intrinsic_bypass",
@@ -43,7 +46,7 @@
         "src/*.cpp",
         "src/*.c"
       ],
-      "message": "MSL intrinsic bypasses and accessor/field flips need binary evidence."
+      "message": "MSL intrinsic bypasses need binary evidence."
     },
     {
       "rule_id": "sms_dummy_vec_helper",
@@ -54,6 +57,28 @@
         "src/*.c"
       ],
       "message": "dummy(Vec*) needs its emitted-symbol comment."
+    },
+    {
+      "rule_id": "sms_agent_comment",
+      "standard_id": "global_standard:sms-no-agent-comments",
+      "severity": "error",
+      "applies_to": [
+        "src/**",
+        "include/**"
+      ],
+      "message": "Agent-written comments (TODO, nonmatching, fakematch, frame notes) are rejected in SMS."
+    },
+    {
+      "rule_id": "sms_accessor_evidence",
+      "standard_id": "global_standard:sms-accessor-evidence",
+      "severity": "warning",
+      "llm_review": true,
+      "applies_to": [
+        "src/*.cpp",
+        "src/*.c",
+        "include/**"
+      ],
+      "message": "Accessor and inline swaps need evidence that the accessor exists in the original."
     }
   ]
 }
