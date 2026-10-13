@@ -14,6 +14,16 @@ import type { FormState } from "@/lib/format";
 import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
 import type { AppRoute } from "@/routing";
 
+// The server renders the worker sample for the selected game's stack frame policy.
+type AgentsPreviewPayload = KernelAgentsPayload & {
+  stackFramePolicy?: "match_frame" | "stop_at_frame";
+};
+
+const STACK_FRAME_POLICY_LABELS = {
+  match_frame: "Stack frame: match exactly",
+  stop_at_frame: "Stack frame: match up to frame size",
+} as const;
+
 function previewTargetFromLocation(): string {
   try {
     return new URLSearchParams(window.location.search).get("target") ?? "";
@@ -44,7 +54,7 @@ export function AgentsPage({
   route: Extract<AppRoute, { kind: "workspace" }>;
   setForm: (updates: Partial<FormState>) => void;
 }) {
-  const [payload, setPayload] = useState<KernelAgentsPayload | null>(null);
+  const [payload, setPayload] = useState<AgentsPreviewPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
@@ -125,6 +135,15 @@ export function AgentsPage({
         <header className="shrink-0 border-b border-border px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="truncate font-display text-lg font-bold leading-tight">Agents</h1>
+            <span className="flex-1" />
+            {payload?.stackFramePolicy ? (
+              <span
+                className="shrink-0 rounded-[2px] border border-border px-2 py-1 text-xs text-muted-foreground"
+                title="Worker prompt variant for this game's matching.stackFramePolicy"
+              >
+                {STACK_FRAME_POLICY_LABELS[payload.stackFramePolicy]}
+              </span>
+            ) : null}
             {loading ? (
               <span className="shrink-0 rounded-[2px] border border-border px-2 py-1 text-xs text-muted-foreground">
                 Loading

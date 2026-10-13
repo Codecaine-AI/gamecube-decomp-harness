@@ -95,6 +95,20 @@ import checkdiff  # noqa: E402
 import mwcc_dump  # noqa: E402
 from ninja_compile import REPORT_PATH  # noqa: E402
 from project_layout import get_project_layout  # noqa: E402
+try:
+    from game_policy import stops_at_frame  # noqa: E402
+except ImportError:  # sandbox image baked before game_policy.py
+    def stops_at_frame(env: Optional[dict[str, str]] = None) -> bool:
+        return (os.environ if env is None else env).get("ORCH_STACK_FRAME_POLICY", "").strip() == "stop_at_frame"
+
+# Printed instead of stack-fix suggestions when the game's stack frame policy is
+# `stop_at_frame` (SMS): a frame-only difference is done, never padded.
+STOP_AT_FRAME_NOTE = (
+    "Stack frame policy (stop_at_frame): this game matches up to stack frame size.",
+    "A difference only in frame size and the r1 stack offsets that move with it is done under this policy; leave it.",
+    "Do not pad, add stack-only locals, reorder declarations, swap operands, or choose inlines to change the frame.",
+    "Fix register, instruction, branch, relocation, or data differences instead.",
+)
 
 
 ROOT = checkdiff.ROOT
@@ -1823,6 +1837,31 @@ def padding_suggestion(
     return None
 
 
+def stack_fix_suggestions(
+    frame_target: Optional[int],
+    frame_current: Optional[int],
+    source: Path,
+    func: str,
+    movements: list[LocalMovement],
+    source_locals: list[SourceLocal],
+) -> list[str]:
+    """Padding, declaration-swap, and hoist suggestions for `match_frame` games."""
+    suggestions = []
+    pad_suggestion = padding_suggestion(frame_target, frame_current, source_locals)
+    reorder = reorder_suggestion(movements, source_locals)
+    if pad_suggestion is not None:
+        suggestions.append(pad_suggestion)
+    if reorder is not None:
+        suggestions.append(reorder)
+    for suggestion in inner_scope_hoist_suggestions(movements):
+        if suggestion not in suggestions:
+            suggestions.append(suggestion)
+    for suggestion in inline_helper_hoist_suggestions(source, func, movements):
+        if suggestion not in suggestions:
+            suggestions.append(suggestion)
+    return suggestions
+
+
 def movement_text(movement: LocalMovement) -> str:
     direction = "higher" if movement.delta > 0 else "lower"
     return (
@@ -1835,8 +1874,12 @@ def print_compact_stack_diagnosis(
     movements: list[LocalMovement],
     suggestions: list[str],
     source_locals: list[SourceLocal],
+    stop_at_frame: bool = False,
 ) -> None:
-    if suggestions:
+    if stop_at_frame:
+        for line in STOP_AT_FRAME_NOTE:
+            print(line)
+    elif suggestions:
         print("Suggested stack fixes:")
         for suggestion in suggestions:
             print(f"  {suggestion}")
@@ -1943,6 +1986,7 @@ def print_guidance(
     mismatches: list[StackMismatch],
     deltas: Counter[int],
     mwcc_tags: list[str],
+    stop_at_frame: bool = False,
 ) -> None:
     print("Guidance:")
     stack_count = summary.counts.get("stack", 0)
@@ -1950,6 +1994,13 @@ def print_guidance(
 
     if not mismatches and not stack_count and not frame_count:
         print("  checkdiff did not report stack/frame mismatches; stack mode is probably not the next useful mode.")
+        return
+
+    if stop_at_frame:
+        for line in STOP_AT_FRAME_NOTE:
+            print(f"  {line}")
+        if "conversion" in mwcc_tags:
+            print("  mwcc_debug found an int/float conversion stack temp; check nearby casts and field types.")
         return
 
     if deltas:
@@ -2036,21 +2087,12 @@ def diagnose_stack(args: argparse.Namespace) -> int:
             matched = collect_current_slot_matches(mismatches, stack_analysis)
             mwcc_tags = mwcc_stack_tags(stack_analysis)
     movements = named_local_movements(matched, source_locals)
-    suggestions = []
-    pad_suggestion = padding_suggestion(frame_target, frame_current, source_locals)
-    reorder = reorder_suggestion(movements, source_locals)
-    if pad_suggestion is not None:
-        suggestions.append(pad_suggestion)
-    if reorder is not None:
-        suggestions.append(reorder)
-    for suggestion in inner_scope_hoist_suggestions(movements):
-        if suggestion not in suggestions:
-            suggestions.append(suggestion)
-    for suggestion in inline_helper_hoist_suggestions(source, func, movements):
-        if suggestion not in suggestions:
-            suggestions.append(suggestion)
+    stop_at_frame = stops_at_frame()
+    suggestions = [] if stop_at_frame else stack_fix_suggestions(
+        frame_target, frame_current, source, func, movements, source_locals
+    )
 
-    print_compact_stack_diagnosis(movements, suggestions, source_locals)
+    print_compact_stack_diagnosis(movements, suggestions, source_locals, stop_at_frame)
 
     if args.show_lines or args.show_mwcc:
         print()
@@ -2081,7 +2123,7 @@ def diagnose_stack(args: argparse.Namespace) -> int:
             print()
 
     if args.show_mwcc:
-        print_guidance(summary, frame_target, frame_current, mismatches, deltas, mwcc_tags)
+        print_guidance(summary, frame_target, frame_current, mismatches, deltas, mwcc_tags, stop_at_frame)
     return 0
 
 

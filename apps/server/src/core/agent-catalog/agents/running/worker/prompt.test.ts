@@ -749,6 +749,75 @@ describe("kept_advisories prompt contract", () => {
     expect(enforce).not.toContain("still block acceptance today");
   });
 
+  describe("stack frame policy", () => {
+    const repoRoot = resolve(import.meta.dir, "../../../../../../../..");
+    const games = {
+      melee: { gameId: "melee", descriptorPath: resolve(repoRoot, "games/melee/game.json") },
+      sms: { gameId: "sms", descriptorPath: resolve(repoRoot, "games/sms/game.json") },
+    };
+    const modes = ["off", "shadow", "enforce"] as const;
+
+    function policyPrompt(options: Partial<Parameters<typeof workerPrompt>[0]>) {
+      return workerPrompt({
+        packet: advisoryPacket,
+        repoRoot: "/repo",
+        stateDir: "/state",
+        initialBoardPath: "/state/board.json",
+        workerLogDir: "/state/workers",
+        targetSourceText: "void advisory_symbol(void) {}\n",
+        sourceNames: [],
+        ...options,
+      }).systemPrompt;
+    }
+
+    test("match_frame (Melee) renders today's prompt byte for byte in every advisory mode", () => {
+      for (const mode of modes) {
+        const today = advisoryPrompt("full", mode).systemPrompt;
+        expect(policyPrompt({ advisoryAdjudication: mode, stackFramePolicy: "match_frame" })).toBe(today);
+        expect(policyPrompt({ advisoryAdjudication: mode, game: games.melee })).toBe(today);
+        expect(today).not.toContain("stack_frame_policy");
+      }
+      expect(policyPrompt({ game: games.melee })).toBe(renderSystemPrompt());
+    });
+
+    test("stop_at_frame (SMS) matches up to stack frame size and bans frame-only edits", () => {
+      const sms = policyPrompt({ game: games.sms });
+      expect(policyPrompt({ stackFramePolicy: "stop_at_frame" })).toBe(sms);
+      const section = sms.match(/<stack_frame_policy>[\s\S]*?<\/stack_frame_policy>/)?.[0] ?? "";
+      expect(section).toContain("This game matches up to stack frame size.");
+      expect(section).toContain("only difference from the target is the stack frame is done. Stop and submit it.");
+      expect(section).toContain("no `PAD_STACK` or pad arrays");
+      expect(section).toContain("no locals whose only effect is stack space");
+      expect(section).toContain("no operand swaps");
+      expect(section).toContain("no declaration reorders or inline choices made to move the frame");
+      expect(section).toContain("Never use stack alignment tricks");
+      expect(section).toContain("no TODO, nonmatching, fakematch, frame or stack notes");
+      expect(section).toContain("an upstream header, the symbol map, or a sibling decomp");
+      expect(sms).toContain("to a 100% match, up to stack frame size.");
+      expect(sms).toContain("Stop only when the target is exact, its only remaining difference is the stack frame,");
+      for (const meleeOnly of [
+        "use `PAD_STACK` only when",
+        "before changing declaration order or aggregate ownership",
+        "Extract one semantic helper around the coupled work, then re-check frame size",
+        "`mwcc_debug_diagnose_stack` for a frame residual",
+      ]) {
+        expect(sms).not.toContain(meleeOnly);
+      }
+      expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+    });
+
+    test("stop_at_frame keeps advisory modes and section targets aligned", () => {
+      for (const mode of ["shadow", "enforce"] as const) {
+        const sms = policyPrompt({ advisoryAdjudication: mode, stackFramePolicy: "stop_at_frame" });
+        expect(sms).toContain("`kept_advisories`: array of `{ rule_id, file, line, justification }`");
+        expect(sms).toContain("A stack-frame difference never justifies a kept advisory.");
+        expect(sms).not.toContain("register or stack offset");
+      }
+      const sectionPacket = { target: { unit: "GALE01:advisory", symbol: ".sdata2", kind: "section" } };
+      expect(policyPrompt({ packet: sectionPacket, stackFramePolicy: "stop_at_frame" })).toBe(sectionPrompt());
+    });
+  });
+
   test("the note parse keeps kept_advisories beside the existing fields", () => {
     const note = {
       summary: "Kept two casts the binary needs.",

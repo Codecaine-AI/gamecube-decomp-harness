@@ -212,6 +212,39 @@ describe("toolpack runtime resolver", () => {
     }
   });
 
+  test("exports the game's stack frame policy to tool processes", () => {
+    const root = packageRoot();
+    const policy = (game: { gameId: string; descriptorPath: string }) =>
+      resolveRegisteredTool({ game, toolPlatform: "linux-x86_64" }, "mwcc_debug").env.ORCH_STACK_FRAME_POLICY;
+    expect(policy({ gameId: "melee", descriptorPath: resolve(root, "games/melee/game.json") })).toBe("match_frame");
+    expect(policy({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") })).toBe("stop_at_frame");
+    expect(resolveRegisteredTool({}, "mwcc_debug").env.ORCH_STACK_FRAME_POLICY).toBe("match_frame");
+
+    const gameDir = mkdtempSync(join(tmpdir(), "tool-stack-policy-"));
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "framed", matching: { stackFramePolicy: "stop_at_frame" } }));
+    expect(policy({ gameId: "framed", descriptorPath: join(gameDir, "game.json") })).toBe("stop_at_frame");
+  });
+
+  test("passes the stack frame policy into sandbox tool runs", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(
+      { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: JSON.stringify({ status: "ok" }), stderr: "" },
+    );
+    const root = packageRoot();
+    await runRegisteredToolApi(
+      {
+        ...apiContext(handle),
+        game: { gameId: "sms", repoRoot: "/opt/melee", descriptorPath: resolve(root, "games/sms/game.json") },
+      },
+      "checkdiff",
+      "run.py",
+      ["--json"],
+    );
+    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_STACK_FRAME_POLICY: "stop_at_frame" });
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_GAME_DIR");
+  });
+
   test("rejects unknown tools", () => {
     expect(() => resolveRegisteredTool({}, "missing_tool")).toThrow("Unknown tool id missing_tool");
   });

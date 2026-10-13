@@ -16,6 +16,7 @@ import { runSandboxTypeLayoutIndexFallback } from "./wrappers/type-layout-fetch.
 import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
 import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-exec.js";
 import { toolTimeoutScale } from "./timeout-scale.js";
+import { gameStackFramePolicy, STACK_FRAME_POLICY_ENV } from "./stack-frame-policy.js";
 
 export { SANDBOX_TOOLPACK_ROOT } from "./wrappers/workspace-tool-exec.js";
 
@@ -305,6 +306,7 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     ORCH_GAME_DIR: paths.gameDir,
     ORCH_GAME_REPO_ROOT: paths.repoRoot,
     ORCH_GAME_STATE_DIR: paths.stateDir,
+    [STACK_FRAME_POLICY_ENV]: gameStackFramePolicy({ gameId: paths.gameId, descriptorPath: paths.descriptorPath }),
     ORCH_WORKTREE_ID: worktreeId,
     ORCH_TOOL_BINDING_PATH: bindingPath,
     ORCH_TOOL_IMPL_ROOT: resolve(packRoot, "_impl/gamecube"),

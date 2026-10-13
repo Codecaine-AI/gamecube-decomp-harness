@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
 import { workerPrompt } from "@server/core/agent-catalog";
+import { workerSystemPromptDocument } from "@server/core/agent-catalog/agents/running/worker/prompt.js";
 import {
   KERNEL_AGENT_IDS,
   meleeKernelAgent,
@@ -10,6 +11,7 @@ import {
   type KernelAgentViewerDefinition,
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
+import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import {
   ADVISORY_ADJUDICATION_ENV,
   parseAdvisoryAdjudicationMode,
@@ -53,6 +55,8 @@ export interface KernelAgentsPayload {
   source: "sample";
   /** The advisory adjudication mode the worker sample was rendered for. */
   advisoryAdjudication: AdvisoryAdjudicationMode;
+  /** The game's stack frame policy the worker sample was rendered for. */
+  stackFramePolicy: StackFramePolicy;
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
 }
@@ -63,6 +67,8 @@ export interface KernelPreviewDeps {
   target?: KernelPreviewTarget;
   /** Worker prompt mode; defaults to `ORCH_ADVISORY_ADJUDICATION` when set, else `off`. */
   advisoryAdjudication?: AdvisoryAdjudicationMode;
+  /** Worker stack frame policy; defaults to the selected game's `matching.stackFramePolicy`, else `match_frame`. */
+  stackFramePolicy?: StackFramePolicy;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
   loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
   buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
@@ -74,7 +80,17 @@ export interface KernelPreviewTarget {
   symbol: string;
 }
 
-export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication">;
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy">;
+
+/** Shared by the worker prompt bundle and the viewer's prompt document so both show one variant. */
+interface WorkerPreviewMode {
+  advisoryAdjudication: AdvisoryAdjudicationMode;
+  stackFramePolicy: StackFramePolicy;
+}
+
+function previewStackFramePolicy(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): StackFramePolicy {
+  return deps.stackFramePolicy ?? paths.game?.matching?.stackFramePolicy ?? "match_frame";
+}
 
 // The server knows no run's `--advisory-adjudication` flag, only the env
 // override that wins over it; without one the preview shows today's `off` text.
@@ -159,7 +175,7 @@ function realWorkerPrompt(
   paths: KernelAgentCatalogContext,
   deps: KernelPreviewDeps,
   target: KernelPreviewTarget,
-  advisoryAdjudication: AdvisoryAdjudicationMode,
+  mode: WorkerPreviewMode,
 ): PiPromptBundle | null {
   const game = gameMetadata(paths);
   const cardLoader = deps.loadTargetCard ?? (game
@@ -207,7 +223,7 @@ function realWorkerPrompt(
     targetSourceText: checkoutPath && existsSync(checkoutPath)
       ? readFileSync(checkoutPath, "utf8")
       : `/* preview: source unavailable for ${sourcePath || `${target.unit}:${target.symbol}`} */\n`,
-    advisoryAdjudication,
+    ...mode,
   });
 }
 
@@ -268,13 +284,13 @@ function samplePrompt(
   agentId: KernelAgentId,
   paths: KernelAgentCatalogContext,
   deps: KernelPreviewDeps,
-  advisoryAdjudication: AdvisoryAdjudicationMode,
+  mode: WorkerPreviewMode,
 ): PiPromptBundle {
   const game = gameMetadata(paths);
   switch (agentId) {
     case "worker":
       {
-        const real = realWorkerPrompt(paths, deps, deps.target ?? DEFAULT_WORKER_PREVIEW_TARGET, advisoryAdjudication);
+        const real = realWorkerPrompt(paths, deps, deps.target ?? DEFAULT_WORKER_PREVIEW_TARGET, mode);
         if (real) return real;
       }
       return workerPrompt({
@@ -417,7 +433,7 @@ function samplePrompt(
           source_path: "src/melee/ft/chara/ftDemo.c", value: "ftDemo_UpdateGuardedState", confidence: 0.72,
           fact_id: "fact-kernel-viewer-name", updated_at: "2026-09-05T00:00:00Z",
         }],
-        advisoryAdjudication,
+        ...mode,
       });
     case "worker-summarizer": {
       const workerRunId = "run:31f060aa-de8d-49cc-adf0-601e8735dd4e";
@@ -628,12 +644,16 @@ export function loadKernelAgentsPayload(
   } catch (error) {
     warnings.push(`Rendering the worker sample as off: ${error instanceof Error ? error.message : String(error)}`);
   }
+  const mode: WorkerPreviewMode = { advisoryAdjudication, stackFramePolicy: previewStackFramePolicy(paths, deps) };
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
     try {
-      return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps, advisoryAdjudication), {
+      return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps, mode), {
         generatedAt,
         renderedTools: renderedTools(entry, paths),
+        ...(agentId === "worker"
+          ? { promptDocument: workerSystemPromptDocument({ packet: { target: { kind: "function" } }, ...mode }) }
+          : {}),
       });
     } catch (error) {
       warnings.push(
@@ -651,6 +671,7 @@ export function loadKernelAgentsPayload(
     generatedAt,
     source: "sample",
     advisoryAdjudication,
+    stackFramePolicy: mode.stackFramePolicy,
     agents,
     warnings,
   };

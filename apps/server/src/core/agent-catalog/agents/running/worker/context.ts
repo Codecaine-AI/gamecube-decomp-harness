@@ -2,7 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
+import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
+import { gameStackFramePolicy } from "@server/core/tools/stack-frame-policy.js";
 import type {
   PiPromptBundle,
   RunGameMetadata,
@@ -78,6 +80,15 @@ export interface WorkerPromptOptions {
   sourceNames?: readonly SourceName[];
   /** Shadow and enforce ask for the `kept_advisories` note field; omitted renders `off`, today's text. */
   advisoryAdjudication?: AdvisoryAdjudicationMode;
+  /** The game's `matching.stackFramePolicy`; omitted resolves it from `game`, else `match_frame` (today's text). */
+  stackFramePolicy?: StackFramePolicy;
+}
+
+/** The stack frame policy the worker prompt renders for. */
+export function workerStackFramePolicy(
+  options: Pick<WorkerPromptOptions, "game" | "stackFramePolicy">,
+): StackFramePolicy {
+  return options.stackFramePolicy ?? gameStackFramePolicy(options.game);
 }
 
 export interface WorkerPromptInputXmlOptions {

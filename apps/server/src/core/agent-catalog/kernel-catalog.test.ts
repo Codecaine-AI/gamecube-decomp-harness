@@ -33,6 +33,7 @@ import {
 } from "@server/core/tools/index.js";
 import { createMeleeLoaderCatalog } from "@server/infrastructure/kernel/bridge/loaders.js";
 import { formatLocator, parseLocator } from "@server/core/knowledge-v2/locator.js";
+import { renderXmlMarkdown } from "@codecaine-ai/prompt-kit";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const sampleRepoRoot = resolve(repoRoot, "apps/server/testdata/smoke_repo");
@@ -570,6 +571,43 @@ describe("meleeKernelAgentCatalog", () => {
     } finally {
       if (previous === undefined) delete process.env.ORCH_ADVISORY_ADJUDICATION;
       else process.env.ORCH_ADVISORY_ADJUDICATION = previous;
+    }
+  });
+
+  test("renders the worker preview for the selected game's stack frame policy", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const workerText = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      `${worker(payload)?.renderedPrompt?.content ?? ""}\n${worker(payload)?.context?.renderedContext ?? ""}`;
+
+    const melee = loadKernelAgentsPayload(paths);
+    expect(melee.stackFramePolicy).toBe("match_frame");
+    expect(workerText(melee)).not.toContain("<stack_frame_policy>");
+    expect(workerText(melee)).toContain("use `PAD_STACK` only when");
+    expect(worker(melee)?.body).toBe(renderXmlMarkdown(worker(melee)!.prompt!));
+
+    const smsGame = { matching: { stackFramePolicy: "stop_at_frame" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
+    for (const sms of [
+      loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame" }),
+      loadKernelAgentsPayload({ ...paths, game: smsGame }, {
+        loadTargetCard: () => null,
+        loadBackfillPassContext: () => null,
+      }),
+    ]) {
+      expect(sms.stackFramePolicy).toBe("stop_at_frame");
+      const text = workerText(sms);
+      expect(text).toContain("<stack_frame_policy>");
+      expect(text).toContain("This game matches up to stack frame size.");
+      expect(text).not.toContain("use `PAD_STACK` only when");
+      expect(text).not.toMatch(unresolvedPlaceholderPattern);
+      // The viewer's prompt document is the same variant the rendered body came from.
+      expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
     }
   });
 

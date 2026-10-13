@@ -404,7 +404,13 @@ function renderedPromptContent(bundle: PiPromptBundle): string {
 export function toKernelAgentViewerDefinition(
   entry: KernelAgentCatalogEntry,
   bundle?: PiPromptBundle,
-  options: { generatedAt?: string; warnings?: string[]; renderedTools?: string | null } = {},
+  options: {
+    generatedAt?: string;
+    warnings?: string[];
+    renderedTools?: string | null;
+    /** The prompt document the bundle was rendered from, when it differs from the typed default (game policy, advisory mode). */
+    promptDocument?: PromptDocument;
+  } = {},
 ): KernelAgentViewerDefinition {
   const definition = typedAgentDefinition(entry.id);
   return {
@@ -412,7 +418,7 @@ export function toKernelAgentViewerDefinition(
     description: entry.description,
     model: entry.model,
     source: "typed",
-    prompt: isPromptDocument(definition.prompt) ? definition.prompt : null,
+    prompt: options.promptDocument ?? (isPromptDocument(definition.prompt) ? definition.prompt : null),
     renderedTools: options.renderedTools ?? null,
     tools: entry.tools,
     disallowedTools: entry.disallowedTools,

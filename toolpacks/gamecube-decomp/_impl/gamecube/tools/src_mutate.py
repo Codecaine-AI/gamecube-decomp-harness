@@ -36,6 +36,13 @@ from typing import Callable, List, Optional, Tuple
 import tree_sitter_c
 from tree_sitter import Language, Node, Parser, Tree
 
+try:
+    from game_policy import stops_at_frame
+except ImportError:  # sandbox image baked before game_policy.py
+    def stops_at_frame(env=None) -> bool:  # type: ignore[misc]
+        import os
+        return (os.environ if env is None else env).get("ORCH_STACK_FRAME_POLICY", "").strip() == "stop_at_frame"
+
 _C = Language(tree_sitter_c.language())
 
 
@@ -1831,6 +1838,29 @@ PASSES: List[Tuple[str, Callable[[Ctx], Optional[List[Edit]]], float]] = [
 ]
 
 
+# Passes whose only effect is stack padding. Under the `stop_at_frame` stack
+# frame policy (SMS) a frame-only edit is banned, so these never run.
+STACK_PADDING_PASSES = frozenset({"pad_var_decl"})
+# Passes that are normal matching when they change codegen, but banned under
+# `stop_at_frame` when their only effect is the stack frame.
+FRAME_SENSITIVE_PASSES = frozenset({"commutative", "reorder_decls"})
+STOP_AT_FRAME_PASS_NOTE = (
+    "stack frame policy (stop_at_frame): this game matches up to stack frame size. "
+    "Keep a {passes} edit only if it changes registers, instructions, branches, relocations "
+    "or data; one whose only effect is the stack frame is banned "
+    "(compare objects with stack_check.py objects A.o B.o)."
+)
+
+
+def policy_passes(passes=PASSES, *, stop_at_frame: Optional[bool] = None):
+    """The passes allowed by the game's stack frame policy."""
+    if stop_at_frame is None:
+        stop_at_frame = stops_at_frame()
+    if not stop_at_frame:
+        return list(passes)
+    return [entry for entry in passes if entry[0] not in STACK_PADDING_PASSES]
+
+
 class Mutator:
     """Applies one weighted random pass to a named function per step()."""
 
@@ -1838,8 +1868,10 @@ class Mutator:
         self,
         fn_name: str,
         weights: Optional[dict] = None,
-        passes=PASSES,
+        passes=None,
     ) -> None:
+        if passes is None:
+            passes = policy_passes()
         self.fn_name = fn_name
         self.passes = [
             (n, f, (weights or {}).get(n, w)) for n, f, w in passes
@@ -1924,6 +1956,11 @@ class Mutator:
                 if new == src:
                     return None
                 return MutationResult(source=new, pass_name=n, edits=edits)
+        if name in STACK_PADDING_PASSES:
+            raise SystemExit(
+                f"pass {name} is disabled: stack padding is banned under this game's "
+                "stop_at_frame stack frame policy"
+            )
         raise SystemExit(f"unknown pass: {name}")
 
 
@@ -1963,18 +2000,24 @@ def _main() -> int:
     types = None if args.no_types else _preview_oracle(Path(args.file))
     mut = Mutator(args.fn)
     cur = src
+    applied: List[str] = []
     for _ in range(args.n):
         # the oracle is keyed by base-source spans, so only the first (base) step
         # may use it; stacked steps mutate derived source where spans don't align.
         t = types if cur is src else None
         if args.pass_name:
-            new = mut.step_named(cur, args.pass_name, rng, types=t)
+            result = mut.step_named_result(cur, args.pass_name, rng, types=t)
         else:
-            new = mut.step(cur, rng, types=t)
-        if new is None:
+            result = mut.step_result(cur, rng, types=t)
+        if result is None:
             print("(no mutation applied)", file=sys.stderr)
             break
-        cur = new
+        applied.append(result.pass_name)
+        cur = result.source
+
+    frame_sensitive = sorted(FRAME_SENSITIVE_PASSES.intersection(applied))
+    if frame_sensitive and stops_at_frame():
+        print(STOP_AT_FRAME_PASS_NOTE.format(passes="/".join(frame_sensitive)), file=sys.stderr)
 
     diff = difflib.unified_diff(
         src.decode(errors="replace").splitlines(keepends=True),
