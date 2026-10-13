@@ -104,6 +104,21 @@ describe("game registry layout resolution", () => {
     expect(game.validation.addressNamedStaticDataAllowlist).toEqual([]);
   });
 
+  test("defaults stackFramePolicy to match_frame and reads stop_at_frame from game.json", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-matching-"));
+    for (const [id, matching] of [["plain", undefined], ["framed", { stackFramePolicy: "stop_at_frame" }]] as const) {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), matching ? { id, matching } : { id });
+    }
+    expect(resolveGame({ orchestratorRoot: root, gameId: "plain" }).matching.stackFramePolicy).toBe("match_frame");
+    expect(resolveGame({ orchestratorRoot: root, gameId: "framed" }).matching.stackFramePolicy).toBe("stop_at_frame");
+    const badDir = join(root, "games", "bad");
+    mkdirSync(badDir, { recursive: true });
+    writeJson(join(badDir, "game.json"), { id: "bad", matching: { stackFramePolicy: "pad_it" } });
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "bad" })).toThrow(/stackFramePolicy/);
+  });
+
   test("parses the optional symbolCheck validator config and leaves unconfigured games unset", () => {
     const root = mkdtempSync(join(tmpdir(), "game-registry-symbol-check-"));
     const gameDir = join(root, "games", "sms");

@@ -65,6 +65,19 @@ export interface GameKnowledgeConfig {
   gameSources?: string[];
 }
 
+/**
+ * How far matching goes on stack frames. `match_frame` (Melee) lets workers
+ * fix frame size; `stop_at_frame` (SMS) treats a function whose only
+ * difference from the target is frame size or r1 stack offsets as done, and
+ * bans edits whose only effect is the stack frame.
+ */
+export const STACK_FRAME_POLICIES = ["match_frame", "stop_at_frame"] as const;
+export type StackFramePolicy = (typeof STACK_FRAME_POLICIES)[number];
+
+export interface GameMatchingConfig {
+  stackFramePolicy?: StackFramePolicy;
+}
+
 export interface GameSandboxResourceClass {
   cpu?: number;
   memory_gib?: number;
@@ -118,6 +131,7 @@ export interface GameDescriptor {
   dashboard?: GameDashboardDefaults;
   pr?: GamePrDefaults;
   knowledge?: GameKnowledgeConfig;
+  matching?: GameMatchingConfig;
   sandbox?: GameSandboxConfig;
 }
 
@@ -162,6 +176,7 @@ export interface ResolvedGame {
   dashboard: Required<GameDashboardDefaults>;
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
+  matching: Required<GameMatchingConfig>;
   sandbox: ResolvedSandboxConfig;
   orchestratorRoot: string;
   gamesRoot: string;
@@ -235,6 +250,10 @@ const defaultKnowledge: Required<GameKnowledgeConfig> = {
     "decomp_standards",
   ],
   gameSources: ["code_graph"],
+};
+
+const defaultMatching: Required<GameMatchingConfig> = {
+  stackFramePolicy: "match_frame",
 };
 
 const defaultSandbox: SandboxRuntimeOptions = {
@@ -385,6 +404,15 @@ function prFromObject(value: unknown): GamePrDefaults | undefined {
   };
 }
 
+function matchingFromObject(value: unknown): GameMatchingConfig | undefined {
+  if (!isObject(value)) return undefined;
+  const policy = stringField(value.stackFramePolicy);
+  if (policy !== undefined && !(STACK_FRAME_POLICIES as readonly string[]).includes(policy)) {
+    throw new Error(`Invalid matching.stackFramePolicy: ${policy}`);
+  }
+  return policy === undefined ? {} : { stackFramePolicy: policy as StackFramePolicy };
+}
+
 function knowledgeFromObject(value: unknown): GameKnowledgeConfig | undefined {
   if (!isObject(value)) return undefined;
   return {
@@ -464,6 +492,7 @@ function descriptorFromObject(value: Record<string, unknown>, path: string): Gam
     dashboard: dashboardFromObject(value.dashboard),
     pr: prFromObject(value.pr),
     knowledge: knowledgeFromObject(value.knowledge),
+    matching: matchingFromObject(value.matching),
     sandbox: sandboxFromObject(value.sandbox),
   };
 }
@@ -543,6 +572,7 @@ function mergeDescriptor(base: GameDescriptor, override: GameResolveOverrides & 
   next.dashboard = mergeNested(base.dashboard, override.dashboard);
   next.pr = mergeNested(base.pr, override.pr);
   next.knowledge = base.knowledge;
+  next.matching = base.matching;
   next.sandbox = mergeSandbox(base.sandbox, override.sandbox);
   return next;
 }
@@ -750,6 +780,7 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     dashboard: requiredNested(defaultDashboard, merged.dashboard),
     pr: requiredNested(defaultPr, merged.pr),
     knowledge: requiredNested(defaultKnowledge, merged.knowledge),
+    matching: requiredNested(defaultMatching, merged.matching),
     sandbox: requiredSandbox(merged.sandbox),
     orchestratorRoot: root,
     gamesRoot: gamesRoot(root),
