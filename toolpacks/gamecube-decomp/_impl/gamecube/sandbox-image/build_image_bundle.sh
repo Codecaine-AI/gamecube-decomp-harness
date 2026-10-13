@@ -248,7 +248,7 @@ cp -a "$WIBO_DIR/README.md" "$WIBO_DIR/wibo-opt-vs-upstream-e8f4795.patch" \
   "$PAYLOAD/provenance/wibo-1.2.0-opt1/"
 cp -a "$OBJDIFF_DIR/README.md" "$PAYLOAD/provenance/objdiff-cli-3.6.1-score/"
 cp -a "$CACHE_SHIM" "$CACHE_INSTALLER" "$PAYLOAD/image-tools/"
-cp -a "$SCRIPT_DIR/prepare_linux_image.py" "$PAYLOAD/image-tools/"
+cp -a "$SCRIPT_DIR/prepare_linux_image.py" "$SCRIPT_DIR/ninja-cgroup-jobs.sh" "$PAYLOAD/image-tools/"
 if [ -f "$HARNESS_ROOT/games/$GAME_ID/config/worker-image.json" ]; then
   cp -a "$HARNESS_ROOT/games/$GAME_ID/config/worker-image.json" "$PAYLOAD/image-tools/worker-image.json"
 else
