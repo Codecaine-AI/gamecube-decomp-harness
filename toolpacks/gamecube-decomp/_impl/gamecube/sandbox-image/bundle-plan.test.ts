@@ -104,6 +104,7 @@ test("bundle stages a second game with resolved report, provenance and no local 
   expect(entries).toContain("daytona-zelda-image/games/zelda/knowledge/sources/injectable/decomp_standards/standards/order.json");
   expect(entries).toContain("daytona-zelda-image/games/zelda/game.json");
   expect(entries).not.toContain("__pycache__");
+  expect(entries).toContain("daytona-zelda-image/image-tools/ninja-cgroup-jobs.sh");
   const plan = JSON.parse(run(["tar", "-xOf", out, "daytona-zelda-image/provenance/image-plan.json"]));
   expect(plan.gameId).toBe("zelda");
   expect(plan.profile).toBe("4-core");
@@ -114,6 +115,7 @@ test("bundle stages a second game with resolved report, provenance and no local 
   expect(dockerfile).toContain("COPY checkout ${WORKSPACE_ROOT}");
   expect(dockerfile).toContain("COPY knowledge /opt/knowledge");
   expect(dockerfile).toContain("ORCH_PACKAGE_ROOT=/opt");
+  expect(dockerfile).toContain("install -m 0755 /opt/image-tools/ninja-cgroup-jobs.sh /usr/local/bin/ninja");
 });
 test("games with a symbol-check map record the map and its disc directory for bake-time extraction", () => {
   const { root, gameDir } = fixture();

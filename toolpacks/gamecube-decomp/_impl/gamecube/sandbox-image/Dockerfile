@@ -32,6 +32,10 @@ RUN git -C "$WORKSPACE_ROOT" reset --quiet --mixed HEAD \
     && git -C "$WORKSPACE_ROOT" diff --name-only --diff-filter=T HEAD | xargs -r git -C "$WORKSPACE_ROOT" checkout -- \
     && git -C "$WORKSPACE_ROOT" status --porcelain --untracked-files=no | head -20
 COPY image-tools /opt/image-tools
+# nproc reports host CPUs in Daytona sandboxes; this wrapper sizes bare `ninja`
+# to the cgroup CPU quota and passes an explicit -j through unchanged.
+RUN test -x /usr/bin/ninja \
+    && install -m 0755 /opt/image-tools/ninja-cgroup-jobs.sh /usr/local/bin/ninja
 COPY toolpacks /opt/toolpacks
 COPY knowledge /opt/knowledge
 COPY games /opt/games
