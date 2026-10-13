@@ -184,3 +184,24 @@ class SliceContractUnderSmsTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_unused_static_local_backed_by_linker_map_is_not_padding(tmp_path, monkeypatch):
+    """A dead-stripped `name$NNN` static listed in mario.MAP is real data, not stack padding."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('sms_rules_map', ROOT / 'toolpacks/gamecube-decomp/source_editing/review_lint/rules/sms.py')
+    sms = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sms)
+    repo = tmp_path / 'repo'
+    (repo / 'config/GMSJ01').mkdir(parents=True)
+    (repo / 'config/GMSJ01/symbols.txt').write_text('gpMarioOriginal = .sbss:0x80409490; // type:object size:0x4\n')
+    (repo / 'orig/GMSJ01/files').mkdir(parents=True)
+    (repo / 'orig/GMSJ01/files/mario.MAP').write_text('  UNUSED   00000c ........ anmlist$3030 Enemy.a hamukuri.cpp\n')
+    monkeypatch.setenv('ORCH_GAME_REPO_ROOT', str(repo))
+    sms._SYMBOL_NAMES.clear()
+    text = 'void f()\n{\n\tg();\n\n\tstatic const char* anmlist[] = {\n\t\t"a",\n\t\tnullptr,\n\t};\n}\n'
+    added = set(range(1, 10))
+    names = [f['detail']['name'] for f in sms.unused_local_findings(text, added)]
+    assert 'anmlist' not in names
+    unmapped = text.replace('anmlist', 'bogus')
+    assert 'bogus' in [f['detail']['name'] for f in sms.unused_local_findings(unmapped, added)]

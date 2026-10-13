@@ -289,6 +289,8 @@ def unused_local_findings(full_text, added_lines, line_map=None):
                     if PAD_NAME.fullmatch(name):
                         continue  # already reported as named padding
                     statement = statement_text(lines, number - 1)
+                    if re.match(r'^\s*static\b', statement) and in_symbol_map(name, statement):
+                        continue  # a mapped function-scope static is real data, not stack
                     initializer = statement.split('=', 1)[1] if re.search(r'\b' + re.escape(name) + r'\b[^=;(]*=[^=]', statement) else ''
                     if not reference and re.search(r'\w\s*\(', initializer):
                         found = partial(reported, excerpt, f'Unused call result: {name} stores a call result and is never referenced again. Drop the local or use the value; do not keep it to shape the frame.', name=name, kind='unused_call_result', requires_human_review=True)
@@ -409,11 +411,25 @@ SYMBOLS_REL_PATH = 'config/GMSJ01/symbols.txt'
 _SYMBOL_NAMES = {}  # symbols.txt path -> (exact names, static-local base names)
 
 
-def symbols_file():
+MAP_REL_PATH = 'orig/GMSJ01/files/mario.MAP'
+MAP_STATIC = re.compile(r'\b([A-Za-z_]\w*)\$\d+\b')
+
+
+def game_repo_roots():
+    """Checkouts to read map evidence from: the scanned game repo first."""
+    roots = []
+    repo_root = os.environ.get('ORCH_GAME_REPO_ROOT')
+    if repo_root:
+        roots.append(Path(repo_root))
     game_dir = os.environ.get('ORCH_GAME_DIR')
-    roots = [Path(game_dir) / 'workspace/checkout'] if game_dir else []
+    if game_dir:
+        roots.append(Path(game_dir) / 'workspace/checkout')
     roots.append(Path(__file__).resolve().parents[5] / 'games/sms/workspace/checkout')
-    for root in roots:
+    return roots
+
+
+def symbols_file():
+    for root in game_repo_roots():
         path = root / SYMBOLS_REL_PATH
         if path.is_file():
             return path
@@ -421,7 +437,11 @@ def symbols_file():
 
 
 def map_symbol_names():
-    """(exact symbol names, base names of `name$NNN` function-scope statics) from symbols.txt."""
+    """(exact symbol names, base names of `name$NNN` function-scope statics).
+
+    Read from symbols.txt, plus the linker map's dead-stripped (UNUSED)
+    statics, which symbols.txt does not list.
+    """
     path = symbols_file()
     if path is None:
         return set(), set()
@@ -437,6 +457,13 @@ def map_symbol_names():
                 exact.add(name)
                 if '$' in name:
                     statics.add(name.split('$', 1)[0])
+        except OSError:
+            pass
+        map_path = path.parents[2] / MAP_REL_PATH
+        try:
+            for line in map_path.read_text(encoding='utf-8', errors='replace').splitlines():
+                if 'UNUSED' in line:
+                    statics.update(MAP_STATIC.findall(line))
         except OSError:
             pass
         _SYMBOL_NAMES[key] = (exact, statics)
