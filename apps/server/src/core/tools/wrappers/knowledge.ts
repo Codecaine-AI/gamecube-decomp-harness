@@ -1,7 +1,12 @@
 /** Graph-first knowledge tools plus the few intentionally direct corpus APIs. */
 import { graphFileCard, graphRelatedFunctions, graphSearch } from "../runtime/execution.js";
-import type { AgentToolRegistration, PiToolDefinition } from "../types.js";
+import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+import {
+  applyStackFramePolicy,
+  filtersStackTactics,
+  stackFramePolicyForGame,
+} from "@server/core/knowledge-v2/stack-policy-filter.js";
 
 const sourceContextToolRoles = [
   "worker",
@@ -51,6 +56,31 @@ interface SourceSearchDefinition {
   guidance: string;
 }
 
+/** Graph sources that describe the live code; only history chunks are policy-filtered. */
+const LIVE_CODE_GRAPH_SOURCES = new Set(["code_graph", "ghidra_xrefs", "opseq_similarity"]);
+
+/**
+ * Graph search for a stop_at_frame game (SMS): past PR lessons, curated worker
+ * lessons, mismatch patterns, and shared agent state lose banned stack-frame
+ * tactics; live-code chunks stay verbatim. Other games are unchanged.
+ */
+export function graphSearchForPolicy(context: Pick<AgentToolRuntimeContext, "game">, payload: Record<string, unknown>): Record<string, unknown> {
+  const gameId = context.game?.gameId;
+  if (!filtersStackTactics(stackFramePolicyForGame(gameId)) || !Array.isArray(payload.results)) {
+    return applyStackFramePolicy(gameId, payload);
+  }
+  const results = payload.results as unknown[];
+  const isLive = (row: unknown) => typeof row === "object" && row !== null
+    && LIVE_CODE_GRAPH_SOURCES.has(String((row as Record<string, unknown>).source_id ?? (row as Record<string, unknown>).sourceId ?? ""));
+  const history = applyStackFramePolicy(gameId, { results: results.map((row) => (isLive(row) ? null : row)) }) as { results: unknown[]; stack_policy_note?: string; stack_policy_redactions?: number };
+  return {
+    ...payload,
+    results: results.map((row, index) => (isLive(row) ? row : history.results[index])),
+    stack_policy_note: history.stack_policy_note,
+    stack_policy_redactions: history.stack_policy_redactions,
+  };
+}
+
 /** Create a source-specific graph search tool. */
 function sourceSearchTool(definition: SourceSearchDefinition): AgentToolRegistration {
   return {
@@ -71,9 +101,10 @@ function sourceSearchTool(definition: SourceSearchDefinition): AgentToolRegistra
           const query = String(params.query ?? "").trim();
           if (!query) return jsonToolResult(definition.id, { status: "missing_query" });
           const limit = boundedLimit(params.limit);
+          // Graph chunks carry past PR lessons and worker notes: a stop_at_frame game never sees banned stack tactics.
           return jsonToolResult(
             definition.id,
-            graphSearch(context, query, definition.sourceId, limit),
+            graphSearchForPolicy(context, graphSearch(context, query, definition.sourceId, limit)),
           );
         },
       };
@@ -98,7 +129,7 @@ export const codeGraphFileCardToolRegistration: AgentToolRegistration = {
       executionMode: "parallel",
       async execute(_toolCallId, params) {
         const sourcePath = String(params.source_path ?? "").trim();
-        return jsonToolResult("code_graph_file_card", graphFileCard(context, sourcePath));
+        return jsonToolResult("code_graph_file_card", applyStackFramePolicy(context.game?.gameId, graphFileCard(context, sourcePath)));
       },
     };
   },
@@ -134,7 +165,7 @@ export const knowledgeGraphSearchToolRegistration: AgentToolRegistration = {
         if (!query) return jsonToolResult("knowledge_graph_search", { status: "missing_query" });
         return jsonToolResult(
           "knowledge_graph_search",
-          graphSearch(context, query, undefined, boundedLimit(params.limit), { activeSourcesOnly: true }),
+          graphSearchForPolicy(context, graphSearch(context, query, undefined, boundedLimit(params.limit), { activeSourcesOnly: true })),
         );
       },
     };

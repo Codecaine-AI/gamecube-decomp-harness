@@ -316,3 +316,17 @@ export function stackPolicyQuarantinePath(storePath: string): string {
 export function stackPolicyQuarantined(storePath: string): boolean {
   return existsSync(stackPolicyQuarantinePath(storePath));
 }
+
+/**
+ * History payload replayed to an agent of the given game: unchanged for
+ * match_frame games; for stop_at_frame games every narrative string is
+ * redacted and the payload carries a one-line note why.
+ */
+export function applyStackFramePolicy<T extends object>(
+  gameId: string | undefined,
+  payload: T,
+): T | (T & { stack_policy_note: string; stack_policy_redactions: number }) {
+  if (!filtersStackTactics(stackFramePolicyForGame(gameId))) return payload;
+  const { value, redactions } = redactStackTacticsInPayload(payload);
+  return { ...value, stack_policy_note: STACK_POLICY_NOTE, stack_policy_redactions: redactions };
+}

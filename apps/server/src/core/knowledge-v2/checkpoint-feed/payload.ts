@@ -15,6 +15,8 @@ import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { CHECKPOINT_CONFIRMED_SCHEMA } from "../librarian/context.js";
 import { sha256Hex, type ConfirmationSource, type ConfirmedCheckpoint } from "./confirmed-good.js";
 import { boundedHunks, boundedNote, type CheckpointSources, type SourceDigests } from "./sources.js";
+import type { StackFramePolicy } from "../../game-registry/resolver.js";
+import { filtersStackTactics, hasBannedStackTactic, redactBannedStackTactics } from "../stack-policy-filter.js";
 
 export const CHECKPOINT_CONFIRMED_PATHWAY = "checkpoint_confirmed" as const;
 
@@ -115,9 +117,23 @@ export interface ExtractionInput {
   hunksTruncated: boolean;
 }
 
-export function extractionInput(checkpoint: ConfirmedCheckpoint, sources: CheckpointSources): ExtractionInput {
+/** Policy knobs for a checkpoint of a game; `stop_at_frame` keeps banned stack tactics out of extraction and facts. */
+export interface CheckpointPolicyOptions {
+  stackFramePolicy?: StackFramePolicy;
+}
+
+export function extractionInput(
+  checkpoint: ConfirmedCheckpoint,
+  sources: CheckpointSources,
+  options: CheckpointPolicyOptions = {},
+): ExtractionInput {
   const note = boundedNote(sources.noteText);
-  const hunks = boundedHunks(sources.patchText, checkpoint.target.sourcePath);
+  const bounded = boundedHunks(sources.patchText, checkpoint.target.sourcePath);
+  // A stop_at_frame game's extractor never reads a banned stack tactic as evidence of what matched.
+  const redact = filtersStackTactics(options.stackFramePolicy)
+    ? (text: string) => redactBannedStackTactics(text).text
+    : (text: string) => text;
+  const hunks = { ...bounded, hunks: bounded.hunks.map(redact) };
   const refs = advisoryRefs(sources);
   const prior = compactPriorAdjudication(sources.adjudication);
   return {
@@ -128,7 +144,7 @@ export function extractionInput(checkpoint: ConfirmedCheckpoint, sources: Checkp
       old_score: checkpoint.scores.old,
       new_score: checkpoint.scores.new,
       exact: checkpoint.scores.exact,
-      note,
+      note: redact(note),
       hunks: hunks.hunks,
       advisories: refs.map((ref) => ref.ref),
       ...(prior !== null ? { prior_adjudication: prior } : {}),
@@ -187,7 +203,9 @@ export function factKey(kind: CheckpointFactKind, unit: string, fn: string, subj
 export function checkpointFacts(
   knowledge: ConfirmedCheckpointKnowledge,
   target: { unit: string; function: string },
+  options: CheckpointPolicyOptions = {},
 ): { facts: CheckpointFact[]; dropped: number } {
+  const banned = filtersStackTactics(options.stackFramePolicy);
   const candidates: Array<Omit<CheckpointFact, "key">> = [
     ...(knowledge.tactics ?? []).map((tactic) => ({
       kind: "tactic" as const,
@@ -221,6 +239,10 @@ export function checkpointFacts(
   let dropped = 0;
   for (const candidate of candidates) {
     if (!candidate.subject || !candidate.statement || candidate.evidence.length === 0) {
+      dropped += 1;
+      continue;
+    }
+    if (banned && hasBannedStackTactic([candidate.subject, candidate.statement, candidate.applies_when ?? ""].join("\n"))) {
       dropped += 1;
       continue;
     }
@@ -326,11 +348,14 @@ export interface PayloadInput {
   refs: readonly AdvisoryRef[];
   digests: SourceDigests;
   extraction: { kernelRunId: string | null; requestedModel: string };
+  stackFramePolicy?: StackFramePolicy;
 }
 
 export function checkpointConfirmedPayload(params: PayloadInput): { payload: CheckpointConfirmedPayload; droppedFacts: number } {
   const { checkpoint } = params;
-  const { facts, dropped } = checkpointFacts(params.knowledge, checkpoint.target);
+  const policy = { ...(params.stackFramePolicy ? { stackFramePolicy: params.stackFramePolicy } : {}) };
+  const { facts, dropped } = checkpointFacts(params.knowledge, checkpoint.target, policy);
+  const advisories = keptAdvisories(params.knowledge, params.refs);
   return {
     droppedFacts: dropped,
     payload: {
@@ -351,7 +376,13 @@ export function checkpointConfirmedPayload(params: PayloadInput): { payload: Che
         function: checkpoint.target.function,
       },
       facts,
-      kept_advisories: keptAdvisories(params.knowledge, params.refs),
+      kept_advisories: filtersStackTactics(params.stackFramePolicy)
+        ? advisories.map((advisory) => ({
+          ...advisory,
+          justification: advisory.justification === null ? null : redactBannedStackTactics(advisory.justification).text,
+          evidence: advisory.evidence.map((entry) => redactBannedStackTactics(entry).text),
+        }))
+        : advisories,
       sources: params.digests,
       extraction: {
         kernel_run_id: params.extraction.kernelRunId,

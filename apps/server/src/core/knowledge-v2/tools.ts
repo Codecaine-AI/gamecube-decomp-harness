@@ -11,10 +11,8 @@ import {
   resolveOpenAiApiKey,
   type EmbeddingProvider,
 } from "./index/embeddings/provider.js";
-import {
-  createPastPrsArchive,
-  type PrArchive,
-} from "./index/pr-archive.js";
+import { type PrArchive } from "./index/pr-archive.js";
+import { createGamePastPrsArchive } from "./index/game-pr-archive.js";
 import type {
   EntityIdentityStatus,
   EntityKind,
@@ -570,7 +568,7 @@ export async function kv2PrSearch(
   const mode = resolveSearchMode(handles, params.mode);
   if (!query) return missingQueryResult(mode);
   const limit = normalizedLimit(params.limit, 10);
-  const archive = handles.prArchive ?? createPastPrsArchive();
+  const archive = handles.prArchive ?? createGamePastPrsArchive(handles.gameId);
   const results = await collectMappedSearchHits(
     handles.indexDb,
     "pr",
@@ -826,7 +824,7 @@ export function kv2ResolveLocator(
         truncated: false,
       };
       if (parsed.commentNumber !== undefined) {
-        const archive = handles.prArchive ?? createPastPrsArchive();
+        const archive = handles.prArchive ?? createGamePastPrsArchive(handles.gameId);
         const bodies = archiveDiscussions(archive, pullRequest.pr_ref, pullRequest.id);
         const body = bodies[parsed.commentNumber];
         if (body === undefined) return notFound(locator);

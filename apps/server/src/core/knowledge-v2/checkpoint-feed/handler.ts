@@ -11,6 +11,7 @@
 // infrastructure throws (no node kernel, a stopping lane, a submission not
 // ingested yet), so the queue backs off and retries, and after `maxAttempts`
 // the job is terminal with the error.
+import { stackFramePolicyForGame } from "../stack-policy-filter.js";
 import type { ConfirmedCheckpointKnowledge } from "@server/generated/baml_client/types";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import type { JsonObject } from "@server/core/harness-state/events.js";
@@ -344,7 +345,8 @@ export function createCheckpointKnowledgeHandler(
       throwIfAborted(ctx.signal, checkpointId);
       const kernel = await nodeKernel();
       if (!kernel) throw new Error(`checkpoint_knowledge ${checkpointId}: node kernel unavailable`);
-      const extraction = extractionInput(checkpoint, sources);
+      const stackFramePolicy = stackFramePolicyForGame(job.gameId);
+      const extraction = extractionInput(checkpoint, sources, { stackFramePolicy });
       const requestId = checkpointConfirmedRequestId(checkpointId);
       const inputSha256 = sha256Hex(canonicalJson(extraction.input));
 
@@ -421,6 +423,7 @@ export function createCheckpointKnowledgeHandler(
         refs: extraction.refs,
         digests: sources.digests,
         extraction: { kernelRunId: extractionRunId, requestedModel },
+        stackFramePolicy,
       });
       ctx.ensureClaim();
       const inserted = immediateTransaction(knowledge.db, () => {

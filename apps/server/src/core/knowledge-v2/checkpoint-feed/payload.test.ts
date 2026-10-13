@@ -376,3 +376,31 @@ describe("checkpointConfirmedPayload", () => {
     expect(checkpointConfirmedTaskId("cp-1")).toBe("task:checkpoint_confirmed:cp-1");
   });
 });
+
+describe("stop_at_frame checkpoints", () => {
+  const PADDED_NOTE = "Matched the loop. Added `char trash[0x18];` to fix the stack frame.";
+  const PADDED_PATCH = `--- a/${SOURCE_PATH}\n+++ b/${SOURCE_PATH}\n@@ -1,2 +1,3 @@\n void f() {\n+\tchar trash[0x18];\n }`;
+
+  test("extraction input loses banned stack tactics only for stop_at_frame games", () => {
+    const padded = { ...sources(), noteText: PADDED_NOTE, patchText: PADDED_PATCH };
+    const sms = extractionInput(confirmedCheckpoint(), padded, { stackFramePolicy: "stop_at_frame" }).input;
+    expect(sms.note).toBe("Matched the loop. [redacted: banned stack-frame tactic]");
+    expect(sms.hunks.join("\n")).not.toContain("trash");
+    const melee = extractionInput(confirmedCheckpoint(), padded).input;
+    expect(melee.note).toBe(PADDED_NOTE);
+    expect(melee.hunks.join("\n")).toContain("char trash[0x18];");
+  });
+
+  test("facts recommending banned stack tactics are dropped only for stop_at_frame games", () => {
+    const extracted = knowledge({
+      tactics: [
+        { name: "Pad the frame", description: "Add PAD_STACK(8) to grow the stack frame.", applies_when: "frame is 8 short", evidence: ["stwu r1,-0x38(r1)"] },
+        { name: "Hoist the loop bound", description: "Load the bound into a local.", applies_when: "a loop re-reads a field", evidence: ["r31 holds the counter"] },
+      ],
+    });
+    const sms = checkpointFacts(extracted, TARGET, { stackFramePolicy: "stop_at_frame" });
+    expect(sms.facts.map((fact) => fact.subject)).toEqual(["Hoist the loop bound"]);
+    expect(sms.dropped).toBe(1);
+    expect(checkpointFacts(extracted, TARGET).facts).toHaveLength(2);
+  });
+});

@@ -10,12 +10,7 @@ import {
 } from "@server/core/knowledge-v2/tools.js";
 import { openKnowledgeIndexDb, type KnowledgeIndexDb } from "@server/core/knowledge-v2/index/db.js";
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
-import {
-  STACK_POLICY_NOTE,
-  filtersStackTactics,
-  redactStackTacticsInPayload,
-  stackFramePolicyForGame,
-} from "@server/core/knowledge-v2/stack-policy-filter.js";
+import { applyStackFramePolicy } from "@server/core/knowledge-v2/stack-policy-filter.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { sourceViewToolRegistration } from "./source-view.js";
@@ -192,20 +187,7 @@ async function withKnowledgeV2Handles<T extends object>(
   }
 }
 
-/**
- * History replayed to agents of a stop_at_frame game (SMS) loses every banned
- * stack-frame tactic and carries a one-line note why. Discord, wiki, and code
- * stay verbatim: they hold maintainer rulings and the live source.
- */
-export function applyStackFramePolicy<T extends object>(
-  gameId: string,
-  payload: T,
-): T | (T & { stack_policy_note: string; stack_policy_redactions: number }) {
-  if (!filtersStackTactics(stackFramePolicyForGame(gameId))) return payload;
-  const { value, redactions } = redactStackTacticsInPayload(payload);
-  return { ...value, stack_policy_note: STACK_POLICY_NOTE, stack_policy_redactions: redactions };
-}
-
+/** Discord, wiki, and code stay verbatim: they hold maintainer rulings and the live source. */
 function isHistoryLocatorPayload(payload: object): boolean {
   const kind = (payload as { kind?: unknown }).kind;
   return kind === "pr" || kind === "attempt";

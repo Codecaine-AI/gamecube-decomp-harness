@@ -423,7 +423,7 @@ export function renderStackPruneReport(options: {
     "- Appends one `status: superseded_stack_policy` line per flagged item in the knowledge-v2 store, PR text corpus, legacy graph, and worker checkpoint notes to `knowledge/store/stack-policy-quarantine.jsonl`. No row is rewritten or deleted, and re-running skips items already marked.",
     "- The knowledge-v2 FTS builders redact banned tactics from indexed PR and attempt text once that ledger exists, so `bun apps/server/src/job-runner.ts kg2-index --game sms --fts --rebuild` drops them from `pr_search` and `attempt_search` hits.",
     "- Cards (`accepted_prs`, `prior_runs`, ledger) and the knowledge-v2 tools redact at read time from `matching.stackFramePolicy`, with or without the ledger.",
-    "- Not covered by the ledger yet: the legacy graph search (`knowledge_graph_search`, `past_prs_search`) and the checkpoint-feed inputs do not read it; their owners need to honour it or rebuild from filtered sources.",
+    "- The legacy graph tools (`knowledge_graph_search`, `past_prs_search`, `code_graph_search`, `code_graph_file_card`) redact history chunks at read time (live-code chunks stay verbatim), and the checkpoint feed redacts the note and hunks it extracts from and drops facts that recommend a banned tactic, so neither depends on the ledger.",
     ...(options.applied
       ? ["", `Applied: ${options.applied.marked} new marks, ${options.applied.alreadyMarked} already marked, ledger \`${options.applied.ledgerPath}\`.`]
       : []),
