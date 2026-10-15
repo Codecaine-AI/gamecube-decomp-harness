@@ -52,6 +52,10 @@ def psq_l(frt: int, d: int, ra: int = 1, w: int = 0, i: int = 0) -> int:
     return (56 << 26) | (frt << 21) | (ra << 16) | (w << 15) | (i << 12) | (d & 0xFFF)
 
 
+def addic(rt: int, ra: int, imm: int, record: bool = False) -> int:
+    return d_form(13 if record else 12, rt, ra, imm)
+
+
 def mr(ra: int, rs: int) -> int:  # or ra,rs,rs
     return (31 << 26) | (rs << 21) | (ra << 16) | (rs << 11) | (444 << 1)
 
@@ -207,6 +211,7 @@ def test_status_rank_order() -> None:
 
 R_PPC_ADDR32 = 1
 R_PPC_REL24 = 10
+R_PPC_REL14 = 11
 
 
 def build_elf(
@@ -579,3 +584,185 @@ def test_hunks_cli_mactor_operand_swaps_are_stack_only(tmp_path: Path) -> None:
     assert SANDBOX.joinpath("src/M3DUtil/MActor.cpp").read_bytes() == subprocess.run(
         ["git", "show", "HEAD:src/M3DUtil/MActor.cpp"], cwd=SANDBOX, capture_output=True
     ).stdout, "the audit must not touch the repo"
+
+
+
+def test_addic_on_r1_is_a_stack_offset() -> None:
+    for record in (False, True):
+        assert sc.stack_word_pair(addic(0, 1, 8, record), addic(0, 1, 12, record))
+        assert not sc.stack_word_pair(addic(0, 3, 8, record), addic(0, 3, 12, record))  # not r1
+        assert not sc.stack_word_pair(addic(0, 1, 8, record), addic(4, 1, 12, record))  # other register
+    assert not sc.stack_word_pair(addic(0, 1, 8), addic(0, 1, 12, True))  # addic vs addic. is code
+    assert sc.stack_text_pair("addic. r0,r1,8", "addic. r0, r1, 0xc")
+    assert sc.stack_text_pair("addic r3,r1,16", "addic r3,r1,24")
+    assert not sc.stack_text_pair("addic. r0,r1,8", "addic r0,r1,12")
+    assert not sc.stack_text_pair("addic. r0,r3,8", "addic. r0,r3,12")
+
+
+def addze(rt: int, ra: int) -> int:
+    return (31 << 26) | (rt << 21) | (ra << 16) | (202 << 1)
+
+
+def addc(rt: int, ra: int, rb: int) -> int:
+    return (31 << 26) | (rt << 21) | (ra << 16) | (rb << 11) | (10 << 1)
+
+
+def beq(disp: int) -> int:  # bc 12,eq,disp
+    return (16 << 26) | (12 << 21) | (2 << 16) | (disp & 0xFFFC)
+
+
+def mfxer(rt: int) -> int:  # mfspr rt, XER (spr 1)
+    return (31 << 26) | (rt << 21) | (1 << 16) | (339 << 1)
+
+
+def bl_word() -> int:
+    return (18 << 26) | 1
+
+
+def b_rel(disp: int) -> int:
+    return (18 << 26) | (disp & 0x03FFFFFC)
+
+
+BCTR = 0x4E800420
+
+
+def test_mario_gamepad_read_shape_is_stack_only() -> None:
+    """TMarioGamePad::read: only the r1 slot differs (stw/lwz 12 vs 8, `addic. r0,r1,N`
+    then a branch on CR0 to a block that returns; no path reads the carry)."""
+    def fn(slot: int) -> list[int]:
+        return PROLOGUE + [stwu(32), stw(3, slot), addic(0, 1, slot, True), beq(12), lwz(3, slot),
+                           addi(1, 1, 32), BLR, lwz(4, slot), addi(1, 1, 32), BLR]
+    diff = objects(build_elf([("read", fn(12))]), build_elf([("read", fn(8))]))
+    assert {f.name: f.cls for f in diff.functions} == {"read": "stack_only"}
+
+
+def _cls(fn_a: list[int], fn_b: list[int], relocs=()) -> str:
+    diff = objects(build_elf([("f", fn_a)], relocs=list(relocs)), build_elf([("f", fn_b)], relocs=list(relocs)))
+    return {f.name: f.cls for f in diff.functions}["f"]
+
+
+def test_addic_carry_live_on_straight_line_is_code() -> None:
+    """Reviewer repros: `addic. r0,r1,-1; addze r3,r3; blr` and `addic r0,r1,-1; mfxer r3; blr` vs 0."""
+    assert _cls([addic(0, 1, -1, True), addze(3, 3), BLR], [addic(0, 1, 0, True), addze(3, 3), BLR]) == "code"
+    assert _cls([addic(0, 1, -1), mfxer(3), BLR], [addic(0, 1, 0), mfxer(3), BLR]) == "code"
+    # a CA writer before the reader ends the carry's life: stack again
+    assert _cls([addic(0, 1, 8), addc(4, 4, 5), addze(3, 3), BLR],
+                [addic(0, 1, 12), addc(4, 4, 5), addze(3, 3), BLR]) == "stack_only"
+
+
+def test_addic_carry_live_through_a_branch_is_code() -> None:
+    """`addic. r0,r1,N; beq L; ... blr; L: addze r3,r3; blr`: the taken path reads CA."""
+    def fn(imm: int) -> list[int]:
+        return [addic(0, 1, imm, True), beq(12), lwz(3, 8), BLR, addze(3, 3), BLR]
+    assert sc.carry_live(fn(8), 0)
+    assert _cls(fn(8), fn(12)) == "code"
+    # an unconditional in-function jump is followed too
+    def fn_b(imm: int) -> list[int]:
+        return [addic(0, 1, imm), b_rel(8), BLR, addze(3, 3), BLR]
+    assert _cls(fn_b(8), fn_b(12)) == "code"
+
+
+def test_call_kills_the_carry() -> None:
+    def fn(imm: int) -> list[int]:
+        return [addic(0, 1, imm), bl_word(), addze(3, 3), BLR]
+    relocs = [(4, R_PPC_REL24, "callee", 0)]
+    assert _cls(fn(8), fn(12), relocs) == "stack_only"
+
+
+def bcl_eq(disp: int) -> int:  # bcl 12,eq,disp (conditional call)
+    return (16 << 26) | (12 << 21) | (2 << 16) | (disp & 0xFFFC) | 1
+
+
+BEQLRL = (19 << 26) | (12 << 21) | (2 << 16) | (16 << 1) | 1  # bclrl 12,eq
+
+
+def test_conditional_call_falls_through_when_not_taken() -> None:
+    """Reviewer repro: `addic r0,r1,-1; bcl 12,2,callee; addze r3,r3; blr` vs 0:
+    when the call is not taken, addze reads the original CA."""
+    def fn(imm: int) -> list[int]:
+        return [addic(0, 1, imm), bcl_eq(64), addze(3, 3), BLR]
+    relocs = [(4, R_PPC_REL14, "callee", 0)]
+    assert _cls(fn(-1), fn(0), relocs) == "code"
+    def fn_lr(imm: int) -> list[int]:
+        return [addic(0, 1, imm), BEQLRL, addze(3, 3), BLR]
+    assert sc.carry_live(fn_lr(-1), 0)
+    assert _cls(fn_lr(-1), fn_lr(0)) == "code"
+
+
+def test_conditional_call_in_text_rows() -> None:
+    for call in ("bcl 12,2,callee", "beql callee", "beqlrl"):
+        a = ["addic r0,r1,-1", call, "addze r3,r3", "blr"]
+        rows, insts = _text_rows(a, ["addic r0,r1,0"] + a[1:], {0})
+        assert sc.classify_text_rows(rows, insts)[0] == "mismatch", call
+
+
+def test_unknown_targets_are_conservative() -> None:
+    # tail jump through a relocation, a computed jump, a branch out of the function
+    tail = [addic(0, 1, 8), b_rel(0), BLR]
+    assert sc.carry_live(tail, 0, {1})
+    assert sc.carry_live([addic(0, 1, 8), BCTR], 0)
+    assert sc.carry_live([addic(0, 1, 8), b_rel(64), BLR], 0)
+    # loops terminate
+    assert not sc.carry_live([addic(0, 1, 8), lwz(3, 8), b_rel(-4)], 0)
+
+
+def _text_rows(a: list[str], b: list[str], differ: set[int], dests: dict[int, int] = {}):
+    """Aligned objdiff-style rows plus per-side instruction dicts (address, branch_dest)."""
+    rows = [(x, y, k in differ) for k, (x, y) in enumerate(zip(a, b))]
+    def side(texts):
+        return [{"formatted": t, "address": str(4 * k), **({"branch_dest": str(dests[k])} if k in dests else {})}
+                for k, t in enumerate(texts)]
+    return rows, (side(a), side(b))
+
+
+def test_addic_carry_rule_in_text_rows() -> None:
+    # straight-line reader, and mfxer
+    rows, insts = _text_rows(["addic. r0,r1,-1", "addze r3,r3", "blr"], ["addic. r0,r1,0", "addze r3,r3", "blr"], {0})
+    assert sc.classify_text_rows(rows, insts)[0] == "mismatch"
+    rows, insts = _text_rows(["addic r0,r1,-1", "mfxer r3", "blr"], ["addic r0,r1,0", "mfxer r3", "blr"], {0})
+    assert sc.classify_text_rows(rows, insts)[0] == "mismatch"
+    # reader reached only through a branch target -> code
+    a = ["addic. r0,r1,8", "beq 0x10", "lwz r3,8(r1)", "blr", "addze r3,r3", "blr"]
+    b = [a[0].replace("8", "12", 1)] + a[1:]
+    rows, insts = _text_rows(a, b, {0}, {1: 16})
+    assert sc.classify_text_rows(rows, insts)[0] == "mismatch"
+    # branch to a block that only returns (TMarioGamePad::read shape) -> stack_only
+    a = ["addic. r0,r1,8", "beq 0xc", "lwz r3,8(r1)", "blr", "addze r3,r3", "blr"]
+    rows, insts = _text_rows(a, [a[0].replace("8", "12", 1)] + a[1:], {0}, {1: 12})
+    assert sc.classify_text_rows(rows, insts)[0] == "stack_only"
+    # a call kills CA; a CA writer kills CA
+    a = ["addic r0,r1,8", "bl callee", "addze r3,r3", "blr"]
+    rows, insts = _text_rows(a, [a[0].replace("8", "12")] + a[1:], {0})
+    assert sc.classify_text_rows(rows, insts)[0] == "stack_only"
+    a = ["addic r0,r1,8", "addc r4,r4,r5", "addze. r3,r3", "blr"]
+    rows, insts = _text_rows(a, [a[0].replace("8", "12")] + a[1:], {0})
+    assert sc.classify_text_rows(rows, insts)[0] == "stack_only"
+    # unresolvable branch (no addresses: legacy 3-tuple rows) -> conservative mismatch
+    legacy = [("addic. r0,r1,8", "addic. r0,r1,12", True), ("beq 0x10", "beq 0x10", False), ("blr", "blr", False)]
+    assert sc.classify_text_rows(legacy)[0] == "mismatch"
+    # bctr is a computed jump -> conservative
+    a = ["addic r0,r1,8", "bctr"]
+    rows, insts = _text_rows(a, ["addic r0,r1,12", "bctr"], {0})
+    assert sc.classify_text_rows(rows, insts)[0] == "mismatch"
+
+
+def test_classify_objdiff_follows_branches() -> None:
+    def sym(imm: int, dest: int) -> dict:
+        rows = [("addic. r0, r1, %#x" % imm, None), ("beq %#x" % dest, dest), ("lwz r3, 0x8(r1)", None), ("blr", None),
+                ("addze r3, r3", None), ("blr", None)]
+        out = []
+        for k, (text, d) in enumerate(rows):
+            ins = {"formatted": text, "size": 4, **({"address": str(4 * k)} if k else {})}
+            if d is not None:
+                ins["branch_dest"] = str(d)
+            out.append({"instruction": ins, **({"diff_kind": "DIFF_ARG_MISMATCH"} if k == 0 else {})})
+        return {"name": "f", "kind": "SYMBOL_FUNCTION", "instructions": out}
+
+    def payload(dest: int) -> dict:
+        left, right = sym(8, dest), sym(12, dest)
+        left["target_symbol"] = 0
+        right["match_percent"] = 99.0
+        return {"left": {"symbols": [left]}, "right": {"symbols": [right]}}
+
+    assert sc.classify_objdiff(payload(16))["functions"][0]["status"] == "mismatch"  # beq -> addze
+    assert sc.classify_objdiff(payload(12))["functions"][0]["status"] == "stack_only"  # beq -> blr

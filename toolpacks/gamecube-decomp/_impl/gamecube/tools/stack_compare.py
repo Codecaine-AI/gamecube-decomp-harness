@@ -10,7 +10,8 @@ Two layers, both stdlib-only and free of project side effects:
   word pair is a stack difference only when both are the same D-form (or
   paired-single) instruction with base register r1 and only the displacement
   differs: `stwu r1,-N(r1)`, `addi r1,r1,N`, `addi rX,r1,N` (including
-  `addi r11,r1,N` before `_savegpr`/`_restgpr`), and every `N(r1)` load/store
+  `addi r11,r1,N` before `_savegpr`/`_restgpr`), `addic(.) rX,r1,N` (a stack
+  slot address tested against zero), and every `N(r1)` load/store
   (lwz/stw/lfd/stfd/lmw/stmw/psq_l/psq_st ...). Anything else is code.
 
 * Text level (`classify_objdiff_symbol`): an objdiff-cli JSON row pair from a
@@ -64,11 +65,98 @@ RELOC_FIELD_MASK = {
     109: 0x001FFFFF,  # R_PPC_EMB_SDA21 (rA + d)
 }
 
-# D-form opcodes whose rA field is a base register: addi (14) and every
-# integer/float load/store from lwz (32) to stfdu (55), incl. lmw/stmw.
-_D_FORM_BASE_OPS = frozenset([14, *range(32, 56)])
+# D-form opcodes whose rA field is a base register: addic (12), addic. (13),
+# addi (14) and every integer/float load/store from lwz (32) to stfdu (55),
+# incl. lmw/stmw. With rA = r1 the immediate is a stack offset -- for addic
+# only while the carry it sets is dead (see carry_live).
+_D_FORM_BASE_OPS = frozenset([12, 13, 14, *range(32, 56)])
 # Paired-single quantized load/store: 12-bit displacement.
 _PSQ_OPS = frozenset([56, 57, 60, 61])
+_ADDIC_OPS = frozenset([12, 13])
+# XO-form (opcode 31) extended opcodes, bits 22-30 (any `o`/`.` form).
+_CA_READERS_XO = frozenset([138, 202, 234, 136, 200, 232])  # adde addze addme subfe subfze subfme
+_CA_WRITERS_XO = frozenset([10, 8])  # addc subfc
+# X-form (opcode 31) extended opcodes, bits 21-30.
+_XER_READERS_X = frozenset([512, 533, 661])  # mcrxr lswx stswx
+_CA_WRITERS_X = frozenset([824, 792])  # srawi sraw
+_MFSPR, _MTSPR, _SPR_XER = 339, 467, 1
+_CA_WRITER_OPS = frozenset([8, 12, 13])  # subfic addic addic.
+
+
+def _spr(word: int) -> int:
+    return ((word >> 16) & 0x1F) | (((word >> 11) & 0x1F) << 5)
+
+
+def carry_live(words: list[int], index: int, external: Optional[set[int]] = None) -> bool:
+    """Is the carry (CA) set by `words[index]` possibly read afterwards?
+
+    Forward liveness over the function's own control flow (`words` is the
+    whole function; `external` holds the indices of words whose branch target
+    comes from a relocation). Per path, from the next instruction:
+    an XER/CA reader (adde, addze, addme, subfe, subfze, subfme, mfxer,
+    mcrxr, lswx, stswx) -> live; a CA writer (addc, addic(.), subfc, subfic,
+    srawi, sraw, mtxer) -> path ends; `blr` (return; XER is volatile across
+    calls) or a call (`bl`, `bcl`, `blrl`, `bctrl`) -> path ends; `b` to an
+    in-function target -> continue there; a conditional branch -> continue
+    at both the fallthrough and the target. A target outside the function, a
+    relocated branch, `bctr` (computed: may be a jump table) or running off
+    the end -> live (conservative).
+    """
+    external = external or set()
+    todo = [index + 1]
+    seen: set[int] = set()
+    n = len(words)
+    while todo:
+        i = todo.pop()
+        if i in seen:
+            continue
+        seen.add(i)
+        if not 0 <= i < n:
+            return True
+        w = words[i]
+        op = w >> 26
+        if op == 31:
+            xo9, xo10 = (w >> 1) & 0x1FF, (w >> 1) & 0x3FF
+            if xo9 in _CA_READERS_XO or xo10 in _XER_READERS_X or (xo10 == _MFSPR and _spr(w) == _SPR_XER):
+                return True
+            if xo9 in _CA_WRITERS_XO or xo10 in _CA_WRITERS_X or (xo10 == _MTSPR and _spr(w) == _SPR_XER):
+                continue
+            todo.append(i + 1)
+            continue
+        if op in _CA_WRITER_OPS:
+            continue
+        if op in (16, 18):
+            link, absolute = w & 1, w & 2
+            if link:
+                # A call: the callee may clobber XER, so the taken path ends; a
+                # conditional call (bcl) still falls through when not taken.
+                if op == 16 and (w >> 21) & 0x14 != 0x14:
+                    todo.append(i + 1)
+                continue
+            if absolute or i in external:
+                return True
+            disp = _sext(w & 0x03FFFFFC, 26) if op == 18 else _sext(w & 0xFFFC, 16)
+            target = i + disp // 4
+            if not 0 <= target < n:
+                return True
+            todo.append(target)
+            if op == 16 and (w >> 21) & 0x14 != 0x14:  # conditional: fall through too
+                todo.append(i + 1)
+            continue
+        if op == 19:
+            xo10 = (w >> 1) & 0x3FF
+            if xo10 in (16, 528):  # bclr / bcctr
+                if w & 1:
+                    if (w >> 21) & 0x14 != 0x14:
+                        todo.append(i + 1)  # conditional blrl / bctrl: the not-taken path goes on
+                    continue  # blrl / bctrl: a call
+                if xo10 == 528:
+                    return True  # computed jump (switch table or tail call)
+                if (w >> 21) & 0x14 != 0x14:
+                    todo.append(i + 1)  # conditional return: the not-taken path goes on
+                continue  # blr: function exit
+        todo.append(i + 1)
+    return False
 
 
 @dataclass
@@ -275,7 +363,10 @@ def _sext(value: int, bits: int) -> int:
 
 
 def stack_word_pair(wa: int, wb: int) -> bool:
-    """True when two differing words differ only in an r1 displacement."""
+    """True when two differing words differ only in an r1 displacement.
+
+    For addic/addic. this is necessary but not sufficient: the caller must
+    also check that the carry is dead (carry_live)."""
     if wa == wb:
         return False
     op = wa >> 26
@@ -393,6 +484,8 @@ def compare_function(a: ElfObject, fa: Function, b: ElfObject, fb: Function, nam
         return result  # fast path: byte-identical with the same relocations
     relocs_a = a.relocs_by_word(fa.section)
     relocs_b = b.relocs_by_word(fb.section)
+    ext_a = {(off - fa.start) // 4 for off in relocs_a if fa.start <= off < fa.start + fa.size}
+    ext_b = {(off - fb.start) // 4 for off in relocs_b if fb.start <= off < fb.start + fb.size}
     first_stack: Optional[int] = None
     first_code: Optional[int] = None
     for i in range(min(len(words_a), len(words_b))):
@@ -420,7 +513,9 @@ def compare_function(a: ElfObject, fa: Function, b: ElfObject, fb: Function, nam
             break
         if wa == wb:
             continue
-        if stack_word_pair(wa, wb):
+        if stack_word_pair(wa, wb) and not (
+            wa >> 26 in _ADDIC_OPS and (carry_live(words_a, i, ext_a) or carry_live(words_b, i, ext_b))
+        ):
             result.stack_diffs += 1
             if first_stack is None:
                 first_stack = rel
@@ -544,7 +639,7 @@ def compare_objects(a: ElfObject, b: ElfObject) -> ObjectsDiff:
 
 _IMM = r"-?(?:0x[0-9a-f]+|\d+)"
 _STACK_MEM_RE = re.compile(rf"(?<![\w.]){_IMM}\(r1\)")
-_STACK_ADDI_RE = re.compile(rf"^(addi r\d+,r1,){_IMM}$")
+_STACK_ADDI_RE = re.compile(rf"^((?:addi|addic\.?) r\d+,r1,){_IMM}$")
 _FRAME_TEXT_RE = re.compile(rf"^stwu r1,({_IMM})\(r1\)$")
 
 
@@ -581,18 +676,108 @@ def stack_text_pair(text_a: str, text_b: str) -> bool:
     return ta and tb and na == nb
 
 
-def classify_text_rows(rows: list[tuple[Optional[str], Optional[str], bool]]) -> tuple[str, Optional[dict]]:
+_CA_READER_TEXT = re.compile(r"^(?:(?:adde|addze|addme|subfe|subfze|subfme)o?\.?|mfxer|mcrxr|lswx|stswx)$")
+# Conditional branch-and-link simplified mnemonics (beql, bnel, bltla, bdnzl, ...).
+_COND_CALL_TEXT = re.compile(r"^b(?:eq|ne|lt|le|gt|ge|so|ns|un|nu|nl|ng|dnz|dz|dnzt|dnzf|dzt|dzf|t|f)la?$")
+_CA_WRITER_TEXT = re.compile(r"^(?:(?:addc|subfc)o?\.?|addic\.?|subfic|srawi\.?|sraw\.?|mtxer)$")
+
+
+def _mnemonic(text: Optional[str]) -> str:
+    return canonical_inst(text or "").split(" ", 1)[0].rstrip("+-")
+
+
+def text_carry_live(insts: list[dict], index: int) -> bool:
+    """carry_live for formatted instructions: `insts` are one side's rows of a
+    function, each {formatted, address, branch_dest} (function-relative
+    offsets, as objdiff reports them). An unresolvable branch target is live."""
+    by_addr = {}
+    for k, ins in enumerate(insts):
+        try:
+            by_addr[int(ins.get("address") or 0)] = k
+        except (TypeError, ValueError):
+            pass
+    todo = [index + 1]
+    seen: set[int] = set()
+    while todo:
+        k = todo.pop()
+        if k in seen:
+            continue
+        seen.add(k)
+        if not 0 <= k < len(insts):
+            return True
+        m = _mnemonic(insts[k].get("formatted"))
+        if _CA_READER_TEXT.match(m):
+            return True
+        if _CA_WRITER_TEXT.match(m):
+            continue
+        if not m.startswith("b"):
+            todo.append(k + 1)
+            continue
+        if m in ("bl", "bla") or m.endswith(("lrl", "ctrl")) or (m.startswith("bc") and m.endswith("l")) \
+                or (m.endswith("l") and m not in ("b",) and _COND_CALL_TEXT.match(m)):
+            # A call ends the taken path (the callee may clobber XER); a
+            # conditional call still falls through when not taken.
+            if m not in ("bl", "bla", "blrl", "bctrl"):
+                todo.append(k + 1)
+            continue
+        if m.endswith("ctr"):
+            return True  # computed jump
+        if m.endswith("lr"):
+            if m != "blr":
+                todo.append(k + 1)  # conditional return
+            continue
+        dest = insts[k].get("branch_dest")
+        try:
+            target = by_addr.get(int(dest)) if dest is not None else None
+        except (TypeError, ValueError):
+            target = None
+        if target is None:
+            return True  # outside the function, relocated, or unknown
+        todo.append(target)
+        if m not in ("b", "ba"):
+            todo.append(k + 1)
+    return False
+
+
+def _sides(rows: list[tuple], insts: Optional[tuple[list, list]]) -> tuple[tuple[list, dict], tuple[list, dict]]:
+    """Per side: (instruction dicts without gaps, row index -> position).
+    Without objdiff instruction dicts, rows are taken as contiguous with no
+    addresses, so every branch is unresolvable (conservative)."""
+    out = []
+    for side in (0, 1):
+        seq: list[dict] = []
+        pos: dict[int, int] = {}
+        for index, row in enumerate(rows):
+            if row[side] is None:
+                continue
+            info = insts[side][index] if insts and insts[side][index] else {"formatted": row[side], "address": None}
+            pos[index] = len(seq)
+            seq.append(info)
+        out.append((seq, pos))
+    return out[0], out[1]
+
+
+def classify_text_rows(rows: list[tuple[Optional[str], Optional[str], bool]],
+                       insts: Optional[tuple[list, list]] = None) -> tuple[str, Optional[dict]]:
     """Classify aligned rows (text_a, text_b, differs).
 
     Returns (status, first_diff) with status `exact`, `stack_only` or
     `mismatch`. A flagged row whose texts are equal is a mismatch: the
     difference sits somewhere the text does not show (a relocation target).
+    An addic/addic. on r1 whose carry may be read later is code, not stack
+    (`insts`: per side, per row, objdiff's instruction dict with `address`
+    and `branch_dest`, used to follow branches).
     """
     first_stack = None
+    side_a, side_b = _sides(rows, insts)
     for index, (ta, tb, differs) in enumerate(rows):
         if not differs:
             continue
         if ta is None or tb is None or not stack_text_pair(ta, tb):
+            return "mismatch", {"row": index, "a": ta, "b": tb}
+        if _mnemonic(ta).startswith("addic") and (
+            text_carry_live(side_a[0], side_a[1][index]) or text_carry_live(side_b[0], side_b[1][index])
+        ):
             return "mismatch", {"row": index, "a": ta, "b": tb}
         if first_stack is None:
             first_stack = {"row": index, "a": ta, "b": tb}
@@ -600,9 +785,14 @@ def classify_text_rows(rows: list[tuple[Optional[str], Optional[str], bool]]) ->
 
 
 def _objdiff_rows(left: dict, right: dict) -> list[tuple[Optional[str], Optional[str], bool]]:
+    return _objdiff_rows_full(left, right)[0]
+
+
+def _objdiff_rows_full(left: dict, right: dict) -> tuple[list[tuple[Optional[str], Optional[str], bool]], tuple[list, list]]:
     la = left.get("instructions") or []
     rb = right.get("instructions") or []
     rows = []
+    infos: tuple[list, list] = ([], [])
     for k in range(max(len(la), len(rb))):
         a = la[k] if k < len(la) else {}
         b = rb[k] if k < len(rb) else {}
@@ -611,7 +801,9 @@ def _objdiff_rows(left: dict, right: dict) -> list[tuple[Optional[str], Optional
         rows.append(
             (ia.get("formatted") if ia else None, ib.get("formatted") if ib else None, differs)
         )
-    return rows
+        infos[0].append(ia)
+        infos[1].append(ib)
+    return rows, infos
 
 
 def _frame_of_rows(symbol: dict) -> Optional[int]:
@@ -657,7 +849,7 @@ def classify_objdiff(payload: dict) -> dict[str, Any]:
         else:
             percent = other.get("match_percent", sym.get("match_percent"))
             percent = float(percent) if percent is not None else 0.0
-            status, first = classify_text_rows(_objdiff_rows(sym, other))
+            status, first = classify_text_rows(*_objdiff_rows_full(sym, other))
             if status == "exact" and percent < 100.0:
                 status, first = "mismatch", None
             entry.update(status=status, match_percent=percent, first_diff=first)
