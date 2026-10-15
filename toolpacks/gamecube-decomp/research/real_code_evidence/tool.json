@@ -1,0 +1,47 @@
+{
+  "id": "real_code_evidence",
+  "title": "Real-code evidence search",
+  "trust_tier": "tool_evidence",
+  "description": "Read-only search for what the original code really was: link-map call tree and unit layout, header inlines, matched callers of an inline, and pinned Twilight Princess / Wind Waker JSystem sources.",
+  "operation_mode": "host_read_only",
+  "runner_status": "no_runner_required",
+  "status_message": "Reads the host game checkout ($ORCH_GAME_HOST_REPO_ROOT) and $ORCH_GAME_STATE_DIR/refs/jsystem; parsed map and symbols are cached by mtime and size.",
+  "limitations": [
+    "The CodeWarrior link map lists each symbol once, under its first reference, so map-calls omits callees referenced earlier in the link.",
+    "map-calls and map-unit need an original link map (SMS has mario.MAP; Melee has none and reports unavailable).",
+    "usage is a text match on the member name inside report-matched functions; it does not resolve overloads or receiver types.",
+    "jsystem needs refs fetched with _impl/gamecube/tools/fetch_jsystem_refs.sh (commits pinned in refs.lock.json)."
+  ],
+  "commands": {
+    "status": "python3 toolpacks/gamecube-decomp/research/real_code_evidence/api/status.py --json",
+    "real_code_evidence": "python3 toolpacks/gamecube-decomp/research/real_code_evidence/api/real_code_evidence.py <map-calls|map-unit|inlines|usage|jsystem> ... --json"
+  },
+  "capabilities": [
+    "link_map_call_tree",
+    "link_map_unit_layout",
+    "header_inline_lookup",
+    "matched_inline_usage",
+    "jsystem_reference_search"
+  ],
+  "category": "research",
+  "path": "research/real_code_evidence",
+  "process_role": "real_code_evidence",
+  "usage": {
+    "invocation_mode": "on_demand",
+    "mutates_source": false,
+    "blocks_on_failure": false,
+    "triggers": [
+      "steering_edit_suspected",
+      "callee_or_inline_unclear",
+      "jsystem_source_unclear"
+    ],
+    "outputs": [
+      "map_callees",
+      "unit_function_layout",
+      "header_inlines",
+      "matched_inline_callers",
+      "jsystem_reference_hits"
+    ],
+    "agent_guidance": "Use to find real evidence (callees, emitted inlines and weak functions, header inline bodies, matched usage, JSystem references) before keeping a source-shape edit."
+  }
+}

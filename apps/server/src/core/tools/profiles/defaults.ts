@@ -45,6 +45,14 @@ export const defaultWorkerToolProfile = [
   "review_lint_sdata2_order_helper",
 ] as const;
 
+/**
+ * Worker tools added only for games whose steering gate is active (shadow or
+ * enforce). Games with the gate off (Melee) keep exactly the default list.
+ */
+export const steeringGateWorkerToolProfile = [
+  "real_code_evidence",
+] as const;
+
 /** Default PR splitter tools attached to handoff planning launches. */
 export const defaultPrSplitterToolProfile = [
   "code_graph_search",

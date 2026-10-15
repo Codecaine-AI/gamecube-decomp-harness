@@ -23,6 +23,7 @@ import {
 } from "@agent-kernel/kernel/context";
 import type { TraceEvent } from "@agent-kernel/protocol";
 import type { PiRunResult } from "@server/core/shared/types";
+import { gameGatedAgentToolIds } from "@server/core/tools/profiles/index.js";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
 import { applyProcessEnvPatch } from "@server/infrastructure/agent-runtime/runtime/process-env";
 
@@ -148,7 +149,12 @@ export function parsedAgentForMeleeKernelSpawn(
       ...parsedAgent.config,
       ...(model ? { model } : {}),
       ...(piOptions.thinkingLevel ? { thinking: piOptions.thinkingLevel } : {}),
-      tools: [...new Set([...(parsedAgent.config.tools ?? []), ...sourceEditingCoreTools])],
+      tools: [...new Set([
+        ...(parsedAgent.config.tools ?? []),
+        ...sourceEditingCoreTools,
+        // Game-gated tools (steering-gate games only) join the typed allowlist.
+        ...gameGatedAgentToolIds(piOptions.role, piOptions.toolContext?.game),
+      ])],
       disallowedTools: [...new Set(disallowed)],
     },
   };

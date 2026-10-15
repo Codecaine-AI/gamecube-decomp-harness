@@ -791,6 +791,66 @@ export const typeLayoutLookupToolRegistration = knowledgeApiTool({
   },
 });
 
+const REAL_CODE_EVIDENCE_COMMANDS = ["map-calls", "map-unit", "inlines", "usage", "jsystem"] as const;
+type RealCodeEvidenceCommand = (typeof REAL_CODE_EVIDENCE_COMMANDS)[number];
+
+/** Required parameter per real_code_evidence command, and the CLI flag it maps to. */
+const REAL_CODE_EVIDENCE_REQUIRED: Record<RealCodeEvidenceCommand, { param: string; flag: string }> = {
+  "map-calls": { param: "symbol", flag: "--symbol" },
+  "map-unit": { param: "unit", flag: "--unit" },
+  inlines: { param: "type", flag: "--type" },
+  usage: { param: "inline", flag: "--inline" },
+  jsystem: { param: "query", flag: "--query" },
+};
+
+/** Tool for read-only real-code evidence: link map, header inlines, matched usage, JSystem refs. */
+export const realCodeEvidenceToolRegistration = knowledgeApiTool({
+  id: "real_code_evidence",
+  toolId: "real_code_evidence",
+  scriptName: "real_code_evidence.py",
+  label: "Real Code Evidence",
+  purpose: "Search real evidence of the original code: link-map callees and unit layout, header inlines, matched usage, and JSystem references.",
+  description: "Read-only lookups over the host game checkout and pinned JSystem sources. map-calls lists what a function references in the original link map (first references only); map-unit lists every function the original placed in a unit, including weak and UNUSED (stripped) ones; inlines returns header inline bodies for a type or member; usage lists already-matching functions whose source calls an inline; jsystem searches Twilight Princess and Wind Waker JSystem sources. Returns evidence rows or status unavailable when a data source is missing, not a verdict on any edit.",
+  guidance: "Use real_code_evidence before keeping a source-shape edit: look for a real callee, inline, weak function, or JSystem body that explains the match instead of a reworded expression.",
+  executionMode: "parallel",
+  parameters: {
+    type: "object",
+    properties: {
+      command: { type: "string", enum: [...REAL_CODE_EVIDENCE_COMMANDS], description: "map-calls (symbol), map-unit (unit), inlines (type, optional member), usage (inline, optional unit), or jsystem (query, optional game)." },
+      symbol: { type: "string", description: "Function symbol for map-calls; mangled or readable, e.g. TNerveHanaSamboHide::execute." },
+      unit: { type: "string", description: "Unit name or source path for map-unit, or an optional filter for usage." },
+      type: { type: "string", description: "Class name for inlines, e.g. JGeometry::TVec3 or TVec3<f32>." },
+      member: { type: "string", description: "Optional member name for inlines, e.g. scale." },
+      inline: { type: "string", description: "Inline function for usage, e.g. TVec3::scale." },
+      query: { type: "string", description: "Literal text to find in the JSystem reference sources." },
+      game: { type: "string", enum: ["tp", "tww", "all"], description: "JSystem reference game for jsystem. Defaults to all." },
+      limit: { type: "number", description: "Maximum rows to return." },
+    },
+    required: ["command"],
+    additionalProperties: false,
+  },
+  args(params) {
+    // Host-executed: evidence_search.py reads ORCH_GAME_HOST_REPO_ROOT from
+    // the resolver env, never the worker's sandbox repo path.
+    const command = stringParam(params, "command") as RealCodeEvidenceCommand;
+    if (!REAL_CODE_EVIDENCE_COMMANDS.includes(command)) {
+      return { status: "invalid_command", command, allowed_commands: [...REAL_CODE_EVIDENCE_COMMANDS] };
+    }
+    const required = REAL_CODE_EVIDENCE_REQUIRED[command];
+    const value = stringParam(params, required.param);
+    if (!value) return { status: `missing_${required.param}`, command };
+    const args: string[] = [command, required.flag, value];
+    const member = stringParam(params, "member");
+    if (command === "inlines" && member) args.push("--member", member);
+    const unit = stringParam(params, "unit");
+    if (command === "usage" && unit) args.push("--unit", unit);
+    const game = stringParam(params, "game");
+    if (command === "jsystem" && ["tp", "tww", "all"].includes(game)) args.push("--game", game);
+    if (params.limit !== undefined) args.push("--limit", String(boundedLimit(params.limit, 20, 200)));
+    return args;
+  },
+});
+
 /** Tool for previewing missing include additions. */
 export const includeFixerPreviewToolRegistration = knowledgeApiTool({
   id: "include_fixer_preview",
@@ -1034,6 +1094,7 @@ export const capabilityToolRegistrations = [
   m2cDecompileToolRegistration,
   asmWindowSearchToolRegistration,
   typeLayoutLookupToolRegistration,
+  realCodeEvidenceToolRegistration,
   includeFixerPreviewToolRegistration,
   itemStateTablePreviewToolRegistration,
   reviewLintScanToolRegistration,

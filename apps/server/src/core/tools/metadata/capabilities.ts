@@ -112,6 +112,11 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
     type: "diagnostics",
     useWhen: "Compare record layouts, union aliases, and cast-only overlay evidence before changing a type.",
   },
+  real_code_evidence: {
+    provider: "real_code_evidence",
+    type: "exploration",
+    useWhen: "Find real evidence for a mismatch (link-map callees, emitted weak or stripped functions, header inlines, matched usage, JSystem sources) before keeping a source-shape edit.",
+  },
   include_fixer_preview: {
     provider: "include_fixer",
     type: "source_review",

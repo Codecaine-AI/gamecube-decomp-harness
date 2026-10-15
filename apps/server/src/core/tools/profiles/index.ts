@@ -5,7 +5,7 @@
  * disable, or replace overrides through the runtime without changing prompt
  * templates. This keeps agent/tool composition explicit and testable.
  */
-import type { RuntimeAgentRole } from "@server/core/shared/types";
+import type { RunGameMetadata, RuntimeAgentRole } from "@server/core/shared/types";
 import { agentToolSummary, createAgentTools } from "../runtime/registry.js";
 import type {
   AgentToolProfileInput,
@@ -16,12 +16,14 @@ import type {
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
 import { knowledgeV2ToolPromptMetadata } from "../metadata/knowledge-v2.js";
+import { gameSteeringGate, steeringGateActive } from "../steering-gate.js";
 import {
   defaultLibrarianToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
   defaultWorkerToolProfile,
+  steeringGateWorkerToolProfile,
 } from "./defaults.js";
 
 export {
@@ -30,6 +32,7 @@ export {
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
   defaultWorkerToolProfile,
+  steeringGateWorkerToolProfile,
 } from "./defaults.js";
 
 const agentToolPromptMetadata: Record<string, AgentToolPromptMetadata> = {
@@ -61,12 +64,37 @@ export function resolveAgentToolIds(
   return [...new Set(enabled)].filter((toolId) => !disabled.has(toolId));
 }
 
+/**
+ * Tool ids a role gains from its game's policy, beyond the static profile.
+ * Workers on a game with an active steering gate get the real-code evidence
+ * tools; every other game and role gets none, so its tool list is unchanged.
+ */
+export function gameGatedAgentToolIds(
+  role: RuntimeAgentRole,
+  game?: Pick<RunGameMetadata, "gameId" | "descriptorPath"> | null,
+): string[] {
+  if (role !== "worker") return [];
+  return steeringGateActive(gameSteeringGate(game)) ? [...steeringGateWorkerToolProfile] : [];
+}
+
+/** resolveAgentToolIds plus the game-gated tools for the context's game. */
+export function resolveAgentToolIdsForContext(
+  context: Pick<AgentToolRuntimeContext, "role" | "game">,
+  profile?: AgentToolProfileInput,
+): string[] {
+  const ids = resolveAgentToolIds(context.role, profile);
+  const disabled = new Set(profile?.disable ?? []);
+  const gated = gameGatedAgentToolIds(context.role, context.game)
+    .filter((toolId) => !disabled.has(toolId) && !ids.includes(toolId));
+  return [...ids, ...gated];
+}
+
 /** Build concrete Pi custom tools for the role and runtime context. */
 export function buildAgentTools(
   context: AgentToolRuntimeContext,
   profile?: AgentToolProfileInput,
 ): PiToolDefinition[] {
-  return createAgentTools(resolveAgentToolIds(context.role, profile), context);
+  return createAgentTools(resolveAgentToolIdsForContext(context, profile), context);
 }
 
 function xmlAttribute(value: unknown): string {

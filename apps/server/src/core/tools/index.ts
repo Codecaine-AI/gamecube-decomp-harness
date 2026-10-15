@@ -16,7 +16,10 @@ export {
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
   defaultWorkerToolProfile,
+  gameGatedAgentToolIds,
   resolveAgentToolIds,
+  resolveAgentToolIdsForContext,
+  steeringGateWorkerToolProfile,
 } from "./profiles/index.js";
 export type { AgentToolProfileInput, AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition, PiToolResult } from "./types.js";
 export {
