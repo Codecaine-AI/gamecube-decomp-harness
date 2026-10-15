@@ -8,7 +8,8 @@
     "global_standard:avoid-pragmas-register-asm",
     "global_standard:literals-and-data-ownership",
     "global_standard:no-inert-emission",
-    "global_standard:sms-plain-code"
+    "global_standard:sms-plain-code",
+    "global_standard:sms-no-steering"
   ],
   "rules": [
     {
@@ -81,7 +82,41 @@
         "src/*.c",
         "include/**"
       ],
-      "message": "Accessor and inline swaps need evidence that the accessor exists in the original."
+      "message": "Accessor and inline swaps need evidence that the accessor exists in the original; otherwise they are steering probes for the steering gate."
+    },
+    {
+      "rule_id": "sms_single_use_temp",
+      "standard_id": "global_standard:sms-no-steering",
+      "severity": "warning",
+      "llm_review": true,
+      "applies_to": [
+        "src/*.cpp",
+        "src/*.c",
+        "include/**"
+      ],
+      "message": "A temp or alias that only re-spells an expression is a steering probe, not a fix."
+    },
+    {
+      "rule_id": "sms_form_rewrite",
+      "standard_id": "global_standard:sms-no-steering",
+      "severity": "warning",
+      "llm_review": true,
+      "applies_to": [
+        "src/*.cpp",
+        "src/*.c",
+        "include/**"
+      ],
+      "message": "A same-behaviour rewrite (if/ternary, order, type spelling, literal form, compound assignment, boolean form) is a steering probe, not a fix."
+    },
+    {
+      "rule_id": "sms_codegen_directive",
+      "standard_id": "global_standard:sms-no-steering",
+      "severity": "error",
+      "applies_to": [
+        "src/**",
+        "include/**"
+      ],
+      "message": "Added volatile, register or #pragma steers codegen and is rejected in SMS."
     },
     {
       "rule_id": "sms_invented_helper",

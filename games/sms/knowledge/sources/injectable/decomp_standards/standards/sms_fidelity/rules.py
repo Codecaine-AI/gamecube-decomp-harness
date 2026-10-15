@@ -13,7 +13,6 @@ never downgrades or exempts a finding, SMS or global. The post-scan hook
 ``apply_sms_policy_to_global_findings`` keeps global marker/evidence advice
 from reaching SMS workers."""
 import bisect
-import difflib
 import importlib.util
 import os
 import re
@@ -36,26 +35,42 @@ def _baseline():
     return module
 
 
-def _agent_comments():
-    """The shared agent-comment vocabulary (toolpacks/.../tools/agent_comments.py)."""
-    name = '_gcdh_agent_comments'
+def _toolpack_module(stem):
+    """A shared toolpack module (toolpacks/.../tools/<stem>.py), loaded by path."""
+    name = '_gcdh_' + stem
     if name in sys.modules:
         return sys.modules[name]
     for parent in Path(__file__).resolve().parents:
-        path = parent / 'toolpacks/gamecube-decomp/_impl/gamecube/tools/agent_comments.py'
+        path = parent / f'toolpacks/gamecube-decomp/_impl/gamecube/tools/{stem}.py'
         if path.is_file():
             spec = importlib.util.spec_from_file_location(name, path)
             module = importlib.util.module_from_spec(spec)
             sys.modules[name] = module
             spec.loader.exec_module(module)
             return module
-    raise RuntimeError('review_lint: agent_comments.py not found above ' + str(Path(__file__).resolve()))
+    raise RuntimeError(f'review_lint: {stem}.py not found above ' + str(Path(__file__).resolve()))
+
+
+def _agent_comments():
+    """The shared agent-comment vocabulary (toolpacks/.../tools/agent_comments.py)."""
+    return _toolpack_module('agent_comments')
+
+
+def _steering_shapes():
+    """The shared steering shape classifier (toolpacks/.../tools/steering_shapes.py)."""
+    return _toolpack_module('steering_shapes')
 
 
 base = _baseline()
 agent_comments = _agent_comments()
+steering_shapes = _steering_shapes()
 clean, partial, VENDOR_PATHS = base.clean, base.partial, base.VENDOR_PATHS
 GAME_SOURCES = ['src/*.cpp', 'src/*.c']
+# Steering gate (objectives/sms-real-codegen/plan.md): a same-behaviour rewrite
+# that moves codegen is a probe for the real construct, never the fix.
+STEERING_PROBE = (' This edit is a steering probe: it shows what codegen the original needs, not the fix.'
+                  ' Run `steering_check.py check`, read its hypotheses, find the real construct with'
+                  ' `real_code_evidence`, write that, and remove the steering edit.')
 SYMBOLS_PATH = 'config/GMSJ01/symbols.txt'
 SPLITS_PATH = 'config/GMSJ01/splits.txt'
 MARKER = re.compile(r'(?://|/\*).*\b(?:fabricated|fake(?:match)?|TODO)\b', re.I)
@@ -527,23 +542,14 @@ def check_agent_comment(hunk):
 # inline (`a()` -> `b()->a()`, or back), and any new inline body in a game
 # header. Text cannot tell a real accessor from a fabricated one, so these go
 # to llm_review asking for evidence that the accessor exists in the original.
-TOKEN = re.compile(r'[A-Za-z_]\w*|\d[\w.]*|->|::|<<=|>>=|<=|>=|==|!=|&&|\|\||\+\+|--|[-+*/%&|^]=|\S')
-MEMBER_CHAIN = re.compile(r'(?:this->)?[A-Za-z_]\w*(?:\[[^\[\]]*\])?')
-ACCESSOR_CALL = re.compile(r'(?:this->)?(?P<name>[A-Za-z_]\w*)\([^()]*\)')
-MERGE_GAP = 3  # equal tokens allowed between two edits that form one swap (`m[i]` -> `get(i)`)
-INLINE_HOP = re.compile(r'(?P<lead>->|\.)?(?P<name>[A-Za-z_]\w*)\([^()]*\)(?P<trail>->|\.)?')
+# The swap detector lives in steering_shapes.py (shared with the steering gate).
+TOKEN = steering_shapes.TOKEN
+accessor_swap = steering_shapes.accessor_swap
+member_like = steering_shapes.member_like
+field_name = steering_shapes.field_name
 HEADER_INLINE = re.compile(r'^\s*(?:(?:static|inline|virtual|explicit|friend)\s+)*(?:[A-Za-z_][\w:<>,*&\s]*?[\s*&])?(?P<name>~?[A-Za-z_]\w*)\s*\([^;{}]*\)\s*(?:const\s*)?(?P<brace>\{)?\s*(?:.*\})?\s*$')
 NOT_FUNCTIONS = {'if', 'for', 'while', 'switch', 'return', 'sizeof', 'do', 'else', 'case', 'catch'}
-EVIDENCE_REQUEST = ' Keep it only with evidence that this accessor or inline exists in the original source: an upstream header, the symbol map (mario.MAP / symbols.txt) or a sibling decomp that uses it at this call site. A frame-size, stack-layout or match-percent gain is not evidence; without evidence revert to the upstream expression.'
-
-
-def member_like(name, tokens, index, call_name):
-    stem = name[1:] if re.match(r'm[A-Z_]', name) else name.lstrip('_')
-    return (index > 0 and tokens[index - 1] in ('->', '.')) or bool(re.match(r'(?:m[A-Z_]|unk|_)', name)) or call_name.lower() == 'get' + stem.lower()
-
-
-def field_name(text):
-    return re.match(r'(?:this->)?([A-Za-z_]\w*)', text).group(1)
+EVIDENCE_REQUEST = ' Keep it only with evidence that this accessor or inline exists in the original source: an upstream header, the symbol map (mario.MAP / symbols.txt) or a sibling decomp that uses it at this call site. A frame-size, stack-layout or match-percent gain is not evidence; without evidence revert to the upstream expression.' + STEERING_PROBE
 
 
 def statements(rows):
@@ -561,40 +567,6 @@ def statements(rows):
     if tokens:
         result.append((start, tokens))
     return result
-
-
-def accessor_swap(old, new):
-    """(kind, before, after) when new differs from old only by an accessor or inline hop."""
-    opcodes = difflib.SequenceMatcher(a=old, b=new, autojunk=False).get_opcodes()
-    edits = [index for index, op in enumerate(opcodes) if op[0] != 'equal']
-    if not edits:
-        return None
-    first, last = edits[0], edits[-1]
-    if any(opcodes[index][0] == 'equal' and opcodes[index][2] - opcodes[index][1] > MERGE_GAP for index in range(first, last)):
-        return None
-    tag, i1, j1 = opcodes[first][0], opcodes[first][1], opcodes[first][3]
-    i2, j2 = opcodes[last][2], opcodes[last][4]
-    if first != last:
-        tag = 'replace'
-        while i2 > i1 and j2 > j1 and old[i2 - 1] == new[j2 - 1]:
-            i2, j2 = i2 - 1, j2 - 1
-        while i1 < i2 and j1 < j2 and old[i1] == new[j1]:
-            i1, j1 = i1 + 1, j1 + 1
-    before, after = ''.join(old[i1:i2]), ''.join(new[j1:j2])
-    if tag == 'replace':
-        call = ACCESSOR_CALL.fullmatch(after)
-        field = MEMBER_CHAIN.fullmatch(before)
-        if call and field and member_like(field_name(before), old, i1, call['name']):
-            return 'field_to_accessor', before, after
-        call = ACCESSOR_CALL.fullmatch(before)
-        field = MEMBER_CHAIN.fullmatch(after)
-        if call and field and member_like(field_name(after), new, j1, call['name']):
-            return 'accessor_to_field', before, after
-        return None
-    hop = INLINE_HOP.fullmatch(after if tag == 'insert' else before)
-    if hop and bool(hop['lead']) != bool(hop['trail']):
-        return ('inline_hop_added' if tag == 'insert' else 'inline_hop_removed'), before, after
-    return None
 
 
 def new_header_inlines(hunk):
@@ -638,6 +610,155 @@ def check_accessor_evidence(hunk):
                 findings.append(partial(number, text, f'{label} with no other change to the statement.' + EVIDENCE_REQUEST, flip=kind, before=before, after=after, requires_human_review=True))
                 break
     return findings + new_header_inlines(hunk)
+
+
+# --- sms_single_use_temp / sms_form_rewrite / sms_codegen_directive ------------
+# Steering shapes (steering_shapes.py, plan section 2.2/4): a temp or alias that
+# only re-spells an expression, a same-behaviour rewrite of a statement, and an
+# added codegen directive. The first two are llm_review warnings asking whether
+# the added code behaves differently from the removed code; directives are
+# errors. The edit group is the hunk widened to whole statements, from the
+# pre/post file texts when the scanner has them, else from the hunk context.
+STEERING_SOURCES = ['src/*.cpp', 'src/*.c', 'include/**']
+FORM_LABELS = {
+    'ternary_if': 'if/else and ?: (or an early return) swapped',
+    'statement_permutation': 'statements reordered',
+    'decl_reorder': 'declarations moved or split from their initializer',
+    'type_spelling': 'type spelled differently (same canonical type)',
+    'float_form': 'arithmetic or literal rewritten with the same value',
+    'compound_assign_split': 'compound assignment split or joined',
+    'bool_form': 'boolean test spelled differently',
+}
+_STEERING_GROUPS = {}
+_STEERING_REPORTED = set()
+
+
+def _steering_typedefs():
+    if 'typedefs' not in _STEERING_GROUPS:
+        roots = [Path(p) for p in (os.environ.get('ORCH_GAME_REPO_ROOT'), os.environ.get('ORCH_GAME_HOST_REPO_ROOT')) if p]
+        table = None
+        for root in roots:
+            if (root / 'include').is_dir():
+                table = steering_shapes.load_typedefs(root)
+                break
+        _STEERING_GROUPS['typedefs'] = table
+    return _STEERING_GROUPS['typedefs']
+
+
+def steering_groups(hunk):
+    """[(group, line_numbers)] for the hunk: line_numbers maps 1-based indices of
+    group['added'] to post-file line numbers (None for lines outside the post file)."""
+    added_numbers = [number for number, _ in hunk.get('added', [])]
+    pre, post = hunk.get('pre_file_text'), hunk.get('post_file_text')
+    if isinstance(pre, str) and isinstance(post, str) and added_numbers:
+        key = (hunk.get('file'), hash(pre), hash(post))
+        groups = _STEERING_GROUPS.get(key)
+        if groups is None:
+            groups = steering_shapes.statement_groups(pre, post)
+            _STEERING_GROUPS[key] = groups
+        low, high = min(added_numbers), max(added_numbers)
+        result = []
+        for group in groups:
+            if group['cand_start'] <= high and group['cand_end'] >= low:
+                result.append((group, [group['cand_start'] + i for i in range(len(group['added']))]))
+        if result:
+            return result
+    rows = hunk.get('post_lines') or [(number, text, True) for number, text in hunk.get('added', [])]
+    added_rows = [i for i, row in enumerate(rows) if row[2]]
+    if not added_rows and not hunk.get('removed'):
+        return []
+    first = added_rows[0] if added_rows else len(rows)
+    last = added_rows[-1] if added_rows else len(rows) - 1
+    lead = [text for _, text, _ in rows[:first]]
+    trail = [text for _, text, _ in rows[last + 1:]]
+    middle = rows[first:last + 1]
+    group = {'removed': lead + list(hunk.get('removed', [])) + trail,
+             'added': lead + [text for _, text, _ in middle] + trail}
+    numbers = [number for number, _, _ in rows[:first]] + [number for number, _, _ in middle] + [number for number, _, _ in rows[last + 1:]]
+    return [(group, numbers)]
+
+
+def steering_findings(hunk, shapes):
+    """[(post line, shape finding)] for the given shapes, once per scan."""
+    path = hunk.get('file') or ''
+    if any(fnmatch(path, p) for p in VENDOR_PATHS):
+        return []
+    added = {number for number, _ in hunk.get('added', [])}
+    if not added:
+        return []
+    result = []
+    for group, numbers in steering_groups(hunk):
+        try:
+            found = steering_shapes.classify_group(group['removed'], group['added'], typedefs=_steering_typedefs())
+        except Exception:  # a classifier failure must never break the scan
+            continue
+        for item in found['details']['findings']:
+            if item['shape'] not in shapes:
+                continue
+            line = numbers[item['line'] - 1] if item.get('line') and item['line'] <= len(numbers) else None
+            if line not in added:
+                in_group = sorted(n for n in numbers if n in added)
+                line = in_group[0] if in_group else min(added)
+            key = (path, line, item['shape'], item.get('before'), item.get('after'))
+            if key in _STEERING_REPORTED:
+                continue
+            _STEERING_REPORTED.add(key)
+            result.append((line, item))
+    return result
+
+
+def _excerpt(hunk, line):
+    return dict(hunk.get('added', [])).get(line, '')
+
+
+def check_single_use_temp(hunk):
+    findings = []
+    for line, item in steering_findings(hunk, {'temp_alias'}):
+        name, before = item.get('name'), (item.get('before') or '')[:120]
+        if item.get('direction') == 'inlined':
+            what = f'Upstream local `{name}` folded back into its use (`{before}`)'
+        else:
+            what = f'Local `{name}` only re-spells `{before}` ({item.get("uses", 1)} use{"" if item.get("uses", 1) == 1 else "s"})'
+        findings.append(partial(line, _excerpt(hunk, line), what + ': same behaviour, different codegen.' + STEERING_PROBE,
+                                llm_question='behaviour_change', shape='temp_alias', name=name, direction=item.get('direction'),
+                                before=item.get('before'), after=item.get('after')))
+    return findings
+
+
+def check_form_rewrite(hunk):
+    findings = []
+    for line, item in steering_findings(hunk, set(FORM_LABELS)):
+        label = FORM_LABELS[item['shape']]
+        findings.append(partial(line, _excerpt(hunk, line), f'Same-behaviour rewrite ({label}): `{(item.get("before") or "")[:100]}` -> `{(item.get("after") or "")[:100]}`.' + STEERING_PROBE,
+                                llm_question='behaviour_change', shape=item['shape'], before=item.get('before'), after=item.get('after')))
+    return findings
+
+
+def check_codegen_directive(hunk):
+    path = hunk.get('file') or ''
+    if any(fnmatch(path, p) for p in VENDOR_PATHS):
+        return []
+    added = hunk.get('added', [])
+    findings = []
+    for item in steering_shapes.codegen_directives([text for _, text in added], hunk.get('removed', [])):
+        if re.match(r'#pragma\s+(?:pop\b|\w+\s+(?:off|reset)\b)', item['detail']):
+            continue  # the closer of a pragma pair; the opener carries the finding
+        number, text = added[item['line'] - 1]
+        findings.append(partial(number, text, f'Added `{item["detail"]}` is a codegen directive: SMS source does not add volatile, register or #pragma to steer the compiler. Remove it; leave the function nonmatching if clean source does not match.' + STEERING_PROBE,
+                                shape='codegen_directive', directive=item['detail']))
+    return findings
+
+
+# Rules that already reject a directive on the same line with a more specific
+# message; sms_codegen_directive only covers what none of them reports.
+DIRECTIVE_OWNERS = {'volatile_local_tactic', 'register_keyword', 'inline_asm', 'novel_pragma', 'codegen_pragma',
+                    'sms_dummy_stack_padding', 'sms_fabricated_marker', 'sms_alignment_trick', 'sms_pad_stack_macro'}
+
+
+def drop_owned_directives(findings, repo, mode, file_diffs, merge_base):
+    """Post-scan: one error per directive line (the more specific rule wins)."""
+    owned = {(f.get('file'), f.get('line')) for f in findings if f.get('rule_id') in DIRECTIVE_OWNERS and f.get('severity') == 'error'}
+    return [f for f in findings if not (f.get('rule_id') == 'sms_codegen_directive' and (f.get('file'), f.get('line')) in owned)]
 
 
 # --- sms_invented_helper ------------------------------------------------------
@@ -1296,9 +1417,13 @@ RULES = [
     {'rule_id': 'sms_intrinsic_bypass', 'standard_id': 'global_standard:sms-authored-evidence', 'severity': 'warning', 'applies_to': GAME_SOURCES, 'check': check_intrinsic_bypass, 'message': 'MSL intrinsic bypasses need binary evidence.'},
     {'rule_id': 'sms_dummy_vec_helper', 'standard_id': 'global_standard:sms-pch-string-convention', 'severity': 'warning', 'applies_to': GAME_SOURCES, 'check': check_dummy_vec_helper, 'message': 'dummy(Vec*) needs its emitted-symbol comment.'},
     {'rule_id': 'sms_agent_comment', 'standard_id': 'global_standard:sms-no-agent-comments', 'severity': 'error', 'applies_to': ['src/**', 'include/**'], 'check': check_agent_comment, 'message': 'Agent-written comments (TODO, nonmatching, fakematch, frame notes) are rejected in SMS.'},
-    {'rule_id': 'sms_accessor_evidence', 'standard_id': 'global_standard:sms-accessor-evidence', 'severity': 'warning', 'llm_review': True, 'applies_to': ['src/*.cpp', 'src/*.c', 'include/**'], 'check': check_accessor_evidence, 'message': 'Accessor and inline swaps need evidence that the accessor exists in the original.'},
+    {'rule_id': 'sms_accessor_evidence', 'standard_id': 'global_standard:sms-accessor-evidence', 'severity': 'warning', 'llm_review': True, 'applies_to': ['src/*.cpp', 'src/*.c', 'include/**'], 'check': check_accessor_evidence, 'message': 'Accessor and inline swaps need evidence that the accessor exists in the original; otherwise they are steering probes for the steering gate.'},
+    # Steering gate shapes (objectives/sms-real-codegen/plan.md section 4).
+    {'rule_id': 'sms_single_use_temp', 'standard_id': 'global_standard:sms-no-steering', 'severity': 'warning', 'llm_review': True, 'applies_to': STEERING_SOURCES, 'check': check_single_use_temp, 'message': 'A temp or alias that only re-spells an expression is a steering probe, not a fix.'},
+    {'rule_id': 'sms_form_rewrite', 'standard_id': 'global_standard:sms-no-steering', 'severity': 'warning', 'llm_review': True, 'applies_to': STEERING_SOURCES, 'check': check_form_rewrite, 'message': 'A same-behaviour rewrite (if/ternary, order, type spelling, literal form, compound assignment, boolean form) is a steering probe, not a fix.'},
+    {'rule_id': 'sms_codegen_directive', 'standard_id': 'global_standard:sms-no-steering', 'severity': 'error', 'applies_to': ['src/**', 'include/**'], 'check': check_codegen_directive, 'message': 'Added volatile, register or #pragma steers codegen and is rejected in SMS.'},
     # D1/D2 (user decision 2026-10-13): invented helpers and odd-looking code are dropped in SMS.
     {'rule_id': 'sms_invented_helper', 'standard_id': 'global_standard:sms-fabricated-marker', 'severity': 'error', 'applies_to': INVENTED_SOURCES, 'check': collect_invented_helper_context, 'message': 'Functions the diff adds need an upstream declaration or a symbols.txt/mario.MAP entry; invented helpers are dropped.'},
     {'rule_id': 'sms_nonsense_code', 'standard_id': 'global_standard:sms-plain-code', 'severity': 'error', 'applies_to': INVENTED_SOURCES, 'check': check_nonsense_code, 'message': 'Code a human would not write (repeated tests, double negations, empty branches, dead or repeated stores) is dropped.'},
 ]
-POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post, check_invented_helper_post]
+POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post, check_invented_helper_post, drop_owned_directives]
