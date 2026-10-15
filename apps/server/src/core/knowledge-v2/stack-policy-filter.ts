@@ -9,10 +9,15 @@
  * this module: read-time redaction for cards and search tools, the prompt
  * block for summarizer/librarian write paths, and the stored-item prune job.
  * Melee (`match_frame`) is never filtered.
+ *
+ * Games whose steering gate is not `off` (SMS) also get steering
+ * recommendations relabelled as diagnostic probes; `applyKnowledgePolicies`
+ * composes both for every read path.
  */
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { resolveGame, type StackFramePolicy } from "../game-registry/resolver.js";
+import { resolveGame, type SteeringGateMode, type StackFramePolicy } from "../game-registry/resolver.js";
+import { gameSteeringGate, steeringGateActive } from "../tools/steering-gate.js";
 
 /**
  * Agent-comment vocabulary. A copy of `AGENT_COMMENT_TERMS` in
@@ -317,16 +322,226 @@ export function stackPolicyQuarantined(storePath: string): boolean {
   return existsSync(stackPolicyQuarantinePath(storePath));
 }
 
+// --- Steering relabel (steering gate != off) ---------------------------------
+//
+// A steering edit changes the source form but not the program's behaviour
+// (single-use temps and aliases, split expressions, accessor<->field swaps,
+// if<->ternary, operand order, `int`<->`s32`, declaration or statement
+// reorders). It moves register choice or instruction order and can look like a
+// fix. History recommending one is not deleted: it is evidence of what codegen
+// the original needs. It is relabelled in place so an agent reads it as a
+// probe, never as the fix.
+
+export type SteeringTacticRule = "steering_temp" | "steering_accessor" | "steering_form";
+
+export interface SteeringTacticFinding {
+  rule: SteeringTacticRule;
+  excerpt: string;
+}
+
+export const STEERING_PROBE_LABEL = "[diagnostic probe: shows what codegen the original needs; not a fix]";
+
+/** One line carried next to relabelled history. */
+export const STEERING_POLICY_NOTE =
+  "This game runs the steering gate: rewrites that behave exactly like the code they replace (single-use temps or aliases, split expressions, accessor/field swaps, if/ternary, operand order, int/s32, declaration or statement reorders) are never fixes; history recommending them is labelled as a diagnostic probe.";
+
+/** A local whose name says it only exists to hold a value once: `f32 tmp = a->b;`, `s32 temp2 = x;`. */
+const TEMP_DECL_RE = /^\s*(?:const\s+)?(?:(?:unsigned|signed|struct|class)\s+)?[A-Za-z_][\w:<>]*\s*[*&]*\s*\b(?:tmp|temp|_tmp|_temp)\w*\s*=(?!=)/;
+
+const TEMP_TERM_RE = /\b(?:single[- ]use|temp(?:orar(?:y|ies))?s?\b|tmp\w*|alias(?:es|ed|ing)?\b|intermediate\s+(?:locals?|variables?|values?)|(?:extra|new|separate|additional|dedicated)\s+(?:locals?|variables?|vars?)\b|(?:into|in|to)\s+(?:a|an|its\s+own|their\s+own)\s+(?:(?:separate|new|extra|local)\s+)?(?:local|temp|variable)s?\b|split(?:s|ting)?\s+(?:the\s+|this\s+|that\s+|an?\s+)?(?:expressions?|computations?|calculations?|statements?|conditions?)|cach(?:e|es|ed|ing)\s+[^.]{0,40}\bin\s+a\s+local)/i;
+const ACCESSOR_TERM_RE = /\b(?:(?:accessors?|getters?|setters?)\b[^.]{0,80}\b(?:instead\s+of|rather\s+than|swap\w*|replac\w*|switch\w*|direct(?:ly)?|fields?|members?)\b|(?:fields?|members?)\b[^.]{0,80}\b(?:instead\s+of|rather\s+than)\b[^.]{0,40}\b(?:accessors?|getters?|setters?|inlines?)\b|direct\s+(?:field|member)\s+access|access(?:es|ed|ing)?\s+(?:the\s+)?(?:field|member)s?\s+directly|inline\s+hop|\w+->\s*get\w*\(\)[^.]{0,40}\b(?:instead\s+of|rather\s+than|with|to|->|→)\b[^.]{0,20}->\s*m[A-Z]\w*|->\s*m[A-Z]\w*[^.]{0,40}\b(?:instead\s+of|rather\s+than|with|to|->|→)\b[^.]{0,20}->\s*get\w*\(\))/i;
+const FORM_TERM_RE = /\b(?:ternar(?:y|ies)|conditional\s+(?:operator|expression)|operand\s+order|(?:swap|flip|revers|reorder|re-order|switch)\w*\b[^.]{0,60}\b(?:operands?|sides?\s+of\s+the\s+(?:comparison|compare|addition|multiplication))|commut\w*|(?:reorder|re-order|swap|mov(?:e|ed|es|ing)|hoist|sink|permut)\w*\b[^.]{0,80}\b(?:declarations?|statements?|assignments?|lines?|locals?|stores?|loads?)\b|(?:declaration|statement|assignment)\s+order|(?:int|s32|u32|s16|u16|s8|u8|unsigned|signed)\s+(?:instead\s+of|rather\s+than|vs\.?|versus|->|→|to)\s+(?:int|s32|u32|s16|u16|s8|u8|unsigned|signed)\b|(?:\*\s*0\.5f?|\/\s*2(?:\.0)?f?)\b[^.]{0,40}\b(?:instead\s+of|rather\s+than|vs\.?|->|→)\b|compound\s+assign\w*|(?:if|if\/else|if-else)\s+(?:statement\s+)?(?:instead\s+of|rather\s+than|into|to|->|→|vs\.?)\s+(?:a\s+)?(?:ternary|\?:)|\?:\s+(?:instead\s+of|rather\s+than|into|to|->|→)\s+(?:an?\s+)?if)/i;
+
+/** A steering tactic is only relabelled when it is offered as the thing that matched or fixed something. */
+const FIX_CONTEXT_RE = /\b(?:match\w*|fix\w*|codegen|regalloc|register\w*|r\d{1,2}\b|f\d{1,2}\b|instructions?|scheduling|load\s+order|help(?:s|ed)?|forc\w*|works?|worked|needed|needs|required|requires|gets?|got|yields?|produc\w*|emit\w*|tr(?:y|ied|ies)|use[sd]?|using|swap(?:s|ped)?\s+r\d|closer|improv\w*|recover\w*)\b|%/i;
+
+function sentenceSteeringFindings(sentence: string): SteeringTacticRule[] {
+  if (NEGATION_RE.test(sentence) || !FIX_CONTEXT_RE.test(sentence)) return [];
+  const rules: SteeringTacticRule[] = [];
+  if (TEMP_TERM_RE.test(sentence)) rules.push("steering_temp");
+  if (ACCESSOR_TERM_RE.test(sentence)) rules.push("steering_accessor");
+  if (FORM_TERM_RE.test(sentence)) rules.push("steering_form");
+  return rules;
+}
+
+function codeLineSteeringFindings(line: string): SteeringTacticRule[] {
+  const rules = new Set<SteeringTacticRule>();
+  if (TEMP_DECL_RE.test(line)) rules.add("steering_temp");
+  for (const comment of codeComments(line)) {
+    for (const rule of sentenceSteeringFindings(comment)) rules.add(rule);
+  }
+  return [...rules];
+}
+
+interface SteeringSegment {
+  text: string;
+  rules: SteeringTacticRule[];
+  sep: string;
+}
+
+function steeringSegments(rawLine: string, diff: boolean): SteeringSegment[] {
+  const payload = diffPayload(rawLine, diff);
+  if (payload === null || rawLine.includes(STEERING_PROBE_LABEL)) return [{ text: rawLine, rules: [], sep: "" }];
+  if (looksLikeCode(payload)) return [{ text: rawLine, rules: codeLineSteeringFindings(payload), sep: "" }];
+  // Stack redaction markers are their own sentence, so a neighbour is judged alone.
+  const parts = rawLine.split(/(?<=[.!?;\]])\s+(?=[A-Z`*(\-\d[])/).filter((part) => part.trim() !== "");
+  return parts.map((part, index) => ({
+    text: part,
+    rules: sentenceSteeringFindings(part),
+    sep: index < parts.length - 1 ? " " : "",
+  }));
+}
+
+/** Every steering-tactic recommendation in a text or diff excerpt. */
+export function detectSteeringTactics(text: string): SteeringTacticFinding[] {
+  const findings: SteeringTacticFinding[] = [];
+  const diff = isDiffText(text);
+  for (const line of text.split(/\r?\n/)) {
+    for (const segment of steeringSegments(line, diff)) {
+      for (const rule of segment.rules) findings.push({ rule, excerpt: excerptOf(segment.text) });
+    }
+  }
+  return findings;
+}
+
+export interface SteeringRelabel {
+  text: string;
+  findings: SteeringTacticFinding[];
+}
+
 /**
- * History payload replayed to an agent of the given game: unchanged for
- * match_frame games; for stop_at_frame games every narrative string is
- * redacted and the payload carries a one-line note why.
+ * Append {@link STEERING_PROBE_LABEL} to every code line or prose sentence
+ * that recommends a steering tactic as a fix. Nothing is removed; text that
+ * already carries the label is left alone, so relabelling is idempotent.
  */
-export function applyStackFramePolicy<T extends object>(
-  gameId: string | undefined,
-  payload: T,
-): T | (T & { stack_policy_note: string; stack_policy_redactions: number }) {
-  if (!filtersStackTactics(stackFramePolicyForGame(gameId))) return payload;
-  const { value, redactions } = redactStackTacticsInPayload(payload);
-  return { ...value, stack_policy_note: STACK_POLICY_NOTE, stack_policy_redactions: redactions };
+export function relabelSteeringTactics(text: string): SteeringRelabel {
+  const findings: SteeringTacticFinding[] = [];
+  const diff = isDiffText(text);
+  const out = text.split(/\r?\n/).map((line) => {
+    let rendered = "";
+    for (const segment of steeringSegments(line, diff)) {
+      if (segment.rules.length === 0) {
+        rendered += segment.text + segment.sep;
+        continue;
+      }
+      for (const rule of segment.rules) findings.push({ rule, excerpt: excerptOf(segment.text) });
+      rendered += `${segment.text.trimEnd()} ${STEERING_PROBE_LABEL}${segment.sep}`;
+    }
+    return rendered;
+  });
+  if (findings.length === 0) return { text, findings };
+  return { text: out.join("\n"), findings };
+}
+
+// --- Composed knowledge policies ------------------------------------------------
+
+/** The two read-time knowledge policies of a game. */
+export interface KnowledgePolicy {
+  stackFramePolicy: StackFramePolicy;
+  steeringGate: SteeringGateMode;
+}
+
+const steeringGateCache = new Map<string, SteeringGateMode>();
+
+/** The game's steering gate; unknown games and resolution errors fall back to `off`. */
+export function steeringGateForGame(gameId: string | undefined): SteeringGateMode {
+  const id = gameId ?? "melee";
+  const cached = steeringGateCache.get(id);
+  if (cached) return cached;
+  const mode = gameSteeringGate({ gameId: id });
+  steeringGateCache.set(id, mode);
+  return mode;
+}
+
+export function knowledgePolicyForGame(gameId: string | undefined): KnowledgePolicy {
+  return { stackFramePolicy: stackFramePolicyForGame(gameId), steeringGate: steeringGateForGame(gameId) };
+}
+
+/** True when the policy rewrites anything; Melee's default policy is a no-op. */
+export function knowledgePolicyActive(policy: Partial<KnowledgePolicy>): boolean {
+  return filtersStackTactics(policy.stackFramePolicy) || steeringGateActive(policy.steeringGate);
+}
+
+/** Narrative-string rewrite for one policy: stack redaction first, then steering relabel. */
+export function knowledgePolicyText(policy: Partial<KnowledgePolicy>): (text: string) => string {
+  const stack = filtersStackTactics(policy.stackFramePolicy);
+  const steering = steeringGateActive(policy.steeringGate);
+  if (!stack && !steering) return (text) => text;
+  return (text) => {
+    const redacted = stack ? redactBannedStackTactics(text).text : text;
+    return steering ? relabelSteeringTactics(redacted).text : redacted;
+  };
+}
+
+function walkNarrative<T>(payload: T, rewrite: (text: string) => { text: string; changed: boolean }): { value: T; changed: number } {
+  let changed = 0;
+  const walk = (value: unknown, key: string | undefined): unknown => {
+    if (typeof value === "string") {
+      if (key !== undefined && PROTECTED_KEY_RE.test(key)) return value;
+      const result = rewrite(value);
+      if (result.changed) changed += 1;
+      return result.text;
+    }
+    if (Array.isArray(value)) return value.map((item) => walk(item, key));
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([entryKey, entry]) => [entryKey, walk(entry, entryKey)]));
+    }
+    return value;
+  };
+  return { value: walk(payload, undefined) as T, changed };
+}
+
+/** Deep-relabel every narrative string; identity and citation fields stay verbatim. */
+export function relabelSteeringTacticsInPayload<T>(payload: T): { value: T; relabels: number } {
+  const { value, changed } = walkNarrative(payload, (text) => {
+    const result = relabelSteeringTactics(text);
+    return { text: result.text, changed: result.findings.length > 0 };
+  });
+  return { value, relabels: changed };
+}
+
+/** Steering relabel for a gate mode: identity when the gate is off. */
+export function applySteeringPolicy<T>(value: T, mode: SteeringGateMode | undefined): T {
+  if (!steeringGateActive(mode)) return value;
+  return relabelSteeringTacticsInPayload(value).value;
+}
+
+export interface KnowledgePolicyNotes {
+  stack_policy_note?: string;
+  stack_policy_redactions?: number;
+  steering_policy_note?: string;
+  steering_policy_relabels?: number;
+}
+
+/**
+ * Apply a policy to a JSON payload: stack redaction, then steering relabel.
+ * Each active policy adds its note and count; with neither active the payload
+ * itself is returned.
+ */
+export function applyKnowledgePolicy<T extends object>(policy: Partial<KnowledgePolicy>, payload: T): T & KnowledgePolicyNotes {
+  if (!knowledgePolicyActive(policy)) return payload;
+  let value = payload;
+  const notes: KnowledgePolicyNotes = {};
+  if (filtersStackTactics(policy.stackFramePolicy)) {
+    const redacted = redactStackTacticsInPayload(value);
+    value = redacted.value;
+    notes.stack_policy_note = STACK_POLICY_NOTE;
+    notes.stack_policy_redactions = redacted.redactions;
+  }
+  if (steeringGateActive(policy.steeringGate)) {
+    const relabelled = relabelSteeringTacticsInPayload(value);
+    value = relabelled.value;
+    notes.steering_policy_note = STEERING_POLICY_NOTE;
+    notes.steering_policy_relabels = relabelled.relabels;
+  }
+  return { ...value, ...notes };
+}
+
+/**
+ * History payload replayed to an agent of the given game. Melee is unchanged;
+ * SMS loses banned stack tactics (stop_at_frame) and, while its steering gate
+ * is not off, has steering recommendations labelled as diagnostic probes.
+ */
+export function applyKnowledgePolicies<T extends object>(gameId: string | undefined, payload: T): T & KnowledgePolicyNotes {
+  return applyKnowledgePolicy(knowledgePolicyForGame(gameId), payload);
 }

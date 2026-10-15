@@ -23,6 +23,8 @@ export interface RebuildSearchIndexesOptions {
   allWikiRevisions?: boolean;
   prArchive?: PrArchive;
   provider?: EmbeddingProvider;
+  /** Game whose knowledge policies apply to indexed history. */
+  gameId?: string;
 }
 
 export interface RebuildSearchIndexesResult {
@@ -58,10 +60,10 @@ export async function rebuildSearchIndexes(
           });
           break;
         case "pr":
-          counts.pr = buildPrFts(store, indexDb, { prArchive });
+          counts.pr = buildPrFts(store, indexDb, { prArchive, gameId: options.gameId });
           break;
         case "attempt":
-          counts.attempt = buildAttemptFts(store, indexDb);
+          counts.attempt = buildAttemptFts(store, indexDb, { gameId: options.gameId });
           break;
       }
     }

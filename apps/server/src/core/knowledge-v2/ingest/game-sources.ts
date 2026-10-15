@@ -148,7 +148,7 @@ export async function runGameSourcePipeline(options: GameSourcePipelineOptions) 
         const index = openKnowledgeIndexDb({ knowledgeRoot: options.knowledgeRoot });
         try {
           const archive = source.identity.kind === "pr" ? createPastPrsArchive(join(captureRoot(source, capture.manifest), "data"), source.identity.upstream) : createEmptyPrArchive();
-          const result = await rebuildSearchIndexes(store, index, { fts: true, embeddings: false, sources: [source.identity.kind], prArchive: archive });
+          const result = await rebuildSearchIndexes(store, index, { fts: true, embeddings: false, sources: [source.identity.kind], prArchive: archive, gameId: options.gameId });
           return { status: "complete", counts: { indexed: result.fts?.[source.identity.kind] ?? 0 } };
         } finally { index.close(); store.close(); }
       },

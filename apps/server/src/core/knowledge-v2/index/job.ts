@@ -82,6 +82,7 @@ export async function kg2Index(
         allWikiRevisions,
         provider,
         prArchive,
+        gameId,
       });
     } else {
       result = await buildIndexesIncrementally(store, indexDb, {
@@ -91,6 +92,7 @@ export async function kg2Index(
         allWikiRevisions,
         provider,
         prArchive,
+        gameId,
       });
     }
     console.log(JSON.stringify(result));
@@ -107,6 +109,7 @@ interface BuildIndexesOptions {
   sources?: FtsSource[];
   allWikiRevisions: boolean;
   provider?: ReturnType<typeof createOpenAiEmbeddingProvider>;
+  gameId?: string;
 }
 
 async function buildIndexesIncrementally(
@@ -131,10 +134,10 @@ async function buildIndexesIncrementally(
           });
           break;
         case "pr":
-          counts.pr = buildPrFts(store, indexDb, { prArchive });
+          counts.pr = buildPrFts(store, indexDb, { prArchive, gameId: options.gameId });
           break;
         case "attempt":
-          counts.attempt = buildAttemptFts(store, indexDb);
+          counts.attempt = buildAttemptFts(store, indexDb, { gameId: options.gameId });
           break;
       }
     }

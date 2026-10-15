@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { STACK_POLICY_REDACTION } from "@server/core/knowledge-v2/stack-policy-filter.js";
+import { STACK_POLICY_REDACTION, STEERING_PROBE_LABEL, steeringGateForGame } from "@server/core/knowledge-v2/stack-policy-filter.js";
 import { graphSearchForPolicy } from "./knowledge.js";
 
 const payload = () => ({
@@ -25,5 +25,25 @@ describe("legacy graph search under a stop_at_frame game", () => {
   test("Melee results are returned unchanged", () => {
     const original = payload();
     expect(graphSearchForPolicy({ game: { gameId: "melee" } }, original)).toBe(original);
+  });
+});
+
+describe("legacy graph search under the steering gate", () => {
+  test("SMS labels steering advice in history chunks; live code and Melee stay verbatim", () => {
+    const rows = () => ({
+      status: "ok",
+      results: [
+        { source_id: "past_prs", text: "Use the field directly instead of the getter to match.", evidence_ref: "pr:7" },
+        { source_id: "code_graph", text: "\tf32 tmp = obj->mPos.x;", evidence_ref: "code:2" },
+      ],
+    });
+    const sms = graphSearchForPolicy({ game: { gameId: "sms" } }, rows()) as ReturnType<typeof rows> & { steering_policy_note?: string };
+    expect(sms.results[1]!.text).toBe("\tf32 tmp = obj->mPos.x;");
+    if (steeringGateForGame("sms") !== "off") {
+      expect(sms.steering_policy_note).toContain("diagnostic probe");
+      expect(sms.results[0]!.text).toBe(`Use the field directly instead of the getter to match. ${STEERING_PROBE_LABEL}`);
+    }
+    const melee = rows();
+    expect(graphSearchForPolicy({ game: { gameId: "melee" } }, melee)).toBe(melee);
   });
 });

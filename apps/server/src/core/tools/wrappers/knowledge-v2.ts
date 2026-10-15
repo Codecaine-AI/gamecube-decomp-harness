@@ -10,7 +10,7 @@ import {
 } from "@server/core/knowledge-v2/tools.js";
 import { openKnowledgeIndexDb, type KnowledgeIndexDb } from "@server/core/knowledge-v2/index/db.js";
 import { openKnowledgeStore, type KnowledgeStore } from "@server/core/knowledge-v2/storage/store.js";
-import { applyStackFramePolicy } from "@server/core/knowledge-v2/stack-policy-filter.js";
+import { applyKnowledgePolicies } from "@server/core/knowledge-v2/stack-policy-filter.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { sourceViewToolRegistration } from "./source-view.js";
@@ -268,7 +268,7 @@ export const kv2PrSearchToolRegistration: AgentToolRegistration = {
       parameters: prSearchParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, async (handles) => applyStackFramePolicy(handles.gameId, await kv2PrSearch(handles, {
+        const payload = await withKnowledgeV2Handles(context, async (handles) => applyKnowledgePolicies(handles.gameId, await kv2PrSearch(handles, {
           query: String(params.query ?? "").trim(),
           limit: boundedLimit(params.limit, 10),
           mode: searchMode(params.mode),
@@ -295,7 +295,7 @@ export const kv2AttemptSearchToolRegistration: AgentToolRegistration = {
       parameters: attemptSearchParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => applyStackFramePolicy(handles.gameId, kv2AttemptSearch(handles, {
+        const payload = await withKnowledgeV2Handles(context, (handles) => applyKnowledgePolicies(handles.gameId, kv2AttemptSearch(handles, {
           query: optionalString(params.query),
           target_stable_key: optionalString(params.target_stable_key),
           outcome: attemptOutcome(params.outcome),
@@ -323,7 +323,7 @@ export const kv2SubjectRecordToolRegistration: AgentToolRegistration = {
       parameters: subjectRecordParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => applyStackFramePolicy(handles.gameId, kv2SubjectRecord(handles, {
+        const payload = await withKnowledgeV2Handles(context, (handles) => applyKnowledgePolicies(handles.gameId, kv2SubjectRecord(handles, {
           target_stable_key: optionalString(params.target_stable_key),
           entity_locator: optionalString(params.entity_locator),
         })));
@@ -380,7 +380,7 @@ export const kv2ResolveLocatorToolRegistration: AgentToolRegistration = {
           const resolved = kv2ResolveLocator(handles, {
             locator: String(params.locator ?? "").trim(),
           });
-          return isHistoryLocatorPayload(resolved) ? applyStackFramePolicy(handles.gameId, resolved) : resolved;
+          return isHistoryLocatorPayload(resolved) ? applyKnowledgePolicies(handles.gameId, resolved) : resolved;
         });
         return jsonToolResult("resolve_locator", { ...payload });
       },
@@ -404,7 +404,7 @@ export const kv2UnitContextToolRegistration: AgentToolRegistration = {
       parameters: unitContextParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        const payload = await withKnowledgeV2Handles(context, (handles) => applyStackFramePolicy(handles.gameId, kv2UnitContext(handles, {
+        const payload = await withKnowledgeV2Handles(context, (handles) => applyKnowledgePolicies(handles.gameId, kv2UnitContext(handles, {
           unit_locator: optionalString(params.unit_locator),
           target_stable_key: optionalString(params.target_stable_key),
           pr_limit: boundedLimit(params.pr_limit, 15),
