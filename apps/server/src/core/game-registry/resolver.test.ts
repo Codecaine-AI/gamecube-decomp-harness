@@ -119,6 +119,37 @@ describe("game registry layout resolution", () => {
     expect(() => resolveGame({ orchestratorRoot: root, gameId: "bad" })).toThrow(/stackFramePolicy/);
   });
 
+  test("defaults steeringGate to off, reads shadow/enforce, and rejects unknown modes", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-steering-"));
+    const cases = [
+      ["plain", undefined],
+      ["framed", { stackFramePolicy: "stop_at_frame" }],
+      ["shadowed", { steeringGate: "shadow" }],
+      ["enforced", { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }],
+    ] as const;
+    for (const [id, matching] of cases) {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), matching ? { id, matching } : { id });
+    }
+    const resolved = (gameId: string) => resolveGame({ orchestratorRoot: root, gameId }).matching;
+    expect(resolved("plain")).toEqual({ stackFramePolicy: "match_frame", steeringGate: "off" });
+    expect(resolved("framed")).toEqual({ stackFramePolicy: "stop_at_frame", steeringGate: "off" });
+    expect(resolved("shadowed").steeringGate).toBe("shadow");
+    expect(resolved("enforced")).toEqual({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce" });
+    for (const [id, steeringGate] of [["bad", "strict"], ["typed", true]] as const) {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), { id, matching: { steeringGate } });
+      expect(() => resolveGame({ orchestratorRoot: root, gameId: id })).toThrow(/steeringGate/);
+    }
+  });
+
+  test("ships Melee with the steering gate off and SMS in shadow", () => {
+    expect(resolveGame({ gameId: "melee" }).matching.steeringGate).toBe("off");
+    expect(resolveGame({ gameId: "sms" }).matching.steeringGate).toBe("shadow");
+  });
+
   test("parses the optional symbolCheck validator config and leaves unconfigured games unset", () => {
     const root = mkdtempSync(join(tmpdir(), "game-registry-symbol-check-"));
     const gameDir = join(root, "games", "sms");

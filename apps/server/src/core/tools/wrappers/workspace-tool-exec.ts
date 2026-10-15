@@ -2,6 +2,7 @@ import type { SandboxExecResult, SandboxHandle } from "@server/core/job-queue/sa
 import type { ResolvedRegisteredTool } from "../resolver.js";
 import { scaleTimeout } from "../timeout-scale.js";
 import { STACK_FRAME_POLICY_ENV } from "../stack-frame-policy.js";
+import { STEERING_GATE_ENV } from "../steering-gate.js";
 
 export const SANDBOX_TOOLPACK_ROOT = "/opt/toolpacks";
 
@@ -104,6 +105,7 @@ export async function runWorkspaceToolApi(params: {
     ORCH_GAME_ID: resolved.gameId,
     // The sandbox has no ORCH_GAME_DIR, so the toolpack reads the policy from here.
     ...(resolved.env[STACK_FRAME_POLICY_ENV] ? { [STACK_FRAME_POLICY_ENV]: resolved.env[STACK_FRAME_POLICY_ENV] } : {}),
+    ...(resolved.env[STEERING_GATE_ENV] ? { [STEERING_GATE_ENV]: resolved.env[STEERING_GATE_ENV] } : {}),
     ORCH_TOOLPACK_ROOT: sandboxToolpackRoot,
     ORCH_TOOL_ROOT: sandboxToolRoot,
     ORCH_TOOL_API_ROOT: `${sandboxToolRoot}/api`,

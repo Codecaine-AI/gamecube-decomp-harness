@@ -54,6 +54,7 @@ describe("squashed storage baseline", () => {
       { version: 10, name: "harness_state_names" },
       { version: 11, name: "accepted_advisory" },
       { version: 12, name: "stack_only_functions" },
+      { version: 13, name: "steering" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -142,7 +143,7 @@ describe("squashed storage baseline", () => {
     ensureSchema(db);
     db.exec("ALTER TABLE epochs ADD COLUMN future_additive_value TEXT");
     db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
-      13,
+      14,
       "future_additive_migration",
       "2026-08-27T23:09:00.000Z",
     );
@@ -152,7 +153,7 @@ describe("squashed storage baseline", () => {
       runStorageMigrations(db);
 
       expect(warning).toHaveBeenCalledWith(
-        "schema is ahead of this process: applied through v13, this build knows v12",
+        "schema is ahead of this process: applied through v14, this build knows v13",
       );
       expect(
         db
@@ -174,7 +175,8 @@ describe("squashed storage baseline", () => {
       { version: 10, name: "harness_state_names" },
       { version: 11, name: "accepted_advisory" },
         { version: 12, name: "stack_only_functions" },
-        { version: 13, name: "future_additive_migration" },
+        { version: 13, name: "steering" },
+        { version: 14, name: "future_additive_migration" },
       ]);
     } finally {
       warning.mockRestore();
@@ -253,6 +255,7 @@ describe("legacy epoch column migration", () => {
       { version: 10, name: "harness_state_names" },
       { version: 11, name: "accepted_advisory" },
       { version: 12, name: "stack_only_functions" },
+      { version: 13, name: "steering" },
     ]);
   });
 
@@ -327,6 +330,7 @@ describe("legacy sync knowledge table migration", () => {
       { version: 10, name: "harness_state_names" },
       { version: 11, name: "accepted_advisory" },
       { version: 12, name: "stack_only_functions" },
+      { version: 13, name: "steering" },
     ]);
   });
 

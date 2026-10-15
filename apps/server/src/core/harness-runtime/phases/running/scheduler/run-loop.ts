@@ -1,4 +1,5 @@
 import { assertSandboxAdmission } from "@server/core/harness-state/sandbox-admission.js";
+import { assertSteeringGatePreflight } from "@server/core/validation/steering/steering-preflight.js";
 import { getHarnessState } from "@server/core/harness-state/state.js";
 import { resolve } from "node:path";
 import { resourceGraphDbPath } from "@server/core/knowledge";
@@ -746,6 +747,8 @@ export async function runRunLoop(
     if (!run) throw new Error(`Run not found: ${runId}`);
     assertSchedulableRun(run, "run-loop");
     const sessionGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId;
+    // Start and resume both pass here: enforce needs a clean steering backfill under the integration head.
+    assertSteeringGatePreflight(store, { game: globals.game, gameId: sessionGameId, repoRoot: globals.repoRoot, command: "run-loop" });
     if (!globals.dryRunAgents) assertSandboxAdmission(store, { game: globals.game, gameId: sessionGameId, profile: globals.sandboxProfile });
     const sandboxProvider = deps.sandboxProvider
       ?? (process.env.DAYTONA_API_KEY?.trim() ? new DaytonaSandboxProvider() : undefined);

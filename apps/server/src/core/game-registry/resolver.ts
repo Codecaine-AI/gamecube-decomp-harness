@@ -74,8 +74,17 @@ export interface GameKnowledgeConfig {
 export const STACK_FRAME_POLICIES = ["match_frame", "stop_at_frame"] as const;
 export type StackFramePolicy = (typeof STACK_FRAME_POLICIES)[number];
 
+/**
+ * The steering gate (SMS real-codegen). `off` never runs it; `shadow` runs it
+ * on every eligible attempt and only records; `enforce` rejects attempts whose
+ * match depends on behaviour-identical (steering) edits.
+ */
+export const STEERING_GATE_MODES = ["off", "shadow", "enforce"] as const;
+export type SteeringGateMode = (typeof STEERING_GATE_MODES)[number];
+
 export interface GameMatchingConfig {
   stackFramePolicy?: StackFramePolicy;
+  steeringGate?: SteeringGateMode;
 }
 
 export interface GameSandboxResourceClass {
@@ -254,6 +263,7 @@ const defaultKnowledge: Required<GameKnowledgeConfig> = {
 
 const defaultMatching: Required<GameMatchingConfig> = {
   stackFramePolicy: "match_frame",
+  steeringGate: "off",
 };
 
 const defaultSandbox: SandboxRuntimeOptions = {
@@ -410,7 +420,13 @@ function matchingFromObject(value: unknown): GameMatchingConfig | undefined {
   if (policy !== undefined && !(STACK_FRAME_POLICIES as readonly string[]).includes(policy)) {
     throw new Error(`Invalid matching.stackFramePolicy: ${policy}`);
   }
-  return policy === undefined ? {} : { stackFramePolicy: policy as StackFramePolicy };
+  if (value.steeringGate !== undefined && (typeof value.steeringGate !== "string" || !(STEERING_GATE_MODES as readonly string[]).includes(value.steeringGate))) {
+    throw new Error(`Invalid matching.steeringGate: ${String(value.steeringGate)}`);
+  }
+  return {
+    ...(policy === undefined ? {} : { stackFramePolicy: policy as StackFramePolicy }),
+    ...(value.steeringGate === undefined ? {} : { steeringGate: value.steeringGate as SteeringGateMode }),
+  };
 }
 
 function knowledgeFromObject(value: unknown): GameKnowledgeConfig | undefined {

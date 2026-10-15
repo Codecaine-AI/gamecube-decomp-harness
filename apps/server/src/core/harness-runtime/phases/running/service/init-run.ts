@@ -1,4 +1,5 @@
 import { assertSandboxAdmission } from "@server/core/harness-state/sandbox-admission.js";
+import { assertSteeringGatePreflight } from "@server/core/validation/steering/steering-preflight.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
@@ -10,6 +11,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
   const store = openState(globals.stateDir);
   try {
     if (!globals.dryRunAgents) assertSandboxAdmission(store, { game: globals.game, gameId: globals.gameId, profile: globals.sandboxProfile });
+    assertSteeringGatePreflight(store, { game: globals.game, gameId: globals.gameId, repoRoot: globals.repoRoot, command: "init-run" });
     const goalKind = stringArg(args, "--goal-kind", "matched_code_percent");
     const goalValue = numberArg(args, "--goal-value", globals.game?.dashboard.goalValue ?? 70);
     const desiredWorkers = numberArg(args, "--desired-workers", 12);

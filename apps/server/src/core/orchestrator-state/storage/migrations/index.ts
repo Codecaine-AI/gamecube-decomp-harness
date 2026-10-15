@@ -12,6 +12,7 @@ import { canonicalSyncStagingMigration } from "./009-canonical-sync-staging.js";
 import { harnessStateNamesMigration } from "./010-harness-state-names.js";
 import { acceptedAdvisoryMigration } from "./011-accepted-advisory.js";
 import { stackOnlyFunctionsMigration } from "./012-stack-only-functions.js";
+import { steeringMigration } from "./013-steering.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -30,6 +31,7 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   harnessStateNamesMigration,
   acceptedAdvisoryMigration,
   stackOnlyFunctionsMigration,
+  steeringMigration,
 ]);
 
 interface AppliedMigrationRow {
