@@ -5,7 +5,9 @@ helpers, hand-expanded inlines), MSL intrinsic bypasses, the dummy(Vec*)
 emission helper, agent-written comments and accessor/inline evidence, plus
 the D1/D2 drop (user decision 2026-10-13): invented helpers with no upstream
 declaration or map entry (sms_invented_helper) and odd-looking code kept only
-for codegen (sms_nonsense_code).
+for codegen (sms_nonsense_code), and the #342 ruling that UNUSED functions get
+a body only when they were inlined (sms_unused_reconstruction), and the #347/#348
+decompile-in-order ruling (sms_out_of_order_fill, sms_undecompiled_class_decl).
 
 SMS maintainer rulings (2026-10-13, doldecomp/sms #330/#331): agent comments
 (TODO, fakematch, fabricated, frame notes) are rejected, and a marker comment
@@ -54,6 +56,11 @@ def _toolpack_module(stem):
 def _agent_comments():
     """The shared agent-comment vocabulary (toolpacks/.../tools/agent_comments.py)."""
     return _toolpack_module('agent_comments')
+
+
+def _unit_progress():
+    """The shared unit progress / class owner module (toolpacks/.../tools/unit_progress.py)."""
+    return _toolpack_module('unit_progress')
 
 
 def _steering_shapes():
@@ -1104,6 +1111,474 @@ def check_invented_helper_post(findings, repo, mode, file_diffs, merge_base):
     return findings
 
 
+# --- sms_unused_reconstruction ----------------------------------------------
+# SMS maintainer review of doldecomp/sms #342 (2026-10-15): "UNUSED functions
+# may only be reconstructed when they were inlined into other functions in the
+# same TU." A hunk that gives a non-trivial body to a function mario.MAP marks
+# UNUSED for that source file (stub -> body, or a new definition) is flagged for
+# review: the worker keeps it only with stub-test evidence shown with the change
+# (the same-TU caller that gets worse when the body is emptied). The steering
+# gate's unused-test is authoritative (objectives/sms-real-codegen/unused-rule.md).
+# Candidate selection is the gate's own steering_check.unused_candidates:
+# exact identity through the shared signatures.py (typedefs, namespaces and
+# `using` resolved from a TypeIndex of the repo at the merge base, else HEAD,
+# with the changed file overlaid), preprocess.py active text, and the gate's
+# trivial-stub rule. An undecidable identity is still flagged (unresolved);
+# a typedef spelling can never suppress the warning. Map rows are matched by
+# file name. No map: no finding.
+UNUSED_SOURCES = ['src/*.cpp', 'src/*.c']
+UNUSED_RULE = 'UNUSED functions may only be reconstructed when they were inlined into other functions in the same TU.'
+UNUSED_TEST = 'python3 toolpacks/gamecube-decomp/_impl/gamecube/tools/steering_check.py unused-test --repo . --file {file} --function {function}'
+MAP_UNUSED_ROW = re.compile(r'^\s*UNUSED\s+(?P<size>[0-9a-fA-F]+)\s+\.+\s+(?P<name>[^\s@]\S*)\s+(?P<lib>\S+)\s+(?P<file>\S+)\s*$')
+MAP_USED_ROW = re.compile(r'^\s*[0-9a-fA-F]{8}\s+[0-9a-fA-F]+\s+[0-9a-fA-F]{8}\s+\d+\s+(?P<name>[^\s@]\S*)\s+(?P<lib>\S+)\s+(?P<file>\S+)\s*$')
+_UNUSED_PENDING = {}
+_MAP_TEXTS = {}
+
+
+def _steering_check():
+    """The steering gate (toolpacks/.../tools/steering_check.py): shared definition parsing."""
+    return _toolpack_module('steering_check')
+
+
+def collect_unused_context(hunk):
+    """Per hunk: remember the file's texts; check_unused_reconstruction_post needs repo and merge_base."""
+    path = hunk.get('file')
+    if is_game_source(path):
+        entry = _UNUSED_PENDING.setdefault(path, {'post': hunk.get('post_file_text'), 'pre': hunk.get('pre_file_text'), 'hunks': []})
+        entry['hunks'].append(hunk)
+    return []
+
+
+def unused_map_text(repo, merge_base):
+    """mario.MAP text: the merge-base blob when tracked there, else ORCH_GAME_REPO_ROOT, else the repo. None without a map."""
+    if merge_base:
+        text = git_blob(repo, merge_base, base.MAP_REL_PATH)
+        if text:
+            return text
+    for root in (os.environ.get('ORCH_GAME_REPO_ROOT'), str(repo)):
+        if not root:
+            continue
+        path = Path(root) / base.MAP_REL_PATH
+        if path.is_file():
+            key = str(path)
+            if key not in _MAP_TEXTS:
+                try:
+                    _MAP_TEXTS[key] = path.read_text(encoding='utf-8', errors='replace')
+                except OSError:
+                    _MAP_TEXTS[key] = None
+            if _MAP_TEXTS[key]:
+                return _MAP_TEXTS[key]
+    return None
+
+
+def map_symbol(mangled):
+    """{mangled, qualified, params} for a map row (the gate's demangled_symbol; C names: the bare name)."""
+    if '__' in mangled.lstrip('_'):
+        symbol = _steering_check().demangled_symbol(mangled)
+        if symbol['qualified'] == mangled:
+            return None  # the demangler could not read it
+        return symbol
+    return {'mangled': mangled, 'qualified': mangled, 'params': None, 'function': mangled}
+
+
+def unused_rows_by_file(map_text, basenames):
+    """{basename: [symbol dict with size]} UNUSED map rows for the given files."""
+    rows = {name: [] for name in basenames}
+    for line in map_text.splitlines():
+        match = MAP_UNUSED_ROW.match(line) if 'UNUSED' in line else None
+        if not match or match['file'] not in rows:
+            continue
+        symbol = map_symbol(match['name'])
+        if symbol is not None:
+            rows[match['file']].append({**symbol, 'size': int(match['size'], 16)})
+    return rows
+
+
+def _signatures():
+    """The shared exact signature identity module (toolpacks/.../tools/signatures.py)."""
+    return _toolpack_module('signatures')
+
+
+def _preprocess():
+    """The shared preprocessor branch evaluation (toolpacks/.../tools/preprocess.py)."""
+    return _toolpack_module('preprocess')
+
+
+def repo_type_index(repo, rev, path, post):
+    """(TypeIndex, complete): the repo's types at rev with the file overlaid; complete=False when the repo
+    could not be read (no git checkout), so unknown type names may be typedefs we cannot see."""
+    sigs = _signatures()
+    try:
+        return sigs.TypeIndex.from_git(Path(repo), rev).with_texts({path: post}), True
+    except Exception:
+        return sigs.TypeIndex.from_texts({path: post}), False
+
+
+BUILTIN_TYPE_WORDS = {'void', 'bool', 'char', 'wchar_t', 'short', 'int', 'long', 'float', 'double', 'signed', 'unsigned', 'const', 'volatile'}
+
+
+def has_unknown_type(sig, index):
+    """True when a parameter names a type the (partial) index does not know: maybe a typedef we cannot see."""
+    if sig is None or sig.params is None:
+        return True
+    for alternatives in sig.params:
+        if alternatives is None:
+            return True
+        for spelling in alternatives:
+            names = [word for word in re.findall(r'[A-Za-z_][\w:]*', re.sub(r'<.*>', '', spelling)) if word not in BUILTIN_TYPE_WORDS]
+            if any(not index.is_type(name) for name in names):
+                return True
+    return False
+
+
+def partial_index_candidates(pre, post, symbols, reported, index, path):
+    """Without the repo's types an unknown parameter spelling may be a typedef of the UNUSED signature:
+    same qualified name and parameter count with a non-trivial body counts as unresolved, never as a
+    different overload, so a typedef spelling cannot suppress the warning."""
+    gate = _steering_check()
+    pre_defs = gate.function_defs(pre)
+    by_open = {sig.open: sig for sig in _signatures().source_signatures(_preprocess().active_text(post, unknown='active'), index, path)}
+    out = []
+    for definition in gate.function_defs(post):
+        if definition.trivial or definition.open in reported or not has_unknown_type(by_open.get(definition.open), index):
+            continue  # fully known types were matched exactly by the gate: a different signature is another overload
+        for symbol in symbols:
+            if not gate._qual_eq(definition.qualified, symbol['qualified']):
+                continue
+            if symbol['params'] is not None and definition.params is not None and len(symbol['params']) != len(definition.params):
+                continue
+            count = len(definition.params) if definition.params is not None else None
+            if any(not b.trivial and gate._qual_eq(b.qualified, definition.qualified) and (b.params is None or count is None or len(b.params) == count)
+                   for b in pre_defs):
+                continue  # an upstream body of that name and shape already exists
+            out.append({'symbol': symbol, 'def': definition,
+                        'unresolved': "its parameter types cannot be resolved without the repo's headers"})
+            break
+    return out
+
+
+def has_upstream_definition(pre, symbol, index, path):
+    """True when the base text defines this symbol (exact identity), as a stub here since bodies were excluded."""
+    sigs = _signatures()
+    active = _preprocess().active_text(pre or '', unknown='active')
+    return any(sigs.matches(sig, symbol['mangled']) for sig in sigs.source_signatures(active, index, path))
+
+
+def check_unused_reconstruction_post(findings, repo, mode, file_diffs, merge_base):
+    rule = next(r for r in RULES if r['rule_id'] == 'sms_unused_reconstruction')
+    pending = dict(_UNUSED_PENDING)
+    _UNUSED_PENDING.clear()
+    if not pending:
+        return findings
+    map_text = unused_map_text(repo, merge_base)
+    if not map_text:
+        return findings  # no mario.MAP (e.g. Melee): nothing to judge by
+    gate = _steering_check()
+    rows_by_file = unused_rows_by_file(map_text, {Path(path).name for path in pending})
+    for path, entry in sorted(pending.items()):
+        symbols = rows_by_file.get(Path(path).name)
+        if not symbols:
+            continue
+        hunks = entry['hunks']
+        post = entry['post'] if isinstance(entry['post'], str) else base.read_post_file(repo, path)
+        if post is None:
+            post = sparse_post_text(hunks)
+        added = sorted({number for hunk in hunks for number, _ in hunk.get('added', [])})
+        if not added:
+            continue
+        pre = entry['pre'] if isinstance(entry['pre'], str) else (git_blob(repo, merge_base, path) if merge_base else None)
+        if pre is None:
+            pre = reconstruct_pre(post, hunks)
+        index, complete = repo_type_index(repo, merge_base or 'HEAD', path, post)
+        post_lines = post.split('\n')
+        rows = gate.unused_candidates(pre, post, symbols, index=index, path=path)
+        if not complete:
+            rows += partial_index_candidates(pre, post, symbols, {row['def'].open for row in rows}, index, path)
+        for row in rows:
+            symbol, definition = row['symbol'], row['def']
+            last_line = post.count('\n', 0, definition.close) + 1
+            touched = [line for line in added if definition.line <= line <= last_line]
+            if not touched:
+                continue
+            upstream = has_upstream_definition(pre, symbol, index, path) or (not complete and any(
+                gate._qual_eq(b.qualified, symbol['qualified']) for b in gate.function_defs(pre)))
+            change = 'stub_to_body' if upstream else 'new_definition'
+            match = 'unresolved' if row.get('unresolved') else 'exact'
+            function, size = symbol['qualified'], symbol['size']
+            line = definition.line if change == 'new_definition' else touched[0]
+            command = UNUSED_TEST.format(file=path, function=function)
+            where = 'turns the upstream stub into a body' if upstream else 'adds a new definition with a body'
+            signature = '' if match == 'exact' else f' ({row["unresolved"]}; it is treated as the UNUSED one)'
+            text = post_lines[line - 1] if line <= len(post_lines) else function
+            findings.append(full_finding(rule, path, line, text,
+                f'{function} {where}, but mario.MAP marks it UNUSED (dead-stripped, size 0x{size:x}) in {Path(path).name}{signature}. SMS maintainer rule: "{UNUSED_RULE}" '
+                f'The body is allowed only if emptying it changes another function in the target. Check with `{command}`: '
+                f'if no other function changes, restore the upstream stub (or drop the new definition); if it is inlined, show that evidence with the change (the same-TU caller and its match before/after emptying); reviewers remove reconstructions that do not show it (#342). The steering gate decides.',
+                function=function, mangled=symbol['mangled'], map_size=size, change=change, signature_match=match, check_command=command, llm_review=True))
+    return findings
+
+
+# --- sms_out_of_order_fill / sms_undecompiled_class_decl -----------------------
+# SMS maintainer Mrkol closed doldecomp/sms #347/#348 unmerged (2026-10-15):
+# filling MarNameRefGen factories and adding class declarations for enemy
+# classes whose own units are not decompiled is "doing things out of order".
+# Readiness is the shared, revision-bound readiness.py (order-scope plan v3,
+# section 1), read at the merge base when there is one (else HEAD):
+# - order-gated files (MarNameRefGen*.cpp) may reference (`new TX`, `TX::`,
+#   `TX(`) only classes whose `construct` state is ready or shared; an added
+#   #include declares nothing and is not a finding (as edit_scope);
+# - declarations (class heads, members, inline bodies, out-of-class member
+#   definitions; headers and .cpp files) need the class's `declare` state
+#   ready or shared (implementation started in the owner unit);
+# - `unresolved` (ambiguous owner, owner without source, not in the map) is a
+#   finding with its reason, except a TU-local helper: a map-absent class
+#   defined only in the .cpp being changed.
+# Namespaces are never classes: identity is readiness's canonical class name.
+# No target objects, no map or no git revision (Melee, unbuilt checkout): skip.
+ORDER_DECL_PATHS = ['include/**', 'src/*.cpp', 'src/*.c']
+ORDER_GATED_PATHS = list(_unit_progress().ORDER_GATED_PATHS)  # src/System/MarNameRefGen*.cpp
+ORDER_QUOTE = '"Please leave MarNameRefGen alone, people will fill it in eventually when the relevant stuff is properly decompiled. This is doing things out of order"'
+FENCE_QUOTE = '"don\'t jump the fence please"'
+ORDER_ADVICE = ' Leave it until the class\'s own unit is decompiled.'
+QUALIFIED_REFERENCE = re.compile(r'(?P<new>\bnew\s+)?(?<![\w:.>])(?P<chain>[A-Za-z_]\w*(?:\s*::\s*~?[A-Za-z_]\w*)*)(?P<call>\s*\()?')
+ADDED_INCLUDE = re.compile(r'^\s*#\s*include\s*[<"](?P<path>[^>"]+)[>"]')
+CLASS_HEAD = re.compile(r'^\s*(?:template\s*<[^>]*>\s*)?(?:class|struct)\s+(?P<name>[A-Za-z_]\w*)\b(?P<rest>[^;]*)$')
+OUT_OF_CLASS_MEMBER = re.compile(r'^\s*(?:[A-Za-z_][\w<>,*&\s]*?[\s*&])?(?P<cls>[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*)\s*::\s*~?[A-Za-z_]\w*\s*\(')
+SCOPE_HEAD = re.compile(r'\b(?P<kind>class|struct|union|namespace)\s+(?P<name>[A-Za-z_]\w*)\b[^;{}()]*$')
+NOT_DECLARATIONS = {'', '{', '}', '};', 'public:', 'private:', 'protected:'}
+NOT_CLASS_WORDS = {'return', 'new', 'delete', 'sizeof', 'if', 'for', 'while', 'switch', 'case', 'else', 'do', 'goto', 'const', 'static', 'void'}
+_ORDER_PENDING = {}
+
+
+def _readiness():
+    """The shared class readiness module (toolpacks/.../tools/readiness.py)."""
+    return _toolpack_module('readiness')
+
+
+def collect_order_context(hunk):
+    """Per hunk: remember MarNameRefGen, header and source hunks; the post-scan hook needs repo and merge_base."""
+    path = hunk.get('file') or ''
+    if any(fnmatch(path, p) for p in VENDOR_PATHS):
+        return []
+    entry = _ORDER_PENDING.setdefault(path, {'post': hunk.get('post_file_text'), 'pre': hunk.get('pre_file_text'), 'hunks': []})
+    if not any(seen is hunk for seen in entry['hunks']):  # both order rules collect the same hunk object
+        entry['hunks'].append(hunk)
+    return []
+
+
+def order_readiness(repo, merge_base):
+    """readiness.Readiness at the merge base (else HEAD) for ORCH_GAME_REPO_ROOT, then --repo; None when unavailable."""
+    module = _readiness()
+    rev = merge_base or 'HEAD'
+    for root in (os.environ.get('ORCH_GAME_REPO_ROOT'), str(repo)):
+        if not root or not Path(root).is_dir():
+            continue
+        try:
+            return module.load(root, rev, policy={'gatedPaths': ORDER_GATED_PATHS}, timeout=120)
+        except module.ReadinessError:
+            continue
+    return None
+
+
+def unresolved_reason(state, readiness):
+    owner, provenance = state.get('owner_unit'), state.get('provenance')
+    if provenance == 'absent':
+        return 'it is not a class in the link map or the target objects (identity unresolved)'
+    if provenance == 'ambiguous':
+        return 'its owner unit is ambiguous in the target objects (identity unresolved)'
+    if owner and not readiness.source_of(owner):
+        return f'its owner unit {owner} has no source file (identity unresolved)'
+    return 'its readiness is unresolved'
+
+
+def not_ready_reason(state, readiness, level):
+    owner = state.get('owner_unit')
+    source = readiness.source_of(owner) if owner else None
+    rev = str(readiness.rev)[:10]
+    if level == 'construct':
+        return f'its constructor is not defined in its owner unit {owner} ({source}) at {rev}: the class is not ready to construct'
+    return f'its owner unit {owner} ({source}) defines none of its members at {rev}: its implementation has not started'
+
+
+def fill_references(cleaned, readiness):
+    """[(class, how)] a MarNameRefGen line references: `new TX`, `TX::`, `TX(`. Namespaces never count:
+    a qualifier counts only when readiness knows it as a class, and a known class name used as a type
+    (`JDrama::TNameRef* r`) is not a reference."""
+    out = []
+    for match in QUALIFIED_REFERENCE.finditer(cleaned):
+        parts = [part.strip() for part in match['chain'].split('::')]
+        if parts[0] in NOT_CLASS_WORDS:
+            continue
+        chain = '::'.join(parts)
+        if match['new']:
+            out.append((chain, 'new'))
+        elif len(parts) >= 2:
+            qualifier = '::'.join(parts[:-1])
+            if not match['call'] and readiness.canonical(chain):
+                continue  # Namespace::Class used as a type
+            if readiness.canonical(qualifier):
+                out.append((qualifier, 'call' if match['call'] else 'scoped'))
+        elif match['call'] and readiness.canonical(chain):
+            out.append((chain, 'call'))
+    return out
+
+
+def out_of_order_findings(rule, path, entry, readiness, post=None):
+    findings, seen = [], set()
+    active_lines = _preprocess().active_text(post, unknown='active').split('\n') if isinstance(post, str) else None
+    own_unit = readiness.unit_for_source(path)  # TMarNameRefGen itself lives in the file's own unit
+    for hunk in entry['hunks']:
+        for number, text in hunk.get('added', []):
+            if ADDED_INCLUDE.match(text):
+                continue  # an include declares nothing; real use is `new TX`, `TX::`, `TX(` (as edit_scope)
+            if active_lines is not None and number <= len(active_lines) and not active_lines[number - 1].strip():
+                continue  # inside an inactive preprocessor branch (#if 0)
+            references = fill_references(clean(text), readiness)
+            for name, how in references:
+                state = readiness.class_state(name)
+                if state['construct'] in ('ready', 'shared') or (state.get('owner_unit') and state['owner_unit'] == own_unit):
+                    continue
+                if (state['class'], number) in seen:
+                    continue
+                seen.add((state['class'], number))
+                reason = not_ready_reason(state, readiness, 'construct') if state['construct'] == 'not_ready' else unresolved_reason(state, readiness)
+                findings.append(full_finding(rule, path, number, text,
+                    f'{path} fills in a reference to {state["class"]}, but {reason}. SMS maintainer (doldecomp/sms #347): {ORDER_QUOTE}.'
+                    f' Do not fill in MarNameRefGen or other code that constructs classes whose units are not decompiled.' + ORDER_ADVICE,
+                    **{'class': state['class'], 'owner_unit': state.get('owner_unit'), 'provenance': state.get('provenance'),
+                       'state': state['construct'], 'reference': how, 'reason': reason, 'readiness_rev': readiness.rev}))
+    return findings
+
+
+def scope_entries_by_line(cleaned):
+    """{line: [(kind, name) | None]} block stack at the start of every line; None marks a function or other block."""
+    stacks, stack, line = {1: []}, [], 1
+    for index, char in enumerate(cleaned):
+        if char == '{':
+            line_start = max(cleaned.rfind(';', 0, index), cleaned.rfind('{', 0, index), cleaned.rfind('}', 0, index)) + 1
+            head = SCOPE_HEAD.search(cleaned[line_start:index].replace('\n', ' '))
+            stack.append((head['kind'], head['name']) if head else None)
+        elif char == '}' and stack:
+            stack.pop()
+        elif char == '\n':
+            line += 1
+            stacks[line] = list(stack)
+    return stacks
+
+
+def class_chain(entries):
+    """Qualified name of the innermost class in a block stack (namespaces qualify it), or None.
+    None as well inside a function body or a union."""
+    if any(entry is None or entry[0] == 'union' for entry in entries):
+        return None
+    names = [name for kind, name in entries]
+    if not any(kind in ('class', 'struct') for kind, _ in entries):
+        return None
+    last = max(index for index, (kind, _) in enumerate(entries) if kind in ('class', 'struct'))
+    return '::'.join(names[:last + 1])
+
+
+def is_namespace_scope(name, readiness, post):
+    """True when a qualifier names a namespace, not a class: readiness does not know it as a class and
+    it is declared `namespace X` at the readiness revision or in this file (`void JDrama::helperFn(int)`)."""
+    if readiness.canonical(name):
+        return False
+    last = name.split('::')[-1]
+    is_namespace = getattr(readiness, 'is_namespace', None)
+    if is_namespace is not None and name in getattr(readiness, 'owners', {}) and is_namespace(name):
+        return True
+    namespaces = readiness.namespaces() if hasattr(readiness, 'namespaces') else set()
+    return last in namespaces or re.search(r'\bnamespace\s+' + re.escape(last) + r'\b', post) is not None
+
+
+def defined_in(text, name):
+    short = name.split('::')[-1]
+    return re.search(r'^\s*(?:class|struct)\s+' + re.escape(short) + r'\b[^;]*$', text, re.M) is not None
+
+
+def undecompiled_decl_findings(rule, path, entry, readiness, post, new_file):
+    cleaned = clean(_preprocess().active_text(post, unknown='active'))  # inactive branches (#if 0) declare nothing
+    cleaned_lines = cleaned.split('\n')
+    stacks = scope_entries_by_line(cleaned)
+    is_source = not fnmatch(path, 'include/**')
+    own_unit = readiness.unit_for_source(path) if is_source else None
+    # Upstream declarations the diff moves or reflows (removed elsewhere in the file) are not additions.
+    upstream = {normalized(text) for hunk in entry['hunks'] for text in hunk.get('removed', [])}
+    first_line = {}
+    for number, text in sorted({(n, t) for hunk in entry['hunks'] for n, t in hunk.get('added', [])}):
+        line = cleaned_lines[number - 1] if number <= len(cleaned_lines) else clean(text)
+        stripped = line.strip()
+        if stripped in NOT_DECLARATIONS or stripped.startswith('#') or normalized(line) in upstream:
+            continue
+        entries = stacks.get(number, [])
+        head = CLASS_HEAD.match(line)
+        name = None
+        if head and ('{' in head['rest'] or ':' in head['rest'].replace('::', '') or not head['rest'].strip()):
+            if all(e is not None and e[0] == 'namespace' or (e is not None and e[0] in ('class', 'struct')) for e in entries):
+                name = '::'.join([n for _, n in entries] + [head['name']])
+        elif entries and class_chain(entries):
+            name = class_chain(entries)
+        elif all(e is not None and e[0] == 'namespace' for e in entries):
+            member = OUT_OF_CLASS_MEMBER.match(line)
+            if member and member['cls'].split('::')[0] not in NOT_CLASS_WORDS:
+                qualified = '::'.join([n for _, n in entries] + [member['cls']])
+                # A namespace-qualified free function is not a member of a class.
+                if not (is_namespace_scope(qualified, readiness, post) or is_namespace_scope(member['cls'], readiness, post)):
+                    name = qualified
+        if name and name not in first_line:
+            first_line[name] = (number, text)
+    findings = []
+    for name, (number, text) in sorted(first_line.items(), key=lambda item: item[1][0]):
+        state = readiness.class_state(name)
+        if not readiness.canonical(name) and '::' in name:
+            # Namespace::Class or Outer::Inner: try the class name readiness knows
+            for start in range(1, name.count('::') + 1):
+                tail = '::'.join(name.split('::')[start:])
+                if readiness.canonical(tail):
+                    state = readiness.class_state(tail)
+                    break
+        if state['declare'] in ('ready', 'shared') or (own_unit and state.get('owner_unit') == own_unit):
+            continue
+        if state['declare'] == 'unresolved' and state.get('provenance') == 'absent' and is_source and defined_in(post, name):
+            continue  # TU-local helper: a map-absent class defined only in this .cpp
+        reason = not_ready_reason(state, readiness, 'declare') if state['declare'] == 'not_ready' else unresolved_reason(state, readiness)
+        findings.append(full_finding(rule, path, number, text,
+            f'{path} adds declarations for {state["class"]}, but {reason}. SMS maintainer (doldecomp/sms #347/#348): {ORDER_QUOTE}; {FENCE_QUOTE}.'
+            f' Do not add a class, members or a header for a class whose own unit is not decompiled to make a caller build (forward declarations are fine).' + ORDER_ADVICE,
+            **{'class': state['class'], 'owner_unit': state.get('owner_unit'), 'provenance': state.get('provenance'),
+               'state': state['declare'], 'reason': reason, 'new_header': new_file, 'readiness_rev': readiness.rev}))
+    return findings
+
+
+def check_decompile_order_post(findings, repo, mode, file_diffs, merge_base):
+    pending = dict(_ORDER_PENDING)
+    _ORDER_PENDING.clear()
+    if not pending:
+        return findings
+    readiness = order_readiness(repo, merge_base)
+    if readiness is None:
+        return findings  # no target objects, map or revision (Melee, unbuilt checkout): nothing to judge by
+    try:
+        fill_rule = next(r for r in RULES if r['rule_id'] == 'sms_out_of_order_fill')
+        decl_rule = next(r for r in RULES if r['rule_id'] == 'sms_undecompiled_class_decl')
+        for path, entry in sorted(pending.items()):
+            hunks = entry['hunks']
+            post = entry['post'] if isinstance(entry['post'], str) else base.read_post_file(repo, path)
+            if post is None:
+                post = sparse_post_text(hunks)
+            if any(fnmatch(path, p) for p in ORDER_GATED_PATHS):
+                findings.extend(out_of_order_findings(fill_rule, path, entry, readiness, post))
+            if any(fnmatch(path, p) for p in ORDER_DECL_PATHS):
+                pre = entry['pre'] if isinstance(entry['pre'], str) else (git_blob(repo, merge_base, path) if merge_base else None)
+                new_file = pre is None and all(not hunk.get('removed') and not hunk.get('context') for hunk in hunks)
+                findings.extend(undecompiled_decl_findings(decl_rule, path, entry, readiness, post, new_file))
+    except _readiness().ReadinessError:
+        return findings  # readiness ran out of time or met malformed data mid-scan: the gate fails closed, the lint skips
+    finally:
+        readiness.close()
+    return findings
+
+
 # --- sms_nonsense_code ------------------------------------------------------
 # D2 (user decision 2026-10-13): code a human would not write, kept only because
 # it steers codegen. Added lines only. Lines with an ALL_CAPS macro call and
@@ -1424,6 +1899,11 @@ RULES = [
     {'rule_id': 'sms_codegen_directive', 'standard_id': 'global_standard:sms-no-steering', 'severity': 'error', 'applies_to': ['src/**', 'include/**'], 'check': check_codegen_directive, 'message': 'Added volatile, register or #pragma steers codegen and is rejected in SMS.'},
     # D1/D2 (user decision 2026-10-13): invented helpers and odd-looking code are dropped in SMS.
     {'rule_id': 'sms_invented_helper', 'standard_id': 'global_standard:sms-fabricated-marker', 'severity': 'error', 'applies_to': INVENTED_SOURCES, 'check': collect_invented_helper_context, 'message': 'Functions the diff adds need an upstream declaration or a symbols.txt/mario.MAP entry; invented helpers are dropped.'},
+    # SMS maintainer review of doldecomp/sms #342 (2026-10-15): UNUSED functions get a body only when inlined.
+    {'rule_id': 'sms_unused_reconstruction', 'standard_id': 'global_standard:sms-unused-functions', 'severity': 'warning', 'llm_review': True, 'applies_to': UNUSED_SOURCES, 'check': collect_unused_context, 'message': 'UNUSED (dead-stripped) functions may only get a body when they were inlined into another function of the same TU; prove it with steering_check.py unused-test or keep the stub.'},
+    # SMS maintainer ruling on doldecomp/sms #347/#348 (2026-10-15): decompile in order.
+    {'rule_id': 'sms_out_of_order_fill', 'standard_id': 'global_standard:sms-decompile-in-order', 'severity': 'error', 'applies_to': ORDER_GATED_PATHS, 'check': collect_order_context, 'message': 'MarNameRefGen may only reference classes that are ready to construct (their own unit defines the constructor); leave it until they are.'},
+    {'rule_id': 'sms_undecompiled_class_decl', 'standard_id': 'global_standard:sms-decompile-in-order', 'severity': 'error', 'applies_to': ORDER_DECL_PATHS, 'check': collect_order_context, 'message': 'Do not add a class, members or a header for a class whose own unit has not started; leave it until the unit is decompiled.'},
     {'rule_id': 'sms_nonsense_code', 'standard_id': 'global_standard:sms-plain-code', 'severity': 'error', 'applies_to': INVENTED_SOURCES, 'check': check_nonsense_code, 'message': 'Code a human would not write (repeated tests, double negations, empty branches, dead or repeated stores) is dropped.'},
 ]
-POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post, check_invented_helper_post, drop_owned_directives]
+POST_SCAN_HOOKS = [apply_sms_policy_to_global_findings, check_local_class_owner, check_fabricated_marker_post, check_invented_helper_post, check_unused_reconstruction_post, check_decompile_order_post, drop_owned_directives]

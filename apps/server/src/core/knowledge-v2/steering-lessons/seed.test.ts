@@ -6,14 +6,20 @@ import { fileURLToPath } from "node:url";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import { knowledgeRecord } from "../views/knowledge-record.js";
 import {
+  REVIEW_RULINGS_RELATIVE_PATH,
   STEERING_LESSONS_RELATIVE_PATH,
+  readReviewRulings,
   readSteeringLessons,
+  reviewRulingText,
   runSeedCli,
+  seedReviewRulings,
   seedSteeringLessons,
   steeringLessonText,
 } from "./seed.js";
 
-const SMS_LESSONS = resolve(fileURLToPath(new URL("../../../../../../games/sms/", import.meta.url)), STEERING_LESSONS_RELATIVE_PATH);
+const SMS_GAME = fileURLToPath(new URL("../../../../../../games/sms/", import.meta.url));
+const SMS_LESSONS = resolve(SMS_GAME, STEERING_LESSONS_RELATIVE_PATH);
+const SMS_RULINGS = resolve(SMS_GAME, REVIEW_RULINGS_RELATIVE_PATH);
 
 let root = "";
 let store: KnowledgeStore;
@@ -94,5 +100,54 @@ describe("steering lessons seed", () => {
     expect(count("SELECT COUNT(*) AS n FROM entity WHERE kind = 'pattern'")).toBe(0);
     expect(() => runSeedCli(["--game", "sms", "--lessons", SMS_LESSONS])).toThrow(/refuses to touch the default knowledge root/);
     expect(runSeedCli(["--game", "sms", "--lessons", SMS_LESSONS, "--knowledge-root", root, "--apply"])).toContain("admit 12");
+  });
+});
+
+describe("review rulings seed", () => {
+  test("the committed SMS rulings parse: #330, #342 and #347/#348 with Mrkol's exact words", () => {
+    const rulings = readReviewRulings(SMS_RULINGS);
+    expect(rulings.map((ruling) => ruling.pr)).toEqual(["330", "342", "347, 348"]);
+    expect(rulings.every((ruling) => ruling.reviewer === "Mrkol" && ruling.date === "2026-10-15")).toBe(true);
+    const order = rulings.find((ruling) => ruling.id === "sms-347-348-decompile-in-order")!;
+    expect(order.quotes).toContain("Same here, don't jump the fence please. It will get filled out eventually");
+    expect(order.enforced_by).toEqual(expect.arrayContaining(["sms_out_of_order_fill", "sms_undecompiled_class_decl"]));
+    expect(rulings.find((ruling) => ruling.id === "sms-342-unused-reconstruction")!.quote)
+      .toContain("UNUSED functions may only be reconstructed when they were inlined into other functions in the same TU");
+  });
+
+  test("apply admits review-ruling pattern entities with a purpose fact cited per PR; re-run is idempotent", () => {
+    const rulings = readReviewRulings(SMS_RULINGS);
+    expect(seedReviewRulings(store, rulings, { apply: false }).rows.every((row) => row.action === "admit")).toBe(true);
+    expect(count("SELECT COUNT(*) AS n FROM entity WHERE kind = 'pattern'")).toBe(0);
+
+    seedReviewRulings(store, rulings, { apply: true });
+    expect(count("SELECT COUNT(*) AS n FROM entity WHERE kind = 'pattern' AND locator LIKE 'review-ruling:%'")).toBe(3);
+    expect(count("SELECT COUNT(*) AS n FROM fact WHERE type = 'purpose' AND entity_id LIKE 'pattern:review-ruling:%'")).toBe(3);
+    // #347/#348 is cited by both PRs.
+    expect(count("SELECT COUNT(*) AS n FROM evidence WHERE locator IN ('pr://347', 'pr://348')")).toBe(2);
+    const order = rulings.find((ruling) => ruling.id === "sms-347-348-decompile-in-order")!;
+    const record = JSON.stringify(knowledgeRecord(store, { entityId: "pattern:review-ruling:sms-347-348-decompile-in-order" }));
+    expect(record).toContain("don't jump the fence please");
+    expect(reviewRulingText(order)).toContain("Enforced by: sms_out_of_order_fill");
+
+    expect(seedReviewRulings(store, rulings, { apply: true }).rows.every((row) => row.action === "unchanged")).toBe(true);
+    expect(count("SELECT COUNT(*) AS n FROM evidence")).toBe(4);
+  });
+
+  test("rejects malformed rulings with their line numbers", () => {
+    const path = join(root, "rulings.jsonl");
+    writeFileSync(path, [
+      JSON.stringify({ id: "ok", date: "2026-10-15", pr: "1", reviewer: "r", quote: "q", rule: "x", enforced_by: ["a"], examples: [] }),
+      JSON.stringify({ id: "no-rules", date: "2026-10-15", pr: "1", reviewer: "r", quote: "q", rule: "x", enforced_by: [], examples: [] }),
+      JSON.stringify({ id: "no-pr", date: "2026-10-15", pr: "none", reviewer: "r", quote: "q", rule: "x", enforced_by: ["a"], examples: [] }),
+    ].join("\n"));
+    expect(() => readReviewRulings(path)).toThrow(/line 2: enforced_by must be.*\n.*line 3: pr must name/s);
+  });
+
+  test("the CLI seeds rulings next to the lessons", () => {
+    const output = runSeedCli(["--game", "sms", "--lessons", SMS_LESSONS, "--rulings", SMS_RULINGS, "--knowledge-root", root, "--apply"]);
+    expect(output).toContain("Applied: 3 review rulings for sms");
+    expect(count("SELECT COUNT(*) AS n FROM entity WHERE kind = 'pattern' AND locator LIKE 'review-ruling:%'")).toBe(3);
+    expect(() => runSeedCli(["--game", "sms", "--lessons", SMS_LESSONS, "--rulings", join(root, "missing.jsonl"), "--knowledge-root", root])).toThrow(/No review rulings/);
   });
 });

@@ -14,6 +14,24 @@ Not a registered knowledge source: there is no `source.json` and no entry in
   `{"symbol","function","provenance","approved_by","edits_example"}`.
   Read by `evidence_search` as approved evidence. Starts empty.
 
-Both files are append-only. Loop-confirmed lesson pairs and new approvals are
-appended only after an independent review confirms the retained change is a
+- `review_rulings.jsonl`: one JSON object per line, maintainer review rulings on
+  SMS PRs: `{"id","date","pr","reviewer","quote","quotes","ruling","rule",
+  "enforced_by","examples","source"}`. `quote` is the reviewer's exact words
+  (copied read-only from `gh pr view <n> -R doldecomp/sms --comments` or the
+  inline review comments via `gh api repos/doldecomp/sms/pulls/<n>/comments`);
+  `enforced_by` lists the lint rule ids and gate checks that apply the rule
+  (`steering_gate`, `steering_gate:unused_check`, `steering_gate:out_of_order`,
+  `edit_scope`, `pr_scope_check`). Seeded: #330 (fakematch steering), #342
+  (UNUSED reconstruction) and #347/#348 (decompile in order). The
+  `steering_diagnose.py` probe lists the rulings whose `enforced_by` matches
+  the probe's rules, and the seed CLI admits each ruling as a `pattern`
+  entity `review-ruling:<id>` with a `purpose` fact.
+
+Seeding the live SMS store opens and migrates it, so it is left to the operator:
+
+    bun apps/server/src/core/knowledge-v2/steering-lessons/seed.ts --game sms          # dry run
+    bun apps/server/src/core/knowledge-v2/steering-lessons/seed.ts --game sms --apply
+
+All three files are append-only. Loop-confirmed lesson pairs, new approvals and new rulings
+are appended only after an independent review confirms the retained change is a
 real, evidence-backed fix and not a disguised steering edit.

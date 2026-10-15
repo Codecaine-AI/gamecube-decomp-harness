@@ -14,8 +14,13 @@
  * lists it. The fact table has no lesson type; `purpose` (what the pattern
  * entity teaches) is the closest existing one, so no migration is needed.
  *
+ * Maintainer review rulings (`review_rulings.jsonl` next to the lessons, or
+ * `--rulings <file>`) are admitted the same way: a `pattern` entity
+ * `review-ruling:<id>` with a `purpose` fact carrying the quote, the rule and
+ * its enforcement, cited by the PR (`pr://<n>`).
+ *
  * Dry run is the default: it only reads. `--apply` writes; re-running is
- * idempotent (unchanged lessons are skipped).
+ * idempotent (unchanged lessons and rulings are skipped).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -32,6 +37,8 @@ import { openKnowledgeStore } from "../storage/store.js";
 export const STEERING_LESSONS_RELATIVE_PATH = "knowledge/sources/injectable/steering_lessons/lessons.jsonl";
 export const STEERING_LESSON_LOCATOR_PREFIX = "steering-lesson:";
 export const STEERING_LESSON_LINK_ROLE = "steering_lesson";
+export const REVIEW_RULINGS_RELATIVE_PATH = "knowledge/sources/injectable/steering_lessons/review_rulings.jsonl";
+export const REVIEW_RULING_LOCATOR_PREFIX = "review-ruling:";
 
 const OUTCOMES = ["real", "mixed", "loop_confirmed"] as const;
 export type SteeringLessonOutcome = (typeof OUTCOMES)[number];
@@ -197,11 +204,145 @@ export function seedSteeringLessons(
   return { applied: options.apply, rows };
 }
 
-export function renderSeedReport(gameId: string, lessonsPath: string, result: SteeringLessonSeedResult): string {
+export interface ReviewRulingExample {
+  file?: string;
+  [key: string]: unknown;
+}
+
+export interface ReviewRuling {
+  id: string;
+  date: string;
+  pr: string;
+  reviewer: string;
+  quote: string;
+  rule: string;
+  enforced_by: string[];
+  examples: ReviewRulingExample[];
+  quotes?: string[];
+  ruling?: string;
+  source?: string;
+}
+
+/** Validate one parsed ruling line; returns the problem or the ruling. */
+export function parseReviewRuling(value: unknown): ReviewRuling | string {
+  if (!isRecord(value)) return "not an object";
+  for (const key of ["id", "date", "pr", "reviewer", "quote", "rule"] as const) {
+    if (!isString(value[key]) || value[key] === "") return `missing ${key}`;
+  }
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(String(value.id))) return `id ${String(value.id)} is not a locator-safe slug`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value.date))) return "date must be YYYY-MM-DD";
+  if (prNumbers(String(value.pr)).length === 0) return "pr must name at least one PR number";
+  if (!Array.isArray(value.enforced_by) || value.enforced_by.length === 0 || !value.enforced_by.every((item) => isString(item) && item !== "")) {
+    return "enforced_by must be a non-empty list of rule ids or gate checks";
+  }
+  if (!Array.isArray(value.examples) || !value.examples.every(isRecord)) return "examples must be a list of objects";
+  for (const key of ["quotes"] as const) {
+    if (value[key] !== undefined && (!Array.isArray(value[key]) || !(value[key] as unknown[]).every(isString))) return `${key} must be a list of strings`;
+  }
+  for (const key of ["ruling", "source"] as const) {
+    if (value[key] !== undefined && !isString(value[key])) return `${key} must be a string`;
+  }
+  return value as unknown as ReviewRuling;
+}
+
+function prNumbers(pr: string): string[] {
+  return pr.match(/\d+/g) ?? [];
+}
+
+/** Read and validate a rulings file; any bad line fails the whole read. */
+export function readReviewRulings(path: string): ReviewRuling[] {
+  const rulings: ReviewRuling[] = [];
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  readFileSync(path, "utf8").split(/\r?\n/).forEach((line, index) => {
+    if (line.trim() === "") return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line);
+    } catch {
+      problems.push(`line ${index + 1}: invalid JSON`);
+      return;
+    }
+    const ruling = parseReviewRuling(parsed);
+    if (typeof ruling === "string") {
+      problems.push(`line ${index + 1}: ${ruling}`);
+    } else if (seen.has(ruling.id)) {
+      problems.push(`line ${index + 1}: duplicate id ${ruling.id}`);
+    } else {
+      seen.add(ruling.id);
+      rulings.push(ruling);
+    }
+  });
+  if (problems.length > 0) throw new Error(`Invalid review rulings in ${path}:\n${problems.join("\n")}`);
+  return rulings;
+}
+
+export function reviewRulingLocator(ruling: Pick<ReviewRuling, "id">): string {
+  return `${REVIEW_RULING_LOCATOR_PREFIX}${ruling.id}`;
+}
+
+/** The searchable ruling text: who ruled, the exact quote, the rule and what enforces it. */
+export function reviewRulingText(ruling: ReviewRuling): string {
+  const prs = prNumbers(ruling.pr).map((n) => `#${n}`).join("/");
+  const lines = [`Review ruling ${ruling.id}: ${ruling.reviewer} on doldecomp/sms ${prs} (${ruling.date})${ruling.ruling ? `, ${ruling.ruling}` : ""}.`];
+  const quotes = ruling.quotes && ruling.quotes.length > 0 ? ruling.quotes : [ruling.quote];
+  for (const quote of quotes) lines.push(`Quote: "${quote}"`);
+  lines.push(`Rule: ${ruling.rule}`);
+  lines.push(`Enforced by: ${ruling.enforced_by.join(", ")}`);
+  for (const example of ruling.examples) {
+    const where = isString(example.file) ? example.file : "example";
+    const detail = [example.function, example.change, example.comment, example.outcome, example.why].filter(isString);
+    if (detail.length > 0) lines.push(`Example (${where}): ${detail.join(" | ")}`);
+  }
+  return lines.join("\n");
+}
+
+const RULING_RATIONALE = "Maintainer review ruling: the reviewer's exact words and the rule the harness enforces from them.";
+
+/** Plan (dry run) or write the rulings as `pattern` entities with a cited `purpose` fact. */
+export function seedReviewRulings(
+  store: KnowledgeStoreHandle,
+  rulings: readonly ReviewRuling[],
+  options: { apply: boolean; now?: string },
+): SteeringLessonSeedResult {
+  const rows: SteeringLessonSeedRow[] = [];
+  for (const ruling of rulings) {
+    const locator = reviewRulingLocator(ruling);
+    const text = reviewRulingText(ruling);
+    const existing = store.db.query<{ id: string; status: string }, [string]>(
+      "SELECT id, identity_status AS status FROM entity WHERE kind = 'pattern' AND locator = ?",
+    ).get(locator);
+    const fact = existing ? getLiveFact(store, { entityId: existing.id }, "purpose") : null;
+    const action: SteeringLessonAction = !existing || existing.status !== "active"
+      ? "admit"
+      : fact?.value === text ? "unchanged" : "update";
+    rows.push({ id: ruling.id, locator, action, linkedTargets: [] });
+    if (!options.apply || action === "unchanged") continue;
+    const entity = admitCuratedEntity(store, { kind: "pattern", locator });
+    writeFactWithEvidence(store, {
+      id: `fact:${locator}:purpose`,
+      entityId: entity.id,
+      type: "purpose",
+      value: text,
+      rationale: RULING_RATIONALE,
+      confidence: 1,
+      ...(options.now ? { updatedAt: options.now } : {}),
+    }, prNumbers(ruling.pr).map((n) => ({
+      id: `evidence:${locator}:pr-${n}`,
+      kind: "pr" as const,
+      locator: `pr://${n}`,
+      why: `${ruling.reviewer} on doldecomp/sms #${n}: "${ruling.quote}"`,
+      ...(options.now ? { capturedAt: options.now } : {}),
+    })));
+  }
+  return { applied: options.apply, rows };
+}
+
+export function renderSeedReport(gameId: string, lessonsPath: string, result: SteeringLessonSeedResult, noun = "steering lessons"): string {
   const counts = { admit: 0, update: 0, unchanged: 0 };
   for (const row of result.rows) counts[row.action] += 1;
   return [
-    `${result.applied ? "Applied" : "Dry run"}: ${result.rows.length} steering lessons for ${gameId} from ${lessonsPath}`,
+    `${result.applied ? "Applied" : "Dry run"}: ${result.rows.length} ${noun} for ${gameId} from ${lessonsPath}`,
     `admit ${counts.admit}, update ${counts.update}, unchanged ${counts.unchanged}`,
     ...result.rows.map((row) => `- ${row.action.padEnd(9)} ${row.locator}${row.linkedTargets.length > 0 ? ` -> ${row.linkedTargets.join(", ")}` : ""}`),
     ...(result.applied ? [] : ["Pass --apply to write."]),
@@ -241,9 +382,16 @@ export function runSeedCli(argv: string[]): string {
     throw new Error("steering-lessons seed refuses to touch the default knowledge root under a test runner; pass --knowledge-root <temp dir>");
   }
   const lessons = readSteeringLessons(lessonsPath);
+  const rulingsArg = stringArg(parsed, "--rulings");
+  const rulingsPath = rulingsArg ? resolve(rulingsArg) : resolve(resolveGame({ gameId }).gameDir, REVIEW_RULINGS_RELATIVE_PATH);
+  if (rulingsArg && !existsSync(rulingsPath)) throw new Error(`No review rulings at ${rulingsPath}`);
+  const rulings = existsSync(rulingsPath) ? readReviewRulings(rulingsPath) : null;
+  const apply = parsed.get("--apply") === true;
   const store = knowledgeRoot === undefined ? openKnowledgeStore({ gameId }) : openKnowledgeStore({ knowledgeRoot: resolve(knowledgeRoot) });
   try {
-    return renderSeedReport(gameId, lessonsPath, seedSteeringLessons(store, lessons, { apply: parsed.get("--apply") === true }));
+    const reports = [renderSeedReport(gameId, lessonsPath, seedSteeringLessons(store, lessons, { apply }))];
+    if (rulings) reports.push(renderSeedReport(gameId, rulingsPath, seedReviewRulings(store, rulings, { apply }), "review rulings"));
+    return reports.join("\n");
   } finally {
     store.close();
   }
