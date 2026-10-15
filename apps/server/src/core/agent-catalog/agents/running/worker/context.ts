@@ -363,6 +363,113 @@ export function steeringProbeXml(packet: Record<string, unknown>, steeringGate: 
   ].join("\n");
 }
 
+function percent(value: unknown): string | null {
+  const n = optionalNumber(value);
+  return n === null ? null : `${Number(n.toFixed(2))}%`;
+}
+
+/** The standing instruction, one clause per broken rule; steering's is the default. */
+function previousAttemptInstruction(kinds: string[]): string {
+  const parts = [
+    "Do not repeat these edits or reintroduce the removed code.",
+    ...(kinds.includes("dead_unused_body")
+      ? ["Keep the upstream stub; give the body back only if `steering_check.py unused-test` shows a same-TU caller gets worse when it is emptied."]
+      : []),
+    ...(kinds.includes("out_of_order") ? ["Leave the code that needs undecompiled classes until their units are decompiled."] : []),
+    ...(kinds.includes("steering") || kinds.every((kind) => kind !== "dead_unused_body" && kind !== "out_of_order")
+      ? ["Search for what the original source really had (the real inline, type, call or construct), or leave the function nonmatching."]
+      : []),
+  ];
+  return parts.join(" ");
+}
+
+/** One sentence: how the function got its earlier match and what the backfill did about it. */
+function previousAttemptSummary(attempt: Record<string, unknown>, kinds: string[]): string {
+  const match = asRecord(attempt.match);
+  const withSteering = percent(match.with_steering);
+  const realOnly = percent(match.real_only);
+  const applied = attempt.applied === true;
+  const tricks = [
+    ...(kinds.includes("steering") ? ["behaviour-identical steering edits"] : []),
+    ...(kinds.includes("dead_unused_body") ? ["a body for a map-UNUSED function the original never inlined (dead code)"] : []),
+    ...(kinds.includes("out_of_order") ? ["code that needs classes whose units are not decompiled yet"] : []),
+  ];
+  const how = tricks.length > 0 ? tricks.join(" and ") : "edits the steering gate could not certify";
+  const reached = withSteering ? `reached ${withSteering}` : "matched";
+  const action = applied
+    ? "The steering backfill rolled it back and removed that code"
+    : "The steering backfill rejected it; that code is to be removed";
+  const after = realOnly ? `; the real-only match left is ${realOnly}` : "";
+  return `A previous attempt ${reached} only through ${how}. ${action}${after}.`;
+}
+
+/**
+ * What the steering backfill found for this function in an earlier run
+ * (`packet.previous_attempt`, attached at claim time from its
+ * `steering_backfill` row), or "" when absent or the steering gate is off.
+ */
+export function previousAttemptXml(packet: Record<string, unknown>, steeringGate: SteeringGateMode | null | undefined): string {
+  if (!steeringGateActive(steeringGate)) return "";
+  const attempt = asRecord(packet.previous_attempt);
+  if (Object.keys(attempt).length === 0) return "";
+  const rules = asRecordArray(attempt.rules);
+  const kinds = rules.map((rule) => String(rule.kind ?? ""));
+  const match = asRecord(attempt.match);
+  const edits = asRecordArray(attempt.removed_edits).filter((edit) => optionalString(edit.file));
+  const reasons = Array.isArray(attempt.reasons) ? attempt.reasons.filter((reason): reason is string => typeof reason === "string" && reason !== "") : [];
+  const hints = asRecordArray(attempt.hints).filter((hint) => optionalString(hint.cause));
+  const attrs = [
+    optionalAttribute("function", optionalString(attempt.symbol)),
+    optionalAttribute("unit", optionalString(attempt.unit)),
+    optionalAttribute("decision", optionalString(attempt.decision)),
+    optionalAttribute("analyzed_rev", optionalString(attempt.analyzed_rev)?.slice(0, 12)),
+  ].join("");
+  const matchAttrs = [
+    optionalAttribute("base", percent(match.base)),
+    optionalAttribute("with_steering", percent(match.with_steering)),
+    optionalAttribute("real_only", percent(match.real_only)),
+  ].join("");
+  return [
+    `    <previous_attempt${attrs}>`,
+    `        <what_happened>${xmlText(previousAttemptSummary(attempt, kinds))}</what_happened>`,
+    `        <instruction>${xmlText(previousAttemptInstruction(kinds))}</instruction>`,
+    ...(matchAttrs ? [`        <match${matchAttrs} />`] : []),
+    ...(edits.length > 0
+      ? [
+          "        <removed_edits>",
+          ...edits.map((edit) => {
+            const shapes = Array.isArray(edit.shapes) ? edit.shapes.filter((shape) => typeof shape === "string").join(",") : "";
+            const where = `${edit.file}${optionalNumber(edit.line) !== null ? `:${edit.line}` : ""}`;
+            const body = [
+              ...(optionalString(edit.before) ? [`                <base>${xmlText(edit.before)}</base>`] : []),
+              ...(optionalString(edit.after) ? [`                <removed>${xmlText(edit.after)}</removed>`] : []),
+            ];
+            const open = `            <edit at="${xmlAttribute(where)}"${optionalAttribute("shapes", shapes)}`;
+            return body.length > 0 ? [`${open}>`, ...body, "            </edit>"].join("\n") : `${open} />`;
+          }),
+          "        </removed_edits>",
+        ]
+      : []),
+    ...reasons.map((reason) => `        <gate_reason>${xmlText(reason)}</gate_reason>`),
+    ...hints.map((hint) => `        <hint cause="${xmlAttribute(hint.cause)}"${optionalAttribute("how_to_check", optionalString(hint.how_to_check))}>${xmlText(hint.why ?? "")}</hint>`),
+    ...rules.map((rule) => {
+      const ruling = asRecord(rule.ruling);
+      const quote = optionalString(ruling.quote);
+      const lines = [
+        `        <rule name="${xmlAttribute(rule.name ?? rule.kind)}">`,
+        `            <summary>${xmlText(rule.summary ?? "")}</summary>`,
+        ...(quote
+          ? [`            <maintainer_quote${optionalAttribute("reviewer", optionalString(ruling.reviewer))}${optionalAttribute("pr", optionalString(ruling.pr))}${optionalAttribute("ruling", optionalString(ruling.id))}>${xmlText(quote)}</maintainer_quote>`]
+          : []),
+        ...(optionalString(ruling.rule) ? [`            <ruling_rule>${xmlText(ruling.rule)}</ruling_rule>`] : []),
+        "        </rule>",
+      ];
+      return lines.join("\n");
+    }),
+    "    </previous_attempt>",
+  ].join("\n");
+}
+
 /**
  * The classes the target needs whose units are not decompiled
  * (`packet.not_ready_classes`, else `packet.target.not_ready_classes`: the
@@ -749,14 +856,15 @@ export function buildWorkerKernelContext(
     options.game,
     contextBudget,
   );
-  const steeringProbe = steeringProbeXml(options.packet, workerSteeringGate(options));
+  const steeringGate = workerSteeringGate(options);
+  const steeringBlocks = [previousAttemptXml(options.packet, steeringGate), steeringProbeXml(options.packet, steeringGate)].filter(Boolean);
   const notReadyClasses = notReadyClassesXml(options.packet, workerOrdering(options));
   const values = {
     DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game, options.advisoryAdjudication ?? "off"),
     FIRST_DIFF_XML: inputXml.firstDiffXml,
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
-    // Joined to the first diff so an absent probe leaves the context byte-identical.
-    STEERING_PROBE_XML: steeringProbe ? `\n\n${steeringProbe}` : "",
+    // Joined to the first diff so absent steering blocks leave the context byte-identical.
+    STEERING_PROBE_XML: steeringBlocks.map((block) => `\n\n${block}`).join(""),
     NOT_READY_CLASSES_XML: notReadyClasses ? `\n\n${notReadyClasses}` : "",
     TARGET_XML: inputXml.targetXml,
     TARGET_KNOWLEDGE_XML: targetKnowledgeXml,

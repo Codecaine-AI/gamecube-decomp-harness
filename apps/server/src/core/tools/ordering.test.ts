@@ -20,7 +20,7 @@ describe("ordering helpers", () => {
   test("gameOrdering resolves run metadata like the steering gate and returns null without a block", () => {
     const root = packageRoot();
     expect(gameOrdering({ gameId: "melee", descriptorPath: resolve(root, "games/melee/game.json") })).toBeNull();
-    expect(gameOrdering({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") })?.mode).toBe("shadow");
+    expect(gameOrdering({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") })?.mode).toBe("enforce");
     expect(gameOrdering(null)).toBeNull();
   });
 

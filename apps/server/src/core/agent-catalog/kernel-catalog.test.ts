@@ -627,6 +627,7 @@ describe("meleeKernelAgentCatalog", () => {
     expect(melee.steeringGate).toBe("off");
     expect(workerText(melee)).not.toContain("<steering_policy>");
     expect(workerText(melee)).not.toContain("steering_probe");
+    expect(workerText(melee)).not.toContain("previous_attempt");
     expect(workerText(melee)).not.toContain("unused-test");
 
     const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
@@ -643,6 +644,12 @@ describe("meleeKernelAgentCatalog", () => {
       expect(text).toContain("A steering match is never done.");
       expect(text).toContain("steering_check.py unused-test --repo . --file &lt;file&gt; --function &lt;Name&gt;");
       expect(worker(sms)?.context?.renderedContext ?? "").toContain("<steering_probe function=");
+      const context = worker(sms)?.context?.renderedContext ?? "";
+      expect(context).toContain("<previous_attempt function=");
+      expect(context).toContain("The steering backfill rolled it back and removed that code; the real-only match left is 98.1%.");
+      expect(context).toContain('<edit at="src/M3DUtil/MActor.cpp:212" shapes="temp_alias">');
+      expect(context).toContain('<maintainer_quote reviewer="Mrkol" pr="330" ruling="sms-330-fakematch-steering">Totally a fakematch</maintainer_quote>');
+      expect(text).toContain("Read the `previous_attempt` block when present");
       expect(text).toContain('"steering_edits"');
       expect(text).toContain("real_code_evidence inlines --type MActor --member mLightData");
       expect(text).not.toMatch(unresolvedPlaceholderPattern);

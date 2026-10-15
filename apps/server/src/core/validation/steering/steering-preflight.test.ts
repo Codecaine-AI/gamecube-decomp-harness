@@ -81,13 +81,30 @@ describe("steering gate enforce preflight", () => {
     }
   });
 
-  test("off and shadow games, including Melee and SMS as shipped, are never checked", () => {
+  test("off and shadow games, including Melee as shipped, are never checked", () => {
     const store = openState(tempDir());
     try {
-      for (const game of [resolveGame({ gameId: "melee" }), resolveGame({ gameId: "sms" }), { gameId: "x", matching: { stackFramePolicy: "match_frame" as const, steeringGate: "shadow" as const } }]) {
+      for (const game of [resolveGame({ gameId: "melee" }), { gameId: "x", matching: { stackFramePolicy: "match_frame" as const, steeringGate: "shadow" as const } }]) {
         expect(() => assertSteeringGatePreflight(store, { game, repoRoot: "/nonexistent", command: "run-loop", isAncestor: () => { throw new Error("called"); } })).not.toThrow();
       }
       expect(() => assertSteeringGatePreflight(store, { game: null, gameId: "melee", repoRoot: "/nonexistent", command: "run-loop" })).not.toThrow();
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("SMS as shipped is enforce: refused without a clean backfill run, accepted with one on an ancestor of HEAD", () => {
+    const { repo, c1 } = repoWithHistory();
+    const store = openState(tempDir());
+    try {
+      const sms = resolveGame({ gameId: "sms" });
+      expect(sms.matching.steeringGate).toBe("enforce");
+      expect(() => assertSteeringGatePreflight(store, { game: sms, repoRoot: repo, command: "run-loop" }))
+        .toThrow(/Steering gate is enforce for sms; refusing to run run-loop: no clean steering backfill run/);
+      recordSteeringBackfillRun(store, { gameId: "sms", baselineRev: c1, clean: false });
+      expect(() => assertSteeringGatePreflight(store, { game: sms, repoRoot: repo, command: "run-loop" })).toThrow(/no clean steering backfill run/);
+      recordSteeringBackfillRun(store, { gameId: "sms", baselineRev: c1, clean: true });
+      expect(() => assertSteeringGatePreflight(store, { game: sms, repoRoot: repo, command: "run-loop" })).not.toThrow();
     } finally {
       store.db.close();
     }

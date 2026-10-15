@@ -8,10 +8,12 @@ import { listStackOnlyFunctions, recordStackOnlyFunction } from "@server/core/ha
 import {
   latestCleanSteeringBackfillRun,
   listSteeringBackfill,
+  listSteeringRollbacks,
   steeringCoverageFor,
   steeringCoverageReport,
 } from "@server/core/harness-runtime/run-state/steering.js";
 import { assertSteeringGatePreflight } from "@server/core/validation/steering/steering-preflight.js";
+import { steeringPreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import type { SteeringRunner } from "@server/core/validation/steering/steering-check.js";
 import type { CommandResult } from "@server/infrastructure/shell";
 import { runSteeringBackfill, steeringGateJob, type SteeringBuildRunner } from "./steering-gate.js";
@@ -154,7 +156,8 @@ const enforced = { gameId: "sms", matching: { stackFramePolicy: "stop_at_frame" 
 function backfill(repo: string, head: string, store: ReturnType<typeof openState>, dir: string, runners: ReturnType<typeof fakeRunners>, extra: Partial<Parameters<typeof runSteeringBackfill>[0]> = {}) {
   return runSteeringBackfill({
     store, gameId: "sms", repoRoot: repo, baseRev: "base000", headRev: head, record: true, apply: false, dryRun: false,
-    runner: runners.runner, buildRunner: runners.buildRunner, outputDir: join(dir, `out-${Math.random()}`), validation: VALIDATION, ...extra,
+    runner: runners.runner, buildRunner: runners.buildRunner, outputDir: join(dir, `out-${Math.random()}`), validation: VALIDATION,
+    buildCheck: () => null, ...extra,
   });
 }
 
@@ -356,6 +359,46 @@ describe("steering-gate clean needs the whole certificate", () => {
       expect(result.applied).toBe(true);
       expect(result.touchedUnits).toEqual([UNIT_A]);
       expect(runners.builds).toEqual([["ninja", "-j3", "build/GMSJ01/src/Enemy/a.o", VALIDATION.reportPath]]);
+    });
+  });
+
+  test("an applied dead UNUSED body is attached to its passing function and kept as a rule rollback", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const violated = check({
+        attempt: "rule_violation", functions: [fn(UNIT_A, "T::emitEffect", "pass")], units: covered(UNIT_A),
+        violations: [{ kind: "dead_unused_body", unit: UNIT_A, file: SRC_A, function: "T::emitEffect", line: 3 }],
+      });
+      const runners = fakeRunners(repo, [violated, check({ attempt: "pass", functions: [fn(UNIT_A, "T::emitEffect", "pass")], units: covered(UNIT_A) })], { [SRC_A]: REAL });
+      const result = await backfill(repo, head, store, dir, runners, { record: false, apply: true });
+      expect(result.functions).toEqual([expect.objectContaining({ name: "T::emitEffect", initial: "pass", final: "pass", applied: true })]);
+      expect(listSteeringRollbacks(store, "sms").map((row) => [row.symbol, row.rules])).toEqual([["T::emitEffect", ["dead_unused_body"]]]);
+      expect(listSteeringBackfill(store, "sms")[0]!.report).toMatchObject({ rules: ["dead_unused_body"], violations: [{ kind: "dead_unused_body", location: `${SRC_A}:3` }] });
+    });
+  });
+
+  test("rollback events are written when apply rewrites, so a failed rebuild or re-check never loses them", async () => {
+    const steered = () => check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located")], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] });
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const runners = fakeRunners(repo, [steered()], { [SRC_A]: REAL });
+      const failingBuild: SteeringBuildRunner = async () => ({ exitCode: 124, stdout: "", stderr: "Command timed out after 1800s: ninja" });
+      await expect(backfill(repo, head, store, dir, { ...runners, buildRunner: failingBuild }, { record: false, apply: true })).rejects.toThrow(/ninja exited 124/);
+      expect(listSteeringRollbacks(store, "sms").map((row) => [row.symbol, row.status, row.initialVerdict, row.rules])).toEqual([["steer", "rebuild_failed", "steering_located", ["steering"]]]);
+      // The operator commits the cleanup and records it: the worker still gets the rollback.
+      git(repo, "commit", "-q", "-am", "steering cleanup");
+      await backfill(repo, git(repo, "rev-parse", "HEAD"), store, dir, fakeRunners(repo, [check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass")], units: covered(UNIT_A) })]));
+      expect(steeringPreviousAttempt(store, { gameId: "sms", unit: UNIT_A, symbol: "steer" })).toMatchObject({ decision: "steering_located", analyzed_rev: head, applied: true });
+    });
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const runners = fakeRunners(repo, [steered()], { [SRC_A]: REAL });
+      const runner: SteeringRunner = async (args, where) => (args[0] === "check" && runners.calls.some((call) => call[0] === "apply")
+        ? { exitCode: 124, stdout: "", stderr: "Command timed out after 1800s: check" }
+        : runners.runner(args, where));
+      await expect(backfill(repo, head, store, dir, { ...runners, runner }, { record: false, apply: true })).rejects.toThrow(/check exited 124/);
+      expect(listSteeringRollbacks(store, "sms").map((row) => [row.symbol, row.status])).toEqual([["steer", "recheck_failed"]]);
+      expect(steeringPreviousAttempt(store, { gameId: "sms", unit: UNIT_A, symbol: "steer" })?.rules.map((rule) => rule.kind)).toEqual(["steering"]);
     });
   });
 

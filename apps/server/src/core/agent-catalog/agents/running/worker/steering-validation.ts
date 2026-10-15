@@ -64,6 +64,16 @@ export function steeringLessonPaths(
   };
 }
 
+/** Maintainer review rulings (`review_rulings.jsonl` next to the lessons), when the game has them. */
+export function steeringRulingsPath(
+  game: Pick<RunGameMetadata, "gameId" | "descriptorPath"> | null | undefined,
+  orchestratorRoot: string,
+): string | null {
+  const gameDir = hostGameDir(game, orchestratorRoot);
+  const path = gameDir ? resolve(gameDir, STEERING_LESSONS_DIR, "review_rulings.jsonl") : null;
+  return path && existsSync(path) ? path : null;
+}
+
 /** The steering gate's cache (baseRev materializations) under the game state dir. */
 export function steeringCacheDir(stateDir: string): string {
   return resolve(stateDir, "cache", "steering");

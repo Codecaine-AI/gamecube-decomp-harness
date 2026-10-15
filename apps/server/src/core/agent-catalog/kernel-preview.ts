@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
 import { workerPrompt } from "@server/core/agent-catalog";
 import { workerSystemPromptDocument } from "@server/core/agent-catalog/agents/running/worker/prompt.js";
+import { previousAttemptFromBackfill } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
+import type { ReviewRuling } from "@server/core/knowledge-v2/steering-lessons/seed.js";
 import {
   KERNEL_AGENT_IDS,
   meleeKernelAgent,
@@ -148,6 +150,60 @@ function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<s
 }
 
 /**
+ * A `previous_attempt` block for the previewed target, built by the claim
+ * path's own builder from a sample `steering_backfill` row: an earlier
+ * attempt matched 100% through the probe's steering edit and the backfill
+ * rolled it back. Only an active steering gate shows it.
+ */
+function samplePreviousAttempt(target: { unit: string; symbol: string }): Record<string, unknown> | null {
+  return previousAttemptFromBackfill({
+    gameId: "preview",
+    unit: target.unit,
+    symbol: target.symbol,
+    analyzedRev: "0123456789abcdef0123456789abcdef01234567",
+    functionSourceSha: null,
+    verdict: "pass",
+    applied: true,
+    appliedRev: null,
+    recordedAt: "2026-10-15T00:00:00.000Z",
+    // SteeringBackfillFunctionReport (validation/jobs/steering-gate.ts).
+    report: {
+      base_rev: "fedcba9876543210fedcba9876543210fedcba98",
+      initial: "steering_located",
+      decision: "pass",
+      applied: true,
+      provisional: false,
+      match: { base: 96.4, candidate: 100, real_only: 98.1 },
+      final_match: { base: 96.4, candidate: 98.1, real_only: 98.1 },
+      removed_edit_groups: [{
+        id: "src/M3DUtil/MActor.cpp@4.0",
+        file: "src/M3DUtil/MActor.cpp",
+        line: 212,
+        location: "src/M3DUtil/MActor.cpp:212",
+        shapes: ["temp_alias"],
+        text: "J3DLightObj* light = mLightData; / light->set(mLightIdx, color);",
+        restored: "mLightData->set(mLightIdx, color);",
+      }],
+      reasons: ["S* without the steering-only retained groups loses the match (labelled steering)"],
+      probe: sampleSteeringProbe(target),
+      check: "steering-gate/sms/check.json",
+      recheck: "steering-gate/sms/recheck.json",
+    },
+  }, { rulings: [SAMPLE_REVIEW_RULING] }) as Record<string, unknown> | null;
+}
+
+const SAMPLE_REVIEW_RULING: ReviewRuling = {
+  id: "sms-330-fakematch-steering",
+  date: "2026-10-15",
+  pr: "330",
+  reviewer: "Mrkol",
+  quote: "Totally a fakematch",
+  rule: "Steering is a probe, never the fix: a single-use temp, an accessor or inline swap, or any same-behaviour rewrite that only moves codegen (often just the stack frame) is a fakematch. Find the real construct or leave the function nonmatching.",
+  enforced_by: ["sms_single_use_temp", "steering_gate"],
+  examples: [],
+};
+
+/**
  * The readiness entry's `unmet` classes as the scheduler attaches them to a
  * deferred target's packet (contract: `packet.not_ready_classes`). Only an
  * active ordering mode shows them, the way only a deferred claim carries them.
@@ -159,7 +215,7 @@ const SAMPLE_NOT_READY_CLASSES = [
 
 function previewSteeringPacket(mode: WorkerPreviewMode, target: { unit: string; symbol: string }): Record<string, unknown> {
   return {
-    ...(mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target) }),
+    ...(mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target), previous_attempt: samplePreviousAttempt(target) }),
     ...(orderingActive(mode.ordering) ? { not_ready_classes: SAMPLE_NOT_READY_CLASSES } : {}),
   };
 }

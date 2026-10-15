@@ -5,7 +5,8 @@ import { steeringGateEnforced } from "@server/core/tools/steering-gate.js";
 
 /** Command an operator runs before the first enforced run; quoted in the preflight refusal. */
 export function steeringBackfillCommand(gameId: string): string {
-  return `bun run server:job -- steering-gate --game ${gameId} --repo <integration checkout> --base <upstream ref> --record --apply`;
+  return `bun run server:job -- steering-gate --game ${gameId} --repo <integration checkout> --base <upstream ref> --record --apply `
+    + "(or, sharded: --from-reports '<check reports>' --apply, commit, re-run the shards, then --from-reports '<check reports>' --record)";
 }
 
 export type GitAncestorCheck = (repoRoot: string, ancestor: string, descendant: string) => boolean;

@@ -2,11 +2,15 @@ import { now, type StateStore } from "@server/core/orchestrator-state";
 import type { SteeringProbe } from "@server/core/validation/steering/steering-check.js";
 
 /**
- * Steering gate state (migration 013). Observations are attempt history,
- * read only for probes/hints and the dashboard. Backfill rows, coverage and
- * backfill runs are authoritative and written only by the `steering-gate`
- * job. Every reader tolerates a store behind migration 013 (null/empty) and
- * every writer is a no-op there, like `stack-only-functions.ts`.
+ * Steering gate state (migrations 013, 014). Observations are attempt
+ * history, read only for probes/hints and the dashboard. Backfill rows,
+ * coverage and backfill runs are authoritative and written only by the
+ * `steering-gate` job; backfill rows are the *current* certification and are
+ * overwritten by every `--record`. Rollbacks (014) are append-only history:
+ * one row per function each `--apply` rewrote, never overwritten, read by the
+ * worker's `previous_attempt` block. Every reader tolerates a store behind
+ * the migration (null/empty) and every writer is a no-op there, like
+ * `stack-only-functions.ts`.
  */
 export type SteeringObservationMode = "shadow" | "enforce";
 
@@ -59,7 +63,7 @@ export interface SteeringCoverage {
   analyzedRev: string;
 }
 
-const STEERING_TABLES = ["steering_observations", "steering_backfill", "steering_backfill_coverage", "steering_backfill_runs"] as const;
+const STEERING_TABLES = ["steering_observations", "steering_backfill", "steering_backfill_coverage", "steering_backfill_runs", "steering_rollbacks"] as const;
 type SteeringTable = (typeof STEERING_TABLES)[number];
 
 function tableExists(store: StateStore, table: SteeringTable): boolean {
@@ -160,7 +164,26 @@ export function listSteeringBackfill(store: StateStore, gameId: string, unit?: s
   const rows = store.db
     .query(`SELECT * FROM steering_backfill WHERE game_id = ? ${unit ? "AND unit = ?" : ""} ORDER BY unit, symbol`)
     .all(...(unit ? [gameId, unit] : [gameId])) as Record<string, unknown>[];
-  return rows.map((row) => ({
+  return rows.map(backfillRecord);
+}
+
+/**
+ * The backfill row for one function, whatever its source looks like now: a
+ * rollback rewrites the source, so it is matched on (game, unit, symbol) only.
+ */
+export function latestSteeringBackfill(
+  store: StateStore,
+  params: { gameId: string; unit: string; symbol: string },
+): SteeringBackfillRecord | null {
+  if (!tableExists(store, "steering_backfill") || !params.unit || !params.symbol) return null;
+  const row = store.db
+    .query("SELECT * FROM steering_backfill WHERE game_id = ? AND unit = ? AND symbol = ? ORDER BY recorded_at DESC LIMIT 1")
+    .get(params.gameId, params.unit, params.symbol) as Record<string, unknown> | null;
+  return row ? backfillRecord(row) : null;
+}
+
+function backfillRecord(row: Record<string, unknown>): SteeringBackfillRecord {
+  return {
     gameId: String(row.game_id),
     unit: String(row.unit),
     symbol: String(row.symbol),
@@ -171,7 +194,7 @@ export function listSteeringBackfill(store: StateStore, gameId: string, unit?: s
     appliedRev: row.applied_rev == null ? null : String(row.applied_rev),
     report: parseObject(row.report_json),
     recordedAt: String(row.recorded_at),
-  }));
+  };
 }
 
 export function recordSteeringCoverage(store: StateStore, row: SteeringCoverageInput): void {
@@ -222,4 +245,118 @@ export function latestCleanSteeringBackfillRun(store: StateStore, gameId: string
     .query("SELECT baseline_rev, recorded_at FROM steering_backfill_runs WHERE game_id = ? AND clean = 1 ORDER BY id DESC LIMIT 1")
     .get(gameId) as { baseline_rev: string; recorded_at: string } | null;
   return row ? { baselineRev: String(row.baseline_rev), recordedAt: String(row.recorded_at) } : null;
+}
+
+export interface SteeringRollbackInput {
+  gameId: string;
+  unit: string;
+  symbol: string;
+  /** HEAD the rewrite was applied on (the steered commit). */
+  analyzedRev: string;
+  baseRev?: string | null;
+  initialVerdict: string;
+  finalVerdict: string;
+  /** Rules the rollback enforced: `steering`, `dead_unused_body`, `out_of_order`, ... */
+  rules: string[];
+  /** The function's `SteeringBackfillFunctionReport` at apply time. */
+  report: Record<string, unknown>;
+}
+
+/**
+ * Where a rollback stands: `rewritten` (apply wrote the source; nothing
+ * verified yet), `rebuild_failed`, `recheck_failed` (timeout / tool error),
+ * `recheck_not_pass` (re-checked, still not pass), `reverified` (re-check pass).
+ */
+export type SteeringRollbackStatus = "rewritten" | "rebuild_failed" | "recheck_failed" | "recheck_not_pass" | "reverified";
+
+export interface SteeringRollbackRecord extends Omit<SteeringRollbackInput, "baseRev"> {
+  id: number;
+  baseRev: string | null;
+  status: SteeringRollbackStatus | string;
+  recordedAt: string;
+  updatedAt: string;
+}
+
+/** Appends one rollback event; returns its id (null behind migration 014). */
+export function recordSteeringRollback(store: StateStore, row: SteeringRollbackInput & { status?: SteeringRollbackStatus }): number | null {
+  if (!tableExists(store, "steering_rollbacks")) return null;
+  const at = now();
+  const result = store.db
+    .query(
+      `INSERT INTO steering_rollbacks (
+         game_id, unit, symbol, analyzed_rev, base_rev, initial_verdict, final_verdict, rules_json, report_json, status, recorded_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      row.gameId, row.unit, row.symbol, row.analyzedRev, row.baseRev ?? null, row.initialVerdict, row.finalVerdict,
+      JSON.stringify(row.rules), JSON.stringify(row.report), row.status ?? "rewritten", at, at,
+    );
+  return Number(result.lastInsertRowid);
+}
+
+/** Moves an existing rollback event on (status, and the final verdict/report once known). */
+export function updateSteeringRollback(
+  store: StateStore,
+  id: number,
+  patch: { status: SteeringRollbackStatus; finalVerdict?: string; rules?: string[]; report?: Record<string, unknown> },
+): void {
+  if (!tableExists(store, "steering_rollbacks")) return;
+  store.db
+    .query(
+      `UPDATE steering_rollbacks SET
+         status = ?,
+         final_verdict = COALESCE(?, final_verdict),
+         rules_json = COALESCE(?, rules_json),
+         report_json = COALESCE(?, report_json),
+         updated_at = ?
+       WHERE id = ?`,
+    )
+    .run(
+      patch.status, patch.finalVerdict ?? null, patch.rules ? JSON.stringify(patch.rules) : null,
+      patch.report ? JSON.stringify(patch.report) : null, now(), id,
+    );
+}
+
+function rollbackRecord(row: Record<string, unknown>): SteeringRollbackRecord {
+  let rules: unknown;
+  try {
+    rules = JSON.parse(String(row.rules_json ?? "[]"));
+  } catch {
+    rules = [];
+  }
+  return {
+    id: Number(row.id),
+    gameId: String(row.game_id),
+    unit: String(row.unit),
+    symbol: String(row.symbol),
+    analyzedRev: String(row.analyzed_rev),
+    baseRev: row.base_rev == null ? null : String(row.base_rev),
+    initialVerdict: String(row.initial_verdict),
+    finalVerdict: String(row.final_verdict),
+    rules: Array.isArray(rules) ? rules.filter((rule): rule is string => typeof rule === "string") : [],
+    report: parseObject(row.report_json),
+    status: String(row.status ?? "rewritten"),
+    recordedAt: String(row.recorded_at),
+    updatedAt: String(row.updated_at ?? row.recorded_at),
+  };
+}
+
+/** The newest rollback of one function (matched on game, unit, symbol: the rollback rewrote the source). */
+export function latestSteeringRollback(
+  store: StateStore,
+  params: { gameId: string; unit: string; symbol: string },
+): SteeringRollbackRecord | null {
+  if (!tableExists(store, "steering_rollbacks") || !params.unit || !params.symbol) return null;
+  const row = store.db
+    .query("SELECT * FROM steering_rollbacks WHERE game_id = ? AND unit = ? AND symbol = ? ORDER BY id DESC LIMIT 1")
+    .get(params.gameId, params.unit, params.symbol) as Record<string, unknown> | null;
+  return row ? rollbackRecord(row) : null;
+}
+
+export function listSteeringRollbacks(store: StateStore, gameId: string, unit?: string): SteeringRollbackRecord[] {
+  if (!tableExists(store, "steering_rollbacks")) return [];
+  const rows = store.db
+    .query(`SELECT * FROM steering_rollbacks WHERE game_id = ? ${unit ? "AND unit = ?" : ""} ORDER BY id`)
+    .all(...(unit ? [gameId, unit] : [gameId])) as Record<string, unknown>[];
+  return rows.map(rollbackRecord);
 }

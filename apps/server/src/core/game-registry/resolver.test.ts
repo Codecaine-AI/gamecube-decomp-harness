@@ -193,20 +193,20 @@ describe("game registry layout resolution", () => {
     expect(resolveGame({ orchestratorRoot: root, gameId: "enforce" }).ordering?.mode).toBe("enforce");
   });
 
-  test("ships SMS ordering in shadow and Melee without an ordering block", () => {
+  test("ships SMS ordering in enforce and Melee without an ordering block", () => {
     const melee = resolveGame({ gameId: "melee" });
     expect("ordering" in melee).toBe(false);
     expect(JSON.stringify(melee)).not.toContain("ordering");
     expect(resolveGame({ gameId: "sms" }).ordering).toEqual({
-      mode: "shadow",
+      mode: "enforce",
       gatedPaths: ["src/System/MarNameRefGen*.cpp"],
       scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 },
     });
   });
 
-  test("ships Melee with the steering gate off and SMS in shadow", () => {
+  test("ships Melee with the steering gate off and SMS in enforce", () => {
     expect(resolveGame({ gameId: "melee" }).matching.steeringGate).toBe("off");
-    expect(resolveGame({ gameId: "sms" }).matching.steeringGate).toBe("shadow");
+    expect(resolveGame({ gameId: "sms" }).matching.steeringGate).toBe("enforce");
   });
 
   test("parses the optional symbolCheck validator config and leaves unconfigured games unset", () => {

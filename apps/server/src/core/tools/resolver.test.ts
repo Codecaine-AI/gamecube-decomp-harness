@@ -250,7 +250,7 @@ describe("toolpack runtime resolver", () => {
     const mode = (game: { gameId: string; descriptorPath: string }) =>
       resolveRegisteredTool({ game, toolPlatform: "linux-x86_64" }, "mwcc_debug").env.ORCH_STEERING_GATE;
     expect(mode({ gameId: "melee", descriptorPath: resolve(root, "games/melee/game.json") })).toBeUndefined();
-    expect(mode({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") })).toBe("shadow");
+    expect(mode({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") })).toBe("enforce");
     expect(resolveRegisteredTool({}, "mwcc_debug").env.ORCH_STEERING_GATE).toBeUndefined();
 
     const gameDir = mkdtempSync(join(tmpdir(), "tool-steering-gate-"));
@@ -266,7 +266,7 @@ describe("toolpack runtime resolver", () => {
     expect(melee.ORCH_ORDERING_MODE).toBeUndefined();
     expect(melee.ORCH_ORDERING_POLICY).toBeUndefined();
     const sms = env({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") });
-    expect(sms.ORCH_ORDERING_MODE).toBe("shadow");
+    expect(sms.ORCH_ORDERING_MODE).toBe("enforce");
     expect(JSON.parse(sms.ORCH_ORDERING_POLICY!)).toEqual({
       gatedPaths: ["src/System/MarNameRefGen*.cpp"],
       scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 },
@@ -290,7 +290,7 @@ describe("toolpack runtime resolver", () => {
       "run.py",
       ["--json"],
     );
-    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_ORDERING_MODE: "shadow" });
+    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_ORDERING_MODE: "enforce" });
     expect(JSON.parse(String((provider.execCalls[1]?.opts.env as Record<string, string>).ORCH_ORDERING_POLICY)).gatedPaths).toEqual(["src/System/MarNameRefGen*.cpp"]);
   });
 
@@ -346,7 +346,7 @@ describe("toolpack runtime resolver", () => {
       "run.py",
       ["--json"],
     );
-    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_STEERING_GATE: "shadow", ORCH_GAME_REPO_ROOT: "/opt/melee" });
+    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_STEERING_GATE: "enforce", ORCH_GAME_REPO_ROOT: "/opt/melee" });
     expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_GAME_HOST_REPO_ROOT");
   });
 

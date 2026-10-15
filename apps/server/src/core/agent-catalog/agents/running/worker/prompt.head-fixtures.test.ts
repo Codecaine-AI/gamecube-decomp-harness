@@ -84,13 +84,16 @@ describe("worker prompt against pre-steering HEAD fixtures", () => {
     }
   });
 
-  test("Melee packet context is unchanged, even with a steering probe on the packet", () => {
+  test("Melee packet context is unchanged, even with a steering probe or previous attempt on the packet", () => {
     for (const contextBudget of ["compact", "minimal"] as const) {
       const expected = fixture(`melee-context-${contextBudget}`);
       const render = (extra: Record<string, unknown>) =>
         workerPrompt({ ...base, contextBudget, stackFramePolicy: "match_frame", ...extra }).kernelContext?.renderedContext;
       expect(render({})).toBe(expected);
       expect(render({ steeringGate: "off", packet: { ...packet, steering_probe: { function: "fixture_symbol", unit: "GALE01:fixture" } } })).toBe(expected);
+      const previousAttempt = { symbol: "fixture_symbol", unit: "GALE01:fixture", decision: "steering_located", rules: [{ kind: "steering", name: "steering-is-a-probe" }] };
+      expect(render({ steeringGate: "off", packet: { ...packet, previous_attempt: previousAttempt } })).toBe(expected);
+      expect(render({ packet: { ...packet, previous_attempt: previousAttempt } })).toBe(expected);
     }
   });
 

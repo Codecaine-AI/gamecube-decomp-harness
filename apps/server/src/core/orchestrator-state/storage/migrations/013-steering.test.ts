@@ -16,8 +16,8 @@ test("migration 013 applies on a v12 store, is recorded, and keeps existing rows
   try {
     runStorageMigrations(db);
     db.query("INSERT INTO stack_only_functions (game_id, unit, symbol, source, recorded_at) VALUES ('sms', 'u', 'f', 'backfill', 'then')").run();
-    db.exec(`${STEERING_TABLES.map((table) => `DROP TABLE ${table};`).join(" ")} DELETE FROM schema_migrations WHERE version = 13`);
-    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v12, this build requires v13");
+    db.exec(`${STEERING_TABLES.map((table) => `DROP TABLE ${table};`).join(" ")} DELETE FROM schema_migrations WHERE version >= 13; DROP TABLE steering_rollbacks;`);
+    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v12, this build requires v14");
 
     runStorageMigrations(db);
 

@@ -30,8 +30,10 @@ import {
   steeringCacheDir,
   steeringLessonPaths,
   steeringRepairProbe,
+  steeringRulingsPath,
   steeringSourceSha,
 } from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
+import { steeringPreviousAttempt, type PreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import { packageRoot } from "@server/core/knowledge";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import {
@@ -1979,6 +1981,7 @@ async function executeClaimedWorker(params: {
     // recorded for this target and source to the worker.
     let claimSourceSha: string | null = null;
     let claimSteeringProbe: SteeringProbe | null = null;
+    let claimPreviousAttempt: PreviousAttempt | null = null;
     if (steeringActive) {
       const claimSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
       if (claimSourcePath) {
@@ -1994,6 +1997,15 @@ async function executeClaimedWorker(params: {
         symbol: String(target.symbol ?? ""),
         functionSourceSha: claimSourceSha,
       });
+      // A backfill rollback rewrote the source, so this lookup ignores the hash;
+      // it is shown only while the function is not done.
+      claimPreviousAttempt = steeringPreviousAttempt(store, {
+        gameId: stackGameId,
+        unit: String(target.unit ?? ""),
+        symbol: String(target.symbol ?? ""),
+        currentScore: finiteNumber(target.fuzzy_match_percent),
+        rulingsPath: steeringRulingsPath(game, packageRoot()),
+      });
     }
     const packet = workerPacket({
       run,
@@ -2004,6 +2016,7 @@ async function executeClaimedWorker(params: {
       firstDiff: workerChangeBaseline.firstDiff,
     });
     if (claimSteeringProbe) packet.steering_probe = claimSteeringProbe;
+    if (claimPreviousAttempt) packet.previous_attempt = claimPreviousAttempt;
     Object.assign(packet, workerPacketReadinessFields(store, claimed.epochTargetId, editScopePolicy?.mode));
     const baselineSummaryPath = resolve(validationDir, "pre_worker_baseline.summary.json");
     await writeFile(baselineSummaryPath, JSON.stringify(workerChangeBaseline, null, 2));
