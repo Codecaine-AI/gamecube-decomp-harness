@@ -252,7 +252,8 @@ function makeAttempt(events: BoundaryEventRow[], attempt: number, epoch: Boundar
     if (event.event_type === "draft_pr_publish") {
       const step = byKey.get("draft_pr_publish")!;
       applyStatus(step, payload, event.created_at);
-      if (text(payload.status) === "skipped") step.detail = text(payload.reason) || null;
+      if (text(payload.status) === "skipped" && text(payload.reason) === "scope_refused") step.detail = `scope_refused: ${firstLine(payload.scope_problem) ?? "range refused"}`;
+      else if (text(payload.status) === "skipped") step.detail = text(payload.reason) || null;
       else if (text(payload.status) === "finished") step.detail = text(payload.pr_url) || (text(payload.head_sha) ? `published ${text(payload.head_sha).slice(0, 8)}` : null);
       else if (text(payload.status) === "failed") step.detail = firstLine(payload.error);
     }

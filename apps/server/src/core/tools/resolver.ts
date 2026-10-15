@@ -18,6 +18,7 @@ import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-e
 import { toolTimeoutScale } from "./timeout-scale.js";
 import { gameStackFramePolicy, STACK_FRAME_POLICY_ENV } from "./stack-frame-policy.js";
 import { gameSteeringGate, STEERING_GATE_ENV, steeringGateActive } from "./steering-gate.js";
+import { gameOrdering, orderingToolEnv } from "./ordering.js";
 
 export { SANDBOX_TOOLPACK_ROOT } from "./wrappers/workspace-tool-exec.js";
 
@@ -334,6 +335,8 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     env[STEERING_GATE_ENV] = steeringGate;
     env[GAME_HOST_REPO_ROOT_ENV] = paths.hostRepoRoot;
   }
+  // Ordering-active games only (SMS): games without an ordering block (Melee) keep their tool env unchanged.
+  Object.assign(env, orderingToolEnv(gameOrdering({ gameId: paths.gameId, descriptorPath: paths.descriptorPath })));
   const toolPlatform = resolveToolPlatform({ targetPlatform: context.toolPlatform });
   const wibo = gameWiboPath(paths, config.toolsRoot, toolPlatform);
   if (config.reportPath) env.ORCH_GAME_REPORT_PATH = config.reportPath;

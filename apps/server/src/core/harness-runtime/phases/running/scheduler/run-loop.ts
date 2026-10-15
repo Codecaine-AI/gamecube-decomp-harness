@@ -30,6 +30,8 @@ import {
 import { withBusyRetry } from "@server/core/orchestrator-state";
 import type { EpochSettlementResult } from "@server/core/harness-runtime/phases/running/epochs";
 import { processWorkerOutputIntegrationQueue } from "@server/core/harness-runtime/phases/running/integration";
+import { gameOrdering } from "@server/core/tools/ordering.js";
+import { editScopePolicyFromGame } from "@server/core/validation/edit-scope/edit-scope.js";
 import {
   booleanArg,
   numberArg,
@@ -48,6 +50,8 @@ import { assertSchedulableRun } from "@server/core/harness-runtime/phases/runnin
 import { settleRunOnExit } from "@server/core/harness-runtime/phases/running/jobs/settle-supervised-run.js";
 import {
   ensureSchedulerEpochFromBoard,
+  isReadinessBlockedOnly,
+  readinessForAdmission,
   reconcileOrphanedEpochTargets,
   runSchedulerTick,
   schedulerEpochConfigFromArgs,
@@ -688,6 +692,9 @@ export async function runRunLoop(
   const store = openState(globals.stateDir);
   const borrowedStore = borrowState(store);
   const gameId = globals.game?.gameId ?? globals.gameId;
+  // Integration scope gate: the resolved game's ordering policy (null = off).
+  // Without a resolved game the queue resolves the run's game itself.
+  const integrationOrdering = globals.game ? { ordering: editScopePolicyFromGame({ ordering: gameOrdering(globals.game) }) } : {};
   let observedRunId = "";
   const workerResults: WorkerResultSummary[] = [];
   const workerErrors: WorkerError[] = [];
@@ -868,6 +875,17 @@ export async function runRunLoop(
     let lastSchedulerEpoch: EpochProgressSummary | null = null;
     const knowledgeMaintenanceClock = createKnowledgeMaintenanceClock(maintenanceIntervalMs);
     let schedulerBlocked = false;
+    // Blocked-only parking: every remaining candidate is blocked by class
+    // readiness. No epoch exists and no settlement runs; each iteration
+    // reloads readiness (cached per revision) and retries admission, so an
+    // integration that advances baseRev or an operator resume unparks it.
+    let readinessParked: { blocked: number; rev: string | null } | null = null;
+    const noteReadinessParked = (blocked: number, rev: string | null): void => {
+      if (readinessParked?.blocked !== blocked || readinessParked.rev !== rev) {
+        console.error(`[run-loop] admission parked at ${rev ?? "unknown revision"}: ${blocked} remaining target(s) blocked by class readiness; no epoch created`);
+      }
+      readinessParked = { blocked, rev };
+    };
     let boundaryRetryLogState: BoundaryRetryLogState | null = null;
     let runningIntegrationDrain: Promise<void> | null = null;
     let integrationFlushPending = false;
@@ -1050,6 +1068,7 @@ export async function runRunLoop(
         task = processWorkerOutputIntegrationQueue({
           dryRun: globals.dryRunAgents,
           leaseId,
+          ...integrationOrdering,
           // Advance per commit, not only when the drain resolves: a drain that
           // throws after an applied job would otherwise leave baseRev behind a
           // commit whose job is already succeeded and no longer holds its file.
@@ -1167,7 +1186,10 @@ export async function runRunLoop(
               stoppedReason = "epoch_boundary_retry_exhausted";
             }
             if (outcome.knowledgeMaintenanceRun) knowledgeMaintenanceRuns.push(outcome.knowledgeMaintenanceRun);
-            if (outcome.nextEpoch) {
+            if (isReadinessBlockedOnly(outcome.nextEpoch)) {
+              noteReadinessParked(outcome.nextEpoch.blocked.length, outcome.nextEpoch.readiness?.rev ?? null);
+            } else if (outcome.nextEpoch) {
+              readinessParked = null;
               const nextEpoch = outcome.nextEpoch;
               lastSchedulerEpoch = nextEpoch.progress;
               epochAdmissions += nextEpoch.admission?.admitted ?? 0;
@@ -1249,13 +1271,23 @@ export async function runRunLoop(
             console.error(`[run-loop] epoch ${heldBoundary.ordinal}: settled with boundary Sync pending; resuming its boundary`);
             launchEpochSettlement("resume held boundary sync", heldBoundary.id);
           } else if (!epochPaused) {
-            const epochResult = ensureSchedulerEpochFromBoard({
+            const readiness = await readinessForAdmission({
+              globals, store, runId, rev: workerCtx.baseRev, currentRev: () => workerCtx.baseRev,
+            });
+            const admissionOutcome = ensureSchedulerEpochFromBoard({
               config: schedulerEpochConfig,
               globals,
               graphDbPath,
               runId,
               store,
+              ...(readiness ? { readiness } : {}),
             });
+            if (isReadinessBlockedOnly(admissionOutcome)) {
+              noteReadinessParked(admissionOutcome.blocked.length, admissionOutcome.readiness?.rev ?? null);
+              syncSchedulerCondition("waiting");
+            } else {
+            readinessParked = null;
+            const epochResult = admissionOutcome;
             const jobCoverageRepair = reconcileOrphanedEpochTargets(store, epochResult.epoch, epochResult.progress);
             if (jobCoverageRepair.added > 0 || jobCoverageRepair.removed > 0) {
               didWork = true;
@@ -1295,6 +1327,7 @@ export async function runRunLoop(
               emptyEpochBoundaryLaunched = epochResult.progress.admitted === 0;
               launchEpochSettlement(`scheduler epoch ${epochResult.progress.ordinal} completed`, epochResult.epoch.id);
             }
+            }
           }
         }
       }
@@ -1303,7 +1336,7 @@ export async function runRunLoop(
       if (!providerCircuit.isOpen() && !schedulerBlocked && !desiredPause && !runningEpoch && !runningIntegrationDrain && !runningScheduler && schedulerEvent) {
         const tickArgs = schedulerTickArgs(args, { runId });
         let task: Promise<void>;
-        task = runSchedulerTick(globals, tickArgs, { ownsSchedulerCondition: false })
+        task = runSchedulerTick(globals, tickArgs, { ownsSchedulerCondition: false, readinessRev: workerCtx.baseRev })
           .then((result) => {
             schedulerResults.push(result);
             if (result.schedulerEpoch) lastSchedulerEpoch = result.schedulerEpoch;
@@ -1390,6 +1423,7 @@ export async function runRunLoop(
       const finalDrain = await processWorkerOutputIntegrationQueue({
         dryRun: globals.dryRunAgents,
         leaseId,
+        ...integrationOrdering,
         repoRoot: globals.repoRoot,
         runId,
         stateDir: globals.stateDir,

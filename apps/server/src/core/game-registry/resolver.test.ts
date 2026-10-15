@@ -145,6 +145,65 @@ describe("game registry layout resolution", () => {
     }
   });
 
+  test("parses the optional ordering block strictly and leaves unconfigured games without the key", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-ordering-"));
+    const write = (id: string, body: Record<string, unknown>) => {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), { id, ...body });
+    };
+    write("plain", {});
+    write("shadowed", { ordering: { mode: "shadow", gatedPaths: ["src/System/MarNameRefGen*.cpp"], scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 } } });
+    write("enforced", { matching: { steeringGate: "shadow" }, ordering: { mode: "enforce", gatedPaths: [] } });
+    write("bare", { ordering: { mode: "off" } });
+    const resolve = (gameId: string) => resolveGame({ orchestratorRoot: root, gameId });
+
+    const plain = resolve("plain");
+    expect("ordering" in plain).toBe(false);
+    expect(resolve("shadowed").ordering).toEqual({ mode: "shadow", gatedPaths: ["src/System/MarNameRefGen*.cpp"], scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 } });
+    expect(resolve("enforced").ordering).toEqual({ mode: "enforce", gatedPaths: [] });
+    expect(resolve("bare").ordering).toEqual({ mode: "off", gatedPaths: [] });
+
+    const invalid: Array<[string, unknown, RegExp]> = [
+      ["mode", { mode: "strict" }, /ordering\.mode/],
+      ["nomode", { gatedPaths: [] }, /ordering\.mode/],
+      ["unknown", { mode: "shadow", gated: [] }, /unknown key gated/],
+      ["globs", { mode: "shadow", gatedPaths: ["ok", 3] }, /gatedPaths/],
+      ["emptyglob", { mode: "shadow", gatedPaths: [" "] }, /gatedPaths/],
+      ["fraction", { mode: "shadow", scope: { maxForeignHeaders: 2.5 } }, /maxForeignHeaders/],
+      ["negative", { mode: "shadow", scope: { maxForeignHeaderLines: -1 } }, /maxForeignHeaderLines/],
+      ["scopekey", { mode: "shadow", scope: { maxUnits: 1 } }, /unknown key maxUnits/],
+      ["notobject", "shadow", /expected an object/],
+    ];
+    for (const [id, ordering, message] of invalid) {
+      write(id, { ordering });
+      expect(() => resolve(id)).toThrow(message);
+    }
+  });
+
+  test("ordering enforce requires the steering gate on (checked on the effective config)", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-ordering-gate-"));
+    for (const [id, steeringGate] of [["off", undefined], ["shadow", "shadow"], ["enforce", "enforce"]] as const) {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), { id, ...(steeringGate ? { matching: { steeringGate } } : {}), ordering: { mode: "enforce", gatedPaths: [] } });
+    }
+    expect(() => resolveGame({ orchestratorRoot: root, gameId: "off" })).toThrow(/ordering\.mode enforce requires matching\.steeringGate/);
+    expect(resolveGame({ orchestratorRoot: root, gameId: "shadow" }).ordering?.mode).toBe("enforce");
+    expect(resolveGame({ orchestratorRoot: root, gameId: "enforce" }).ordering?.mode).toBe("enforce");
+  });
+
+  test("ships SMS ordering in shadow and Melee without an ordering block", () => {
+    const melee = resolveGame({ gameId: "melee" });
+    expect("ordering" in melee).toBe(false);
+    expect(JSON.stringify(melee)).not.toContain("ordering");
+    expect(resolveGame({ gameId: "sms" }).ordering).toEqual({
+      mode: "shadow",
+      gatedPaths: ["src/System/MarNameRefGen*.cpp"],
+      scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 },
+    });
+  });
+
   test("ships Melee with the steering gate off and SMS in shadow", () => {
     expect(resolveGame({ gameId: "melee" }).matching.steeringGate).toBe("off");
     expect(resolveGame({ gameId: "sms" }).matching.steeringGate).toBe("shadow");

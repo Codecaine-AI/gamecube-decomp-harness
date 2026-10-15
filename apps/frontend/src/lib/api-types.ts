@@ -171,6 +171,37 @@ export interface DashboardBoundary {
   recent: BoundaryView[];
 }
 
+export interface DashboardReadiness {
+  mode: "shadow" | "enforce" | string;
+  rev: string | null;
+  unavailable: string | null;
+  /** Every remaining target is blocked: no epoch is running until readiness changes. */
+  parked: boolean;
+  generatedAt: string | null;
+}
+
+export interface ReadinessClassRef {
+  class: string;
+  owner_unit: string | null;
+  kind: string;
+}
+
+/** A work-table row for a target held back or reordered by class readiness. */
+export interface ReadinessTargetRow {
+  key: string;
+  unit: string;
+  symbol: string;
+  sourcePath: string;
+  size: number;
+  fuzzy: number;
+  readinessStatus: "blocked" | "deferred" | "would block" | "would defer";
+  blockedReason: string;
+  unmet: ReadinessClassRef[];
+  unresolved: ReadinessClassRef[];
+  /** e.g. "waiting on: TKoopa (Enemy/Koopa, not decompiled)" */
+  label: string;
+}
+
 export interface Dashboard {
   game: GameSummary | null;
   harnessState?: JsonObject | null;
@@ -190,6 +221,16 @@ export interface Dashboard {
   improvedFiles: JsonObject[];
   activeFiles: JsonObject[];
   epochTargets: JsonObject[];
+  /** Ordering-active games: class readiness the last admission used. */
+  readiness?: DashboardReadiness;
+  /** Enforce: order-gated targets held out of admission until their classes are decompiled. */
+  blockedTargets?: ReadinessTargetRow[];
+  /** Enforce: targets admitted after every ready target. */
+  deferredTargets?: ReadinessTargetRow[];
+  /** Shadow: what enforce would block (still admitted). */
+  wouldBlockTargets?: ReadinessTargetRow[];
+  /** Shadow: what enforce would defer (order unchanged). */
+  wouldDeferTargets?: ReadinessTargetRow[];
   workerStates: JsonObject[];
   progressWorkerStates: JsonObject[];
   touchedFiles: JsonObject[];

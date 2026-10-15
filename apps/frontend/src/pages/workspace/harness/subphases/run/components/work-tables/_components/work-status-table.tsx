@@ -5,13 +5,14 @@ import { PlaceholderRows } from "./placeholder-rows";
 import { EpochRows } from "./queue-rows";
 import { TabButton } from "./tab-button";
 import { activeWorkPageSize, epochWorkPageSize } from "../_lib/constants";
+import { queueRows } from "../_lib/queue";
 import type { WorkMode } from "../_lib/types";
 import { num, type Dashboard } from "@/lib/format";
 
 export function WorkStatusTable({ dashboard, mode, onSelectAgent, setMode }: { dashboard: Dashboard | null; mode: WorkMode; onSelectAgent?: (workerStateId: string) => void; setMode: (mode: WorkMode) => void }) {
   const [page, setPage] = useState(0);
   const activeFiles = dashboard?.activeFiles || [];
-  const epochFiles = (dashboard?.epochTargets || []).filter((target) => target.epochStatus === "active" && target.epochTargetStatus === "admitted");
+  const epochFiles = queueRows(dashboard);
   const activeMode = mode === "active";
   const pageSize = activeMode ? activeWorkPageSize : epochWorkPageSize;
   const allRows = mode === "epoch" ? epochFiles : activeFiles;

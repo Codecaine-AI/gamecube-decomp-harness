@@ -20,6 +20,7 @@ import {
   type StateStore,
 } from "@server/core/harness-runtime/run-state";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
+import { recordReadinessArtifact } from "@server/core/harness-runtime/phases/running/scheduler/readiness.js";
 import { initializeDispatchState, releaseDispatch, requestDispatch } from "@server/core/harness-state";
 import { appendGameEvent, type JsonObject as GameEventJsonObject } from "@server/core/harness-state/events";
 import {
@@ -1312,6 +1313,145 @@ describe("dashboard read model", () => {
     const improvements = details.improvements as JsonObject[];
     expect(improvements.map((row) => row.symbol)).toEqual(["banked_then_steered_fn"]);
     expect(improvements[0]).toMatchObject({ newScore: 95, exactMatches: 0, source: "runner" });
+  });
+
+  test("an edit-scope rejection outranks its raw exact target score and has its own outcome", () => {
+    const { dir, store } = tempState();
+    let runId = "";
+    const scopeReason = "edit_scope: TKoopa is declared in include/Enemy/Koopa.hpp but its unit main/Enemy/Koopa is not decompiled.";
+    try {
+      seedHarnessState(store, "sms", { head: "base-sms" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sms" });
+      runId = run.id;
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [{ kind: "function", unit: "unit", symbol: "fenced_fn", sourcePath: "src/fenced.c", size: 64, fuzzy: 90 }],
+        workerPoolSize: 1,
+      });
+      const claim = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-fenced", baseRev: "base-sms" })!;
+      const artifactPath = join(dir, "fenced.summary.json");
+      writeFileSync(artifactPath, JSON.stringify({
+        status: "edit_scope_rejected",
+        reasons: [scopeReason],
+        target: { unit: "unit", symbol: claim.targetId, before: 90, after: 100, improved: true, exact: true },
+      }));
+      recordWorkerCheckpoint(store, {
+        authority: { host: "dashboard-read-model-test" },
+        workerStateId: claim.workerStateId,
+        runId: run.id,
+        epochId: claim.epochId,
+        epochTargetId: claim.epochTargetId,
+        targetClaimId: claim.claimId,
+        attemptIndex: 0,
+        oldScore: 90,
+        newScore: 100,
+        exactMatch: true,
+        hardGatesPassed: false,
+        buildStatus: "compiled",
+        qaStatus: "clean",
+        objdiffStatus: "available",
+        validationStatus: "edit_scope_rejected",
+        artifactPath,
+        patchPath: null,
+        diffPath: null,
+        writeSet: [],
+        failureReasons: [scopeReason],
+        metadata: {},
+      });
+      closeWorkerState(store, {
+        workerStateId: claim.workerStateId,
+        lifecycleStatus: "finished",
+        summary: { continuation_attempts: { stop_reason: "attempt_budget_exhausted", exhausted: true } },
+      });
+    } finally {
+      store.db.close();
+    }
+
+    const { runDetails } = createDashboardReadModel({
+      buildPrRecordsView: () => ({}),
+      campaignStatus: () => ({}),
+      processStatus: () => ({}),
+    });
+    const details = runDetails(dir, runId);
+    const state = (details.workerStates as JsonObject[])[0]!;
+    expect(state.result).toBe("no_progress");
+    const counts = (details.summary as JsonObject).workerStateOutcomeCounts as JsonObject;
+    expect(counts.validation_edit_scope_rejected).toBe(1);
+    expect(counts.validation_steering_located).toBe(0);
+    expect(counts.exact).toBe(0);
+    expect(counts.attempt_budget_exhausted).toBe(0);
+    expect(details.improvements).toEqual([]);
+  });
+
+  test("readiness: work-table rows for blocked and deferred targets carry a waiting-on label", () => {
+    const { dir, store } = tempState();
+    let runId = "";
+    const koopa = { class: "TKoopa", owner_unit: "main/Enemy/Koopa", kind: "construct" };
+    try {
+      seedHarnessState(store, "sms", { head: "base-sms" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sms" });
+      runId = run.id;
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      const deferred = { kind: "function" as const, unit: "main/Map/MapObj", symbol: "spawnKoopa", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 40,
+        readiness: { state: "deferred" as const, unmet: [koopa], unresolved: [] } };
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [{ kind: "function", unit: "main/Map/MapObj", symbol: "update", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 40 }, deferred],
+        workerPoolSize: 1,
+      });
+      recordReadinessArtifact(store, {
+        runId: run.id,
+        gameId: "sms",
+        epochId: epoch.id,
+        board: {
+          generatedAt: "2026-10-15T00:00:00.000Z", reportPath: "", objdiffPath: "", measures: {},
+          candidates: [deferred],
+          blocked: [{ key: "main/System/MarNameRefGen_Enemy::getNameRef", unit: "main/System/MarNameRefGen_Enemy", symbol: "getNameRef",
+            sourcePath: "src/System/MarNameRefGen_Enemy.cpp", size: 64, fuzzy: 10, reason: "not_ready", unmet: [koopa] }],
+          deferred: ["main/Map/MapObj::spawnKoopa"],
+          readiness: { mode: "enforce", identity: { rev: "rev-1" }, rev: "rev-1", unavailable: null },
+        },
+      });
+    } finally {
+      store.db.close();
+    }
+
+    const { runDetails } = createDashboardReadModel({
+      buildPrRecordsView: () => ({}),
+      campaignStatus: () => ({}),
+      processStatus: () => ({}),
+    });
+    const details = runDetails(dir, runId);
+    expect(details.readiness).toMatchObject({ mode: "enforce", rev: "rev-1", parked: false });
+    expect(details.blockedTargets).toEqual([expect.objectContaining({
+      symbol: "getNameRef",
+      readinessStatus: "blocked",
+      blockedReason: "not_ready",
+      label: "waiting on: TKoopa (Enemy/Koopa, not decompiled)",
+    })]);
+    expect(details.deferredTargets).toEqual([expect.objectContaining({ symbol: "spawnKoopa", readinessStatus: "deferred" })]);
+    expect(details.wouldBlockTargets).toEqual([]);
+    const targets = details.epochTargets as JsonObject[];
+    const deferredRow = targets.find((row) => row.symbol === "spawnKoopa")!;
+    expect(deferredRow).toMatchObject({ readinessStatus: "deferred", reason: "waiting on: TKoopa (Enemy/Koopa, not decompiled)" });
+    expect(targets.find((row) => row.symbol === "update")).not.toHaveProperty("readinessStatus");
+  });
+
+  test("readiness: games without ordering get no readiness keys", () => {
+    const { dir, store } = tempState();
+    let runId = "";
+    try {
+      seedHarnessState(store, "test", { head: "base-test" });
+      runId = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" }).id;
+    } finally {
+      store.db.close();
+    }
+    const { runDetails } = createDashboardReadModel({ buildPrRecordsView: () => ({}), campaignStatus: () => ({}), processStatus: () => ({}) });
+    const details = runDetails(dir, runId);
+    for (const key of ["readiness", "blockedTargets", "deferredTargets", "wouldBlockTargets", "wouldDeferTargets"]) expect(details).not.toHaveProperty(key);
   });
 
   test("scopes active claim activity to the current recycled claim window", async () => {

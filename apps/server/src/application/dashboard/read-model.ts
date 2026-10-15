@@ -38,6 +38,12 @@ import { observeUpstreamDrift, withLiveUpstreamDrift } from "@server/core/harnes
 import { quietGit } from "@server/core/harness-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
+import { parseEpochTargetReadiness } from "@server/core/harness-runtime/run-state/epochs.js";
+import {
+  latestReadinessArtifact,
+  readinessWaitingLabel,
+  type ReadinessTargetRow,
+} from "@server/core/harness-runtime/phases/running/scheduler/readiness.js";
 import { boundaryDashboardForRun, type BoundaryDashboard } from "./boundary-view.js";
 import {
   boundaryStepDetailForRun,
@@ -73,6 +79,8 @@ type WorkerStateOutcome =
   | "validation_same_unit_regression"
   /** Steering gate enforce rejected the worker's latest attempt: its match depended on behaviour-identical edits. */
   | "validation_steering_located"
+  /** The edit-scope fence rejected the worker's latest attempt: it declared or filled in classes whose units are not decompiled. */
+  | "validation_edit_scope_rejected"
   | "validation_failed"
   | "validation_skipped"
   | "cancelled"
@@ -2253,15 +2261,21 @@ function workerStateValidationFailed(workerState: JsonObject): boolean {
   );
 }
 
+const GATE_REJECTION_OUTCOMES: Record<string, WorkerStateOutcome> = {
+  steering_located: "validation_steering_located",
+  edit_scope_rejected: "validation_edit_scope_rejected",
+};
+
 /**
- * The worker's latest attempt was rejected by the enforced steering gate. The
- * latest checkpoint decides when there is one (a later accepted attempt
- * clears it); otherwise the embedded runner validation does.
+ * The worker's latest attempt was rejected by an enforced gate (steering gate
+ * or edit-scope fence). The latest checkpoint decides when there is one (a
+ * later accepted attempt clears it); otherwise the embedded runner validation
+ * does.
  */
-function workerStateSteeringRejected(workerState: JsonObject): boolean {
+function workerStateGateRejection(workerState: JsonObject): WorkerStateOutcome | null {
   const latest = asObject(workerState.latestCheckpoint);
-  if (stringValue(latest.id)) return stringValue(latest.validationStatus) === "steering_located";
-  return stringValue(asObject(workerState.runnerValidation).status) === "steering_located";
+  const status = stringValue(latest.id) ? stringValue(latest.validationStatus) : stringValue(asObject(workerState.runnerValidation).status);
+  return GATE_REJECTION_OUTCOMES[status] ?? null;
 }
 
 /** What an accepted (selectable) checkpoint established, ignoring any rejected attempt's raw target score. */
@@ -2348,6 +2362,7 @@ function workerStateValidationEndstate(workerState: JsonObject): WorkerStateOutc
   if (status === "target_regressed") return "validation_target_regressed";
   if (status === "same_unit_regression") return "validation_same_unit_regression";
   if (status === "steering_located") return "validation_steering_located";
+  if (status === "edit_scope_rejected") return "validation_edit_scope_rejected";
   if (status === "failed") return "validation_failed";
   if (status === "skipped") return "validation_skipped";
   if (/^runner_validation_/.test(errorKind)) return "validation_failed";
@@ -2372,9 +2387,9 @@ function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutc
 }
 
 function workerStateResult(workerState: JsonObject): WorkerStateResult {
-  // A steering rejection outranks the rejected attempt's raw exact/improved target:
-  // only an accepted checkpoint counts as progress.
-  if (workerStateSteeringRejected(workerState)) return acceptedCheckpointResult(workerState);
+  // A gate rejection (steering, edit scope) outranks the rejected attempt's raw
+  // exact/improved target: only an accepted checkpoint counts as progress.
+  if (workerStateGateRejection(workerState)) return acceptedCheckpointResult(workerState);
   const runnerTarget = workerStateRunnerTarget(workerState);
   if (runnerTarget) {
     if (runnerTarget.exact === true) return "exact";
@@ -2408,8 +2423,9 @@ function workerStateOutcome(workerState: JsonObject): WorkerStateOutcome {
   if (workerStateAgentToolError(workerState)) return "agent_tool_error";
   const stopReasonEndstate = workerStateStopReasonEndstate(workerState);
   if (stopReasonEndstate === "exact") return stopReasonEndstate;
-  // The worker stopped on a steering rejection: that, not the budget or deadline, is why it is not done.
-  if (workerStateSteeringRejected(workerState)) return "validation_steering_located";
+  // The worker stopped on a gate rejection: that, not the budget or deadline, is why it is not done.
+  const gateRejection = workerStateGateRejection(workerState);
+  if (gateRejection) return gateRejection;
   if (stopReasonEndstate) return stopReasonEndstate;
   if (lifecycle === "exact") return "exact";
   if (lifecycle === "cancelled") return "cancelled";
@@ -2449,6 +2465,7 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
     validation_target_regressed: 0,
     validation_same_unit_regression: 0,
     validation_steering_located: 0,
+    validation_edit_scope_rejected: 0,
     validation_failed: 0,
     validation_skipped: 0,
     cancelled: 0,
@@ -2482,7 +2499,7 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
     // Runner-validated progress is canonical even when the compact checkpoint
     // note attempts[] narrative has no numeric score fields.
     const runnerTarget = workerStateRunnerTarget(workerState);
-    if (!runnerTarget && (runnerValidationRejected(workerState) || workerStateSteeringRejected(workerState))) continue;
+    if (!runnerTarget && (runnerValidationRejected(workerState) || workerStateGateRejection(workerState))) continue;
     const runnerDelta = runnerValidationDelta(asObject(workerState.runnerValidation));
     if (runnerTarget && runnerDelta !== null && (runnerDelta > 0 || runnerTarget.exact === true)) {
       const before = numberValue(runnerTarget.before, NaN);
@@ -2607,6 +2624,7 @@ function runSummary(
     numberValue(outcomeCounts.validation_target_regressed) +
     numberValue(outcomeCounts.validation_same_unit_regression) +
     numberValue(outcomeCounts.validation_steering_located) +
+    numberValue(outcomeCounts.validation_edit_scope_rejected) +
     numberValue(outcomeCounts.validation_failed) +
     numberValue(outcomeCounts.validation_skipped);
   return {
@@ -2810,6 +2828,7 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
               epoch_targets.baseline_score AS fuzzy,
               epoch_targets.status AS target_status,
               epoch_targets.admitted_at AS target_created_at,
+              epoch_targets.reason AS readiness_reason,
               epochs.ordinal AS epoch_ordinal,
               epochs.status AS epoch_status
             FROM epoch_targets
@@ -2837,10 +2856,72 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
       matched: NaN,
       complete: NaN,
       risk: null,
+      ...epochTargetReadinessFields(row.readiness_reason),
     }));
   } finally {
     store.db.close();
   }
+}
+
+/** Admitted targets with not-ready classes: their readiness and the queue's "waiting on" label. */
+function epochTargetReadinessFields(reason: unknown): JsonObject {
+  const readiness = parseEpochTargetReadiness(reason);
+  if (!readiness || (readiness.unmet.length === 0 && readiness.unresolved.length === 0)) return {};
+  return {
+    readiness,
+    readinessStatus: readiness.state === "blocked" ? "would block" : "deferred",
+    reason: readinessWaitingLabel({ reason: "deferred", unmet: readiness.unmet, unresolved: readiness.unresolved }),
+  };
+}
+
+function readinessTargetView(value: unknown, status: string): JsonObject {
+  const row = asObject(value) as unknown as ReadinessTargetRow;
+  const unmet = asArray(row.unmet) as ReadinessTargetRow["unmet"];
+  const unresolved = asArray(row.unresolved) as ReadinessTargetRow["unresolved"];
+  return {
+    key: stringValue(row.key),
+    unit: stringValue(row.unit),
+    symbol: stringValue(row.symbol),
+    sourcePath: stringValue(row.sourcePath),
+    size: numberValue(row.size),
+    fuzzy: numberValue(row.fuzzy, NaN),
+    readinessStatus: status,
+    blockedReason: stringValue(row.reason),
+    unmet,
+    unresolved,
+    label: readinessWaitingLabel({ reason: row.reason ?? "deferred", unmet, unresolved }),
+  };
+}
+
+/**
+ * Dashboard work-table readiness rows from the run's latest readiness
+ * artifact: enforce `blockedTargets`/`deferredTargets`, shadow
+ * `wouldBlockTargets`/`wouldDeferTargets`. Empty object for games without
+ * ordering (no artifact), so their dashboard is unchanged.
+ */
+function readinessTargetsForRun(stateDir: string, runId: string): JsonObject {
+  if (!runId) return {};
+  const store = openState(stateDir);
+  let artifact: Record<string, unknown> | null;
+  try {
+    artifact = latestReadinessArtifact(store, runId);
+  } finally {
+    store.db.close();
+  }
+  if (!artifact) return {};
+  return {
+    readiness: {
+      mode: stringValue(artifact.mode),
+      rev: artifact.rev ?? null,
+      unavailable: artifact.unavailable ?? null,
+      parked: artifact.parked === true,
+      generatedAt: artifact.generatedAt ?? null,
+    },
+    blockedTargets: asArray(artifact.blocked).map((row) => readinessTargetView(row, "blocked")),
+    deferredTargets: asArray(artifact.deferred).map((row) => readinessTargetView(row, "deferred")),
+    wouldBlockTargets: asArray(artifact.wouldBlock).map((row) => readinessTargetView(row, "would block")),
+    wouldDeferTargets: asArray(artifact.wouldDefer).map((row) => readinessTargetView(row, "would defer")),
+  };
 }
 
 function checkpointForRun(stateDir: string, runId: string): JsonObject | null {
@@ -3094,6 +3175,7 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
     sessions,
     targetClaims,
     epochTargets,
+    ...readinessTargetsForRun(stateDir, runId),
     improvements,
     improvedFiles,
     knowledgeIntake: knowledgeIntakeSummary(stateDir, game?.graphDbPath ?? ""),
@@ -3394,6 +3476,7 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     improvedFiles,
     activeFiles: runId ? activeFilesForRun(stateDir, runId) : [],
     epochTargets,
+    ...(runId ? readinessTargetsForRun(stateDir, runId) : {}),
     workerStates,
     progressWorkerStates,
     touchedFiles: touchedFilesFromWorkerStates(allWorkerStates),

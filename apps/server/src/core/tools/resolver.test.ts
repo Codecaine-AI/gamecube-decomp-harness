@@ -258,6 +258,42 @@ describe("toolpack runtime resolver", () => {
     expect(mode({ gameId: "gated", descriptorPath: join(gameDir, "game.json") })).toBe("enforce");
   });
 
+  test("exports the ordering mode and policy only to ordering-active games", () => {
+    const root = packageRoot();
+    const env = (game: { gameId: string; descriptorPath: string }) =>
+      resolveRegisteredTool({ game, toolPlatform: "linux-x86_64" }, "mwcc_debug").env;
+    const melee = env({ gameId: "melee", descriptorPath: resolve(root, "games/melee/game.json") });
+    expect(melee.ORCH_ORDERING_MODE).toBeUndefined();
+    expect(melee.ORCH_ORDERING_POLICY).toBeUndefined();
+    const sms = env({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") });
+    expect(sms.ORCH_ORDERING_MODE).toBe("shadow");
+    expect(JSON.parse(sms.ORCH_ORDERING_POLICY!)).toEqual({
+      gatedPaths: ["src/System/MarNameRefGen*.cpp"],
+      scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 },
+    });
+
+    const gameDir = mkdtempSync(join(tmpdir(), "tool-ordering-"));
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "off", ordering: { mode: "off", gatedPaths: ["x"] } }));
+    expect(env({ gameId: "off", descriptorPath: join(gameDir, "game.json") }).ORCH_ORDERING_MODE).toBeUndefined();
+  });
+
+  test("passes the ordering env into sandbox tool runs", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(
+      { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: JSON.stringify({ status: "ok" }), stderr: "" },
+    );
+    const root = packageRoot();
+    await runRegisteredToolApi(
+      { ...apiContext(handle), game: { gameId: "sms", repoRoot: "/opt/melee", descriptorPath: resolve(root, "games/sms/game.json") } },
+      "checkdiff",
+      "run.py",
+      ["--json"],
+    );
+    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_ORDERING_MODE: "shadow" });
+    expect(JSON.parse(String((provider.execCalls[1]?.opts.env as Record<string, string>).ORCH_ORDERING_POLICY)).gatedPaths).toEqual(["src/System/MarNameRefGen*.cpp"]);
+  });
+
   test("Melee's resolved tool env keys are exactly the pre-steering set", async () => {
     // As at ccbeff1be (before the steering gate). MWCC_WIBO depends on host tool provisioning, so it is left out.
     const HEAD_KEYS = [
@@ -280,7 +316,7 @@ describe("toolpack runtime resolver", () => {
     }
   });
 
-  test("Melee sandbox tool runs carry no steering env", async () => {
+  test("Melee sandbox tool runs carry no steering or ordering env", async () => {
     const { provider, handle } = await fakeSandbox();
     provider.scriptExec(
       { exitCode: 0, stdout: "", stderr: "" },
@@ -289,6 +325,8 @@ describe("toolpack runtime resolver", () => {
     await runRegisteredToolApi({ ...apiContext(handle), hostRepoRoot: "/host/melee" }, "checkdiff", "run.py", ["--json"]);
     expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_STEERING_GATE");
     expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_GAME_HOST_REPO_ROOT");
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_ORDERING_MODE");
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_ORDERING_POLICY");
   });
 
   test("passes the steering gate mode into sandbox tool runs but not the host repo root", async () => {

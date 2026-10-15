@@ -34,10 +34,24 @@ import {
 } from "@server/core/harness-runtime/run-state";
 import { booleanArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { assertSchedulableRun } from "@server/core/harness-runtime/phases/running/jobs/shared.js";
+import { selectEpochAdmissionCandidates } from "@server/core/harness-runtime/run-state/epochs.js";
+import type { BlockedCandidate, BoardReadinessSummary } from "@server/core/shared/types/index.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
+import {
+  boardReadinessOptions,
+  prepareEpochReadiness,
+  readinessRevision,
+  recordReadinessArtifact,
+  recordReadinessParked,
+  type EpochReadiness,
+  type ReadinessRunner,
+} from "./readiness.js";
 
 export interface SchedulerTickResult {
   runId: string;
-  status?: "no_unhandled_events";
+  status?: "no_unhandled_events" | "readiness_blocked_only";
+  /** Blocked-only parking: every remaining candidate is blocked by class readiness; no epoch was created. */
+  readinessBlocked?: number;
   handledEvent?: unknown;
   eventType?: string;
   eventProducer?: string;
@@ -60,6 +74,76 @@ export interface SchedulerEpochEnsureResult {
   admission?: EpochAdmissionResult;
   availabilityRefresh: EpochAvailabilityRefreshResult;
   progress: EpochProgressSummary;
+}
+
+/**
+ * Admission found only readiness-blocked candidates. Returned BEFORE
+ * `startSchedulerEpoch`: no epoch exists, so no settlement may run. Callers
+ * park and retry admission when readiness can change (integration, resume).
+ */
+export interface ReadinessBlockedOnlyResult {
+  kind: "readiness_blocked_only";
+  blocked: BlockedCandidate[];
+  readiness: BoardReadinessSummary | null;
+}
+
+export type SchedulerEpochEnsureOutcome = SchedulerEpochEnsureResult | ReadinessBlockedOnlyResult;
+
+export function isReadinessBlockedOnly(result: SchedulerEpochEnsureOutcome | null | undefined): result is ReadinessBlockedOnlyResult {
+  return Boolean(result) && (result as ReadinessBlockedOnlyResult).kind === "readiness_blocked_only";
+}
+
+/** Whether the next ensure call can admit (no active epoch, or one with nothing admitted) and so needs readiness. */
+export function schedulerAdmissionPending(store: StateStore, runId: string): boolean {
+  const epoch = activeSchedulerEpoch(store, runId);
+  return !epoch || schedulerEpochProgress(store, epoch.id).admitted === 0;
+}
+
+/**
+ * Loads readiness for the next admission when it can happen (async, before
+ * the admission transaction). Undefined for games without active ordering
+ * or when an epoch already has admitted targets.
+ */
+export async function readinessForAdmission(params: {
+  globals: GlobalArgs;
+  store: StateStore;
+  runId: string;
+  rev?: string | null;
+  currentRev?: () => string | null | undefined;
+  runner?: ReadinessRunner;
+}): Promise<EpochReadiness | undefined> {
+  if (!orderingActive(gameOrdering(params.globals.game)?.mode)) return undefined;
+  if (!schedulerAdmissionPending(params.store, params.runId)) return undefined;
+  return prepareEpochReadiness({
+    globals: params.globals,
+    rev: params.rev === undefined ? readinessRevision(params.globals.repoRoot) : params.rev,
+    currentRev: params.currentRev,
+    runner: params.runner,
+  });
+}
+
+/**
+ * Writes the run's revision-bound readiness artifact without admitting (a
+ * paused boundary after Sync), so the dashboard and settlement read readiness
+ * at the accepted head rather than the previous admission's.
+ */
+export function refreshReadinessArtifact(params: {
+  globals: GlobalArgs;
+  graphDbPath: string;
+  runId: string;
+  store: StateStore;
+  readiness: EpochReadiness;
+}): boolean {
+  const gameId = params.globals.game?.gameId ?? params.globals.gameId;
+  const stackOnly = stackOnlyIndexForGame(params.store, { gameId, stackFramePolicy: params.globals.game?.matching?.stackFramePolicy });
+  const readiness = boardReadinessOptions(params.readiness);
+  const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
+    graphDbPath: params.graphDbPath,
+    validation: params.globals.game?.validation,
+    ...(stackOnly ? { stackOnly } : {}),
+    ...(readiness ? { readiness } : {}),
+  });
+  return recordReadinessArtifact(params.store, { runId: params.runId, gameId, board });
 }
 
 export function reconcileOrphanedEpochTargets(
@@ -101,7 +185,7 @@ export function schedulerEpochConfigFromArgs(
   };
 }
 
-function assertFreshBoardReport(params: Pick<Parameters<typeof ensureSchedulerEpochFromBoard>[0], "globals" | "graphDbPath">): void {
+function assertFreshBoardReport(params: Pick<EnsureSchedulerEpochParams, "globals" | "graphDbPath">): void {
   const configuredPath = params.globals.game?.validation.reportPath ?? "build/GALE01/report.json";
   const reportPath = isAbsolute(configuredPath) ? configuredPath : resolve(params.globals.repoRoot, configuredPath);
   if (!existsSync(reportPath)) {
@@ -132,7 +216,7 @@ function assertFreshBoardReport(params: Pick<Parameters<typeof ensureSchedulerEp
   }
 }
 
-export function ensureSchedulerEpochFromBoard(params: {
+export interface EnsureSchedulerEpochParams {
   /** Prepare membership without changing paused intent or acquiring worker authority. */
   prepareOnly?: boolean;
   config: SchedulerEpochConfig;
@@ -140,8 +224,15 @@ export function ensureSchedulerEpochFromBoard(params: {
   graphDbPath: string;
   runId: string;
   store: StateStore;
-}): SchedulerEpochEnsureResult {
-  return params.store.db.transaction(() => {
+  /** The epoch's class readiness, loaded beforehand (`readinessForAdmission`); absent leaves admission unchanged. */
+  readiness?: EpochReadiness;
+}
+
+/** Without readiness nothing can be readiness-blocked, so admission always yields an epoch. */
+export function ensureSchedulerEpochFromBoard(params: EnsureSchedulerEpochParams & { readiness?: undefined }): SchedulerEpochEnsureResult;
+export function ensureSchedulerEpochFromBoard(params: EnsureSchedulerEpochParams): SchedulerEpochEnsureOutcome;
+export function ensureSchedulerEpochFromBoard(params: EnsureSchedulerEpochParams): SchedulerEpochEnsureOutcome {
+  return params.store.db.transaction((): SchedulerEpochEnsureOutcome => {
     const gameId = params.globals.game?.gameId ?? params.globals.gameId;
     const harness = gameId ? getHarnessState(params.store.db, gameId) : null;
     if (params.prepareOnly && (!harness || !gameId || harness.execution.desired !== "paused" || harness.execution.workflow !== "none" || getDispatchState(params.store, gameId)?.active_workflow || activeWorkerCount(params.store, params.runId) > 0)) {
@@ -161,15 +252,22 @@ export function ensureSchedulerEpochFromBoard(params: {
       gameId,
       stackFramePolicy: params.globals.game?.matching?.stackFramePolicy,
     });
+    const readiness = boardReadinessOptions(params.readiness);
     const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
       graphDbPath: params.graphDbPath,
       validation: params.globals.game?.validation,
       ...(stackOnly ? { stackOnly } : {}),
+      ...(readiness ? { readiness } : {}),
     });
     if (!progress || progress.admitted === 0) {
       const candidates = params.config.epochTargetCap == null
         ? board.candidates
         : board.candidates.slice(0, params.config.epochTargetCap);
+      // Blocked-only: park before any epoch exists (an empty epoch would go straight to settlement).
+      if (!epoch && (board.blocked?.length ?? 0) > 0 && selectEpochAdmissionCandidates({ candidates }).selected.length === 0) {
+        recordReadinessParked(params.store, { runId: params.runId, gameId, board, producer: "scheduler" });
+        return { kind: "readiness_blocked_only", blocked: board.blocked ?? [], readiness: board.readiness ?? null };
+      }
       epoch ??= startSchedulerEpoch(params.store, params.runId, params.config);
       admission = admitEpochTargets(params.store, {
         epochId: epoch.id,
@@ -178,6 +276,7 @@ export function ensureSchedulerEpochFromBoard(params: {
         workerPoolSize: params.config.workerPoolSize,
       });
       progress = schedulerEpochProgress(params.store, epoch.id);
+      recordReadinessArtifact(params.store, { runId: params.runId, gameId, board, epochId: epoch.id });
     }
     if (!epoch || !progress) throw new Error("Scheduler epoch admission did not produce an epoch");
 
@@ -209,7 +308,12 @@ export function ensureSchedulerEpochFromBoard(params: {
 export async function runSchedulerTick(
   globals: GlobalArgs,
   args: Map<string, string | true>,
-  options: { ownsSchedulerCondition?: boolean } = {},
+  options: {
+    ownsSchedulerCondition?: boolean;
+    /** Epoch-start revision for readiness (default: the checkout's HEAD). */
+    readinessRev?: string | null;
+    readinessRunner?: ReadinessRunner;
+  } = {},
 ): Promise<SchedulerTickResult> {
   const store = openState(globals.stateDir);
   let observedRunId = "";
@@ -234,13 +338,30 @@ export async function runSchedulerTick(
     const graphDbPath = stringArg(args, "--graph-db", globals.graphDbPath ?? resourceGraphDbPath());
     let epochResult: SchedulerEpochEnsureResult | null = null;
     if (!booleanArg(args, "--no-start-epoch") || activeSchedulerEpoch(store, runId)) {
-      epochResult = ensureSchedulerEpochFromBoard({
+      const readiness = await readinessForAdmission({ globals, store, runId, rev: options.readinessRev, runner: options.readinessRunner });
+      const outcome = ensureSchedulerEpochFromBoard({
         config: schedulerEpochConfigFromArgs(globals, args, { workerPoolSize }),
         globals,
         graphDbPath,
         runId,
         store,
+        ...(readiness ? { readiness } : {}),
       });
+      if (isReadinessBlockedOnly(outcome)) {
+        markEventHandled(store, String(event.id));
+        return {
+          runId,
+          status: "readiness_blocked_only",
+          readinessBlocked: outcome.blocked.length,
+          handledEvent: event.id,
+          eventType,
+          eventProducer: String(event.producer ?? ""),
+          eventCreatedAt: String(event.createdAt ?? event.created_at ?? ""),
+          schedulerTargetUpdates: 0,
+          dryRun: globals.dryRunAgents,
+        };
+      }
+      epochResult = outcome;
       reconcileOrphanedEpochTargets(store, epochResult.epoch, epochResult.progress);
     }
     markEventHandled(store, String(event.id));

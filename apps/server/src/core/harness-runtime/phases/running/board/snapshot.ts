@@ -5,12 +5,13 @@ import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/co
 import { isRecordedStackOnly } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
 import { candidateFromReportFunction, objdiffSourceMap, type StackOnlyIndex } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
+import { applyReadinessFrontier, type BoardReadinessOptions } from "./readiness.js";
 
 function readJson(path: string): JsonObject {
   return JSON.parse(readFileSync(path, "utf8")) as JsonObject;
 }
 
-export interface LoadBoardSnapshotOptions {
+export interface LoadBoardSnapshotOptions extends BoardReadinessOptions {
   codeGraphFunctionsIndexPath?: string;
   reportPath?: string;
   objdiffPath?: string;
@@ -72,7 +73,7 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
     reportPath,
     objdiffPath,
     measures,
-    candidates,
+    ...applyReadinessFrontier(candidates, options),
   };
 }
 
@@ -179,7 +180,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     reportPath: functionsIndex,
     objdiffPath: "",
     measures,
-    candidates,
+    ...applyReadinessFrontier(candidates, options),
   };
 }
 

@@ -6,6 +6,9 @@ import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/kn
 import { createRun, openState } from "@server/core/harness-runtime/run-state";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { numberArg, gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { gameOrdering } from "@server/core/tools/ordering.js";
+import { boardReadinessOptions } from "../scheduler/readiness.js";
+import { readinessForAdmission } from "../scheduler/tick.js";
 
 export async function initRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const store = openState(globals.stateDir);
@@ -33,13 +36,22 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       sandbox_profile: globals.sandboxProfile ?? globals.game?.sandbox?.default_profile ?? "",
       thinking_level: globals.thinkingLevel,
       worker_configure_command: stringArg(args, "--worker-configure-command", "").trim(),
+      // The integration gate fails closed on an unresolvable descriptor only for runs started in enforce.
+      // Games without an ordering block (Melee) keep today's snapshot and policy revision.
+      ...runOrderingSnapshot(globals),
     };
     const run = createRun(store, goalKind, goalValue, desiredWorkers, game, {
       commandId: stringArg(args, "--command-id", "") || undefined,
       configurationSnapshot,
       requireReady: true,
     });
-    const snapshot = loadKnowledgeBoardSnapshot(run.game?.repoRoot ?? globals.repoRoot, { graphDbPath, validation: globals.game?.validation });
+    // Same class readiness as the first admission, so the initial board's counts agree with it.
+    const readiness = boardReadinessOptions(await readinessForAdmission({ globals, store, runId: run.id, rev: run.headRevision ?? undefined }));
+    const snapshot = loadKnowledgeBoardSnapshot(run.game?.repoRoot ?? globals.repoRoot, {
+      graphDbPath,
+      validation: globals.game?.validation,
+      ...(readiness ? { readiness } : {}),
+    });
     const schedulableSources = new Set(snapshot.candidates.map((candidate) => candidate.sourcePath).filter(Boolean)).size;
 
     await mkdir(resolve(globals.stateDir, "runs", run.id, "snapshots"), { recursive: true });
@@ -72,4 +84,10 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
   } finally {
     store.db.close();
   }
+}
+
+/** `configuration_snapshot.ordering_mode` for games with an ordering block; nothing otherwise. */
+export function runOrderingSnapshot(globals: Pick<GlobalArgs, "game">): { ordering_mode?: string } {
+  const ordering = gameOrdering(globals.game);
+  return ordering ? { ordering_mode: ordering.mode } : {};
 }
