@@ -108,3 +108,36 @@ def test_probe_fits_three_kilobytes() -> None:
 def test_hypotheses_default_when_no_shapes() -> None:
     hs = sd.hypotheses([], stack_only=False, evidence_review=False, cls=None, member=None, symbol="f")
     assert hs and hs[0]["cause"] == "missing inline function"
+
+
+SMS_RULINGS = TOOLS.parents[4] / "games/sms/knowledge/sources/injectable/steering_lessons/review_rulings.jsonl"
+
+
+def test_rulings_match_by_rule(tmp_path: Path) -> None:
+    rulings = tmp_path / "review_rulings.jsonl"
+    rows = [
+        {"id": "steer", "pr": "330", "reviewer": "Mrkol", "quote": "Totally a fakematch", "rule": "steering is a probe",
+         "enforced_by": ["sms_single_use_temp", "steering_gate"]},
+        {"id": "unused", "pr": "342", "reviewer": "Mrkol", "quote": "Made up", "rule": "UNUSED only when inlined",
+         "enforced_by": ["sms_unused_reconstruction", "steering_gate:unused_check"]},
+        {"id": "order", "pr": "347, 348", "reviewer": "Mrkol", "quote": "out of order", "rule": "decompile in order",
+         "enforced_by": ["sms_out_of_order_fill", "steering_gate:out_of_order"]},
+    ]
+    rulings.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    lessons = tmp_path / "lessons.jsonl"
+    lessons.write_text("")
+    temp = sd.build_probe(FUNCTION, [group("g1", "removable", ["temp_alias"])], None, lessons_path=lessons, prefetch=False)
+    assert [r["id"] for r in temp["rulings"]] == ["steer"]  # sibling of lessons.jsonl, matched by sms_single_use_temp
+    assert temp["rulings"][0]["quote"] == "Totally a fakematch"
+    violation = dict(FUNCTION, violations=[{"kind": "dead_unused_body"}, {"kind": "out_of_order"}])
+    picked = sd.build_probe(violation, [], None, rulings_path=rulings, prefetch=False)["rulings"]
+    assert [r["id"] for r in picked] == ["unused", "order"]
+    assert sd.build_probe(FUNCTION, [], None, rulings_path=rulings, rules=["sms_out_of_order_fill"], prefetch=False)["rulings"][0]["id"] == "order"
+    assert sd.build_probe(FUNCTION, [], None, rulings_path=tmp_path / "missing.jsonl", prefetch=False)["rulings"] == []
+
+
+def test_committed_sms_rulings_reach_the_probe(monkeypatch) -> None:
+    monkeypatch.setenv("ORCH_REVIEW_RULINGS", str(SMS_RULINGS))
+    p = sd.build_probe(FUNCTION, [group("g1", "removable", ["accessor_swap"])], None, prefetch=False)
+    assert [r["pr"] for r in p["rulings"]] == ["330"]
+    assert "fakematch" in p["rulings"][0]["quote"]

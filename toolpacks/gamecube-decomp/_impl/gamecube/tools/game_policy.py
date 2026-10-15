@@ -73,3 +73,33 @@ def steering_gate(env: dict[str, str] | None = None) -> str:
 
 def steering_gate_active(env: dict[str, str] | None = None) -> bool:
     return steering_gate(env) != STEERING_OFF
+
+
+def _game_json(env: dict[str, str]) -> dict:
+    game_dir = env.get("ORCH_GAME_DIR", "").strip()
+    if not game_dir:
+        return {}
+    try:
+        data = json.loads((Path(game_dir) / "game.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def link_map_required(env: dict[str, str] | None = None) -> bool:
+    """Is the original link map (`orig/<ver>/files/*.MAP`) required for the
+    steering gate's UNUSED rule? ORCH_LINK_MAP_REQUIRED (1/0) wins; else
+    game.json `matching.linkMap` (`required` | `optional`); else games of kind
+    `doldecomp-sms` (SMS ships mario.MAP) require it. When required and the
+    gate is active, a unit without map coverage leaves the analysis incomplete."""
+    env = os.environ if env is None else env
+    explicit = env.get("ORCH_LINK_MAP_REQUIRED", "").strip().lower()
+    if explicit in ("1", "true", "yes", "required"):
+        return True
+    if explicit in ("0", "false", "no", "optional"):
+        return False
+    data = _game_json(env)
+    mode = (data.get("matching") or {}).get("linkMap") if isinstance(data.get("matching"), dict) else None
+    if mode in ("required", "optional"):
+        return mode == "required"
+    return str(data.get("kind") or "").startswith("doldecomp-sms") and steering_gate(env) != STEERING_OFF

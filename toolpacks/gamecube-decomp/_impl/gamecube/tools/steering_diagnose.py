@@ -10,17 +10,23 @@ its `mwcc` row, and returns the probe JSON of the implementation contract
    unresolved:[{file,line,shapes,reason}],
    hypotheses:[{cause,why,how_to_check}],
    evidence:{map_callees,emitted_inlines,unused,header_inlines,sibling_uses,jsystem_hits},
-   lessons:[{id,steering,real_cause}]}
+   lessons:[{id,steering,real_cause}],
+   rulings:[{id,pr,reviewer,quote,rule}]}
 
 A steering edit is a probe: it shows what codegen the original needs, not
 the fix. Hypotheses come from a shape table (plan 2.4); evidence is
 prefetched read-only through evidence_search.py; lessons come from the
-curated lessons.jsonl store. Every lookup is optional and guarded.
+curated lessons.jsonl store; maintainer review rulings come from
+review_rulings.jsonl (next to lessons.jsonl, or ORCH_REVIEW_RULINGS) and are
+matched by rule: the lint rule ids and gate checks this probe is about (from
+the steering shapes, the function's violations, or `rules=`) against each
+ruling's `enforced_by`. Every lookup is optional and guarded.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -82,6 +88,19 @@ SHAPE_HYPOTHESES: dict[str, list[tuple[str, str]]] = {
         ("definition order", "MWCC lays out data in definition order; check the original addresses (symbols.txt)"),
     ],
 }
+# steering shape -> the lint rule that owns it (review_rulings.jsonl `enforced_by` ids)
+SHAPE_RULES: dict[str, str] = {
+    "temp_alias": "sms_single_use_temp",
+    "accessor_swap": "sms_accessor_evidence",
+    "codegen_directive": "sms_codegen_directive",
+}
+DEFAULT_SHAPE_RULE = "sms_form_rewrite"
+# decide violation kind -> rules and gate checks
+VIOLATION_RULES: dict[str, list[str]] = {
+    "dead_unused_body": ["sms_unused_reconstruction", "steering_gate:unused_check"],
+    "out_of_order": ["sms_out_of_order_fill", "steering_gate:out_of_order"],
+}
+RULINGS_FILE = "review_rulings.jsonl"
 STACK_HYPOTHESIS = ("missing inline function", "only the stack frame differs; inlines add stack slots")
 EVIDENCE_REVIEW = ("inline with provenance", "the callee is a weak inline the original emitted in this unit; needs review")
 
@@ -194,6 +213,55 @@ def pick_lessons(lessons: list[dict], function: str, shapes: list[str], limit: i
     return [x[2] for x in sorted(scored)[:limit]]
 
 
+def rulings_path_for(lessons_path: Optional[Path]) -> Optional[Path]:
+    """ORCH_REVIEW_RULINGS, else review_rulings.jsonl next to the lessons file."""
+    env = os.environ.get("ORCH_REVIEW_RULINGS")
+    if env:
+        return Path(env)
+    return Path(lessons_path).parent / RULINGS_FILE if lessons_path is not None else None
+
+
+def probe_rules(shapes: list[str], function: dict, has_steering: bool, extra: Optional[list[str]] = None) -> list[str]:
+    """The lint rule ids and gate checks a probe is about, in a stable order."""
+    out: list[str] = []
+
+    def add(rule: str) -> None:
+        if rule and rule not in out:
+            out.append(rule)
+    for shape in shapes:
+        if shape in ("cosmetic", "data_order"):
+            continue
+        add(SHAPE_RULES.get(shape, DEFAULT_SHAPE_RULE))
+    if has_steering:
+        add("steering_gate")
+    for violation in function.get("violations") or []:
+        kind = violation.get("kind") if isinstance(violation, dict) else violation
+        for rule in VIOLATION_RULES.get(str(kind), []):
+            add(rule)
+    for rule in extra or []:
+        add(rule)
+    return out
+
+
+def pick_rulings(rulings: list[dict], rules: list[str], limit: int = 2) -> list[dict]:
+    """Rulings whose `enforced_by` names one of `rules`, most overlap first."""
+    wanted = set(rules)
+    scored = []
+    for index, row in enumerate(rulings):
+        enforced = row.get("enforced_by") or []
+        overlap = len(wanted & set(enforced)) if isinstance(enforced, list) else 0
+        if not overlap:
+            continue
+        scored.append((-overlap, index, {
+            "id": row.get("id"),
+            "pr": row.get("pr"),
+            "reviewer": row.get("reviewer"),
+            "quote": _clip(row.get("quote") or ""),
+            "rule": _clip(row.get("rule") or ""),
+        }))
+    return [x[2] for x in sorted(scored, key=lambda t: (t[0], t[1]))[:limit]]
+
+
 def prefetch_evidence(repo: Optional[Path], symbol: str, unit: str, cls: Optional[str], member: Optional[str],
                       version: Optional[str] = None) -> dict:
     out: dict[str, list] = {"map_callees": [], "emitted_inlines": [], "unused": [], "header_inlines": [],
@@ -238,7 +306,8 @@ def prefetch_evidence(repo: Optional[Path], symbol: str, unit: str, cls: Optiona
 
 def build_probe(function: dict, groups: list[dict], mwcc_fn: Optional[dict] = None, *,
                 evidence_repo: Optional[Path] = None, lessons_path: Optional[Path] = None,
-                version: Optional[str] = None, prefetch: bool = True, limit: int = PROBE_LIMIT) -> dict:
+                version: Optional[str] = None, prefetch: bool = True, limit: int = PROBE_LIMIT,
+                rulings_path: Optional[Path] = None, rules: Optional[list[str]] = None) -> dict:
     name = function.get("demangled") or function.get("name") or ""
     symbol = function.get("name") or name
     deltas = {}
@@ -293,6 +362,8 @@ def build_probe(function: dict, groups: list[dict], mwcc_fn: Optional[dict] = No
         "evidence": prefetch_evidence(evidence_repo, symbol, function.get("unit") or "", cls, member, version)
         if prefetch else {},
         "lessons": pick_lessons(load_lessons(lessons_path), name, seen),
+        "rulings": pick_rulings(load_lessons(rulings_path if rulings_path is not None else rulings_path_for(lessons_path)),
+                                probe_rules(seen, function, bool(steering_rows), rules)),
     }
     return fit(probe, limit)
 
@@ -307,10 +378,12 @@ def fit(probe: dict, limit: int = PROBE_LIMIT) -> dict:
         lambda p: _cap_lists(p, 4),
         lambda p: _cap_evidence(p, 3),
         lambda p: p.update(lessons=p["lessons"][:1]),
+        lambda p: p.update(rulings=p["rulings"][:1]),
         lambda p: _cap_lists(p, 2),
         lambda p: _cap_text(p, 80),
         lambda p: _cap_evidence(p, 1),
         lambda p: p.update(lessons=[]),
+        lambda p: p.update(rulings=[]),
         lambda p: p.update(evidence={}),
         lambda p: _cap_lists(p, 1),
         lambda p: p.update(hypotheses=p["hypotheses"][:1]),

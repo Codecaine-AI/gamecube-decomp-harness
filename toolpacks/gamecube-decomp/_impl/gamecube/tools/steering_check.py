@@ -44,6 +44,12 @@ Subcommands (all take --json; exit 0 = analysis produced, 2 = tool failure):
       edits + reduce + mwcc + decide in one process.
   apply --report CHECK.json [--dry-run]
       Write S* (line-preserving) into the repo (backfill only).
+  unused-test --repo R [--base-ref REV] [--overlay-dir D] --file F --function QNAME
+      The UNUSED stub test for one function: C' = the candidate with the
+      body stubbed (signature kept); dead (no target function changes),
+      inlined (callers change, listed) or inconclusive (C' does not build).
+      `mwcc` runs it for every reconstructed UNUSED function of a touched
+      unit; `decide` reports `unused_checks` and `violations`.
   fingerprint --repo R --unit U [--source-file F]
       Debug: one unit's IR fingerprints.
 
@@ -1232,10 +1238,13 @@ def run_reduce(manifest: dict, oracle_repo: Optional[Path], cache_dir: Optional[
         reducer = Reducer(manifest, ctx, info, budget_seconds=budget, max_groups=max_groups, jobs=jobs,
                           approvals=approvals, evidence_repo=evidence_repo or oracle_repo, symbols_text=symbols_text,
                           oracle=oracle)
-        return reducer.run()
+        red = reducer.run()
     finally:
         if ctx is not None:
             ctx.close()
+    header = lambda rel: _header_text(manifest, oracle_repo, rel)  # noqa: E731
+    red["order_refs"] = order_refs(manifest.get("files") or [], header)
+    return red
 
 
 # --------------------------------------------------------------------------
@@ -1285,7 +1294,8 @@ class ShadowCompiler:
 class RepoBackend:
     """MWCC for `run_mwcc`: the repo's build.ninja units, shadow-root compiles,
     objdiff target classification. Tests substitute a fake with the same
-    methods (units, compile, classify, target_path, close, jobs)."""
+    methods (units, compile, classify, target_path, close, jobs; optional
+    unused for the UNUSED stub test)."""
 
     def __init__(self, repo_path: Path, version: Optional[str], jobs: int, tmp: Optional[str]):
         import stack_check
@@ -1294,6 +1304,9 @@ class RepoBackend:
         self.pool = ShadowCompiler(self.repo, jobs, tmp)
         self.oracle = stack_check.TargetOracle(self.repo)
         self.jobs = self.pool.jobs
+        self.root = self.repo.root
+        self.unused_reasons: dict[str, str] = {}
+        self._objdiff_flags: Optional[dict[str, Optional[str]]] = None
 
     def units(self, paths: list[str]) -> tuple[dict[str, list], dict[str, list[str]]]:
         return units_for_paths(self.repo, paths)
@@ -1308,6 +1321,49 @@ class RepoBackend:
     def target_path(self, unit) -> Optional[Path]:
         p = self.repo.root / unit.target
         return p if p.is_file() else None
+
+    def deps(self, unit) -> Optional[set[str]]:
+        """Tracked inputs the unit object depends on (ninja deps; the PCH's headers when it uses
+        one), limited to src/include/libs; None when the build has no deps for the object."""
+        try:
+            deps = self.repo.deps()
+        except Exception:
+            return None
+        rows = deps.get(unit.obj)
+        if not rows:
+            return None
+        out = {d for d in rows if under(d, DEFAULT_PATHS)}
+        if any(d.endswith(".mch") for d in rows):
+            out |= {d for d in self.repo.pch_headers() if under(d, DEFAULT_PATHS)}
+        return out
+
+    def include_dirs(self, unit) -> list[str]:
+        """`-i`/`-I` include directories of the unit's compile command."""
+        try:
+            flags = self.repo.edges[unit.obj].cflags
+        except Exception:
+            return ["include"]
+        return re.findall(r"(?:^|\s)-(?:i|I|ir)\s*(\S+)", flags) or ["include"]
+
+    def unit_flags(self, unit) -> Optional[str]:
+        """objdiff.json `scratch.c_flags` of the unit (matched by its base object path)."""
+        if self._objdiff_flags is None:
+            self._objdiff_flags = {}
+            try:
+                for u in json.loads((self.root / "objdiff.json").read_text()).get("units") or []:
+                    if u.get("base_path"):
+                        self._objdiff_flags[u["base_path"]] = (u.get("scratch") or {}).get("c_flags")
+            except (OSError, ValueError):
+                pass
+        return self._objdiff_flags.get(unit.obj)
+
+    def unused(self, unit, base_rev: str) -> Optional[list[dict]]:
+        """UNUSED map symbols of the unit (None: map or unit unavailable; why in unused_reasons)."""
+        why: dict[str, str] = {}
+        out = map_unused(self.repo.root, base_rev, self.repo.version, unit.source, why)
+        if out is None:
+            self.unused_reasons[unit.name] = why.get(unit.source, "link map unavailable")
+        return out
 
     def close(self) -> None:
         self.pool.close()
@@ -1415,6 +1471,8 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
     out_functions: list[dict] = []
     data_evidence: list[dict] = []
     group_touch: dict[str, dict[str, list[str]]] = {}
+    unused_checks: list[dict] = []
+    unused_map: dict[str, dict] = {}
     groups = (attribute or {}).get("groups") or []
     try:
         by_path, header_units = backend.units([f["path"] for f in files])
@@ -1548,6 +1606,9 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
             data_evidence = _data_order_evidence(backend, revert, groups, units, built, variant, errors)
             _steering_only_sstar(backend, revert, groups, attribution_jobs, files_of_unit=files_of,
                                  variant=variant, errors=errors)
+        compared_units = {c["unit"] for c in coverage if c.get("compared")}
+        unused_checks, unused_map = run_unused_checks(backend, base_rev, units, built, files, cand_texts,
+                                                      compared_units, edits_hash, inputs_of=files_of)
     finally:
         backend.close()
     missing = [w for w in functions or [] if not any(
@@ -1565,6 +1626,8 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
         "functions": out_functions,
         "data_evidence": data_evidence,
         "group_touch": group_touch,
+        "unused_checks": unused_checks,
+        "unused_map": unused_map,
         "errors": errors,
     }
 
@@ -1782,6 +1845,823 @@ def _steering_only_sstar(backend, revert: set[str], groups: list[dict], jobs: li
 
 
 # --------------------------------------------------------------------------
+# UNUSED functions: the stub test (objectives/sms-real-codegen/unused-rule.md)
+#
+# A function the original link map marks UNUSED for a unit (dead-stripped)
+# may only get a body when the original inlined it into another function of
+# the same TU. Test: C' = C with that body stubbed (signature kept); if no
+# function present in the target object changes status or match, the body is
+# dead (rule violation); if some do, it was inlined (allowed, callers are the
+# evidence); if C' does not build, the test is inconclusive.
+# --------------------------------------------------------------------------
+
+UNUSED_CHECK_CAP = 32  # stub builds per attempt; beyond it the remaining checks are inconclusive
+UNUSED_STUBS = ("{ }", "{ return 0; }")
+_PARAM_DROP = {"const", "volatile", "struct", "class", "enum", "union", "register", "typename"}
+_BUILTIN_WORDS = {"void", "bool", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "wchar_t"}
+_TYPE_FOLD = {  # typedef spellings -> the builtin spelling the demangler prints (int and long folded)
+    "s8": "signed char", "u8": "unsigned char", "s16": "short", "u16": "unsigned short", "s32": "long",
+    "u32": "unsigned long", "s64": "long long", "u64": "unsigned long long", "f32": "float", "f64": "double",
+    "int": "long", "BOOL": "long", "vu8": "unsigned char", "vu16": "unsigned short", "vu32": "unsigned long",
+    "vs32": "long", "vf32": "float", "intptr_t": "long", "uintptr_t": "unsigned long", "size_t": "unsigned long",
+}
+_CONST_WORDS = {"true", "false", "NULL", "nullptr", "TRUE", "FALSE"} | _BUILTIN_WORDS | set(_TYPE_FOLD)
+_CONST_PUNCT = set("-+~!()|^%/\"'") | {"<<", ">>"}
+_DECL_STORAGE = {"static", "inline", "virtual", "explicit", "extern", "friend", "const", "volatile", "asm"}
+
+
+@dataclass
+class FunctionDef:
+    """One function definition in source text (offsets into that text)."""
+    qualified: str  # `T::f`, whitespace removed
+    start: int  # first character of the declaration
+    open: int  # `{` of the body
+    close: int  # matching `}`
+    params: Optional[list[str]]  # canonical parameter types, None when unparsable
+    void: bool  # stub `{ }` (void, constructor, destructor) or `{ return 0; }`
+    line: int  # 1-based line of `start`
+    trivial: bool  # empty, `return;` or `return <constant>;`
+
+
+def _split_top_commas(text: str) -> list[str]:
+    parts, depth, cur = [], 0, ""
+    for ch in text:
+        if ch in "(<[":
+            depth += 1
+        elif ch in ")>]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+            continue
+        cur += ch
+    parts.append(cur)
+    return parts
+
+
+def canonical_params(text: str) -> Optional[list[str]]:
+    """Parameter types of a parameter list (source or demangled): names,
+    default arguments and cv-qualifiers dropped, typedef spellings folded."""
+    text = text.strip()
+    if text in ("", "void"):
+        return []
+    out = []
+    for part in _split_top_commas(text):
+        part = part.split("=", 1)[0]
+        if "(" in part:  # function pointer parameter: keep its raw shape
+            out.append(re.sub(r"\s+", "", part))
+            continue
+        toks = [t for t in re.findall(r"[A-Za-z_]\w*|::|\.\.\.|[*&\[\]<>]", part) if t not in _PARAM_DROP]
+        idents = [i for i, t in enumerate(toks) if re.match(r"[A-Za-z_]", t)]
+        if len(idents) >= 2:
+            last = idents[-1]
+            if (toks[last] not in _BUILTIN_WORDS and (last == len(toks) - 1 or toks[last + 1] == "[")
+                    and toks[last - 1] != "::"):
+                del toks[last]
+        words = " ".join(_TYPE_FOLD.get(t, t) for t in toks).split()
+        if words in (["unsigned"], ["signed"]):
+            words = words + ["long"]  # bare `unsigned` is `unsigned int` (int and long fold together)
+        words = [w for w in words if w != "signed" or "char" in words]
+        lead = [w for w in words if w in ("unsigned", "signed")]  # the demangler prints `long unsigned`
+        words = lead + [w for w in words if w not in ("unsigned", "signed")] if lead else words
+        s = " ".join(words).replace("[ ]", "*").replace(" ::", "::").replace(":: ", "::")
+        if not s:
+            return None
+        out.append(s)
+    return out
+
+
+def _trivial_body(code_body: str) -> bool:
+    """Empty, `return;` or `return <constant>;` (comments and literal contents
+    already blanked). Constants are literals, true/false/NULL, builtin-type
+    casts and ALL-CAPS enum/constant names combined with side-effect-free
+    arithmetic; a call, `++`/`--`, `*`, `&`, `->`, `.`, `[` or assignment makes
+    the body non-trivial (conservative: a non-trivial base body is never stubbed)."""
+    s = re.sub(r"^[\s;]+|[\s;]+$", "", code_body)
+    if not s:
+        return True
+    m = re.fullmatch(r"return\b(.*)", s, re.S)
+    if not m:
+        return False
+    expr = m.group(1).strip()
+    if not expr:
+        return True
+    if re.search(r"\+\+|--|->|=|\[|;", expr):
+        return False
+    toks = re.findall(r"\d[\w.]*|\.\d[\w.]*|[A-Za-z_]\w*|<<|>>|\S", expr)
+    for i, tok in enumerate(toks):
+        nxt = toks[i + 1] if i + 1 < len(toks) else ""
+        if tok[0].isdigit() or (tok[0] == "." and len(tok) > 1):
+            continue
+        if re.match(r"[A-Za-z_]", tok):
+            if nxt == "(":
+                return False  # a call (or functional cast): not a constant
+            if tok in _CONST_WORDS or re.fullmatch(r"[A-Z][A-Z0-9_]*", tok):
+                continue
+            return False
+        if tok not in _CONST_PUNCT:
+            return False
+    return True
+
+
+def function_defs(text: Optional[str]) -> list[FunctionDef]:
+    """Every function definition in `text`: out-of-class `T::f(...)` and
+    in-class bodies (comments, literals and preprocessor lines aware)."""
+    if not text:
+        return []
+    import evidence_search as es
+
+    code = es.strip_code(text)
+    out = []
+    for qual, start, open_, close in es._source_functions(code, 0, len(code)):
+        decl = code[start:open_]
+        access = es.ACCESS_RE.match(decl)
+        if access:
+            start += access.end()
+            decl = decl[access.end():]
+        lead = len(decl) - len(decl.lstrip())
+        start += lead
+        decl = decl.strip()
+        head_m = None
+        paren = -1
+        for m in re.finditer(r"\(", decl):
+            hm = es.QUALIFIED_BEFORE_PAREN_RE.search(decl[:m.start()])
+            if hm:
+                head_m, paren = hm, m.start()
+                break
+        if head_m is None:
+            continue
+        close_p = es._match_paren(decl, paren)
+        params = canonical_params(decl[paren + 1:close_p]) if close_p > paren else None
+        name = re.sub(r"\s+", "", head_m.group(1))
+        parts = name.split("::")
+        lead_text = re.sub(r"\btemplate\s*<[^{};]*?>", " ", decl[:head_m.start()])
+        prefix = [w for w in re.findall(r"[A-Za-z_]\w*|[*&]", lead_text) if w not in _DECL_STORAGE]
+        ctor_dtor = parts[-1].startswith("~") or (len(qual.split("::")) >= 2 and
+                                                  qual.split("::")[-1] == qual.split("::")[-2])
+        void = ctor_dtor or prefix == ["void"] or not prefix
+        out.append(FunctionDef(
+            qualified=re.sub(r"\s+", "", qual), start=start, open=open_, close=close, params=params, void=void,
+            line=text.count("\n", 0, start) + 1, trivial=_trivial_body(code[open_ + 1:close])))
+    return out
+
+
+def _qual_eq(a: str, b: str) -> bool:
+    import evidence_search as es
+
+    a, b = re.sub(r"\s+", "", a), re.sub(r"\s+", "", b)
+    if a == b:
+        return True
+    a, b = es._strip_templates(a), es._strip_templates(b)
+    if a == b:
+        return True
+    short, long_ = sorted((a, b), key=len)
+    return "::" in short and long_.endswith("::" + short)
+
+
+def match_defs(defs: list[FunctionDef], qualified: str, params: Optional[list[str]]) -> list[FunctionDef]:
+    """Definitions of `qualified` with `params`: an exact parameter match, else
+    every definition with the same parameter count (ambiguous: all of them),
+    else every same-name definition whose parameters could not be parsed."""
+    named = [d for d in defs if _qual_eq(d.qualified, qualified)]
+    if params is None or not named:
+        return named
+    counted = [d for d in named if d.params is not None and len(d.params) == len(params)]
+    exact = [d for d in counted if d.params == params]
+    return exact or counted or [d for d in named if d.params is None]
+
+
+def _base_defs(base_defs: list[FunctionDef], d: FunctionDef) -> list[FunctionDef]:
+    """Base definitions of the same function: the same parameter list, else
+    same-name definitions whose parameters could not be parsed (identity
+    unresolved). Known different signatures are different overloads."""
+    named = [b for b in base_defs if _qual_eq(b.qualified, d.qualified)]
+    exact = [b for b in named if b.params is not None and b.params == d.params]
+    return exact or [b for b in named if b.params is None or d.params is None]
+
+
+def demangled_symbol(mangled: str) -> dict:
+    """{mangled, function (display), qualified, params} for a map symbol."""
+    import evidence_search as es
+
+    readable, qualified = es.demangle(mangled)
+    params = None
+    i = readable.find("(", len(qualified))
+    if i >= 0:
+        j = es._match_paren(readable, i)
+        if j > i:
+            params = canonical_params(readable[i + 1:j])
+            readable = qualified + readable[i:]
+    return {"mangled": mangled, "function": readable, "qualified": qualified, "params": params}
+
+
+def stub_definition(text: str, d: FunctionDef) -> tuple[str, str]:
+    """`text` with d's body replaced by a stub, line count preserved (asserts
+    embed __LINE__). Returns (new text, stub label)."""
+    label = UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1]
+    k = text.count("\n", d.open, d.close)
+    if k == 0:
+        body = label
+    else:
+        body = ("{" if d.void else "{ return 0;") + "\n" * k + "}"
+    return text[:d.open] + body + text[d.close + 1:], label
+
+
+_MAP_CACHE: dict[tuple, Any] = {}
+
+
+def _link_map(repo: Path, base_rev: str, version: str):
+    """The link map at `base_rev` (`git show`), else the checkout's map file
+    (the map is usually untracked, as in the map-call evidence). Cached."""
+    import evidence_search as es
+
+    key = (str(repo), base_rev, version)
+    if key in _MAP_CACHE:
+        return _MAP_CACHE[key]
+    link = None
+    listed = git(repo, "ls-tree", "-r", "--name-only", base_rev, "--", f"orig/{version}", check=False)
+    names = [n for n in listed.stdout.decode().splitlines() if n.lower().endswith(".map")] if listed.returncode == 0 else []
+    if names:
+        blob = git(repo, "rev-parse", f"{base_rev}:{names[0]}", check=False).stdout.decode().strip()
+        data = git_show(repo, base_rev, names[0])
+        if data is not None:
+            cache_file = es.cache_dir() / f"map-git-{es.PARSER_VERSION}-{blob}.json"
+            parsed = None
+            if cache_file.is_file():
+                try:
+                    parsed = json.loads(cache_file.read_text())
+                except (OSError, ValueError):
+                    parsed = None
+            if parsed is None:
+                parsed = es.parse_map_text(se.decode(data) or "")
+                try:
+                    cache_file.parent.mkdir(parents=True, exist_ok=True)
+                    cache_file.write_text(json.dumps(parsed, separators=(",", ":")))
+                except OSError:
+                    pass
+            link = es.LinkMap(parsed, Path(f"{base_rev}:{names[0]}"))
+    if link is None:
+        link = es.load_map(repo, version)
+    _MAP_CACHE[key] = link
+    return link
+
+
+def map_unused(repo: Path, base_rev: str, version: str, source: str,
+               reasons: Optional[dict] = None) -> Optional[list[dict]]:
+    """UNUSED `.text` symbols the map lists for the unit built from `source`
+    (matched by object file name), demangled. None when the map is missing or
+    unreadable, or the unit's object is not in it (`reasons[source]` says which)."""
+    import evidence_search as es
+
+    def fail(why: str) -> None:
+        if reasons is not None:
+            reasons[source] = why
+        return None
+
+    try:
+        link = _link_map(Path(repo), base_rev, version)
+    except Exception as e:
+        return fail(f"link map unreadable: {type(e).__name__}: {e}")
+    if link is None:
+        return fail(f"no link map under orig/{version}")
+    _, objects = es._map_objects_for_unit(Path(repo), link, source)
+    if not objects:
+        return fail(f"{source}: no object in the link map")
+    out = []
+    for section, name, size, vaddr, obj in link.rows:
+        if section == ".text" and vaddr is None and obj in objects and name != ".text":
+            out.append(dict(demangled_symbol(name), size=size))
+    return out
+
+
+def signature_index(repo: Optional[Path | str], rev: Optional[str], texts: Optional[dict[str, Optional[str]]] = None):
+    """signatures.TypeIndex for exact function identity: the repo's headers and
+    sources at `rev` with `texts` (candidate files) overlaid; texts only
+    without a repo/rev."""
+    import signatures
+
+    overlay = {p: t for p, t in (texts or {}).items() if t is not None}
+    if repo is not None and rev:
+        try:
+            return signatures.TypeIndex.from_git(Path(repo), rev).with_texts(overlay)
+        except Exception:
+            pass
+    return signatures.TypeIndex.from_texts(overlay)
+
+
+def _signature_identity(sig, sym: dict) -> Optional[bool]:
+    """Exact identity of a source definition and a map symbol: True / False / None (undecidable).
+    Undecidable only counts for a definition with the symbol's qualified name."""
+    import signatures
+
+    m = signatures.matches(sig, sym["mangled"])
+    if m is None and not any(_qual_eq(q, sym["qualified"]) for q, *_ in (getattr(sig, "variants", ()) or
+                                                                         [(sig.qualified,)])):
+        return False
+    return m
+
+
+def unused_candidates(base_text: Optional[str], cand_text: Optional[str], symbols: list[dict], *,
+                      index=None, path: str = "") -> list[dict]:
+    """(symbol, definition) pairs to stub-test: UNUSED in the map, a non-trivial
+    body in the candidate, a trivial stub or no definition in the base.
+
+    Identity is exact (signatures.matches: fully resolved parameter types,
+    typedefs and namespaces from `index`): a known different signature is
+    another function. A candidate definition whose identity is undecidable,
+    or a base body whose identity with it is undecidable, is still tested but
+    marked `unresolved` (the check becomes inconclusive)."""
+    import signatures
+    import preprocess
+
+    index = index if index is not None else signature_index(None, None, {path or "<cand>": cand_text})
+    cdefs = {d.open: d for d in function_defs(cand_text)}
+    bdefs = {d.open: d for d in function_defs(base_text)}
+    csigs = [g for g in signatures.source_signatures(preprocess.active_text(cand_text or "", unknown="active"),
+                                                     index, path) if g.open in cdefs]
+    # the base side exempts (positive evidence): only certainly active definitions count
+    bsigs = [g for g in signatures.source_signatures(preprocess.active_text(base_text or "", unknown="inactive"),
+                                                     index, path) if g.open in bdefs] if base_text else []
+    def norm_def(text: str, d) -> str:
+        return re.sub(r"\s+", " ", text[d.start:d.close + 1]).strip()
+
+    unchanged = {norm_def(base_text, bdefs[g.open]) for g in bsigs} if base_text else set()
+    out, seen = [], set()
+    for sym in symbols:
+        for g in csigs:
+            ident = _signature_identity(g, sym)
+            if ident is False:
+                continue
+            d = cdefs[g.open]
+            if d.trivial or d.open in seen or norm_def(cand_text, d) in unchanged:
+                continue  # trivial, already taken, or the same definition the base already had
+            base = [(bdefs[b.open], _signature_identity(b, sym)) for b in bsigs]
+            if any(not bd.trivial for bd, bi in base if bi is True):
+                continue  # the base already had a body: not a reconstruction
+            seen.add(d.open)
+            row = {"symbol": sym, "def": d}
+            if ident is None:
+                row["unresolved"] = f"the definition's signature cannot be resolved exactly against {sym['mangled']}"
+            elif any(not bd.trivial for bd, bi in base if bi is None):
+                row["unresolved"] = "a base definition of the same name already has a body and its identity is undecidable"
+            out.append(row)
+    return out
+
+
+def target_changes(before: Optional[dict], after: Optional[dict]) -> list[dict]:
+    """Target-present functions whose status or match differs between two
+    classifications of the same unit: {function, name, before, after}."""
+    a_idx = {e["name"]: e for e in (after or {}).get("functions", [])}
+    out = []
+    for e in (before or {}).get("functions", []):
+        x = a_idx.get(e["name"])
+        sb = _status(e)
+        sa = _status(x) if x is not None else {"status": "missing", "match_percent": 0.0}
+        if sb != sa:
+            out.append({"function": _display_target(e), "name": e["name"], "before": sb, "after": sa})
+    return out
+
+
+def _display_target(entry: dict) -> str:
+    dem = entry.get("demangled")
+    return re.sub(r"\s+\(", "(", dem) if dem else entry["name"]
+
+
+def _worse(before: dict, after: dict) -> bool:
+    """Lower status tier (exact/stack_only -> mismatch/missing) or a lower match."""
+    return sc.status_rank(after) < sc.status_rank(before)
+
+
+def _refers_to(sym: str, mangled: Optional[str], qualified: str) -> bool:
+    if mangled and sym == mangled:
+        return True
+    return normalize_name(_mwcc_qualified(sym)) == normalize_name(qualified)
+
+
+def _target_calls(backend, unit, names: list[str], mangled: Optional[str], qualified: str) -> dict[str, bool]:
+    """Target function name -> does its target code relocate to F? (None
+    target object: every caller unknown -> treated as calling.)"""
+    path = backend.target_path(unit) if hasattr(backend, "target_path") else None
+    if path is None:
+        return {n: True for n in names}
+    try:
+        elf = sc.ElfObject.from_path(str(path))
+    except (OSError, ValueError):
+        return {n: True for n in names}
+    funcs = elf.keyed_functions()
+    out = {}
+    for n in names:
+        fn = funcs.get(n)
+        out[n] = fn is None or any(_refers_to(r, mangled, qualified) for r in _function_relocs(elf, fn))
+    return out
+
+
+def body_sha256(text: str, d: FunctionDef) -> str:
+    """sha256 of the candidate definition's body (`{` .. `}`), binding the evidence to the patch."""
+    return hashlib.sha256(text[d.open:d.close + 1].encode("utf-8")).hexdigest()
+
+
+def stub_test(backend, unit, texts: dict[str, Optional[bytes]], source: str, cand_text: str, d: FunctionDef,
+              before: Optional[dict], symbol: Optional[dict] = None) -> dict:
+    """Build C' (the candidate with d stubbed) and classify it against `before`
+    (the candidate's target classification, same unit).
+
+    inlined needs positive evidence: some function of this unit gets worse
+    with the body emptied and its target code does not call F out of line
+    (an UNUSED F cannot be called). Worse callers that do call F, or changes
+    that only improve functions -> inconclusive (needs review). No change -> dead.
+    """
+    stubbed, label = stub_definition(cand_text, d)
+    row = {"stub": label, "changed": [], "callers": [], "line": d.line, "body_sha256": body_sha256(cand_text, d)}
+    if before is None:
+        return dict(row, status="inconclusive", reason="no target classification for the candidate object")
+    ok, obj, err = backend.compile(unit, dict(texts, **{source: se.encode(stubbed)}), "unused")
+    if not ok or obj is None:
+        return dict(row, status="inconclusive", reason="stub build failed: " + (err or "compile failed")[:300])
+    after = backend.classify(obj, unit)
+    if after is None:
+        return dict(row, status="inconclusive", reason="no target classification for the stub object")
+    changed = target_changes(before, after)
+    if not changed:
+        return dict(row, status="dead",
+                    reason="no target-present function changes status or match with the body stubbed")
+    mangled = (symbol or {}).get("mangled")
+    qualified = (symbol or {}).get("qualified") or d.qualified
+    # the stubbed function itself is never its own inline caller
+    worse = [c for c in changed if _worse(c["before"], c["after"]) and not _refers_to(c["name"], mangled, qualified)]
+    calls = _target_calls(backend, unit, [c["name"] for c in worse], mangled, qualified)
+    callers = [{"function": c["function"], "before": c["before"], "after": c["after"],
+                "delta": round(c["after"]["match_percent"] - c["before"]["match_percent"], 4)}
+               for c in worse if not calls.get(c["name"])]
+    outline = [c["function"] for c in worse if calls.get(c["name"])]
+    row["changed"] = [{k: v for k, v in c.items() if k != "name"} for c in changed]
+    row["callers"] = callers
+    if outline:
+        return dict(row, status="inconclusive",
+                    reason="target code calls the UNUSED function out of line in: " + ", ".join(outline[:4]))
+    if callers:
+        return dict(row, status="inlined",
+                    reason=f"{len(callers)} function(s) of this unit get worse with the body stubbed: "
+                    + ", ".join(f"{c['function']} {c['before']['match_percent']}% -> {c['after']['match_percent']}%"
+                                for c in callers[:4]))
+    return dict(row, status="inconclusive",
+                reason="stubbing the body only improves functions (" + ", ".join(
+                    c["function"] for c in changed[:4]) + "): no positive inlining evidence, needs review")
+
+
+def unit_inputs_sha256(paths: Iterable[str], read: Callable[[str], Optional[bytes]]) -> str:
+    """sha256 over the unit's inputs, sorted by path: `path NUL len NUL bytes`
+    (a missing file: length `-1`, no bytes). Same formula as the TS
+    `unitInputsSha256` (cross-language vector in the steering fixtures)."""
+    h = hashlib.sha256()
+    for path in sorted(set(paths)):
+        data = read(path)
+        h.update(path.encode("utf-8") + b"\0" + str(-1 if data is None else len(data)).encode() + b"\0")
+        if data:
+            h.update(data)
+    return h.hexdigest()
+
+
+def _read_bytes(root: Optional[Path], rel: str) -> Optional[bytes]:
+    if root is None:
+        return None
+    p = Path(root) / rel
+    return p.read_bytes() if p.is_file() else None
+
+
+_INCLUDE_ANY = re.compile(r"^\s*#\s*include\b(.*)$", re.M)
+_INCLUDE_LITERAL = re.compile(r'^\s*([<"])([^>"]+)[>"]')
+
+
+def include_closure(source: str, read: Callable[[str], Optional[bytes]],
+                    include_dirs: Sequence[str]) -> tuple[set[str], bool]:
+    """(files, complete): repo-relative files `source` includes, transitively (every
+    branch followed, undecidable ones included), resolved like the compiler (`"x"`
+    next to the including file first, then the include directories). `complete` is
+    False when any `#include` is not a literal `"x"`/`<x>` (e.g. `#include HEADER`)
+    or does not resolve to a readable file: the set may then miss inputs."""
+    seen, todo, complete = set(), [source], True
+    while todo:
+        path = todo.pop()
+        if path in seen:
+            continue
+        data = read(path)
+        if data is None:
+            complete = False
+            continue
+        seen.add(path)
+        for m in _INCLUDE_ANY.finditer(se.decode(data) or ""):
+            lit = _INCLUDE_LITERAL.match(re.sub(r"/\*.*?\*/|//.*$", "", m.group(1)))
+            if not lit:
+                complete = False  # computed (macro) include: the target is unknown
+                continue
+            kind, inc = lit.groups()
+            here = [str(Path(path).parent / inc)] if kind == '"' else []
+            hits = [os.path.normpath(c) for c in here + [f"{d.rstrip('/')}/{inc}" for d in include_dirs]]
+            hits = [c for c in hits if read(c) is not None]
+            if not hits:
+                complete = False
+                continue
+            todo.append(hits[0])
+    return seen, complete
+
+
+def unit_inputs_of(backend, unit, cand_texts: dict[str, Optional[bytes]]) -> Optional[list[str]]:
+    """Every tracked input of the unit at the candidate: its source plus every header the object
+    depends on. The build's dependency data (ninja deps) is authoritative when it exists; the
+    candidate's resolvable literal includes are added (a newly added include counts). Without
+    deps the include closure must be complete (no computed or unresolvable include), else None."""
+    root = getattr(backend, "root", None)
+
+    def read(p: str) -> Optional[bytes]:
+        return cand_texts[p] if p in cand_texts else _read_bytes(root, p)
+
+    dirs = backend.include_dirs(unit) if hasattr(backend, "include_dirs") else ["include"]
+    deps = backend.deps(unit) if hasattr(backend, "deps") else None
+    closure, complete = include_closure(unit.source, read, dirs)
+    if deps is None and not complete:
+        return None
+    return sorted({unit.source} | (deps or set()) | closure)
+
+
+def run_unused_checks(backend, base_rev: str, units: dict, built: dict, files: list[dict],
+                      cand_texts: dict[str, Optional[bytes]], compared: set[str],
+                      edits_hash: Optional[str] = None,
+                      inputs_of: Optional[Callable[[Any], set]] = None) -> tuple[list[dict], dict]:
+    """The stub test for every touched unit whose source changed (mwcc step).
+    `inputs_of(unit)`: the changed files the unit compiles (its source + the
+    changed headers it includes, from the build's dependency data)."""
+    by_path = {f["path"]: f for f in files}
+    jobs, map_info = [], {}
+    for name, u in sorted(units.items()):
+        f = by_path.get(u.source)
+        if f is None or not f.get("cand_exists") or not hasattr(backend, "unused"):
+            continue
+        symbols = backend.unused(u, base_rev)
+        map_info[name] = {"available": symbols is not None, "unused": len(symbols or []),
+                          "reason": (getattr(backend, "unused_reasons", None) or {}).get(name, "")
+                          if symbols is None else ""}
+        if not symbols:
+            continue
+        index = signature_index(getattr(backend, "root", None), base_rev,
+                                {x["path"]: x.get("cand_text") for x in files})
+        for c in unused_candidates(f["base_text"], f["cand_text"], symbols, index=index, path=f["path"]):
+            jobs.append((name, u, f, c))
+    rows: list[dict] = []
+
+    def one(job):
+        name, u, f, c = job
+        sym, d = c["symbol"], c["def"]
+        head = {"unit": name, "file": u.source, "function": sym["function"], "mangled": sym["mangled"]}
+        if c.get("unresolved"):
+            return dict(head, status="inconclusive", stub=UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1],
+                        changed=[], callers=[], reason="function identity unresolved: " + c["unresolved"],
+                        line=d.line, body_sha256=body_sha256(f["cand_text"], d))
+        if name not in compared:
+            return dict(head, status="inconclusive", stub=UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1],
+                        changed=[], callers=[], reason="the unit's candidate was not built and compared",
+                        line=d.line, body_sha256=body_sha256(f["cand_text"], d))
+        cand = built.get((name, "cand"))
+        return dict(head, **stub_test(backend, u, cand_texts, u.source, f["cand_text"], d,
+                                      cand.target if cand is not None else None, sym))
+
+    capped = jobs[UNUSED_CHECK_CAP:]
+    with ThreadPoolExecutor(max_workers=max(1, getattr(backend, "jobs", 1))) as ex:
+        rows += list(ex.map(one, jobs[:UNUSED_CHECK_CAP]))
+    for name, u, f, c in capped:
+        d = c["def"]
+        rows.append({"unit": name, "file": u.source, "function": c["symbol"]["function"],
+                     "mangled": c["symbol"]["mangled"], "status": "inconclusive",
+                     "stub": UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1], "changed": [], "callers": [],
+                     "reason": f"over the stub-test cap ({UNUSED_CHECK_CAP})", "line": d.line,
+                     "body_sha256": body_sha256(f["cand_text"], d)})
+    root = getattr(backend, "root", None)
+    inputs_cache: dict[str, Optional[list[str]]] = {}
+    for r in rows:  # bind the evidence to the patch it was measured on, the unit's inputs and its flags
+        r["base_rev"], r["edits_hash"] = base_rev, edits_hash
+        u = units[r["unit"]]
+        if r["unit"] not in inputs_cache:
+            inputs_cache[r["unit"]] = unit_inputs_of(backend, u, cand_texts)
+        inputs = inputs_cache[r["unit"]]
+        if inputs is None:
+            r["status"] = "inconclusive"
+            r["reason"] = ("the unit's inputs cannot be determined (no build dependencies and an unresolved "
+                           "#include): the certificate could not be bound; " + (r.get("reason") or ""))[:400]
+            inputs = [u.source]
+        r["unit_inputs"] = inputs
+        r["unit_inputs_sha256"] = unit_inputs_sha256(inputs, lambda p: cand_texts[p] if p in cand_texts
+                                                     else _read_bytes(root, p))
+        flags = backend.unit_flags(u) if hasattr(backend, "unit_flags") else None
+        r["unit_flags_sha256"] = hashlib.sha256(flags.encode("utf-8")).hexdigest() if flags is not None else None
+    order = ("unit", "file", "function", "mangled", "status", "stub", "changed", "callers", "reason", "line",
+             "base_rev", "edits_hash", "body_sha256", "unit_inputs", "unit_inputs_sha256", "unit_flags_sha256")
+    return [{k: r.get(k) for k in order} for r in rows], map_info
+
+
+# --------------------------------------------------------------------------
+# Decompile in order (objectives/sms-real-codegen/order-rule.md)
+#
+# Added lines in an order-gated file (MarNameRefGen*.cpp) may only reference
+# classes that are construct-ready at the base revision (readiness.py: the
+# owner source defines the target's strong constructors). reduce records the
+# references (host side, it has the texts); decide resolves them against the
+# evidence (host) repo's target objects and link map.
+# --------------------------------------------------------------------------
+
+_NEW_RE = re.compile(r"\bnew\s+((?:[A-Za-z_]\w*\s*::\s*)*[A-Za-z_]\w*)")
+_SCOPE_RE = re.compile(r"\b(T[A-Z0-9]\w*)\s*::")
+_CALL_RE = re.compile(r"\b(T[A-Z0-9]\w*)\s*\(")
+_INCLUDE_RE = re.compile(r"^\s*#\s*include\s*[<\"]([^>\"]+)[>\"]")
+_CLASS_DECL_RE = re.compile(r"\b(?:class|struct)\s+([A-Za-z_]\w*)\s*(?:final\s*)?[:{]")
+
+
+def _gated(path: str) -> bool:
+    import fnmatch
+
+    return any(fnmatch.fnmatchcase(path, p) for p in order_policy().get("gatedPaths") or [])
+
+
+def _header_text(manifest: dict, repo: Optional[Path], include: str) -> Optional[str]:
+    """Candidate text of an included header (changed files first, then base_rev, then the checkout)."""
+    rels = [f"include/{include}", include] + [f"{p}/{include}" for p in ("libs", "src")]
+    for f in manifest.get("files") or []:
+        if f["path"] in rels or f["path"].endswith("/include/" + include):
+            return f.get("cand_text")
+    if repo is None:
+        return None
+    for rel in rels:
+        data = git_show(repo, manifest.get("base_rev") or "HEAD", rel)
+        if data is not None:
+            return se.decode(data)
+    return None
+
+
+_QUAL = r"(?:::\s*)?(?:[A-Za-z_]\w*\s*(?:<[^;{}()]*?>)?\s*::\s*)*"
+_REF_NEW_RE = re.compile(r"\bnew\b\s*(?:\((?:[^()]|\([^()]*\))*\)\s*)?(?P<name>" + _QUAL + r"[A-Za-z_]\w*)", re.S)
+_REF_NEW_PAREN_RE = re.compile(r"\bnew\s*\(\s*(?P<name>" + _QUAL + r"[A-Za-z_]\w*)\s*\)(?!\s*[\w(:])", re.S)
+_REF_SCOPE_RE = re.compile(r"(?<![\w:])(?P<name>" + _QUAL + r"T[A-Z0-9]\w*)\s*::", re.S)
+_REF_CALL_RE = re.compile(r"(?<![\w:])(?P<name>" + _QUAL + r"T[A-Z0-9]\w*)\s*\(", re.S)
+_REF_KEYWORDS = {"new", "delete", "return", "sizeof", "const", "volatile", "operator"}
+
+
+def class_references(text: str) -> list[dict]:
+    """Class references in code: `new X`, placement `new (arena) X`, `new (X)`,
+    `TX::`, `TX(` matched over the whole token stream (an expression may span
+    lines). Comments and literals are blanked first (offsets preserved); the
+    caller decides which preprocessor branches count. Rows: {class (qualified
+    as written, whitespace and a leading `::` removed), via: new|scope|call,
+    start (of the whole match, e.g. the `new` keyword), end (of the name)}."""
+    import evidence_search as es
+
+    code = es.strip_code(text or "")
+    out, spans = [], set()
+    for via, rx in (("new", _REF_NEW_RE), ("new", _REF_NEW_PAREN_RE), ("scope", _REF_SCOPE_RE), ("call", _REF_CALL_RE)):
+        for m in rx.finditer(code):
+            name = re.sub(r"\s+", "", m.group("name")).lstrip(":")
+            if name.split("::")[-1] in _REF_KEYWORDS:
+                continue
+            if ("new", m.start("name")) in spans and via != "new":
+                continue  # `new X(` is one construction, not also a call
+            spans.add((via, m.start("name")))
+            out.append({"class": name, "via": via, "start": m.start(), "end": m.end("name")})
+    out.sort(key=lambda r: (r["start"], r["via"]))
+    return out
+
+
+def added_references(path: str, base_text: Optional[str], cand_text: str, refs: list[dict]) -> list[dict]:
+    """The references whose span touches a line the patch adds or changes;
+    `line` = the first such line, `edit_id` = the edit that adds it."""
+    added: dict[int, str] = {}
+    for e in se.enumerate_edits(path, base_text, cand_text):
+        for k in range(len(e.added)):
+            added[e.cand_line + k] = e.id
+    out = []
+    for r in refs:
+        first = cand_text.count("\n", 0, r["start"]) + 1
+        last = cand_text.count("\n", 0, r["end"]) + 1
+        hit = next((ln for ln in range(first, last + 1) if ln in added), None)
+        if hit is not None:
+            out.append(dict(r, line=hit, edit_id=added[hit]))
+    return out
+
+
+def order_refs(files: list[dict], header_text: Optional[Callable[[str], Optional[str]]] = None) -> list[dict]:
+    """Classes referenced by added code of order-gated files:
+    {file, line, class, via: new|scope|call, edit_id, precedent_names}.
+
+    References are matched over whole expressions (a `new` may span lines;
+    placement new counts). Added `#include` lines are not references: a header
+    that exists at the base declares nothing new, a moved include adds nothing,
+    and classes in headers the patch creates or changes are the declaration
+    check's job. `precedent_names`: classes with the same final name that the
+    base text of the same file already constructs; decide compares canonical
+    identities. `header_text` is unused (kept for callers of the earlier signature)."""
+    import preprocess
+    import readiness
+
+    out, seen = [], set()
+    for f in files:
+        if not f.get("cand_exists") or not _gated(f["path"]):
+            continue
+        cand = f.get("cand_text") or ""
+        refs = class_references(preprocess.active_text(cand, unknown="active"))
+        before = sorted(readiness.constructed_classes(f.get("base_text")))
+        for r in added_references(f["path"], f.get("base_text"), cand, refs):
+            key = (f["path"], r["line"], r["class"])
+            if key in seen:
+                continue
+            seen.add(key)
+            tail = r["class"].split("::")[-1]
+            out.append({"file": f["path"], "line": r["line"], "class": r["class"], "via": r["via"],
+                        "edit_id": r["edit_id"], "precedent_names": [b for b in before if b.split("::")[-1] == tail]})
+    return out
+
+
+def order_policy() -> dict:
+    """The ordering policy: $ORCH_ORDERING_POLICY (JSON) or the SMS default gated paths."""
+    raw = os.environ.get("ORCH_ORDERING_POLICY")
+    if raw:
+        try:
+            policy = json.loads(raw)
+            if isinstance(policy, dict):
+                return policy
+        except ValueError:
+            pass
+    import unit_progress
+
+    return {"gatedPaths": list(unit_progress.ORDER_GATED_PATHS)}
+
+
+_READINESS_CACHE: dict[tuple, Any] = {}
+
+
+def _order_readiness(repo: Optional[Path], base_rev: Optional[str], version: Optional[str]):
+    """(readiness.Readiness | None, error) for the evidence (host) repo at base_rev."""
+    if repo is None or not base_rev:
+        return None, "no evidence repo or base revision for the readiness index"
+    policy = order_policy()
+    key = (str(repo), base_rev, version, json.dumps(policy, sort_keys=True))
+    if key not in _READINESS_CACHE:
+        import readiness
+
+        try:
+            _READINESS_CACHE[key] = (readiness.load(Path(repo), base_rev, version=version, policy=policy), "")
+        except readiness.ReadinessError as e:
+            _READINESS_CACHE[key] = (None, f"readiness unavailable ({e.kind}: {e.detail})")
+    return _READINESS_CACHE[key]
+
+
+def _owner_progress(repo: Optional[Path], version: Optional[str], unit: Optional[str]) -> Optional[float]:
+    """The owner unit's fuzzy % (context only: readiness, not progress, decides)."""
+    if repo is None or unit is None:
+        return None
+    try:
+        import unit_progress
+
+        prog = unit_progress.load(Path(repo), version)
+        u = prog.unit(unit) if prog else None
+        return round(u.progress, 4) if u else None
+    except Exception:
+        return None
+
+
+def order_checks(refs: list[dict], ready, error: str = "", *, repo: Optional[Path] = None,
+                 version: Optional[str] = None) -> list[dict]:
+    """Each reference resolved through readiness.construct: precedent (the file
+    already constructs it at the base) or ready/shared -> ok, not_ready ->
+    out_of_order, unresolved (ambiguous/absent owner, no source) or no
+    readiness -> unknown."""
+    out = []
+    def ident(name: str) -> str:
+        canon = getattr(ready, "canonical", None) if ready is not None else None
+        return (canon(name) if canon else None) or name
+
+    for r in refs:
+        names = r.get("precedent_names") or []
+        if names and ident(r["class"]) in {ident(n) for n in names}:
+            out.append(dict(r, owner_unit=None, owner_progress=None, status="ok",
+                            reason="precedent: the base text of this file already constructs it"))
+            continue
+        if ready is None:
+            out.append(dict(r, owner_unit=None, owner_progress=None, status="unknown", reason=error))
+            continue
+        st = ready.class_state(r["class"])
+        owner = st["owner_unit"]
+        if st["construct"] in ("ready", "shared"):
+            out.append(dict(r, owner_unit=owner, owner_progress=_owner_progress(repo, version, owner),
+                            status="ok", reason=""))
+        elif st["construct"] == "not_ready":
+            out.append(dict(r, owner_unit=owner, owner_progress=_owner_progress(repo, version, owner),
+                            status="out_of_order",
+                            reason=f"{r['class']} belongs to {owner}, whose source does not define its constructor "
+                                   "yet: leave it until the class's own unit is decompiled"))
+        else:
+            out.append(dict(r, owner_unit=owner, owner_progress=None, status="unknown",
+                            reason=f"{r['class']}: owner unresolved ({st['provenance']})"))
+    return out
+
+
+# --------------------------------------------------------------------------
 # decide
 # --------------------------------------------------------------------------
 
@@ -1949,6 +2829,26 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
                 g["reason"] = ("approved construct mixed with " + ", ".join(residue) + "; split the group") if residue \
                     else "approved evidence found after reduce: re-run the gate so S* keeps it"
 
+    unused_checks = [dict(r) for r in mwcc.get("unused_checks") or []]
+    violations = [{"kind": "dead_unused_body", "unit": r.get("unit"), "file": r.get("file"),
+                   "function": r.get("function"), "line": r.get("line")}
+                  for r in unused_checks if r.get("status") == "dead"]
+    inconclusive = [r for r in unused_checks if r.get("status") == "inconclusive"]
+    # The UNUSED rule needs the link map for every touched unit whose source changed. Where the game
+    # expects one (SMS), a missing/unreadable map or an unmatched unit leaves the analysis incomplete.
+    map_gaps = [(u, m.get("reason") or "link map unavailable") for u, m in sorted((mwcc.get("unused_map") or {}).items())
+                if not m.get("available")] if game_policy.link_map_required() else []
+    refs = reduce.get("order_refs") or []
+    if refs:
+        ready, why = _order_readiness(evidence_repo, reduce.get("base_rev"), version)
+        ordering = order_checks(refs, ready, why, repo=evidence_repo, version=version)
+    else:
+        ordering = []
+    violations += [{"kind": "out_of_order", "file": c["file"], "line": c["line"], "class": c["class"],
+                    "owner_unit": c["owner_unit"], "owner_progress": c["owner_progress"], "reason": c["reason"]}
+                   for c in ordering if c["status"] == "out_of_order"]
+    order_unknown = [c for c in ordering if c["status"] == "unknown"]
+
     functions_out = []
     probe_list = []
     any_steering = False
@@ -2053,6 +2953,10 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
             "groups": [g["id"] for g in touching],
             "reasons": fn_reasons[:8],
         }
+        uc = _unused_check_for(fn, unused_checks)
+        if uc is not None:
+            entry["unused_check"] = uc.get("status")
+            entry["reasons"].append(f"UNUSED in the link map: stub test {uc.get('status')} ({uc.get('reason')})"[:300])
         functions_out.append(entry)
         if probes and decision != "pass":
             try:
@@ -2088,6 +2992,33 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
         attempt = "pass"
     if any(f["stack_only_perturbation"] for f in functions_out):
         attempt_reasons.append("stack_only_perturbation")
+    # UNUSED rule (sms-unused-functions): an inconclusive stub test leaves the
+    # analysis incomplete; a dead body is a violation that fails an otherwise
+    # passing attempt (other verdicts keep their kind, violations still listed).
+    if inconclusive:
+        attempt = "unresolved"
+        attempt_reasons.append("analysis incomplete: UNUSED stub test inconclusive for " + ", ".join(
+            f"{r.get('function')} ({r.get('reason')})" for r in inconclusive[:4])[:400])
+    if map_gaps:
+        attempt = "unresolved"
+        attempt_reasons.append("analysis incomplete: no link-map coverage for the UNUSED rule: " + ", ".join(
+            f"{u} ({why})" for u, why in map_gaps[:4]))
+    if order_unknown:
+        attempt = "unresolved"
+        attempt_reasons.append("analysis incomplete: decompile-in-order check cannot resolve " + ", ".join(
+            f"{c['class']} ({c['file']}:{c['line']}: {c['reason']})" for c in order_unknown[:4])[:400])
+    dead = [v for v in violations if v["kind"] == "dead_unused_body"]
+    if dead:
+        attempt_reasons.append("dead UNUSED bodies (UNUSED functions may only be reconstructed when inlined into "
+                               "another function of the same TU; restore the stub): " + ", ".join(
+                                   f"{v['function']} {v['file']}:{v['line']}" for v in dead[:6]))
+    late = [v for v in violations if v["kind"] == "out_of_order"]
+    if late:
+        attempt_reasons.append("out of order (don't fill in code that needs classes whose units are not decompiled): "
+                               + ", ".join(f"{v['class']} ({v['owner_unit']} {v['owner_progress']}%) "
+                                           f"{v['file']}:{v['line']}" for v in late[:6]))
+    if violations and attempt == "pass":
+        attempt = "rule_violation"
     return {
         "tool": TOOL,
         "version": VERSION,
@@ -2105,8 +3036,22 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
         "units": unit_rows,
         "no_changes": reduce.get("changed_files") == [] and mwcc.get("changed_files") == [],
         "group_statuses": {g["id"]: g.get("status") for g in groups},  # final, after decide-time promotions
+        "unused_checks": unused_checks,
+        "order_checks": ordering,
+        "violations": violations,
         "probes": probe_list,
     }
+
+
+def _unused_check_for(fn: dict, checks: list[dict]) -> Optional[dict]:
+    for r in checks:
+        if r.get("unit") != fn.get("unit"):
+            continue
+        if r.get("mangled") and (r["mangled"] == fn.get("name") or (
+                fn.get("target_name") is None and fn.get("name") and "__" not in fn["name"]
+                and _mwcc_qualified(r["mangled"]) == fn["name"])):
+            return r  # by symbol; an unmangled compiled name (C-like toy objects) by qualified name
+    return None
 
 
 def call_construct_problem(g: dict, functions: list[dict]) -> Optional[str]:
@@ -2203,6 +3148,9 @@ def omit_texts(edits: dict) -> dict:
 
 
 def run_apply(report: dict, dry_run: bool) -> dict:
+    """Write S* into the repo. Decision violations: dead UNUSED bodies get the
+    base text of that function back (the stub, or no definition), re-checked
+    in the written text; out-of-order hunks are reverted."""
     edits = report["edits"]
     repo = Path(edits["repo"])
     files = edits["files"]
@@ -2213,15 +3161,31 @@ def run_apply(report: dict, dry_run: bool) -> dict:
     if edits.get("overlay"):
         raise ToolFailure("the check used --overlay-dir; apply needs a check of the working tree")
     revert = set(report["mwcc"].get("revert_edits") or revert_edit_ids(report["reduce"]))
+    dead: dict[str, list[dict]] = {}
+    late: dict[str, set[int]] = {}
+    for v in (report.get("decision") or {}).get("violations") or []:
+        if v.get("kind") == "dead_unused_body":
+            dead.setdefault(v["file"], []).append(v)
+        elif v.get("kind") == "out_of_order":
+            late.setdefault(v["file"], set()).add(int(v["line"]))
     written = []
     for f in files:
-        es = se.enumerate_edits(f["path"], f["base_text"], f["cand_text"])
-        ids = [e.id for e in es if e.id in revert]
-        if not ids:
+        es_ = se.enumerate_edits(f["path"], f["base_text"], f["cand_text"])
+        lines = late.get(f["path"], set())
+        # out-of-order hunks are reverted too (S* excludes them)
+        ids = [e.id for e in es_ if e.id in revert or (e.added and any(
+            e.cand_line <= ln < e.cand_line + len(e.added) for ln in lines))]
+        if not ids and f["path"] not in dead:
             continue
-        text = se.apply_reverts(f["base_text"], f["cand_text"], es, ids, base_exists=f["base_exists"],
+        text = se.apply_reverts(f["base_text"], f["cand_text"], es_, ids, base_exists=f["base_exists"],
                                 cand_exists=f["cand_exists"], preserve_lines=True)
-        written.append({"path": f["path"], "reverted": ids, "deleted": text is None})
+        restored = []
+        if text is not None and f["path"] in dead:
+            text, restored = restore_dead_bodies(f["base_text"], f["cand_text"], text, dead[f["path"]])
+        row = {"path": f["path"], "reverted": ids, "deleted": text is None}
+        if restored:
+            row["unused_restored"] = restored
+        written.append(row)
         if dry_run:
             continue
         p = repo / f["path"]
@@ -2231,6 +3195,119 @@ def run_apply(report: dict, dry_run: bool) -> dict:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(se.encode(text))
     return {"tool": TOOL, "repo": str(repo), "dry_run": dry_run, "files": written}
+
+
+def restore_dead_bodies(base_text: Optional[str], cand_text: str, text: str,
+                        violations: list[dict]) -> tuple[str, list[str]]:
+    """`text` (S*) with each dead UNUSED definition replaced by its base text
+    (deleted when the base has none), then verified: the function must be
+    trivial or absent afterwards."""
+    cdefs, bdefs = function_defs(cand_text), function_defs(base_text)
+    targets = []
+    for v in violations:
+        d = next((c for c in cdefs if c.line == v.get("line")), None)
+        if d is None:
+            raise ToolFailure(f"{v.get('function')}: no definition at {v.get('file')}:{v.get('line')} in the candidate")
+        targets.append(d)
+    restored = []
+    for d in targets:  # one at a time: offsets move after each replacement
+        cur = [x for x in function_defs(text) if _qual_eq(x.qualified, d.qualified) and x.params == d.params]
+        if not cur:
+            raise ToolFailure(f"{d.qualified}: definition not found in S*")
+        x = min(cur, key=lambda c: abs(c.line - d.line))
+        if x.trivial:
+            continue
+        base = _base_defs(bdefs, d)
+        if base:
+            b = base[0]
+            text = text[:x.start] + base_text[b.start:b.close + 1] + text[x.close + 1:]
+        else:
+            end = x.close + 1
+            if text[end:end + 1] == "\n":
+                end += 1
+            text = text[:x.start] + text[end:]
+        after = [y for y in function_defs(text) if _qual_eq(y.qualified, d.qualified) and y.params == d.params]
+        if any(not y.trivial for y in after):
+            raise ToolFailure(f"{d.qualified}: still has a body after restoring the base text")
+        restored.append(d.qualified)
+    return text, restored
+
+
+def run_unused_test(repo_path: Path | str, base_ref: str, file: str, function: str, *,
+                    overlay_dir: Optional[str | Path] = None, version: Optional[str] = None, jobs: int = MAX_JOBS,
+                    tmp: Optional[str] = None, backend=None) -> dict:
+    """Standalone stub test of one function: the candidate is the working tree
+    (plus --overlay-dir), built with C and C' in shadow roots; the repo is
+    never written. Reports the map's UNUSED status for context only."""
+    repo = Path(repo_path).resolve()
+    base_rev = rev_parse(repo, f"{base_ref}^{{commit}}")
+    if base_rev is None:
+        raise ToolFailure(f"{base_ref}: unknown revision in {repo}")
+    overlay = read_overlay(overlay_dir)
+    if file in overlay:
+        cand = overlay[file]
+    elif (repo / file).is_file():
+        cand = (repo / file).read_bytes()
+    else:
+        raise ToolFailure(f"{file}: not in the working tree or overlay")
+    cand_text = se.decode(cand) or ""
+    base = git_show(repo, base_rev, file)
+    edits_hash = se.edits_hash(base_rev, collect_files(repo, base_rev, DEFAULT_PATHS, overlay_dir))
+    qualified, params = function.strip(), None
+    if "(" in qualified:
+        i = qualified.index("(")
+        j = qualified.rfind(")")
+        params = canonical_params(qualified[i + 1:j] if j > i else qualified[i + 1:])
+        qualified = qualified[:i].strip()
+    defs = match_defs(function_defs(cand_text), qualified, params)
+    if not defs:
+        raise ToolFailure(f"{function}: no definition in {file}")
+    backend = backend or RepoBackend(repo, version, jobs, tmp)
+    try:
+        by_path, _ = backend.units([file])
+        units = by_path.get(file) or []
+        if not units:
+            raise ToolFailure(f"{file}: no unit builds it")
+        u = units[0]
+        symbols = backend.unused(u, base_rev) if hasattr(backend, "unused") else None
+        hits = [sym for sym in symbols or [] if _qual_eq(sym["qualified"], qualified)
+                and (params is None or sym["params"] is None or len(sym["params"]) == len(params))]
+        texts: dict[str, Optional[bytes]] = dict(overlay)
+        texts[file] = cand
+        ok, obj, err = backend.compile(u, texts, "cand")
+        if not ok or obj is None:
+            raise ToolFailure(f"the candidate does not build: {(err or '')[:400]}")
+        before = backend.classify(obj, u)
+        bdefs = function_defs(se.decode(base) if base is not None else None)
+        checks = []
+        for d in defs:
+            bd = _base_defs(bdefs, d)
+            row = {"unit": u.name, "file": file, "function": hits[0]["function"] if len(hits) == 1 else function,
+                   "mangled": hits[0]["mangled"] if len(hits) == 1 else None}
+            row.update(stub_test(backend, u, texts, file, cand_text, d, before,
+                                 hits[0] if len(hits) == 1 else None))
+            row["base_rev"], row["edits_hash"] = base_rev, edits_hash
+            inputs = unit_inputs_of(backend, u, texts)
+            if inputs is None:
+                row["status"], row["reason"] = "inconclusive", "the unit's inputs cannot be determined"
+                inputs = [file]
+            row["unit_inputs"] = inputs
+            row["unit_inputs_sha256"] = unit_inputs_sha256(
+                inputs, lambda p: texts[p] if p in texts else _read_bytes(getattr(backend, "root", None), p))
+            flags = backend.unit_flags(u) if hasattr(backend, "unit_flags") else None
+            row["unit_flags_sha256"] = hashlib.sha256(flags.encode()).hexdigest() if flags is not None else None
+            row["base"] = "absent" if not bd else ("trivial" if all(b.trivial for b in bd) else "body")
+            row["candidate_trivial"] = d.trivial
+            checks.append(row)
+    finally:
+        backend.close()
+    statuses = {c["status"] for c in checks}
+    status = ("inconclusive" if "inconclusive" in statuses else statuses.pop() if len(statuses) == 1 else "mixed")
+    return {"tool": TOOL, "version": VERSION, "repo": str(repo), "base_rev": base_rev, "file": file,
+            "function": function, "status": status,
+            "map": {"available": symbols is not None, "unused": bool(hits) if symbols is not None else None,
+                    "mangled": [h["mangled"] for h in hits]},
+            "checks": checks}
 
 
 def run_fingerprint(repo: Path, unit: str, source_file: Optional[Path], version: Optional[str]) -> dict:
@@ -2276,6 +3353,9 @@ def _decision_lines(dec: dict) -> list[str]:
         m = f["match"]
         lines.append(f"  {f['decision']:<16} {f['semantic']:<10} {f['analysis']:<10} {f['audit_label']:<10} "
                      f"base {m['base']} cand {m['candidate']} S* {m['real_only']}  {f.get('demangled') or f['name']}")
+    for u in dec.get("unused_checks") or []:
+        lines.append(f"  unused {u['status']:<12} {u['function']}  {u['file']}:{u['line']}  {u['reason']}")
+        lines += [f"      {c['function']}: {c['before']} -> {c['after']}" for c in (u.get("changed") or [])[:6]]
     lines += ["  - " + r for r in dec["reasons"][:6]]
     return lines
 
@@ -2341,6 +3421,21 @@ def cmd_apply(args) -> int:
     payload = run_apply(_load(args.report), args.dry_run)
     _emit(args, payload, [f"{'would write' if args.dry_run else 'wrote'} {f['path']} ({len(f['reverted'])} edits reverted)"
                           for f in payload["files"]])
+    return 0
+
+
+def cmd_unused_test(args) -> int:
+    payload = run_unused_test(Path(args.repo), args.base_ref, args.file, args.function, overlay_dir=args.overlay_dir,
+                              version=args.version, jobs=args.jobs, tmp=args.tmp)
+    m = payload["map"]
+    human = [f"{payload['function']}: {payload['status'].upper()}"
+             f"  (map: {'UNUSED' if m['unused'] else 'not UNUSED' if m['available'] else 'no link map'})"]
+    for c in payload["checks"]:
+        human.append(f"  {c['status']:<12} {c['file']}:{c['line']} stub {c['stub']}  base {c['base']}  {c['reason']}")
+        human += [f"      {x['function']}: {x['before']['status']} {x['before']['match_percent']}%"
+                  f" -> {x['after']['status']} {x['after']['match_percent']}%"
+                  + (f"  (worse {x['delta']})" if "delta" in x else "") for x in (c["callers"] or c["changed"])]
+    _emit(args, payload, human)
     return 0
 
 
@@ -2430,6 +3525,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--report", required=True)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_apply)
+
+    p = sub.add_parser("unused-test", help="stub test: does a function's body change any target function?")
+    common(p)
+    jobs(p)
+    p.add_argument("--repo", required=True)
+    p.add_argument("--base-ref", default="HEAD")
+    p.add_argument("--overlay-dir", help="files here (repo-relative) replace the working tree as candidate")
+    p.add_argument("--file", required=True, help="repo-relative source file defining the function")
+    p.add_argument("--function", required=True, help="qualified name, optionally with parameters: T::f(int)")
+    p.add_argument("--tmp")
+    p.set_defaults(func=cmd_unused_test)
 
     p = sub.add_parser("fingerprint", help="debug: IR fingerprints of one unit")
     common(p)

@@ -117,7 +117,8 @@ class FakeMwcc:
 
     def __init__(self, tmp: Path, target_text: str, fail: Optional[set] = None,
                  units: Optional[dict[str, str]] = None, repo: Optional[Path] = None,
-                 targets: Optional[dict[str, str]] = None):
+                 targets: Optional[dict[str, str]] = None, unused: Optional[dict[str, list[str]]] = None):
+        self.unused_names = unused  # unit -> UNUSED map symbols (None: no link map)
         self.tmp = tmp
         self.tmp.mkdir(parents=True, exist_ok=True)
         self.fail = fail or set()  # {(unit, label)}
@@ -182,6 +183,11 @@ class FakeMwcc:
 
     def target_path(self, unit):
         return self.targets[unit.name]
+
+    def unused(self, unit, base_rev):
+        if self.unused_names is None:
+            return None
+        return [sc.demangled_symbol(n) for n in self.unused_names.get(unit.name, [])]
 
     def close(self):
         pass
@@ -381,16 +387,74 @@ def test_mwcc_touch_sets_and_steering_only_sstar(toolchain) -> None:
 FIXTURES = TOOLS.parents[4] / "apps/server/src/core/validation/steering/__fixtures__"
 PASS_CAND = BASE.replace("    c();\n", "    c(2) REAL;\n")
 PASS_TARGET = BASE.replace("    c();\n", "    c(2);\n")
+VIOLATION_FN = "void u()\n{\n    w() REAL;\n}\n"
+
+# Decompile-in-order evidence: link map, report.json and objdiff.json in the
+# evidence repo (untracked, as in a real checkout). TKoopa's unit is a blank
+# stub (no measures); TTinKoopa's is 98.5%.
+ORDER_FILE = "src/System/MarNameRefGen_Enemy.cpp"
+ORDER_UNITS = {"u1": "src/a.c", "u2": ORDER_FILE}
+ORDER_CAND = """void getNameRef()
+{
+    a();
+    if (strcmp(name, "TinKoopa") == 0) return new TTinKoopa("x") REAL;
+    if (strcmp(name, "Koopa") == 0) return new TKoopa("y") REAL;
+}
+"""
+ORDER_TARGET = ORDER_CAND.replace(" REAL", "")
+ORDER_SOURCES = {
+    "src/Enemy/Koopa.cpp": "// blank stub unit\n",
+    "src/Enemy/tinkoopa.cpp": "TTinKoopa::TTinKoopa(const char* name) { }\n",
+    "src/System/MarNameRefGen.cpp": "JDrama::TNameRef* TMarNameRefGen::getNameRef(const char* name) const { return 0; }\n",
+}
+
+
+def write_order_evidence(repo: Path, version: str = "V1") -> None:
+    """Readiness evidence: target objects + objdiff.json + link map (untracked)
+    and the owner sources committed at HEAD (readiness reads them from git).
+    TKoopa's strong constructor is not defined in its blank stub unit;
+    TTinKoopa's is. report.json gives owner progress for context."""
+    from test_readiness import GLOBAL, write_readiness_repo
+
+    units = {
+        "mario/Enemy/Koopa": ("src/Enemy/Koopa.cpp", [("__ct__6TKoopaFPCc", GLOBAL, [])], [("__vt__6TKoopa", GLOBAL)]),
+        "mario/Enemy/tinkoopa": ("src/Enemy/tinkoopa.cpp", [("__ct__9TTinKoopaFPCc", GLOBAL, [])],
+                                 [("__vt__9TTinKoopa", GLOBAL)]),
+        "mario/System/MarNameRefGen": ("src/System/MarNameRefGen.cpp",
+                                       [("getNameRef__14TMarNameRefGenCFPCc", GLOBAL, [])],
+                                       [("__vt__14TMarNameRefGen", GLOBAL)]),
+    }
+    write_readiness_repo(repo, version, units, map_text="Link map of __start\n")
+    report = {"units": [{"name": "mario/Enemy/Koopa", "metadata": {"source_path": "src/Enemy/Koopa.cpp"}, "measures": {}},
+                        {"name": "mario/Enemy/tinkoopa", "metadata": {"source_path": "src/Enemy/tinkoopa.cpp"},
+                         "measures": {"fuzzy_match_percent": 98.5}}]}
+    (repo / f"build/{version}/report.json").write_text(json.dumps(report))
+    for rel, text in ORDER_SOURCES.items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text)
+    subprocess.run(["git", "-C", str(repo), "add", *ORDER_SOURCES], check=True)
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false",
+                    "commit", "-q", "-m", "owner sources"], check=True)
+
+
+def order_units_resolver(units: dict[str, str]):
+    def resolve(files):
+        rows = [{"unit": n, "source": src, "object": "o", "target": "t", "flags": ["cc"]} for n, src in units.items()]
+        return "V1", rows, {}
+    return resolve
 VOLATILE = ("edits_hash", "base_rev", "elapsed_s", "compiles")
 
 
-def split_pipeline(repo: Path, tmp: Path, target: str) -> tuple[dict, dict]:
+def split_pipeline(repo: Path, tmp: Path, target: str, unused: Optional[dict] = None,
+                   units: Optional[dict[str, str]] = None, targets: Optional[dict[str, str]] = None) -> tuple[dict, dict]:
     """edits -> reduce -> mwcc --attribute -> decide, each hand-off through JSON."""
-    edits = json.loads(json.dumps(sc.build_edits(repo, "HEAD", unit_resolver=fake_units)))
+    resolver = fake_units if units is None else order_units_resolver(units)
+    edits = json.loads(json.dumps(sc.build_edits(repo, "HEAD", unit_resolver=resolver)))
     red = json.loads(json.dumps(sc.run_reduce(edits, repo, tmp / "c", budget=60, max_groups=16, jobs=1,
                                               approvals_path=None, evidence_repo=repo, oracle=FakeOracle())))
     mw = json.loads(json.dumps(sc.run_mwcc(repo, "HEAD", edits["edits_hash"], sc.revert_edit_ids(red), attribute=red,
-                                           jobs=1, backend=FakeMwcc(tmp / "m", target))))
+                                           jobs=1, backend=FakeMwcc(tmp / "m", target, unused=unused, units=units,
+                                                                    targets=targets, repo=repo))))
     dec = json.loads(json.dumps(sc.decide(red, mw, evidence_repo=repo, approvals=[], version=edits["game_version"])))
     return red, dec
 
@@ -410,6 +474,17 @@ def fixture_cases(toolchain) -> dict[str, tuple[dict, dict]]:
     out["-pass"] = split_pipeline(repo, tmp / "pass", PASS_TARGET)
     (repo / "src/a.c").write_text(BASE)
     out["-nochange"] = split_pipeline(repo, tmp / "none", TARGET)
+    # A dead UNUSED body: `u` is UNUSED in the map, absent in the base, and
+    # stubbing it changes no target function -> rule_violation.
+    (repo / "src/a.c").write_text(PASS_CAND + VIOLATION_FN)
+    out["-violation"] = split_pipeline(repo, tmp / "violation", PASS_TARGET, unused={"u1": ["u__Fv"]})
+    # Out of order: a MarNameRefGen factory line for a class whose unit is a blank stub.
+    (repo / "src/a.c").write_text(BASE)
+    write_order_evidence(repo)
+    (repo / ORDER_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (repo / ORDER_FILE).write_text(ORDER_CAND)
+    out["-order"] = split_pipeline(repo, tmp / "order", TARGET, units=ORDER_UNITS,
+                                   targets={"u1": BASE, "u2": ORDER_TARGET})
     return out
 
 
@@ -417,6 +492,21 @@ def test_fixture_cases_and_committed_fixtures(toolchain) -> None:
     cases = fixture_cases(toolchain)
     assert cases[""][1]["attempt"] == "steering_located" and cases["-pass"][1]["attempt"] == "pass"
     assert [cases[k][1]["no_changes"] for k in ("", "-pass", "-nochange")] == [False, False, True]
+    violation = cases["-violation"][1]
+    assert violation["attempt"] == "rule_violation", violation["reasons"]
+    assert violation["violations"] == [{"kind": "dead_unused_body", "unit": "u1", "file": "src/a.c",
+                                        "function": "u(void)", "line": 14}]
+    assert [c["status"] for c in violation["unused_checks"]] == ["dead"]
+    assert next(f for f in violation["functions"] if f["name"] == "u")["unused_check"] == "dead"
+    order = cases["-order"][1]
+    assert order["attempt"] == "rule_violation", order["reasons"]
+    assert order["violations"] == [{"kind": "out_of_order", "file": ORDER_FILE, "line": 5, "class": "TKoopa",
+                                    "owner_unit": "mario/Enemy/Koopa", "owner_progress": 0.0,
+                                    "reason": order["violations"][0]["reason"]}]
+    assert [(c["class"], c["status"]) for c in order["order_checks"]] == [("TTinKoopa", "ok"), ("TKoopa", "out_of_order")]
+    assert cases["-order"][0]["order_refs"][0]["via"] == "new"
+    assert all(not d[1]["violations"] and not d[1]["unused_checks"] and not d[1]["order_checks"]
+               for k, d in cases.items() if k not in ("-violation", "-order"))
     nochange = cases["-nochange"][1]
     assert nochange["attempt"] == "pass" and nochange["functions"] == [] and nochange["units"] == []
     for suffix, (red, dec) in cases.items():
