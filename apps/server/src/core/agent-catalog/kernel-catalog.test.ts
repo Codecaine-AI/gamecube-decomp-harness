@@ -611,6 +611,45 @@ describe("meleeKernelAgentCatalog", () => {
     }
   });
 
+  test("renders the steering policy and a sample steering probe for an active steering gate", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const workerText = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      `${worker(payload)?.renderedPrompt?.content ?? ""}\n${worker(payload)?.context?.renderedContext ?? ""}`;
+
+    const melee = loadKernelAgentsPayload(paths);
+    expect(melee.steeringGate).toBe("off");
+    expect(workerText(melee)).not.toContain("<steering_policy>");
+    expect(workerText(melee)).not.toContain("steering_probe");
+
+    const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
+    for (const sms of [
+      loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }),
+      loadKernelAgentsPayload({ ...paths, game: smsGame }, {
+        loadTargetCard: () => null,
+        loadBackfillPassContext: () => null,
+      }),
+    ]) {
+      expect(sms.steeringGate).not.toBe("off");
+      const text = workerText(sms);
+      expect(text).toContain("<steering_policy>");
+      expect(text).toContain("A steering match is never done.");
+      expect(worker(sms)?.context?.renderedContext ?? "").toContain("<steering_probe function=");
+      expect(text).toContain('"steering_edits"');
+      expect(text).toContain("real_code_evidence inlines --type MActor --member mLightData");
+      expect(text).not.toMatch(unresolvedPlaceholderPattern);
+      expect(text).not.toContain("{{");
+      // The viewer's prompt document is the same variant the rendered body came from.
+      expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
+    }
+  });
+
   test("threads the selected target into the real worker preview", () => {
     const selected = { unit: "unit/selected", symbol: "SelectedTarget" };
     const loaded: unknown[] = [];

@@ -71,6 +71,8 @@ type WorkerStateOutcome =
   | "validation_no_official_score_change"
   | "validation_target_regressed"
   | "validation_same_unit_regression"
+  /** Steering gate enforce rejected the worker's latest attempt: its match depended on behaviour-identical edits. */
+  | "validation_steering_located"
   | "validation_failed"
   | "validation_skipped"
   | "cancelled"
@@ -2251,6 +2253,25 @@ function workerStateValidationFailed(workerState: JsonObject): boolean {
   );
 }
 
+/**
+ * The worker's latest attempt was rejected by the enforced steering gate. The
+ * latest checkpoint decides when there is one (a later accepted attempt
+ * clears it); otherwise the embedded runner validation does.
+ */
+function workerStateSteeringRejected(workerState: JsonObject): boolean {
+  const latest = asObject(workerState.latestCheckpoint);
+  if (stringValue(latest.id)) return stringValue(latest.validationStatus) === "steering_located";
+  return stringValue(asObject(workerState.runnerValidation).status) === "steering_located";
+}
+
+/** What an accepted (selectable) checkpoint established, ignoring any rejected attempt's raw target score. */
+function acceptedCheckpointResult(workerState: JsonObject): WorkerStateResult {
+  const selected = asObject(workerState.selectedCheckpoint);
+  if (!stringValue(selected.id) || selected.selectable !== true || selected.hardGatesPassed !== true) return "no_progress";
+  if (selected.exact === true) return "exact";
+  return numberValue(selected.delta, 0) > 0 ? "improved" : "no_progress";
+}
+
 function runnerValidationRejected(workerState: JsonObject): boolean {
   const status = stringValue(asObject(workerState.runnerValidation).status);
   return status !== "" && status !== "passed" && status !== "skipped";
@@ -2326,6 +2347,7 @@ function workerStateValidationEndstate(workerState: JsonObject): WorkerStateOutc
   if (status === "no_official_score_change") return "validation_no_official_score_change";
   if (status === "target_regressed") return "validation_target_regressed";
   if (status === "same_unit_regression") return "validation_same_unit_regression";
+  if (status === "steering_located") return "validation_steering_located";
   if (status === "failed") return "validation_failed";
   if (status === "skipped") return "validation_skipped";
   if (/^runner_validation_/.test(errorKind)) return "validation_failed";
@@ -2350,6 +2372,9 @@ function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutc
 }
 
 function workerStateResult(workerState: JsonObject): WorkerStateResult {
+  // A steering rejection outranks the rejected attempt's raw exact/improved target:
+  // only an accepted checkpoint counts as progress.
+  if (workerStateSteeringRejected(workerState)) return acceptedCheckpointResult(workerState);
   const runnerTarget = workerStateRunnerTarget(workerState);
   if (runnerTarget) {
     if (runnerTarget.exact === true) return "exact";
@@ -2382,6 +2407,9 @@ function workerStateOutcome(workerState: JsonObject): WorkerStateOutcome {
   if (workerStateSessionFailed(workerState)) return "worker_session_failed";
   if (workerStateAgentToolError(workerState)) return "agent_tool_error";
   const stopReasonEndstate = workerStateStopReasonEndstate(workerState);
+  if (stopReasonEndstate === "exact") return stopReasonEndstate;
+  // The worker stopped on a steering rejection: that, not the budget or deadline, is why it is not done.
+  if (workerStateSteeringRejected(workerState)) return "validation_steering_located";
   if (stopReasonEndstate) return stopReasonEndstate;
   if (lifecycle === "exact") return "exact";
   if (lifecycle === "cancelled") return "cancelled";
@@ -2420,6 +2448,7 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
     validation_no_official_score_change: 0,
     validation_target_regressed: 0,
     validation_same_unit_regression: 0,
+    validation_steering_located: 0,
     validation_failed: 0,
     validation_skipped: 0,
     cancelled: 0,
@@ -2453,7 +2482,7 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
     // Runner-validated progress is canonical even when the compact checkpoint
     // note attempts[] narrative has no numeric score fields.
     const runnerTarget = workerStateRunnerTarget(workerState);
-    if (!runnerTarget && runnerValidationRejected(workerState)) continue;
+    if (!runnerTarget && (runnerValidationRejected(workerState) || workerStateSteeringRejected(workerState))) continue;
     const runnerDelta = runnerValidationDelta(asObject(workerState.runnerValidation));
     if (runnerTarget && runnerDelta !== null && (runnerDelta > 0 || runnerTarget.exact === true)) {
       const before = numberValue(runnerTarget.before, NaN);
@@ -2577,6 +2606,7 @@ function runSummary(
     numberValue(outcomeCounts.validation_no_official_score_change) +
     numberValue(outcomeCounts.validation_target_regressed) +
     numberValue(outcomeCounts.validation_same_unit_regression) +
+    numberValue(outcomeCounts.validation_steering_located) +
     numberValue(outcomeCounts.validation_failed) +
     numberValue(outcomeCounts.validation_skipped);
   return {

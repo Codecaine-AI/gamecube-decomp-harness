@@ -1,10 +1,28 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { delimiter, isAbsolute, relative, resolve } from "node:path";
+import { delimiter, dirname, isAbsolute, relative, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { recordStackOnlyFunction } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
 import { stopsAtFrame } from "@server/core/validation/stack/stack-check.js";
+import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { gameSteeringGate, steeringGateActive, steeringGateEnforced } from "@server/core/tools/steering-gate.js";
+import { latestSteeringProbe, steeringCoverageFor, type SteeringCoverage } from "@server/core/harness-runtime/run-state/steering.js";
+import { gitIsAncestor, type GitAncestorCheck } from "@server/core/validation/steering/steering-preflight.js";
+import {
+  STEERING_CHECK_TOOLPACK_PATH,
+  STEERING_LOCATED_INSTRUCTION,
+  workspaceSteeringRunner,
+  type SteeringProbe,
+} from "@server/core/validation/steering/steering-check.js";
+import {
+  recordWorkerSteeringObservations,
+  steeringCacheDir,
+  steeringLessonPaths,
+  steeringRepairProbe,
+  steeringSourceSha,
+} from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
+import { packageRoot } from "@server/core/knowledge";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import {
   appendWorkerActivityEvent,
@@ -473,6 +491,59 @@ export function workerAttemptRepairReasons(params: {
   reasons.push(...(params.wideningReasons ?? []));
   reasons.push(...qaLintRepairReasons(effectiveQaLint(params.runnerValidation)));
   return reasons;
+}
+
+const GATE_FAILED_EXACT_REPAIR_INSTRUCTION = `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+
+/**
+ * Claim-time stack-only shortcut (stop_at_frame): the target already differs
+ * from the target object only in the stack frame, so the worker closes
+ * without running the agent. Under an enforced steering gate the claim base
+ * might still carry pre-gate steering, so the unit additionally needs a clean
+ * steering backfill coverage row whose baseline is an ancestor of the claim
+ * base; otherwise the worker runs normally.
+ */
+export function claimStackOnlyShortcutAllowed(params: {
+  stopAtFrame: boolean;
+  stackRemainingClass: string | null | undefined;
+  measuredBaselineScore: number | null;
+  steeringGate: SteeringGateMode;
+  coverage: SteeringCoverage | null;
+  baseRev: string | null | undefined;
+  hostRepoRoot: string;
+  isAncestor?: GitAncestorCheck;
+}): boolean {
+  if (!params.stopAtFrame || params.stackRemainingClass !== "stack_only") return false;
+  if (params.measuredBaselineScore !== null && params.measuredBaselineScore >= EXACT_SCORE) return false;
+  if (!steeringGateEnforced(params.steeringGate)) return true;
+  if (!params.coverage?.clean || !params.baseRev) return false;
+  return (params.isAncestor ?? gitIsAncestor)(params.hostRepoRoot, params.coverage.baselineRev, params.baseRev);
+}
+
+/** The worker-facing repair fields an enforced steering rejection adds: the gate's probe. */
+export function workerSteeringRepairFields(runnerValidation: WorkerChangeValidation): { steering_probe?: SteeringProbe } {
+  const probe = steeringRepairProbe(runnerValidation);
+  return probe ? { steering_probe: probe } : {};
+}
+
+/** The standing instruction of a repair request. */
+export function workerRepairInstruction(params: {
+  runnerValidation: WorkerChangeValidation;
+  latestCheckpoint: Pick<WorkerCheckpointRecord, "exactMatch" | "hardGatesPassed"> | null | undefined;
+  repairReasons: string[];
+  scoreText: string;
+  stopAtFrame: boolean;
+}): string {
+  const tail = "Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.";
+  // An enforced steering rejection is never the "exact but a hard gate failed" case: the
+  // match itself is what failed, so the worker gets the steering probe instruction instead.
+  if (params.runnerValidation.status === "steering_located" && steeringGateEnforced(params.runnerValidation.steering?.mode)) {
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected by the steering gate."} ${STEERING_LOCATED_INSTRUCTION} ${tail}`;
+  }
+  if (params.latestCheckpoint?.exactMatch && !params.latestCheckpoint.hardGatesPassed) {
+    return GATE_FAILED_EXACT_REPAIR_INSTRUCTION;
+  }
+  return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${params.scoreText}.`} ${params.stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : "Continue toward exact from the current source."} ${tail}`;
 }
 
 export function workerCheckpointHardGatesPassed(params: {
@@ -1469,7 +1540,7 @@ export function recordAcceptedAdvisories(store: StateStore, params: {
 function runnerValidationCompiled(validation: WorkerRunnerValidation): boolean {
   if (validation.status === "build_failed") return false;
   if (validation.status === "passed" || validation.status === "failed") return Boolean(validation.target) || validation.exitCode === 0;
-  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation") return true;
+  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation" || validation.status === "steering_located") return true;
   // snapshot_unavailable after a successful object build still carries the unit
   // diff command; pre-build failures carry no command at all.
   return typeof validation.command === "string" && validation.command.includes("objdiff");
@@ -1811,6 +1882,8 @@ async function executeClaimedWorker(params: {
     const stackFramePolicy = globals.game?.matching?.stackFramePolicy ?? null;
     const stopAtFrame = stopsAtFrame(stackFramePolicy);
     const stackGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId ?? "";
+    const steeringGate: SteeringGateMode = globals.game?.matching?.steeringGate ?? gameSteeringGate(game);
+    const steeringActive = steeringGateActive(steeringGate);
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
@@ -1831,6 +1904,27 @@ async function executeClaimedWorker(params: {
       updateWorkerStateBaselineScore(store, claimed.workerStateId, measuredBaselineScore, token);
       target.fuzzy_match_percent = measuredBaselineScore;
     }
+    // Steering gate on: hash the target source at the claim base (the sandbox
+    // has no worker edits yet) to key probe reuse, and hand the newest probe
+    // recorded for this target and source to the worker.
+    let claimSourceSha: string | null = null;
+    let claimSteeringProbe: SteeringProbe | null = null;
+    if (steeringActive) {
+      const claimSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
+      if (claimSourcePath) {
+        try {
+          claimSourceSha = steeringSourceSha(await sandboxHandle.readFile(claimSourcePath));
+        } catch {
+          claimSourceSha = null;
+        }
+      }
+      claimSteeringProbe = latestSteeringProbe(store, {
+        gameId: stackGameId,
+        unit: String(target.unit ?? ""),
+        symbol: String(target.symbol ?? ""),
+        functionSourceSha: claimSourceSha,
+      });
+    }
     const packet = workerPacket({
       run,
       claim: claimed,
@@ -1839,6 +1933,7 @@ async function executeClaimedWorker(params: {
       knowledgeContext,
       firstDiff: workerChangeBaseline.firstDiff,
     });
+    if (claimSteeringProbe) packet.steering_probe = claimSteeringProbe;
     const baselineSummaryPath = resolve(validationDir, "pre_worker_baseline.summary.json");
     await writeFile(baselineSummaryPath, JSON.stringify(workerChangeBaseline, null, 2));
     const targetUnit = String(target.unit ?? "");
@@ -2001,9 +2096,16 @@ async function executeClaimedWorker(params: {
       };
     }
     if (
-      stopAtFrame &&
-      workerChangeBaseline.stackRemaining?.class === "stack_only" &&
-      (measuredBaselineScore === null || measuredBaselineScore < EXACT_SCORE)
+      claimStackOnlyShortcutAllowed({
+        stopAtFrame,
+        stackRemainingClass: workerChangeBaseline.stackRemaining?.class,
+        measuredBaselineScore,
+        steeringGate,
+        coverage: steeringGateEnforced(steeringGate) ? steeringCoverageFor(store, stackGameId, targetUnit) : null,
+        baseRev,
+        hostRepoRoot: globals.repoRoot,
+      }) &&
+      workerChangeBaseline.stackRemaining
     ) {
       // Lazy backfill: the function was already done up to the stack frame
       // when claimed. Record it so the board stops re-queueing it, and close
@@ -2198,6 +2300,7 @@ async function executeClaimedWorker(params: {
             contextBudget,
             targetSourceText,
             advisoryAdjudication: advisoryMode.mode,
+            steeringGate,
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -2215,6 +2318,7 @@ async function executeClaimedWorker(params: {
           toolContext: {
             cwd: workerRepoRoot,
             repoRoot: workerRepoRoot,
+            hostRepoRoot: globals.repoRoot,
             stateDir: globals.stateDir,
             game,
             worktreeId: claimed.claimId,
@@ -2633,6 +2737,29 @@ async function executeClaimedWorker(params: {
         retainPreQa: advisoryMode.mode !== "off",
         deferAdvisories: advisoryMode.mode === "enforce",
         stackFramePolicy,
+        steeringGate: steeringActive
+          ? {
+              mode: steeringGate,
+              baseRev,
+              hostRepoRoot: globals.repoRoot,
+              cacheDir: steeringCacheDir(globals.stateDir),
+              runner: workspaceSteeringRunner(
+                workspaceExec,
+                resolve(packageRoot(), "toolpacks/gamecube-decomp", STEERING_CHECK_TOOLPACK_PATH),
+                globals.repoRoot,
+                {
+                  mode: steeringGate,
+                  hostEnv: {
+                    ORCH_GAME_HOST_REPO_ROOT: globals.repoRoot,
+                    ORCH_GAME_STATE_DIR: globals.stateDir,
+                    ...(game?.gameId ? { ORCH_GAME_ID: game.gameId } : {}),
+                    ...(game?.descriptorPath ? { ORCH_GAME_DIR: dirname(game.descriptorPath) } : {}),
+                  },
+                },
+              ),
+              ...steeringLessonPaths(game, packageRoot()),
+            }
+          : null,
       });
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
         ? await validateWidenedChange({
@@ -2764,6 +2891,19 @@ async function executeClaimedWorker(params: {
             : {}),
         },
       });
+      // Shadow and enforce: every gated attempt leaves observation rows (probes for the next claim, dashboard history).
+      if (targetChangeValidation.steering && stackGameId) {
+        recordWorkerSteeringObservations(store, {
+          result: targetChangeValidation.steering,
+          gameId: stackGameId,
+          unit: targetUnit,
+          symbol: targetSymbol,
+          runId,
+          attemptRef: checkpoint.id,
+          baseRev,
+          sourceSha: claimSourceSha,
+        });
+      }
       if (inlineAdvisories?.adjudication?.verdict === "pass" && inlineAdvisories.patchText !== null) {
         recordAcceptedAdvisories(store, {
           checkpointId: checkpoint.id,
@@ -2895,10 +3035,13 @@ async function executeClaimedWorker(params: {
         .find((checkpoint) => checkpoint.attemptIndex === attemptIndex);
       const measuredScore = latestCheckpoint?.newScore ?? runnerValidation.target?.after ?? null;
       const scoreText = measuredScore != null && Number.isFinite(measuredScore) ? ` at ${measuredScore}%` : "";
-      const repairInstruction =
-        latestCheckpoint?.exactMatch && !latestCheckpoint.hardGatesPassed
-          ? `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`
-          : `${repairReasons.length > 0 ? `Your last submission was rejected: ${repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${scoreText}.`} ${stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : "Continue toward exact from the current source."} Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+      const repairInstruction = workerRepairInstruction({
+        runnerValidation,
+        latestCheckpoint,
+        repairReasons,
+        scoreText,
+        stopAtFrame,
+      });
       repairRequest = {
         attempt: attemptIndex + 1,
         previous_agent_output_path: result.outputPath,
@@ -2915,6 +3058,7 @@ async function executeClaimedWorker(params: {
         ...(shouldExposeWideningDecisionToWorker(writeSetWideningMode)
           ? { widening_decision: wideningDecision, widening_request: wideningDraftRequest }
           : {}),
+        ...workerSteeringRepairFields(runnerValidation),
         instruction: repairInstruction,
       };
       evaluation.repairFeedbackPath = repairFeedbackPath;

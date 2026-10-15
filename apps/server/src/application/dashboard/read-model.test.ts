@@ -12,6 +12,7 @@ import {
   createRun,
   enqueueWorkerOutputIntegration,
   openState,
+  recordWorkerCheckpoint,
   setRunSchedulerCondition,
   startSchedulerEpoch,
   transitionRun,
@@ -1208,6 +1209,109 @@ describe("dashboard read model", () => {
     expect(counts.provider_outage).toBe(1);
     expect(counts.improvement_banked).toBe(1);
     expect(counts.attempt_budget_exhausted).toBe(1);
+  });
+
+  test("a steering-rejected attempt outranks its raw exact or improved target score", () => {
+    const { dir, store } = tempState();
+    let runId = "";
+    const artifact = (name: string, body: JsonObject): string => {
+      const path = join(dir, `${name}.summary.json`);
+      writeFileSync(path, JSON.stringify(body));
+      return path;
+    };
+    const steeringReason = "steering_located: steering located in steered_fn (without steering: 96.5%).";
+    try {
+      seedHarnessState(store, "sms", { head: "base-sms" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sms" });
+      runId = run.id;
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 1 });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [
+          { kind: "function", unit: "unit", symbol: "steered_fn", sourcePath: "src/steered.c", size: 64, fuzzy: 90 },
+          { kind: "function", unit: "unit", symbol: "banked_then_steered_fn", sourcePath: "src/banked.c", size: 64, fuzzy: 90 },
+        ],
+        workerPoolSize: 1,
+      });
+      const checkpoint = (claim: NonNullable<ReturnType<typeof claimNextEpochTarget>>, attemptIndex: number, input: {
+        newScore: number; exact: boolean; hardGatesPassed: boolean; status: string; reasons?: string[];
+      }) => recordWorkerCheckpoint(store, {
+        authority: { host: "dashboard-read-model-test" },
+        workerStateId: claim.workerStateId,
+        runId: run.id,
+        epochId: claim.epochId,
+        epochTargetId: claim.epochTargetId,
+        targetClaimId: claim.claimId,
+        attemptIndex,
+        oldScore: 90,
+        newScore: input.newScore,
+        exactMatch: input.exact,
+        hardGatesPassed: input.hardGatesPassed,
+        buildStatus: "compiled",
+        qaStatus: "clean",
+        objdiffStatus: "available",
+        validationStatus: input.status,
+        artifactPath: artifact(`${claim.workerStateId}-${attemptIndex}`, {
+          status: input.status,
+          reasons: input.reasons ?? [],
+          target: { unit: "unit", symbol: claim.targetId, before: 90, after: input.newScore, improved: true, exact: input.exact },
+        }),
+        patchPath: null,
+        diffPath: null,
+        writeSet: [],
+        failureReasons: input.reasons ?? [],
+        metadata: {},
+      });
+
+      // Exact target, rejected for steering: nothing was banked.
+      const steered = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-steered", baseRev: "base-sms" })!;
+      checkpoint(steered, 0, { newScore: 100, exact: true, hardGatesPassed: false, status: "steering_located", reasons: [steeringReason] });
+      closeWorkerState(store, {
+        workerStateId: steered.workerStateId,
+        lifecycleStatus: "finished",
+        summary: {
+          agent_note: { attempts: [{ old_score: 90, new_score: 100, delta: 10 }] },
+          continuation_attempts: { stop_reason: "attempt_budget_exhausted", exhausted: true },
+        },
+      });
+
+      // An accepted improvement, then an exact attempt rejected for steering.
+      const banked = claimNextEpochTarget({ store, runId: run.id, workerId: "worker-banked", baseRev: "base-sms" })!;
+      checkpoint(banked, 0, { newScore: 95, exact: false, hardGatesPassed: true, status: "passed" });
+      checkpoint(banked, 1, { newScore: 100, exact: true, hardGatesPassed: false, status: "steering_located", reasons: [steeringReason] });
+      closeWorkerState(store, {
+        workerStateId: banked.workerStateId,
+        lifecycleStatus: "finished",
+        summary: { continuation_attempts: { stop_reason: "attempt_budget_exhausted", exhausted: true } },
+      });
+    } finally {
+      store.db.close();
+    }
+
+    const { runDetails } = createDashboardReadModel({
+      buildPrRecordsView: () => ({}),
+      campaignStatus: () => ({}),
+      processStatus: () => ({}),
+    });
+    const details = runDetails(dir, runId);
+    const workerStates = details.workerStates as JsonObject[];
+    const bySymbol = (symbol: string) => workerStates.find((state) => (state.target as JsonObject).symbol === symbol)!;
+    const steeredState = bySymbol("steered_fn");
+    const bankedState = bySymbol("banked_then_steered_fn");
+    expect(steeredState.result).toBe("no_progress");
+    expect((steeredState.runnerValidation as JsonObject).status).toBe("steering_located");
+    expect(bankedState.result).toBe("improved");
+    expect((bankedState.selectedCheckpoint as JsonObject).exact).toBe(false);
+
+    const counts = (details.summary as JsonObject).workerStateOutcomeCounts as JsonObject;
+    expect(counts.validation_steering_located).toBe(2);
+    expect(counts.exact).toBe(0);
+    expect(counts.attempt_budget_exhausted).toBe(0);
+    expect((details.summary as JsonObject).exactMatches).toBe(0);
+    const improvements = details.improvements as JsonObject[];
+    expect(improvements.map((row) => row.symbol)).toEqual(["banked_then_steered_fn"]);
+    expect(improvements[0]).toMatchObject({ newScore: 95, exactMatches: 0, source: "runner" });
   });
 
   test("scopes active claim activity to the current recycled claim window", async () => {

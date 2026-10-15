@@ -24,6 +24,7 @@ export type WorkerStateOutcome =
   | "validation_no_official_score_change"
   | "validation_target_regressed"
   | "validation_same_unit_regression"
+  | "validation_steering_located"
   | "validation_failed"
   | "validation_skipped"
   | "cancelled"
@@ -60,6 +61,7 @@ export const reportFilters: Array<{ description: string; id: WorkerStateFilter; 
   { id: "validation_no_official_score_change", label: "No Score Change", description: "Runner validation found no official target score movement." },
   { id: "validation_target_regressed", label: "Target Regressed", description: "Runner validation found the target score regressed." },
   { id: "validation_same_unit_regression", label: "Unit Regression", description: "Runner validation found a same-unit regression." },
+  { id: "validation_steering_located", label: "Steering Located", description: "The steering gate rejected the attempt: its match depends on edits that behave exactly like the code they replace." },
   { id: "validation_failed", label: "Validation Failed", description: "Runner hard gates failed without a more specific validation status." },
   { id: "validation_skipped", label: "Validation Skipped", description: "Runner validation was skipped." },
   { id: "cancelled", label: "Cancelled", description: "Worker states cancelled by an operator or shutdown path." },
@@ -214,6 +216,7 @@ function reportValidationEndstate(report: JsonObject): WorkerStateOutcome | null
   if (status === "no_official_score_change") return "validation_no_official_score_change";
   if (status === "target_regressed") return "validation_target_regressed";
   if (status === "same_unit_regression") return "validation_same_unit_regression";
+  if (status === "steering_located") return "validation_steering_located";
   if (status === "failed") return "validation_failed";
   if (status === "skipped") return "validation_skipped";
   if (/^runner_validation_/.test(errorKind)) return "validation_failed";
@@ -311,6 +314,7 @@ function emptyReportCounts(): Record<WorkerStateFilter, number> {
     validation_no_official_score_change: 0,
     validation_target_regressed: 0,
     validation_same_unit_regression: 0,
+    validation_steering_located: 0,
     validation_failed: 0,
     validation_skipped: 0,
     cancelled: 0,
@@ -398,6 +402,7 @@ export function reportFinishLabel(report: JsonObject): string {
   if (outcome === "validation_no_official_score_change") return "no score change";
   if (outcome === "validation_target_regressed") return "target regressed";
   if (outcome === "validation_same_unit_regression") return "unit regression";
+  if (outcome === "validation_steering_located") return "steering located";
   if (outcome === "validation_failed") return "validation failed";
   if (outcome === "validation_skipped") return "validation skipped";
   if (outcome === "cancelled") return "cancelled";
@@ -430,6 +435,7 @@ export function reportOutcomeDescription(report: JsonObject): string {
   if (outcome === "validation_no_official_score_change") return "No Score Change: runner validation found no official target score movement.";
   if (outcome === "validation_target_regressed") return "Target Regressed: runner validation found the target score moved backward.";
   if (outcome === "validation_same_unit_regression") return "Unit Regression: runner validation found a same-unit regression.";
+  if (outcome === "validation_steering_located") return "Steering Located: the steering gate rejected the attempt because its match depends on edits that behave exactly like the code they replace, or the gate could not certify them.";
   if (outcome === "validation_failed") return "Validation Failed: runner hard gates failed without a more specific validation status.";
   if (outcome === "validation_skipped") return "Validation Skipped: runner validation was skipped.";
   if (outcome === "cancelled") return "Cancelled: the worker state was cancelled before completion.";

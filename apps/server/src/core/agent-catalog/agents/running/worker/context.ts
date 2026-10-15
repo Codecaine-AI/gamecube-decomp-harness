@@ -2,9 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
+import type { StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import { gameStackFramePolicy } from "@server/core/tools/stack-frame-policy.js";
+import { gameSteeringGate, steeringGateActive } from "@server/core/tools/steering-gate.js";
 import type {
   PiPromptBundle,
   RunGameMetadata,
@@ -82,6 +83,8 @@ export interface WorkerPromptOptions {
   advisoryAdjudication?: AdvisoryAdjudicationMode;
   /** The game's `matching.stackFramePolicy`; omitted resolves it from `game`, else `match_frame` (today's text). */
   stackFramePolicy?: StackFramePolicy;
+  /** The game's `matching.steeringGate`; omitted resolves it from `game`, else `off` (today's text). */
+  steeringGate?: SteeringGateMode;
 }
 
 /** The stack frame policy the worker prompt renders for. */
@@ -89,6 +92,13 @@ export function workerStackFramePolicy(
   options: Pick<WorkerPromptOptions, "game" | "stackFramePolicy">,
 ): StackFramePolicy {
   return options.stackFramePolicy ?? gameStackFramePolicy(options.game);
+}
+
+/** The steering gate mode the worker prompt renders for. */
+export function workerSteeringGate(
+  options: Pick<WorkerPromptOptions, "game" | "steeringGate">,
+): SteeringGateMode {
+  return options.steeringGate ?? gameSteeringGate(options.game);
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -110,7 +120,7 @@ const WORKER_PACKET_CONTEXT_TEMPLATE = `
 
 {{TARGET_XML}}
 
-{{FIRST_DIFF_XML}}
+{{FIRST_DIFF_XML}}{{STEERING_PROBE_XML}}
 
 {{TARGET_KNOWLEDGE_XML}}
 
@@ -324,6 +334,25 @@ function targetXml(
 
 // Repair attempts must see why the runner rejected the previous return; the
 // packet carries repair_request but only rendered blocks reach the agent.
+/**
+ * The newest steering probe for this target (`packet.steering_probe`, set at
+ * claim time from a previous attempt's gate result), or "" when absent or the
+ * game's steering gate is off.
+ */
+export function steeringProbeXml(packet: Record<string, unknown>, steeringGate: SteeringGateMode | null | undefined): string {
+  if (!steeringGateActive(steeringGate)) return "";
+  const probe = asRecord(packet.steering_probe);
+  if (Object.keys(probe).length === 0) return "";
+  const fn = optionalString(probe.function);
+  const unit = optionalString(probe.unit);
+  return [
+    `    <steering_probe${fn ? ` function="${xmlAttribute(fn)}"` : ""}${unit ? ` unit="${xmlAttribute(unit)}"` : ""}>`,
+    `        <instruction>${xmlText("A previous attempt on this target matched through steering edits. The probe lists those edits, the match without them, hypotheses for the real cause, and evidence. Find the real construct; do not resubmit the steering edits.")}</instruction>`,
+    jsonBlockXml("probe_json", probe),
+    "    </steering_probe>",
+  ].join("\n");
+}
+
 function repairRequestXml(packet: Record<string, unknown>): string {
   const repair = asRecord(packet.repair_request);
   if (Object.keys(repair).length === 0) return "";
@@ -691,10 +720,13 @@ export function buildWorkerKernelContext(
     options.game,
     contextBudget,
   );
+  const steeringProbe = steeringProbeXml(options.packet, workerSteeringGate(options));
   const values = {
     DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game, options.advisoryAdjudication ?? "off"),
     FIRST_DIFF_XML: inputXml.firstDiffXml,
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
+    // Joined to the first diff so an absent probe leaves the context byte-identical.
+    STEERING_PROBE_XML: steeringProbe ? `\n\n${steeringProbe}` : "",
     TARGET_XML: inputXml.targetXml,
     TARGET_KNOWLEDGE_XML: targetKnowledgeXml,
   };

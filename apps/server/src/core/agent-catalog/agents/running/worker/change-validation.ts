@@ -33,6 +33,7 @@ import {
 import { changedSourcePathsFromDiff, runClangFormatCheck } from "@server/core/validation/format/clang-format.js";
 import { SYMBOL_BASELINE_DIR, SYMBOL_CHECK_SOURCE_RE, changedCppPathsFromDiff, runSymbolCheck, snapshotBaselineObjects } from "@server/core/validation/symbols/symbol-check.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
+import { evaluateWorkerSteeringGate, type WorkerSteeringGateOptions } from "./steering-validation.js";
 import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import {
   STACK_HUNK_CHECK_MAX_HUNKS,
@@ -1948,6 +1949,8 @@ export async function validateWorkerChange(params: {
   stackFramePolicy?: StackFramePolicy | null;
   /** Injectable stack_check.py runner; defaults to the toolpack copy in the sandbox. */
   stackCheckRunner?: StackCheckRunner;
+  /** The game's steering gate (`matching.steeringGate` not `off`); absent or `off` never runs it. */
+  steeringGate?: WorkerSteeringGateOptions | null;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
@@ -2056,7 +2059,17 @@ export async function validateWorkerChange(params: {
   const withQaLint = applyQaLintToValidation(scoreValidation, qaLint, {
     deferAdvisories: params.deferAdvisories === true && preQa.status === "passed",
   });
-  const gated = applyMicroGatesToValidation(withQaLint, microGates);
+  // The steering gate runs last, only on an attempt that otherwise passed and
+  // changed source: it is the most expensive gate and only certifies.
+  const gated = await evaluateWorkerSteeringGate({
+    validation: applyMicroGatesToValidation(withQaLint, microGates),
+    options: params.steeringGate,
+    symbol: stringValue(params.target.symbol),
+    outputDir: params.outputDir,
+    attemptIndex: params.attemptIndex,
+    postAttemptDiffText: params.postAttemptDiffText,
+    stackFramePolicy: params.stackFramePolicy,
+  });
   const validation: WorkerChangeValidation = params.retainPreQa
     ? { ...gated, preQa: { status: preQa.status, reasons: [...preQa.reasons] } }
     : gated;

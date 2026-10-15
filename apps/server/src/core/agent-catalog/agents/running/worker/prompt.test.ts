@@ -10,6 +10,7 @@ import {
 import { renderSystemPrompt, workerPrompt } from "./prompt.js";
 import { targetPacketTarget } from "./packet.js";
 import {
+  steeringProbeXml,
   WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT,
   WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT,
   WORKER_TARGET_FILE_INLINE_CHAR_LIMIT,
@@ -17,6 +18,7 @@ import {
 import { renderKernelContextInputsPreview } from "../../../kernel-context.js";
 import { parseWorkerCheckpointNote } from "./checkpoint-note.js";
 import type { AdvisoryAdjudicationMode } from "../../../../game-registry/runtime-options.js";
+import { gameSteeringGate } from "../../../../tools/steering-gate.js";
 
 function sampleWorkerPrompt() {
   return workerPrompt({
@@ -782,7 +784,7 @@ describe("kept_advisories prompt contract", () => {
 
     test("stop_at_frame (SMS) matches up to stack frame size and bans frame-only edits", () => {
       const sms = policyPrompt({ game: games.sms });
-      expect(policyPrompt({ stackFramePolicy: "stop_at_frame" })).toBe(sms);
+      expect(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: gameSteeringGate(games.sms) })).toBe(sms);
       const section = sms.match(/<stack_frame_policy>[\s\S]*?<\/stack_frame_policy>/)?.[0] ?? "";
       expect(section).toContain("This game matches up to stack frame size.");
       expect(section).toContain("only difference from the target is the stack frame is done. Stop and submit it.");
@@ -804,6 +806,97 @@ describe("kept_advisories prompt contract", () => {
         expect(sms).not.toContain(meleeOnly);
       }
       expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+    });
+
+    test("steering gate off (Melee) renders today's prompt and context byte for byte", () => {
+      for (const mode of modes) {
+        const today = advisoryPrompt("full", mode);
+        expect(policyPrompt({ advisoryAdjudication: mode, steeringGate: "off" })).toBe(today.systemPrompt);
+        expect(today.systemPrompt).not.toContain("steering_policy");
+      }
+      expect(gameSteeringGate(games.melee)).toBe("off");
+      expect(policyPrompt({ game: games.melee, steeringGate: "off" })).toBe(renderSystemPrompt());
+      // A probe on the packet never renders while the gate is off.
+      const withProbe = workerPrompt({
+        packet: { ...advisoryPacket, steering_probe: { function: "advisory_symbol", unit: "GALE01:advisory" } },
+        repoRoot: "/repo",
+        stateDir: "/state",
+        initialBoardPath: "/state/board.json",
+        workerLogDir: "/state/workers",
+        contextBudget: "full",
+        targetSourceText: "void advisory_symbol(void) {\n    int value = (int)gObject;\n}\n",
+        sourceNames: [],
+        game: games.melee,
+      });
+      const withoutProbe = workerPrompt({
+        packet: advisoryPacket,
+        repoRoot: "/repo",
+        stateDir: "/state",
+        initialBoardPath: "/state/board.json",
+        workerLogDir: "/state/workers",
+        contextBudget: "full",
+        targetSourceText: "void advisory_symbol(void) {\n    int value = (int)gObject;\n}\n",
+        sourceNames: [],
+        game: games.melee,
+      });
+      expect(withProbe.kernelContext?.renderedContext).toBe(withoutProbe.kernelContext?.renderedContext);
+      expect(withProbe.kernelContext?.renderedContext).not.toContain("steering_probe");
+    });
+
+    test("an active steering gate (SMS) adds <steering_policy> and nothing else", () => {
+      const off = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "off" });
+      expect(off).not.toContain("<steering_policy>");
+      for (const steeringGate of ["shadow", "enforce"] as const) {
+        const sms = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate });
+        const section = sms.match(/<steering_policy>[\s\S]*?<\/steering_policy>/)?.[0] ?? "";
+        expect(section).toContain("Steering is a source rewrite that behaves exactly like the code it replaces");
+        expect(section).toContain("A steering match is never done.");
+        expect(section).toContain("Use steering as a probe");
+        expect(section).toContain("Read the `steering_probe` block when present");
+        expect(section).toContain("`real_code_evidence`: `map-calls`");
+        expect(section).toContain("a hunk mixing a real fix with steering is rejected as unresolved");
+        expect(sms.replace(`${section}\n\n`, "")).toBe(off);
+        expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+      }
+      expect(policyPrompt({ game: games.sms })).toContain("<steering_policy>");
+      const sectionPacket = { target: { unit: "GALE01:advisory", symbol: ".sdata2", kind: "section" } };
+      expect(policyPrompt({ packet: sectionPacket, steeringGate: "enforce" })).toBe(sectionPrompt());
+    });
+
+    test("STEERING_PROBE_XML renders the claim's probe after the first diff only while the gate is active", () => {
+      const probe = {
+        function: "advisory_symbol",
+        unit: "GALE01:advisory",
+        match: { base: 97.5, candidate: 100, real_only: 98.25 },
+        steering_edits: [{ file: "src/melee/test/advisory.c", line: 2, shapes: ["temp_alias"], before: "f(x);", after: "int t = x; f(t);", delta: 1.75 }],
+        hypotheses: [{ cause: "missing inline function", why: "fixture", how_to_check: "real_code_evidence inlines --type T" }],
+      };
+      const context = (steeringGate: "off" | "shadow" | "enforce", withProbe: boolean) => workerPrompt({
+        packet: withProbe ? { ...advisoryPacket, steering_probe: probe } : advisoryPacket,
+        repoRoot: "/repo",
+        stateDir: "/state",
+        initialBoardPath: "/state/board.json",
+        workerLogDir: "/state/workers",
+        contextBudget: "full",
+        targetSourceText: "void advisory_symbol(void) {}\n",
+        sourceNames: [],
+        steeringGate,
+      }).kernelContext?.renderedContext ?? "";
+
+      const off = context("off", false);
+      expect(context("shadow", false)).toBe(off);
+      expect(context("off", true)).toBe(off);
+      for (const steeringGate of ["shadow", "enforce"] as const) {
+        const rendered = context(steeringGate, true);
+        expect(rendered).toContain('<steering_probe function="advisory_symbol" unit="GALE01:advisory">');
+        expect(rendered).toContain('"real_only": 98.25');
+        expect(rendered).toContain("</steering_probe>");
+        expect(rendered.indexOf("</first_diff>")).toBeLessThan(rendered.indexOf("<steering_probe"));
+        expect(rendered).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+        expect(rendered.replace(/\n\n {4}<steering_probe[\s\S]*?<\/steering_probe>/, "")).toBe(off);
+      }
+      expect(steeringProbeXml({ steering_probe: probe }, "off")).toBe("");
+      expect(steeringProbeXml({}, "enforce")).toBe("");
     });
 
     test("stop_at_frame keeps advisory modes and section targets aligned", () => {

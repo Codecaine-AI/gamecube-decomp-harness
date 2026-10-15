@@ -11,9 +11,11 @@ import {
 import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import type { PiPromptBundle } from "@server/core/shared/types";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 import {
   buildWorkerKernelContext,
   workerStackFramePolicy,
+  workerSteeringGate,
   type WorkerPromptOptions,
 } from "./context.js";
 export {
@@ -91,6 +93,21 @@ function stackFramePolicySection() {
   ]);
 }
 
+// Only an active steering gate (shadow or enforce; SMS) renders this section;
+// `off` keeps today's text.
+function steeringPolicySection() {
+  return section("steering_policy", [
+    bulletList([
+      "Steering is a source rewrite that behaves exactly like the code it replaces (single-use temps and aliases, split expressions, reordered declarations or statements, accessor↔field swaps, if↔ternary, operand order, `int`↔`s32`, `* 0.5f`↔`/ 2.0f`). It only moves register choice, instruction order or the stack frame.",
+      "A steering match is never done. The steering gate reverts every behaviour-identical edit, rebuilds, and only counts what survives. Edits it cannot certify are rejected too.",
+      "Use steering as a probe: find the smallest same-behaviour edit that moves the codegen, then find what the original source really had. Likely causes: a missing inline function, the wrong inline, a wrong type or signedness, an inline whose body is wrong.",
+      "Read the `steering_probe` block when present: it lists the steering edits, the match without them, hypotheses, and evidence.",
+      "Search for real evidence with `real_code_evidence`: `map-calls` (what the original calls), `map-unit` (inline and weak functions emitted in this unit), `inlines` (header inlines for a type or member), `usage` (matching functions that use an inline), `jsystem` (Twilight Princess and Wind Waker JSystem sources).",
+      "Write the real construct, remove every steering edit, and keep real fixes in their own statements; a hunk mixing a real fix with steering is rejected as unresolved.",
+    ]),
+  ]);
+}
+
 function keptAdvisoriesItem(mode: keyof typeof KEPT_ADVISORIES_LEAD, policy: StackFramePolicy) {
   return item(KEPT_ADVISORIES_LEAD[mode], [
     bulletList([
@@ -139,7 +156,7 @@ function submissionSection(mode: AdvisoryAdjudicationMode, policy: StackFramePol
   ]);
 }
 
-function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode) {
+function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode, steering = false) {
   const text = FRAME_TEXT[policy];
   return definePrompt({
     id: "melee.worker.system",
@@ -167,6 +184,7 @@ function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode
         ]),
       ]),
       ...(policy === "stop_at_frame" ? [stackFramePolicySection()] : []),
+      ...(steering ? [steeringPolicySection()] : []),
       section("thinking", [
         bulletList([
           item("Understand how the original programmers wrote this code", [
@@ -571,13 +589,13 @@ export function renderSystemPrompt(): string {
   return renderXmlMarkdown(prompt);
 }
 
-const functionPrompts = new Map<string, typeof prompt>([["match_frame:off", prompt]]);
+const functionPrompts = new Map<string, typeof prompt>([["match_frame:off:off", prompt]]);
 
-function functionPromptFor(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode): typeof prompt {
-  const key = `${policy}:${mode}`;
+function functionPromptFor(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode, steering: boolean): typeof prompt {
+  const key = `${policy}:${mode}:${steering ? "steering" : "off"}`;
   let selected = functionPrompts.get(key);
   if (!selected) {
-    selected = functionPrompt(policy, mode);
+    selected = functionPrompt(policy, mode, steering);
     functionPrompts.set(key, selected);
   }
   return selected;
@@ -594,14 +612,19 @@ function isSectionTarget(packet: Record<string, unknown>): boolean {
 
 /**
  * The system prompt document a worker gets: the section-target prompt, or the
- * function prompt for the game's stack frame policy and the advisory mode.
+ * function prompt for the game's stack frame policy, the advisory mode, and
+ * whether the game's steering gate is active.
  */
 export function workerSystemPromptDocument(
-  options: Pick<WorkerPromptOptions, "packet" | "game" | "advisoryAdjudication" | "stackFramePolicy">,
+  options: Pick<WorkerPromptOptions, "packet" | "game" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate">,
 ): typeof prompt {
   return isSectionTarget(options.packet)
     ? sectionTargetPrompt
-    : functionPromptFor(workerStackFramePolicy(options), options.advisoryAdjudication ?? "off");
+    : functionPromptFor(
+        workerStackFramePolicy(options),
+        options.advisoryAdjudication ?? "off",
+        steeringGateActive(workerSteeringGate(options)),
+      );
 }
 
 export function workerPrompt(options: WorkerPromptOptions): PiPromptBundle {

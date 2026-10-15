@@ -11,7 +11,7 @@ import {
   type KernelAgentViewerDefinition,
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
-import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
+import type { StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import {
   ADVISORY_ADJUDICATION_ENV,
   parseAdvisoryAdjudicationMode,
@@ -57,6 +57,8 @@ export interface KernelAgentsPayload {
   advisoryAdjudication: AdvisoryAdjudicationMode;
   /** The game's stack frame policy the worker sample was rendered for. */
   stackFramePolicy: StackFramePolicy;
+  /** The game's steering gate mode the worker sample was rendered for. */
+  steeringGate: SteeringGateMode;
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
 }
@@ -69,6 +71,8 @@ export interface KernelPreviewDeps {
   advisoryAdjudication?: AdvisoryAdjudicationMode;
   /** Worker stack frame policy; defaults to the selected game's `matching.stackFramePolicy`, else `match_frame`. */
   stackFramePolicy?: StackFramePolicy;
+  /** Worker steering gate; defaults to the selected game's `matching.steeringGate`, else `off`. */
+  steeringGate?: SteeringGateMode;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
   loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
   buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
@@ -80,16 +84,61 @@ export interface KernelPreviewTarget {
   symbol: string;
 }
 
-export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy">;
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate">;
 
 /** Shared by the worker prompt bundle and the viewer's prompt document so both show one variant. */
 interface WorkerPreviewMode {
   advisoryAdjudication: AdvisoryAdjudicationMode;
   stackFramePolicy: StackFramePolicy;
+  steeringGate: SteeringGateMode;
 }
 
 function previewStackFramePolicy(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): StackFramePolicy {
   return deps.stackFramePolicy ?? paths.game?.matching?.stackFramePolicy ?? "match_frame";
+}
+
+function previewSteeringGate(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): SteeringGateMode {
+  return deps.steeringGate ?? paths.game?.matching?.steeringGate ?? "off";
+}
+
+/**
+ * A steering probe in the shape `steering_check.py decide` returns (contract
+ * 2.4), for the previewed target. Only an active steering gate shows it, the
+ * way a claim only carries one when the gate is on.
+ */
+function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<string, unknown> {
+  return {
+    function: target.symbol,
+    unit: target.unit,
+    match: { base: 96.4, candidate: 100, real_only: 98.1 },
+    steering_edits: [{
+      file: "src/M3DUtil/MActor.cpp",
+      line: 212,
+      shapes: ["temp_alias"],
+      before: "mLightData->set(mLightIdx, color);",
+      after: "J3DLightObj* light = mLightData; light->set(mLightIdx, color);",
+      delta: 1.9,
+    }],
+    unresolved: [],
+    hypotheses: [{
+      cause: "missing inline function",
+      why: "A single-use temp only moved the load of mLightData; an inline accessor emits the same load order.",
+      how_to_check: "real_code_evidence inlines --type MActor --member mLightData",
+    }],
+    evidence: {
+      map_callees: ["set__11J3DLightObjFiRC8_GXColor"],
+      emitted_inlines: [],
+      unused: [],
+      header_inlines: ["MActor::getLightData"],
+      sibling_uses: ["calcLight__6MActorFv"],
+      jsystem_hits: [],
+    },
+    lessons: [{ id: "steering-temp-accessor", steering: "single-use temp before a member call", real_cause: "header inline accessor" }],
+  };
+}
+
+function previewSteeringPacket(mode: WorkerPreviewMode, target: { unit: string; symbol: string }): Record<string, unknown> {
+  return mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target) };
 }
 
 // The server knows no run's `--advisory-adjudication` flag, only the env
@@ -214,6 +263,7 @@ function realWorkerPrompt(
       },
       first_diff: (deps.loadFirstDiff ?? previewFirstDiff)(target),
       knowledge_context: knowledgeContext,
+      ...previewSteeringPacket(mode, target),
     },
     repoRoot: paths.repoRoot,
     stateDir: paths.stateDir,
@@ -415,6 +465,7 @@ function samplePrompt(
               ],
             },
           },
+          ...previewSteeringPacket(mode, { unit: "GALE01:kernel-viewer", symbol: "ftDemo_KernelViewerSample" }),
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
@@ -644,7 +695,11 @@ export function loadKernelAgentsPayload(
   } catch (error) {
     warnings.push(`Rendering the worker sample as off: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const mode: WorkerPreviewMode = { advisoryAdjudication, stackFramePolicy: previewStackFramePolicy(paths, deps) };
+  const mode: WorkerPreviewMode = {
+    advisoryAdjudication,
+    stackFramePolicy: previewStackFramePolicy(paths, deps),
+    steeringGate: previewSteeringGate(paths, deps),
+  };
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
     try {
@@ -672,6 +727,7 @@ export function loadKernelAgentsPayload(
     source: "sample",
     advisoryAdjudication,
     stackFramePolicy: mode.stackFramePolicy,
+    steeringGate: mode.steeringGate,
     agents,
     warnings,
   };
