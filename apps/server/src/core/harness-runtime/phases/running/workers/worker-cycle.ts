@@ -11,10 +11,20 @@ import { latestSteeringProbe, steeringCoverageFor, type SteeringCoverage } from 
 import { gitIsAncestor, type GitAncestorCheck } from "@server/core/validation/steering/steering-preflight.js";
 import {
   STEERING_CHECK_TOOLPACK_PATH,
-  STEERING_LOCATED_INSTRUCTION,
+  steeringRepairInstruction,
+  uploadThroughExec,
   workspaceSteeringRunner,
   type SteeringProbe,
 } from "@server/core/validation/steering/steering-check.js";
+import {
+  EDIT_SCOPE_INSTRUCTION,
+  orderingEnforced,
+  workspaceEditScopeRunner,
+} from "@server/core/validation/edit-scope/edit-scope.js";
+import { editScopeUnusedRepairInstruction, sandboxUnusedChecksPath } from "@server/core/agent-catalog/agents/running/worker/edit-scope-validation.js";
+import { CHECKPOINT_UNUSED_CHECKS_KEY, loadBoundUnusedChecks } from "@server/core/validation/edit-scope/unused-evidence.js";
+import { createHeaderReadinessResolver } from "@server/core/harness-runtime/run-state/header-readiness.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import {
   recordWorkerSteeringObservations,
   steeringCacheDir,
@@ -99,6 +109,8 @@ import {
   bestCheckpointForWorkerState,
   closeWorkerState,
   enqueueWorkerOutputIntegration,
+  epochTargetNotReadyClasses,
+  latestOutOfScopeRejection,
   getRun,
   openState,
   recordWorkerCheckpoint,
@@ -520,6 +532,40 @@ export function claimStackOnlyShortcutAllowed(params: {
   return (params.isAncestor ?? gitIsAncestor)(params.hostRepoRoot, params.coverage.baselineRev, params.baseRev);
 }
 
+/**
+ * `packet.not_ready_classes` for `<not_ready_classes>`: the admitted target's
+ * unmet classes while ordering is active (stored in shadow too, so the prompt
+ * can flag them); nothing for `off` or a ready target.
+ */
+export function workerPacketReadinessFields(
+  store: StateStore,
+  epochTargetId: string,
+  orderingMode: string | null | undefined,
+): { not_ready_classes?: ReturnType<typeof epochTargetNotReadyClasses> } {
+  if (!orderingActive(orderingMode)) return {};
+  const notReadyClasses = epochTargetNotReadyClasses(store, epochTargetId);
+  return notReadyClasses.length > 0 ? { not_ready_classes: notReadyClasses } : {};
+}
+
+/**
+ * The first attempt's repair request for a target whose earlier output the
+ * integration gate rejected as out of scope (`rejected_out_of_scope`): the
+ * re-admitted target starts with the rejection reasons and the fence
+ * instruction. Null when the target has no such rejection in this run.
+ */
+export function outOfScopeReadmissionRepairRequest(store: StateStore, runId: string, targetKey: string): Record<string, unknown> | null {
+  const rejection = latestOutOfScopeRejection(store, runId, targetKey);
+  if (!rejection) return null;
+  const reasons = rejection.failureReasons.length > 0 ? rejection.failureReasons : ["the integration order-and-scope gate rejected the previous output"];
+  return {
+    source: "integration_rejected_out_of_scope",
+    rejected_output_id: rejection.id,
+    rejected_at: rejection.resolvedAt ?? rejection.updatedAt,
+    reasons,
+    instruction: `An earlier output for this target was rejected at integration: ${reasons.join("; ")}. ${EDIT_SCOPE_INSTRUCTION}`,
+  };
+}
+
 /** The worker-facing repair fields an enforced steering rejection adds: the gate's probe. */
 export function workerSteeringRepairFields(runnerValidation: WorkerChangeValidation): { steering_probe?: SteeringProbe } {
   const probe = steeringRepairProbe(runnerValidation);
@@ -536,9 +582,14 @@ export function workerRepairInstruction(params: {
 }): string {
   const tail = "Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.";
   // An enforced steering rejection is never the "exact but a hard gate failed" case: the
-  // match itself is what failed, so the worker gets the steering probe instruction instead.
+  // match itself is what failed, so the worker gets the steering probe instruction instead
+  // (or the UNUSED-body instruction when the gate listed a dead UNUSED body).
   if (params.runnerValidation.status === "steering_located" && steeringGateEnforced(params.runnerValidation.steering?.mode)) {
-    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected by the steering gate."} ${STEERING_LOCATED_INSTRUCTION} ${tail}`;
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected by the steering gate."} ${steeringRepairInstruction(params.runnerValidation.steering)} ${tail}`;
+  }
+  // An enforced scope rejection names the not-ready classes; the worker gets the fence's instruction.
+  if (params.runnerValidation.status === "edit_scope_rejected" && orderingEnforced(params.runnerValidation.editScope?.mode)) {
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected by the order-and-scope fence."} ${editScopeUnusedRepairInstruction(params.runnerValidation) ?? EDIT_SCOPE_INSTRUCTION} ${tail}`;
   }
   if (params.latestCheckpoint?.exactMatch && !params.latestCheckpoint.hardGatesPassed) {
     return GATE_FAILED_EXACT_REPAIR_INSTRUCTION;
@@ -1540,7 +1591,7 @@ export function recordAcceptedAdvisories(store: StateStore, params: {
 function runnerValidationCompiled(validation: WorkerRunnerValidation): boolean {
   if (validation.status === "build_failed") return false;
   if (validation.status === "passed" || validation.status === "failed") return Boolean(validation.target) || validation.exitCode === 0;
-  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation" || validation.status === "steering_located") return true;
+  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation" || validation.status === "steering_located" || validation.status === "edit_scope_rejected") return true;
   // snapshot_unavailable after a successful object build still carries the unit
   // diff command; pre-build failures carry no command at all.
   return typeof validation.command === "string" && validation.command.includes("objdiff");
@@ -1884,6 +1935,25 @@ async function executeClaimedWorker(params: {
     const stackGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId ?? "";
     const steeringGate: SteeringGateMode = globals.game?.matching?.steeringGate ?? gameSteeringGate(game);
     const steeringActive = steeringGateActive(steeringGate);
+    // Order-and-scope fence: null (ordering absent or off) never runs it.
+    const ordering = gameOrdering(globals.game ?? game);
+    const editScopePolicy = ordering && orderingActive(ordering.mode) ? { ...ordering, mode: ordering.mode } : null;
+    // Widening rung 3 never widens a header that defines a not-ready class (enforce);
+    // shadow approves as before and records `wouldDeny` on the decision.
+    const headerReadiness = editScopePolicy
+      ? {
+          mode: editScopePolicy.mode,
+          resolve: createHeaderReadinessResolver({
+            repoRoot: globals.repoRoot,
+            rev: baseRev,
+            policy: editScopePolicy,
+            readHeader: async (path) => {
+              const headerPath = safeRepoRelativePath(workerRepoRoot, path);
+              return headerPath ? await sandboxHandle.readFile(headerPath) : null;
+            },
+          }),
+        }
+      : undefined;
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
@@ -1934,6 +2004,7 @@ async function executeClaimedWorker(params: {
       firstDiff: workerChangeBaseline.firstDiff,
     });
     if (claimSteeringProbe) packet.steering_probe = claimSteeringProbe;
+    Object.assign(packet, workerPacketReadinessFields(store, claimed.epochTargetId, editScopePolicy?.mode));
     const baselineSummaryPath = resolve(validationDir, "pre_worker_baseline.summary.json");
     await writeFile(baselineSummaryPath, JSON.stringify(workerChangeBaseline, null, 2));
     const targetUnit = String(target.unit ?? "");
@@ -2198,9 +2269,15 @@ async function executeClaimedWorker(params: {
         sandboxSleep: { enabled: sandboxSleepEnabled, debounceMs: sandboxSleepDebounceMs, ...sandboxSleepStats },
       };
     }
-    let repairRequest: Record<string, unknown> | null = null;
+    // A target re-admitted after an out-of-scope integration rejection starts with that reason.
+    let repairRequest: Record<string, unknown> | null = editScopePolicy
+      ? outOfScopeReadmissionRepairRequest(store, runId, `${targetUnit}::${targetSymbol}`)
+      : null;
     let finalEvaluation: WorkerAttemptEvaluation | null = null;
     let attemptIndex = 0;
+    // The latest steering decision's `unused_checks`: the edit-scope fence's
+    // UNUSED verdicts need them, but steering runs after the fence.
+    let previousUnusedChecks: unknown[] | null = null;
     let transientCycleRetryCount = 0;
     let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
@@ -2271,6 +2348,7 @@ async function executeClaimedWorker(params: {
           authority: token,
           headerDeclaresEvidenceSymbol: (request) =>
             headerDeclaresEvidenceSymbol(workerRepoRoot, request, sandboxHandle),
+          ...(headerReadiness ? { headerReadiness } : {}),
           async onProcessed(widening) {
             currentWriteSet = widening.writeSetAfter;
             currentEntries = widening.entriesAfter;
@@ -2301,6 +2379,8 @@ async function executeClaimedWorker(params: {
             targetSourceText,
             advisoryAdjudication: advisoryMode.mode,
             steeringGate,
+            // The prompt's <order_and_scope> follows the fence: only when it runs.
+            ordering: editScopePolicy?.mode ?? "off",
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -2465,6 +2545,9 @@ async function executeClaimedWorker(params: {
             mode: writeSetWideningMode,
             authority: token,
             headerDeclaresEvidenceSymbol: await headerDeclaresEvidenceSymbol(workerRepoRoot, request, sandboxHandle),
+            ...(headerReadiness && request.rung === 3
+              ? { headerReadiness: { mode: headerReadiness.mode, verdicts: await headerReadiness.resolve(request.paths) } }
+              : {}),
           });
           const wideningId = widening.wideningId;
           wideningDecision = widening.decision;
@@ -2716,6 +2799,15 @@ async function executeClaimedWorker(params: {
       }
 
       const shouldRunRunnerValidation = shouldRunRunnerValidationForWorkerSession(result);
+      let unusedChecksPath: string | undefined;
+      if (editScopePolicy && previousUnusedChecks && shouldRunRunnerValidation && !globals.dryRunAgents) {
+        try {
+          await uploadThroughExec(workspaceExec, sandboxUnusedChecksPath(attemptIndex), JSON.stringify(previousUnusedChecks));
+          unusedChecksPath = sandboxUnusedChecksPath(attemptIndex);
+        } catch {
+          // Without prior evidence the fence leaves UNUSED to integration/publication.
+        }
+      }
       const targetChangeValidation = await validateWorkerChange({
         repoRoot: workerRepoRoot,
         hostRepoRoot: globals.repoRoot,
@@ -2760,7 +2852,18 @@ async function executeClaimedWorker(params: {
               ...steeringLessonPaths(game, packageRoot()),
             }
           : null,
+        editScope: editScopePolicy
+          ? {
+              policy: editScopePolicy,
+              baseRev,
+              runner: workspaceEditScopeRunner(workspaceExec, editScopePolicy),
+              ...(unusedChecksPath ? { unusedChecksPath } : {}),
+            }
+          : null,
       });
+      if (targetChangeValidation.steering?.decision?.unused_checks) {
+        previousUnusedChecks = targetChangeValidation.steering.decision.unused_checks;
+      }
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
         ? await validateWidenedChange({
             validation: targetChangeValidation,
@@ -2838,6 +2941,9 @@ async function executeClaimedWorker(params: {
             patchText: enforcePatchText,
             inlineResult: inlineAdvisories?.adjudication ?? null,
           });
+      // The steering run's UNUSED stub tests, bound to the claim base and the
+      // measured patch: integration re-checks them and writes Evidence trailers.
+      const boundUnusedChecks = await loadBoundUnusedChecks(targetChangeValidation.steering, { baseRev });
       const checkpoint = recordWorkerCheckpoint(store, {
         authority: token,
         workerStateId: claimed.workerStateId,
@@ -2881,6 +2987,7 @@ async function executeClaimedWorker(params: {
             categories: outOfWriteSetCategoryCounts(outOfWriteSetChanges),
           },
           ...(llmReviewCandidate ? { llm_review_candidate: llmReviewCandidate } : {}),
+          ...(boundUnusedChecks ? { [CHECKPOINT_UNUSED_CHECKS_KEY]: boundUnusedChecks } : {}),
           // Enforce: the inline verdict, and the QA status after accepted
           // advisories (the qa_status column keeps the raw scan status).
           ...(advisoryMode.mode === "enforce"

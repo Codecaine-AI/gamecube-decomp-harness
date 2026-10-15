@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandResult } from "@server/infrastructure/shell";
 import {
+  OUT_OF_ORDER_INSTRUCTION,
   STEERING_LOCATED_INSTRUCTION,
+  UNUSED_BODY_INSTRUCTION,
   hostSteeringRunner,
   parseSteeringDecision,
   sandboxAttributePath,
@@ -12,6 +14,7 @@ import {
   uploadThroughExec,
   runWorkerSteeringGate,
   steeringRejectionReason,
+  steeringRepairInstruction,
   type SteeringRunner,
   type WorkerSteeringResult,
 } from "./steering-check.js";
@@ -187,6 +190,15 @@ describe("parseSteeringDecision", () => {
     expect(parseSteeringDecision(null)).toBeNull();
     expect(parseSteeringDecision({ attempt: "pass" })).toBeNull();
     expect(parseSteeringDecision({ attempt: "pass", functions: [{ unit: "u", name: "f", decision: "odd" }] })).toBeNull();
+  });
+
+  test("unused_checks keep the compile-flags binding edit_scope re-checks (string, null, or rejected when malformed)", () => {
+    const row = { unit: "u1", file: "src/a.c", function: "u(void)", status: "inlined", changed: [] };
+    const parse = (extra: Record<string, unknown>) => parseSteeringDecision({ ...decision("pass"), unused_checks: [{ ...row, ...extra }] });
+    expect(parse({ unit_flags_sha256: "ab12" })?.unused_checks?.[0]?.unit_flags_sha256).toBe("ab12");
+    expect(parse({ unit_flags_sha256: null })?.unused_checks?.[0]).toHaveProperty("unit_flags_sha256", null);
+    expect(parse({})?.unused_checks?.[0]).not.toHaveProperty("unit_flags_sha256");
+    expect(parse({ unit_flags_sha256: 7 })).toBeNull();
   });
 
   test("shadow and pass never produce a rejection reason", () => {
@@ -392,5 +404,145 @@ describe("unit coverage counts only built and compared units", () => {
     const problems = steeringCertificateProblems(parsed, complete).join("; ");
     expect(problems).toContain("no function was considered");
     expect(problems).toContain("units not built and compared: u");
+  });
+});
+
+describe("UNUSED-body rule (violations and stub tests)", () => {
+  const complete = { sourceChanged: true, reduceAnalysis: "complete", unresolvedGroups: [] };
+  const DEAD = { kind: "dead_unused_body", unit: "mario/Map/MapEventMare", file: "src/Map/MapEventMare.cpp", function: "TMareEventDepressWall::emitEffect", line: 412 };
+  const CHECK_DEAD = {
+    unit: DEAD.unit, file: DEAD.file, function: DEAD.function, mangled: "emitEffect__21TMareEventDepressWallFi",
+    status: "dead", stub: "{ }", changed: [], reason: null,
+  };
+  const CHECK_INLINED = {
+    unit: "mario/Enemy/chuuhana", file: "src/Enemy/chuuhana.cpp", function: "TChuuHana::rolling", status: "inlined" as const, stub: "{ }",
+    changed: [{ function: "TNerveChuuHanaRoll::execute", before: { status: "match", match_percent: 86 }, after: { status: "nonmatch", match_percent: 45 } }],
+  };
+  const withRule = (extra: Record<string, unknown>) => parseSteeringDecision({ ...decision("pass"), ...extra });
+  const enforce = (value: ReturnType<typeof withRule>, certificate = complete): string | null =>
+    steeringRejectionReason({ mode: "enforce", decision: value, error: null, artifactPath: null, durationMs: 1, certificate });
+
+  test("parses violations and unused_checks; absent fields are empty lists", () => {
+    expect(parseSteeringDecision(decision("pass"))).toMatchObject({ violations: [], unused_checks: [] });
+    const parsed = withRule({ attempt: "rule_violation", violations: [DEAD], unused_checks: [CHECK_DEAD, CHECK_INLINED] })!;
+    expect(parsed.attempt).toBe("rule_violation");
+    expect(parsed.violations).toEqual([DEAD]);
+    expect(parsed.unused_checks).toEqual([
+      { unit: DEAD.unit, file: DEAD.file, function: DEAD.function, mangled: "emitEffect__21TMareEventDepressWallFi", status: "dead", stub: "{ }", changed: [] },
+      CHECK_INLINED,
+    ]);
+    // `line` is optional; null reads as absent.
+    expect(withRule({ violations: [{ ...DEAD, line: null }] })?.violations).toEqual([{ kind: DEAD.kind, unit: DEAD.unit, file: DEAD.file, function: DEAD.function }]);
+  });
+
+  test("wrong types in violations or unused_checks are malformed (fail closed)", () => {
+    expect(withRule({ violations: "dead" })).toBeNull();
+    expect(withRule({ violations: [{ ...DEAD, function: 7 }] })).toBeNull();
+    expect(withRule({ violations: [{ ...DEAD, line: "412" }] })).toBeNull();
+    expect(withRule({ unused_checks: {} })).toBeNull();
+    expect(withRule({ unused_checks: [{ ...CHECK_DEAD, status: "maybe" }] })).toBeNull();
+    expect(withRule({ unused_checks: [{ ...CHECK_DEAD, changed: "none" }] })).toBeNull();
+    expect(withRule({ unused_checks: [{ ...CHECK_INLINED, changed: [{ before: {} }] }] })).toBeNull();
+    expect(withRule({ unused_checks: [{ ...CHECK_DEAD, mangled: 1 }] })).toBeNull();
+    expect(enforce(withRule({ violations: "dead" }))).toContain("could not certify");
+  });
+
+  test("a dead UNUSED body is a problem that names the rule; enforce rejects with the UNUSED-body instruction", () => {
+    const value = withRule({ attempt: "rule_violation", violations: [DEAD], unused_checks: [CHECK_DEAD, CHECK_INLINED] })!;
+    expect(steeringCertificateProblems(value, complete)).toEqual([
+      "dead UNUSED body: TMareEventDepressWall::emitEffect (src/Map/MapEventMare.cpp:412) — UNUSED functions may only be reconstructed when inlined",
+    ]);
+    const reason = enforce(value)!;
+    expect(reason).toStartWith("steering_located: dead UNUSED body: TMareEventDepressWall::emitEffect");
+    expect(reason).toEndWith(UNUSED_BODY_INSTRUCTION);
+    expect(reason).not.toContain(STEERING_LOCATED_INSTRUCTION);
+  });
+
+  test("an inlined UNUSED body certifies; an inconclusive stub test rejects as incomplete analysis", () => {
+    expect(steeringCertificateProblems(withRule({ unused_checks: [CHECK_INLINED] }), complete)).toEqual([]);
+    const inconclusive = withRule({ attempt: "unresolved", unused_checks: [{ ...CHECK_INLINED, status: "inconclusive", changed: [], reason: "stub build failed" }] })!;
+    expect(steeringCertificateProblems(inconclusive, complete)).toEqual(["UNUSED stub test inconclusive: TChuuHana::rolling (src/Enemy/chuuhana.cpp): stub build failed"]);
+    expect(enforce(inconclusive)).toEndWith(STEERING_LOCATED_INSTRUCTION);
+  });
+
+  test("a violation next to steering carries both instructions; a rule_violation without a listed violation still rejects", () => {
+    const mixed = parseSteeringDecision({ ...decision("steering_located"), violations: [DEAD] })!;
+    expect(steeringRepairInstruction({ decision: mixed, error: null, certificate: complete })).toBe(`${UNUSED_BODY_INSTRUCTION} ${STEERING_LOCATED_INSTRUCTION}`);
+    expect(enforce(mixed)).toContain("steering located in T::f");
+    const bare = parseSteeringDecision({ ...decision("pass"), attempt: "rule_violation" })!;
+    expect(steeringCertificateProblems(bare, complete)).toEqual(["attempt decision is rule_violation"]);
+    const row = parseSteeringDecision(decision("rule_violation"))!;
+    expect(steeringCertificateProblems(row, complete)).toContain("rule violation in T::f");
+    expect(steeringRepairInstruction({ decision: null, error: "boom" })).toBe(STEERING_LOCATED_INSTRUCTION);
+  });
+});
+
+describe("decompile-in-order rule (out_of_order violations and order checks)", () => {
+  const complete = { sourceChanged: true, reduceAnalysis: "complete", unresolvedGroups: [] };
+  const FILE = "src/System/MarNameRefGen_Enemy.cpp";
+  const OUT = {
+    kind: "out_of_order", file: FILE, line: 5, class: "TKoopa", owner_unit: "mario/Enemy/Koopa", owner_progress: 0,
+    reason: "TKoopa belongs to mario/Enemy/Koopa (0.0%, blank stub), below the 50% decompiled bar",
+  };
+  const DEAD = { kind: "dead_unused_body", unit: "mario/Map/MapEventMare", file: "src/Map/MapEventMare.cpp", function: "TMareEventDepressWall::emitEffect", line: 412 };
+  const CHECK = { file: FILE, line: 5, class: "TKoopa", via: "new", edit_id: `${FILE}#0.0`, owner_unit: "mario/Enemy/Koopa", owner_progress: 0, status: "out_of_order", reason: OUT.reason };
+  const PROBLEM = `out of order: ${FILE}:5 uses TKoopa (owner mario/Enemy/Koopa, not decompiled) — don't fill in code that needs classes whose units are not decompiled`;
+  // The function row's groups touch FILE, so the violation's unit resolves to it.
+  const withOrder = (extra: Record<string, unknown>) => {
+    const base = decision("pass");
+    return parseSteeringDecision({ ...base, functions: [{ ...base.functions[0], groups: [`${FILE}@0.0`] }], ...extra });
+  };
+  const instruction = (value: ReturnType<typeof withOrder>) => steeringRepairInstruction({ decision: value, error: null, certificate: complete });
+
+  test("parses out_of_order violations (unit from the touching function rows) and order checks", () => {
+    const parsed = withOrder({ attempt: "rule_violation", violations: [OUT], order_checks: [CHECK, { ...CHECK, class: "TTinKoopa", status: "ok", owner_progress: 98.5, reason: "" }] })!;
+    expect(parsed.violations).toEqual([{ ...OUT, kind: "out_of_order", unit: "mario/Enemy/x" }]);
+    expect(parsed.order_checks?.map((check) => check.status)).toEqual(["out_of_order", "ok"]);
+    expect(parseSteeringDecision(decision("pass"))?.order_checks).toEqual([]);
+    // No function row touches the file: the unit stays unknown.
+    expect(parseSteeringDecision({ ...decision("pass"), violations: [OUT] })?.violations?.[0]).not.toHaveProperty("unit");
+    // Unknown owner reads as null.
+    expect(withOrder({ order_checks: [{ ...CHECK, owner_unit: null, owner_progress: null, status: "unknown" }] })?.order_checks?.[0]).toMatchObject({ owner_unit: null, owner_progress: null });
+  });
+
+  test("wrong types in out_of_order violations or order checks are malformed (fail closed)", () => {
+    expect(withOrder({ violations: [{ ...OUT, class: 7 }] })).toBeNull();
+    expect(withOrder({ violations: [{ ...OUT, owner_unit: undefined }] })).toBeNull();
+    expect(withOrder({ violations: [{ ...OUT, owner_progress: "0" }] })).toBeNull();
+    expect(withOrder({ violations: [{ ...OUT, reason: 1 }] })).toBeNull();
+    expect(withOrder({ violations: [{ ...OUT, unit: 3 }] })).toBeNull();
+    expect(withOrder({ violations: [{ ...DEAD, unit: undefined }] })).toBeNull();
+    expect(withOrder({ order_checks: {} })).toBeNull();
+    expect(withOrder({ order_checks: [{ ...CHECK, status: "maybe" }] })).toBeNull();
+    expect(withOrder({ order_checks: [{ ...CHECK, owner_progress: "0" }] })).toBeNull();
+    expect(withOrder({ order_checks: [{ ...CHECK, class: null }] })).toBeNull();
+  });
+
+  test("an out_of_order violation is its own problem; enforce rejects with the out-of-order instruction", () => {
+    const value = withOrder({ attempt: "rule_violation", violations: [OUT], order_checks: [CHECK] })!;
+    // The out_of_order check is covered by its violation: one problem, not two.
+    expect(steeringCertificateProblems(value, complete)).toEqual([PROBLEM]);
+    expect(instruction(value)).toBe(OUT_OF_ORDER_INSTRUCTION);
+    const reason = steeringRejectionReason({ mode: "enforce", decision: value, error: null, artifactPath: null, durationMs: 1, certificate: complete })!;
+    expect(reason).toBe(`steering_located: ${PROBLEM}. ${OUT_OF_ORDER_INSTRUCTION}`);
+  });
+
+  test("an unknown order check is incomplete analysis; ok checks add nothing", () => {
+    const unknown = { ...CHECK, owner_unit: null, owner_progress: null, status: "unknown", reason: "TKoopa: owner unit unknown" };
+    expect(steeringCertificateProblems(withOrder({ order_checks: [{ ...CHECK, status: "ok", reason: "" }] }), complete)).toEqual([]);
+    const value = withOrder({ attempt: "unresolved", order_checks: [unknown] })!;
+    expect(steeringCertificateProblems(value, complete)).toEqual([`order check unknown: TKoopa at ${FILE}:5: TKoopa: owner unit unknown`]);
+    expect(instruction(value)).toBe(STEERING_LOCATED_INSTRUCTION);
+  });
+
+  test("the instruction follows the violation kinds present", () => {
+    expect(instruction(withOrder({ violations: [DEAD, OUT] }))).toBe(`${UNUSED_BODY_INSTRUCTION} ${OUT_OF_ORDER_INSTRUCTION}`);
+    expect(instruction(withOrder({ violations: [DEAD] }))).toBe(UNUSED_BODY_INSTRUCTION);
+    const steering = parseSteeringDecision({ ...decision("steering_located"), violations: [OUT] })!;
+    expect(instruction(steering)).toBe(`${OUT_OF_ORDER_INSTRUCTION} ${STEERING_LOCATED_INSTRUCTION}`);
+    // An unknown kind still rejects, with a generic problem and the steering instruction.
+    const other = withOrder({ violations: [{ kind: "new_rule", file: FILE, line: 2 }] })!;
+    expect(steeringCertificateProblems(other, complete)).toEqual([`rule violation new_rule: ${FILE}:2`]);
+    expect(instruction(other)).toBe(STEERING_LOCATED_INSTRUCTION);
   });
 });

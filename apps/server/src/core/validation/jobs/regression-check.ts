@@ -8,6 +8,7 @@ import {
   type PrPromotionPolicy,
 } from "@server/core/validation/objdiff/report";
 import { runQaScanDiff, type QaScanInvocation } from "@server/core/validation/qa";
+import { orderingQaScanFiles } from "@server/core/validation/qa/scan-diff.js";
 import {
   captureQaScanGuard,
   gitHeadRev,
@@ -203,6 +204,7 @@ export async function regressionCheck(globals: GlobalArgs, args: Map<string, str
       includeWorktree: true,
       surface: "pr_gate",
       addressNamedStaticDataAllowlist: globals.game?.validation.addressNamedStaticDataAllowlist,
+      ...orderingQaScanFiles(globals.game),
     });
     await writeFile(qaScanPath, qaInvocation.stdout);
     await writeFile(qaScanTextPath, qaInvocation.stderr);

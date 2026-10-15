@@ -77,6 +77,9 @@ interface CheckFixture {
   noChanges?: boolean;
   /** decide's final unresolved groups; absent = decide did not report them. */
   decideUnresolved?: string[];
+  violations?: Array<Record<string, unknown>>;
+  orderChecks?: Array<Record<string, unknown>>;
+  unusedChecks?: Array<{ unit: string; file: string; function: string; status: string; changed: unknown[]; reason?: string }>;
 }
 
 const covered = (...units: string[]) => units.map((unit) => ({ unit, built: true, compared: true }));
@@ -108,6 +111,9 @@ function check(fixture: CheckFixture) {
       ...(fixture.units ? { units: fixture.units } : {}),
       ...(fixture.noChanges ? { no_changes: true } : {}),
       ...(fixture.decideUnresolved ? { unresolved_groups: fixture.decideUnresolved } : {}),
+      ...(fixture.violations ? { violations: fixture.violations } : {}),
+      ...(fixture.unusedChecks ? { unused_checks: fixture.unusedChecks } : {}),
+      ...(fixture.orderChecks ? { order_checks: fixture.orderChecks } : {}),
     },
   };
 }
@@ -259,6 +265,97 @@ describe("steering-gate clean needs the whole certificate", () => {
       const still = await backfill(repo, head, store, dir, fakeRunners(repo, [check({ attempt: "pass", functions: [fn(UNIT_A, "f", "pass")], units: covered(UNIT_A), decideUnresolved: ["g5"] })]));
       expect(still.clean).toBe(false);
       expect(steeringCoverageFor(store, "sms", UNIT_A)?.clean).toBe(false);
+    });
+  });
+
+  test("a dead UNUSED body or an inconclusive stub test keeps its unit and the run unclean; other units stay clean", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const result = await backfill(repo, head, store, dir, fakeRunners(repo, [check({
+        attempt: "rule_violation",
+        functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "f", "pass")],
+        units: covered(UNIT_A, UNIT_B),
+        files: [SRC_A, SRC_B],
+        violations: [{ kind: "dead_unused_body", unit: UNIT_A, file: SRC_A, function: "T::emitEffect", line: 3 }],
+        unusedChecks: [
+          { unit: UNIT_A, file: SRC_A, function: "T::emitEffect", status: "dead", changed: [] },
+          { unit: UNIT_B, file: SRC_B, function: "T::rolling", status: "inlined", changed: [{ function: "T::execute" }] },
+        ],
+      })]));
+      expect(result.clean).toBe(false);
+      expect(result.problems).toEqual([`dead UNUSED body: T::emitEffect (${SRC_A}:3) — UNUSED functions may only be reconstructed when inlined`]);
+      expect(result.units.map((unit) => [unit.unit, unit.clean])).toEqual([[UNIT_A, false], [UNIT_B, true]]);
+      expect(latestCleanSteeringBackfillRun(store, "sms")).toBeNull();
+
+      const inconclusive = await backfill(repo, head, store, dir, fakeRunners(repo, [check({
+        attempt: "unresolved",
+        functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "f", "pass")],
+        units: covered(UNIT_A, UNIT_B),
+        files: [SRC_A, SRC_B],
+        unusedChecks: [{ unit: UNIT_B, file: SRC_B, function: "T::rolling", status: "inconclusive", changed: [], reason: "stub build failed" }],
+      })]));
+      expect(inconclusive.clean).toBe(false);
+      expect(inconclusive.problems).toEqual([`UNUSED stub test inconclusive: T::rolling (${SRC_B}): stub build failed`]);
+      expect(inconclusive.units.map((unit) => [unit.unit, unit.clean])).toEqual([[UNIT_A, true], [UNIT_B, false]]);
+    });
+  });
+
+  test("an out_of_order violation without a unit dirties the unit that compiles its file; an unknown order check dirties its unit", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const result = await backfill(repo, head, store, dir, fakeRunners(repo, [check({
+        attempt: "rule_violation",
+        functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "f", "pass")],
+        units: covered(UNIT_A, UNIT_B),
+        files: [SRC_A, SRC_B],
+        violations: [{ kind: "out_of_order", file: SRC_A, line: 5, class: "TKoopa", owner_unit: "mario/Enemy/Koopa", owner_progress: 0, reason: "blank stub" }],
+        orderChecks: [
+          { file: SRC_A, line: 5, class: "TKoopa", owner_unit: "mario/Enemy/Koopa", owner_progress: 0, status: "out_of_order", reason: "blank stub" },
+          { file: SRC_B, line: 9, class: "TMystery", owner_unit: null, owner_progress: null, status: "unknown", reason: "owner unit unknown" },
+        ],
+      })]));
+      expect(result.clean).toBe(false);
+      expect(result.problems.join("; ")).toContain(`out of order: ${SRC_A}:5 uses TKoopa`);
+      expect(result.problems.join("; ")).toContain(`order check unknown: TMystery at ${SRC_B}:9`);
+      expect(result.units.map((unit) => [unit.unit, unit.clean])).toEqual([[UNIT_A, false], [UNIT_B, false]]);
+
+      // A violation in a file no known unit compiles dirties every unit (fail closed).
+      const orphan = await backfill(repo, head, store, dir, fakeRunners(repo, [check({
+        attempt: "rule_violation",
+        functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "f", "pass")],
+        units: covered(UNIT_A, UNIT_B),
+        violations: [{ kind: "out_of_order", file: "src/System/MarNameRefGen_Enemy.cpp", line: 5, class: "TKoopa", owner_unit: "mario/Enemy/Koopa" }],
+      })]));
+      expect(orphan.units.map((unit) => [unit.unit, unit.clean])).toEqual([[UNIT_A, false], [UNIT_B, false]]);
+    });
+  });
+
+  test("a non-pass attempt that no per-unit finding explains keeps every unit unclean", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const result = await backfill(repo, head, store, dir, fakeRunners(repo, [check({
+        attempt: "unresolved", functions: [fn(UNIT_A, "f", "pass")], units: covered(UNIT_A),
+      })]));
+      expect(result.clean).toBe(false);
+      expect(result.problems).toEqual(["attempt decision is unresolved"]);
+      expect(result.units).toEqual([{ unit: UNIT_A, clean: false, provisional: false, coverage: { built: true, compared: true } }]);
+      expect(steeringCoverageFor(store, "sms", UNIT_A)?.clean).toBe(false);
+    });
+  });
+
+  test("a dead UNUSED body alone makes --apply restore the stub and rebuild its unit", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const violated = check({
+        attempt: "rule_violation", functions: [fn(UNIT_A, "f", "pass")], units: covered(UNIT_A),
+        violations: [{ kind: "dead_unused_body", unit: UNIT_A, file: SRC_A, function: "T::emitEffect" }],
+      });
+      const runners = fakeRunners(repo, [violated, check({ attempt: "pass", functions: [fn(UNIT_A, "f", "pass")], units: covered(UNIT_A) })], { [SRC_A]: REAL });
+      const result = await backfill(repo, head, store, dir, runners, { record: false, apply: true });
+      expect(runners.calls.map((args) => args[0])).toEqual(["check", "apply", "check"]);
+      expect(result.applied).toBe(true);
+      expect(result.touchedUnits).toEqual([UNIT_A]);
+      expect(runners.builds).toEqual([["ninja", "-j3", "build/GMSJ01/src/Enemy/a.o", VALIDATION.reportPath]]);
     });
   });
 

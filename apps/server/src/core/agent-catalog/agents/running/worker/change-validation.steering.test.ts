@@ -6,7 +6,7 @@ import { openState } from "@server/core/orchestrator-state";
 import { latestSteeringProbe } from "@server/core/harness-runtime/run-state/steering.js";
 import type { CommandResult, WorkspaceExec } from "@server/infrastructure/shell";
 import type { StackCheckRunner } from "@server/core/validation/stack/stack-check.js";
-import { STEERING_LOCATED_INSTRUCTION, type SteeringRunner } from "@server/core/validation/steering/steering-check.js";
+import { STEERING_LOCATED_INSTRUCTION, UNUSED_BODY_INSTRUCTION, type SteeringRunner } from "@server/core/validation/steering/steering-check.js";
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import { validateWorkerChange, type WorkerChangeBaseline, type WorkerUnitScoreSnapshot } from "./change-validation.js";
 import { recordWorkerSteeringObservations, steeringRepairProbe } from "./steering-validation.js";
@@ -251,6 +251,38 @@ describe("validateWorkerChange steering gate", () => {
     expect(reason).toContain(`steering located in ${SYMBOL} (without steering: 96.5%)`);
     expect(reason).toContain(STEERING_LOCATED_INSTRUCTION);
     expect(steeringRepairProbe(validation)).toMatchObject({ function: SYMBOL, unit: UNIT });
+  });
+
+  test("enforce: a dead UNUSED body stays steering_located with a reason naming the rule and the UNUSED-body instruction", async () => {
+    const dead = { kind: "dead_unused_body", unit: UNIT, file: SOURCE, function: "MActor::unusedHelper", line: 40 };
+    const decide = decision("rule_violation", [{ name: SYMBOL, decision: "pass" }], {
+      removable_noncosmetic: [],
+      probes: [],
+      violations: [dead],
+      unused_checks: [{ unit: UNIT, file: SOURCE, function: dead.function, status: "dead", stub: "{ }", changed: [] }],
+    });
+    const { validation } = await attempt({ mode: "enforce", runner: steeringRunner({ decide }) });
+    expect(validation.status).toBe("steering_located");
+    expect(validation.steering?.decision?.attempt).toBe("rule_violation");
+    const reason = validation.reasons.find((entry) => entry.startsWith("steering_located"))!;
+    expect(reason).toContain(`dead UNUSED body: MActor::unusedHelper (${SOURCE}:40) — UNUSED functions may only be reconstructed when inlined`);
+    expect(reason).toEndWith(UNUSED_BODY_INSTRUCTION);
+    expect(reason).not.toContain(STEERING_LOCATED_INSTRUCTION);
+
+    // Never excused as frame-only, even when decide also located steering whose S* differs only in the frame.
+    const framed = await attempt({
+      mode: "enforce",
+      runner: steeringRunner({
+        decide: decision("steering_located", [{ name: SYMBOL, decision: "steering_located" }], { violations: [dead] }),
+        mwccFunctions: [{ unit: UNIT, name: SYMBOL, sstar_vs_candidate: "stack_only" }],
+      }),
+    });
+    expect(framed.validation.status).toBe("steering_located");
+
+    // Shadow records the violation and never changes the status.
+    const shadow = await attempt({ mode: "shadow", runner: steeringRunner({ decide }) });
+    expect(shadow.validation.status).toBe("passed");
+    expect(shadow.validation.steering?.decision?.violations).toEqual([dead]);
   });
 
   test("enforce: unresolved, tool failure and timeout all reject; nothing uncertified is banked", async () => {

@@ -47,6 +47,14 @@ export interface WideningDecision {
   validationTier: 2 | 3 | 4;
   reason: string;
   decidedBy: "runner-policy" | "cross-module-lane" | "operator";
+  /**
+   * Ordering shadow only: the rung-3 readiness denial enforce would have
+   * applied. The decision itself is unchanged (shadow never changes outcomes).
+   */
+  wouldDeny?: {
+    classes: Array<{ class: string; owner_unit: string | null; state: string }>;
+    reason: string;
+  };
 }
 
 function normalizeRepoPath(path: string): string {
@@ -59,7 +67,7 @@ export function categorizePath(path: string, sourcePath: string): WriteSetCatego
 
   if (normalizedPath !== "" && normalizedPath === normalizedSourcePath) return "target-source";
   if (/^config\/(?:.*\/)?(?:symbols|splits)\.txt$/.test(normalizedPath)) return "config-metadata";
-  if (/^(?:include|src)\/.+\.h(?:pp)?$/.test(normalizedPath)) return "owning-header";
-  if (/^src\/.+\.c$/.test(normalizedPath)) return "foreign-source";
+  if (/^(?:include|src|libs\/[^/]+\/include)\/.+\.h(?:pp)?$/i.test(normalizedPath)) return "owning-header";
+  if (/^src\/.+\.c(?:pp)?$/i.test(normalizedPath)) return "foreign-source";
   return "other";
 }

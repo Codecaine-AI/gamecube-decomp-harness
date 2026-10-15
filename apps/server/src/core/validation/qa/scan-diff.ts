@@ -20,6 +20,7 @@ import { resolve } from "node:path";
 import type { RunGameMetadata } from "@server/core/shared/types";
 import type { AddressNamedStaticDataAllowlistEntry } from "@server/core/game-registry";
 import { resolveRegisteredTool } from "@server/core/tools/resolver";
+import { gameOrdering, orderingActive, type GameOrderingSource } from "@server/core/tools/ordering.js";
 import type { AcceptedAdvisoryResolution } from "./accepted-advisories.js";
 import { isAdvisoryFinding } from "./advisory-fingerprint.js";
 
@@ -95,7 +96,7 @@ export interface RunQaScanDiffOptions {
   stateDir?: string;
   /** Explicit worktree id for parallel validation worktrees. */
   worktreeId?: string;
-  /** Base ref to diff against (merge-base is computed by the tool). Mutually exclusive with diffFile/files. */
+  /** Base ref to diff against (merge-base is computed by the tool). Mutually exclusive with diffFile; `files` restricts it. */
   baseRef?: string;
   /** Pre-computed unified diff file to scan instead of a ref diff. */
   diffFile?: string;
@@ -240,6 +241,19 @@ function cleanResultFromExitZero(options: RunQaScanDiffOptions, stderr: string):
     findings: [],
     counts: { errors: 0, warnings: 0 },
   };
+}
+
+/** Ref-diff pathspecs for ordering-active games: headers carry the order-and-scope violations. */
+export const ORDERING_QA_SCAN_PATHS = ["src", "include", "libs"] as const;
+
+/**
+ * `files` for a ref-mode scan (pr_gate, epoch): `src/`, `include/` and
+ * `libs/` while the game's ordering is shadow or enforce, so header rules
+ * (`sms_undecompiled_class_decl`) see header hunks. Nothing otherwise: the
+ * scanner keeps its `src` default and Melee's command is unchanged.
+ */
+export function orderingQaScanFiles(game: GameOrderingSource): { files?: string[] } {
+  return orderingActive(gameOrdering(game)?.mode) ? { files: [...ORDERING_QA_SCAN_PATHS] } : {};
 }
 
 export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaScanInvocation> {

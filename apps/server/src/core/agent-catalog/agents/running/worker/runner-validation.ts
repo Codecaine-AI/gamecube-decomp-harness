@@ -1,5 +1,6 @@
 import type { WorkerStackPolicyResult } from "@server/core/validation/stack/stack-check.js";
 import type { WorkerSteeringResult } from "@server/core/validation/steering/steering-check.js";
+import type { EditScopeHunk, EditScopeResult } from "@server/core/validation/edit-scope/edit-scope.js";
 
 export interface WorkerRunnerValidation {
   status:
@@ -14,7 +15,9 @@ export interface WorkerRunnerValidation {
     /** stop_at_frame games: every function the attempt changed differs only in the stack frame. */
     | "stack_only_perturbation"
     /** Steering gate enforce: the match depends on behaviour-identical edits, or the gate could not certify the attempt. */
-    | "steering_located";
+    | "steering_located"
+    /** Ordering enforce: the order-and-scope fence rejected the attempt (a not-ready/unresolved class or gated reference), or could not run. */
+    | "edit_scope_rejected";
   reasons: string[];
   command?: string;
   exitCode?: number;
@@ -51,6 +54,12 @@ export interface WorkerRunnerValidation {
   stackPolicy?: WorkerStackPolicyResult;
   /** Steering gate shadow/enforce: the gate's result for this attempt (shadow never changes `status`). */
   steering?: WorkerSteeringResult;
+  /** Ordering shadow/enforce: the order-and-scope fence's result for this attempt (shadow never changes `status`). */
+  editScope?: EditScopeResult;
+  /** `unused_unverified` hunks the pre-steering check deferred to the post-steering UNUSED re-check. */
+  editScopeDeferredUnused?: EditScopeHunk[];
+  /** The post-steering re-check with this attempt's steering `unused_checks` (only when the first check saw UNUSED hunks). */
+  editScopeUnused?: EditScopeResult;
   postReturnCheck?: {
     status: "passed" | "failed" | "skipped";
     reasons: string[];

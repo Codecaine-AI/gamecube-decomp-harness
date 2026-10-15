@@ -1,15 +1,14 @@
 import { getDispatchState } from "@server/core/harness-state";
 import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import {
-  addEvent,
   getRun,
   getWorkerOutputIntegration,
   openState,
-  updateWorkerOutputIntegration,
   type StateStore,
 } from "@server/core/harness-runtime/run-state";
 import { isBlockingWorkerOutputIntegrationStatus } from "@server/core/harness-runtime/run-state/worker-output-integration.js";
-import { immediateTransaction, now } from "@server/core/orchestrator-state";
+import { rejectWorkerOutputIntegrationRecord } from "@server/core/harness-runtime/phases/running/integration/reject-output.js";
+import { immediateTransaction } from "@server/core/orchestrator-state";
 import { createManagedProcessController } from "@server/infrastructure/process-control/managed-process-controller.js";
 
 export type IntegrationResolutionChoice = "reject";
@@ -78,28 +77,16 @@ export function resolveWorkerOutputIntegration(input: ResolveWorkerOutputIntegra
       throw new Error(`Worker output integration ${outcome.id} has no checkpoint`);
     }
 
-    const resolvedAt = now();
-    const updated = updateWorkerOutputIntegration(input.store, outcome.id, {
-      status: "rejected",
+    const { updated, resolvedAt, eventId } = rejectWorkerOutputIntegrationRecord(input.store, {
+      outcome,
       disposition: "operator_rejected",
-      resolvedAt,
+      actor: "operator",
+      reason,
       metadata: {
         rejected_by: "operator",
         reason,
         previous_status: outcome.status,
       },
-    });
-    const checkpointUpdate = input.store.db
-      .query("UPDATE worker_checkpoints SET selected = 0 WHERE id = ?")
-      .run(outcome.workerCheckpointId);
-    if (checkpointUpdate.changes !== 1) {
-      throw new Error(`Worker checkpoint not found: ${outcome.workerCheckpointId}`);
-    }
-    const eventId = addEvent(input.store, input.runId, "worker_integration_rejected", "operator", {
-      outcome_id: outcome.id,
-      target_key: outcome.targetKey,
-      checkpoint_id: outcome.workerCheckpointId,
-      reason,
     });
 
     return {

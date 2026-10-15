@@ -69,6 +69,10 @@ function steeringSection(prompt: string): string {
   return prompt.match(/<steering_policy>[\s\S]*?<\/steering_policy>\n\n/)?.[0] ?? "";
 }
 
+function orderSection(prompt: string): string {
+  return prompt.match(/<order_and_scope>[\s\S]*?<\/order_and_scope>\n\n/)?.[0] ?? "";
+}
+
 describe("worker prompt against pre-steering HEAD fixtures", () => {
   test("Melee system prompt is unchanged in every advisory mode", () => {
     for (const advisoryAdjudication of advisoryModes) {
@@ -103,5 +107,26 @@ describe("worker prompt against pre-steering HEAD fixtures", () => {
         expect(active.replace(section, "")).toBe(expected);
       }
     }
+  });
+
+  test("SMS with ordering off equals HEAD's SMS prompt; active ordering only adds <order_and_scope>", () => {
+    for (const advisoryAdjudication of advisoryModes) {
+      const expected = fixture(`sms-system-${advisoryAdjudication}`);
+      const sms = (ordering: "off" | "shadow" | "enforce") =>
+        workerPrompt({ ...base, advisoryAdjudication, stackFramePolicy: "stop_at_frame", steeringGate: "shadow", ordering }).systemPrompt;
+      expect(steeringSection(sms("off")) && sms("off").replace(steeringSection(sms("off")), "")).toBe(expected);
+      for (const ordering of ["shadow", "enforce"] as const) {
+        const active = sms(ordering);
+        const section = orderSection(active);
+        expect(section).toStartWith("<order_and_scope>");
+        expect(active.replace(section, "").replace(steeringSection(active), "")).toBe(expected);
+      }
+    }
+  });
+
+  test("Melee packet context is unchanged with not_ready_classes on the packet while ordering is off", () => {
+    const expected = fixture("melee-context-compact");
+    const unmet = [{ class: "TKoopa", owner_unit: "mario/Enemy/Koopa", kind: "construct" }];
+    expect(workerPrompt({ ...base, contextBudget: "compact", stackFramePolicy: "match_frame", ordering: "off", packet: { ...packet, not_ready_classes: unmet } }).kernelContext?.renderedContext).toBe(expected);
   });
 });

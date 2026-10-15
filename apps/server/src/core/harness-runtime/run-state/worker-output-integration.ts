@@ -37,6 +37,15 @@ export interface WorkerOutputIntegrationUpdate {
 const ACTIVE_JOB_STATUSES = ["queued", "claimed", "running", "waiting"] as const;
 const BLOCKING_OUTCOMES = ["conflict", "failed", "needs_rework", "blocked", "resolver_failed"] as const;
 
+/**
+ * Dispositions of the terminal, non-blocking `rejected` status: the checkpoint
+ * is deselected and the target is re-admitted by the next epoch's admission.
+ * `rejected_out_of_scope` is the integration order-and-scope gate's rejection.
+ */
+export const WORKER_OUTPUT_REJECTED_DISPOSITIONS = ["operator_rejected", "rejected_out_of_scope"] as const;
+export type WorkerOutputRejectedDisposition = typeof WORKER_OUTPUT_REJECTED_DISPOSITIONS[number];
+export const REJECTED_OUT_OF_SCOPE_DISPOSITION: WorkerOutputRejectedDisposition = "rejected_out_of_scope";
+
 export function isBlockingWorkerOutputIntegrationStatus(status: WorkerOutputIntegrationStatus): boolean {
   return BLOCKING_OUTCOMES.includes(status as typeof BLOCKING_OUTCOMES[number]);
 }
@@ -147,4 +156,15 @@ export function blockingWorkerOutputIntegrationCount(store: StateStore, runId: s
   const jobs = store.db.query("SELECT COUNT(*) count FROM jobs WHERE kind='integration' AND run_id=? AND status IN ('queued','claimed','running','waiting')").get(runId) as { count: number };
   const outcomes = store.db.query("SELECT COUNT(*) count FROM integration_outcomes WHERE run_id=? AND status IN ('conflict','failed','needs_rework','blocked','resolver_failed')").get(runId) as { count: number };
   return Number(jobs.count) + Number(outcomes.count);
+}
+
+/**
+ * The latest `rejected_out_of_scope` outcome for a target in a run: the
+ * re-admitted target's next claim carries its reasons in the repair request.
+ */
+export function latestOutOfScopeRejection(store: StateStore, runId: string, targetKey: string): WorkerOutputIntegrationRecord | null {
+  const row = withBusyRetry(() => store.db.query(
+    "SELECT * FROM integration_outcomes WHERE run_id = ? AND target_key = ? AND status = 'rejected' AND disposition = ? ORDER BY COALESCE(resolved_at, updated_at) DESC, updated_at DESC LIMIT 1",
+  ).get(runId, targetKey, REJECTED_OUT_OF_SCOPE_DISPOSITION) as Record<string, unknown> | undefined);
+  return row ? outcomeFromRow(row) : null;
 }

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  OUT_OF_ORDER_INSTRUCTION,
+  UNUSED_BODY_INSTRUCTION,
   parseSteeringDecision,
   steeringCertificateContext,
   steeringCertificateProblems,
@@ -35,6 +37,44 @@ describe("real Python decide/reduce output", () => {
     expect(problems.join("; ")).toContain("steering located in g");
     expect(problems.join("; ")).toContain("behaviour-identical edit groups left in the patch");
     expect(steeringRejectionReason({ mode: "enforce", decision, error: null, artifactPath: null, durationMs: 1, certificate })).toStartWith("steering_located: ");
+  });
+
+  test("the dead UNUSED body case is a rule violation enforce rejects with the UNUSED-body instruction", () => {
+    const { decision, certificate, problems } = certify("decide-real-violation.json", "reduce-real-violation.json");
+    expect(decision?.attempt).toBe("rule_violation");
+    expect(decision?.violations).toEqual([{ kind: "dead_unused_body", unit: "u1", file: "src/a.c", function: "u(void)", line: 14 }]);
+    // Every field decide emits survives parsing, binding included (integration and publication validate it).
+    const raw = (fixture("decide-real-violation.json") as { unused_checks: unknown[] }).unused_checks;
+    expect(decision?.unused_checks).toEqual(raw as never);
+    expect(decision?.unused_checks?.[0]).toMatchObject({ status: "dead", line: 14, body_sha256: expect.any(String), base_rev: expect.any(String) });
+    // Every function row passes; the violation alone rejects.
+    expect(decision?.functions.every((fn) => fn.decision === "pass")).toBe(true);
+    expect(problems).toEqual(["dead UNUSED body: u(void) (src/a.c:14) — UNUSED functions may only be reconstructed when inlined"]);
+    const reason = steeringRejectionReason({ mode: "enforce", decision, error: null, artifactPath: null, durationMs: 1, certificate });
+    expect(reason).toStartWith("steering_located: dead UNUSED body: ");
+    expect(reason).toEndWith(UNUSED_BODY_INSTRUCTION);
+  });
+
+  test("the out-of-order registry fill is a rule violation enforce rejects with the out-of-order instruction", () => {
+    const { decision, certificate, problems } = certify("decide-real-order.json", "reduce-real-order.json");
+    expect(decision?.attempt).toBe("rule_violation");
+    // decide names no unit: the function row whose groups touch the file supplies it.
+    expect(decision?.violations).toEqual([{
+      kind: "out_of_order", file: "src/System/MarNameRefGen_Enemy.cpp", line: 5, class: "TKoopa",
+      owner_unit: "mario/Enemy/Koopa", owner_progress: 0,
+      // The wording follows the Python readiness model; only its tail is contract.
+      reason: expect.stringContaining("leave it until the class's own unit is decompiled"),
+      unit: "u2",
+    }]);
+    expect(decision?.order_checks?.map((check) => [check.class, check.status])).toEqual([["TTinKoopa", "ok"], ["TKoopa", "out_of_order"]]);
+    // The ok check adds nothing and the out_of_order one is covered by its violation.
+    expect(problems).toEqual([
+      "out of order: src/System/MarNameRefGen_Enemy.cpp:5 uses TKoopa (owner mario/Enemy/Koopa, not decompiled) — don't fill in code that needs classes whose units are not decompiled",
+    ]);
+    const reason = steeringRejectionReason({ mode: "enforce", decision, error: null, artifactPath: null, durationMs: 1, certificate });
+    expect(reason).toStartWith("steering_located: out of order: ");
+    expect(reason).toEndWith(OUT_OF_ORDER_INSTRUCTION);
+    expect(reason).not.toContain(UNUSED_BODY_INSTRUCTION);
   });
 });
 

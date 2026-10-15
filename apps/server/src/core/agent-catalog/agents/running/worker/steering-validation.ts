@@ -24,7 +24,9 @@ import type { WorkerRunnerValidation } from "./runner-validation.js";
  * changed source. `off` never runs it; `shadow` records the result on the
  * validation and never changes the status; `enforce` turns anything but a
  * certified `pass` into `steering_located` (or `stack_only_perturbation` when
- * the removable edits only bought the stack frame under `stop_at_frame`).
+ * the removable edits only bought the stack frame under `stop_at_frame`). A
+ * `rule_violation` (a dead UNUSED body) also lands on `steering_located`; its
+ * reason names the rule and carries UNUSED_BODY_INSTRUCTION.
  */
 export interface WorkerSteeringGateOptions {
   mode: SteeringGateMode;
@@ -118,6 +120,8 @@ async function readMwccFunctions(outputDir: string, attemptIndex: number): Promi
 export async function steeringStackOnlyFunctions(result: WorkerSteeringResult, outputDir: string, attemptIndex: number): Promise<string[] | null> {
   const decision = result.decision;
   if (result.error || !decision || decision.attempt !== "steering_located") return null;
+  // A rule violation or an incomplete stub test is never excused as frame-only.
+  if ((decision.violations ?? []).length > 0 || (decision.unused_checks ?? []).some((check) => check.status === "inconclusive")) return null;
   const failing = decision.functions.filter((fn) => fn.decision !== "pass");
   if (failing.length === 0) return null;
   if (failing.some((fn) => fn.decision !== "steering_located" || fn.semantic !== "steering" || fn.analysis !== "complete")) return null;

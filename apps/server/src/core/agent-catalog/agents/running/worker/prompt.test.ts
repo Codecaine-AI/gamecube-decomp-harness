@@ -10,6 +10,7 @@ import {
 import { renderSystemPrompt, workerPrompt } from "./prompt.js";
 import { targetPacketTarget } from "./packet.js";
 import {
+  notReadyClassesXml,
   steeringProbeXml,
   WORKER_COMPACT_TARGET_FILE_INLINE_CHAR_LIMIT,
   WORKER_MINIMAL_TARGET_FILE_INLINE_CHAR_LIMIT,
@@ -19,6 +20,7 @@ import { renderKernelContextInputsPreview } from "../../../kernel-context.js";
 import { parseWorkerCheckpointNote } from "./checkpoint-note.js";
 import type { AdvisoryAdjudicationMode } from "../../../../game-registry/runtime-options.js";
 import { gameSteeringGate } from "../../../../tools/steering-gate.js";
+import { gameOrdering } from "../../../../tools/ordering.js";
 
 function sampleWorkerPrompt() {
   return workerPrompt({
@@ -784,7 +786,7 @@ describe("kept_advisories prompt contract", () => {
 
     test("stop_at_frame (SMS) matches up to stack frame size and bans frame-only edits", () => {
       const sms = policyPrompt({ game: games.sms });
-      expect(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: gameSteeringGate(games.sms) })).toBe(sms);
+      expect(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: gameSteeringGate(games.sms), ordering: gameOrdering(games.sms)?.mode })).toBe(sms);
       const section = sms.match(/<stack_frame_policy>[\s\S]*?<\/stack_frame_policy>/)?.[0] ?? "";
       expect(section).toContain("This game matches up to stack frame size.");
       expect(section).toContain("only difference from the target is the stack frame is done. Stop and submit it.");
@@ -855,6 +857,10 @@ describe("kept_advisories prompt contract", () => {
         expect(section).toContain("Read the `steering_probe` block when present");
         expect(section).toContain("`real_code_evidence`: `map-calls`");
         expect(section).toContain("a hunk mixing a real fix with steering is rejected as unresolved");
+        expect(section).toContain("A function the map marks UNUSED that upstream left as a stub gets a body only if the original inlined it into another function in the same TU");
+        // The XML renderer escapes the angle-bracket placeholders, as it does for `<target_file>` elsewhere.
+        expect(section).toContain("`steering_check.py unused-test --repo . --file &lt;file&gt; --function &lt;Name&gt;`");
+        expect(section).toContain("the body is dead code and is rejected");
         expect(sms.replace(`${section}\n\n`, "")).toBe(off);
         expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
       }
@@ -897,6 +903,75 @@ describe("kept_advisories prompt contract", () => {
       }
       expect(steeringProbeXml({ steering_probe: probe }, "off")).toBe("");
       expect(steeringProbeXml({}, "enforce")).toBe("");
+    });
+
+    test("an active ordering mode (SMS) adds <order_and_scope> with per-mode wording and nothing else", () => {
+      const off = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering: "off" });
+      expect(off).not.toContain("<order_and_scope>");
+      expect(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce" })).toBe(off);
+      for (const ordering of ["shadow", "enforce"] as const) {
+        const sms = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering });
+        const section = sms.match(/<order_and_scope>[\s\S]*?<\/order_and_scope>/)?.[0] ?? "";
+        expect(section).toContain(`Edits that break these rules ${ordering === "enforce" ? "are rejected" : "are flagged"}.`);
+        expect(section).not.toContain(ordering === "enforce" ? "are flagged" : "are rejected");
+        expect(section).toContain("Edit your target's file and, in headers of decompiled units, only the declarations your target needs.");
+        expect(section).toContain("Never add a class, members or a header for a class whose unit is not decompiled. Forward declarations are fine.");
+        expect(section).toContain("Registries such as MarNameRefGen are filled after their classes exist: don't jump the fence.");
+        expect(section).toContain("(`steering_check.py unused-test`)");
+        expect(section).toContain("Keep one unit per change.");
+        expect(section).toContain("Read the `not_ready_classes` block when present");
+        // Placed right after <steering_policy>.
+        expect(sms.indexOf("</steering_policy>")).toBeLessThan(sms.indexOf("<order_and_scope>"));
+        expect(sms.replace(`${section}\n\n`, "")).toBe(off);
+        expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+      }
+      // Melee: no ordering block resolves to off.
+      expect(policyPrompt({ game: games.melee })).not.toContain("<order_and_scope>");
+      const sectionPacket = { target: { unit: "GALE01:advisory", symbol: ".sdata2", kind: "section" } };
+      expect(policyPrompt({ packet: sectionPacket, ordering: "enforce" })).toBe(sectionPrompt());
+    });
+
+    test("NOT_READY_CLASSES_XML renders the target's unmet classes only while ordering is active", () => {
+      const unmet = [
+        { class: "TKoopa", owner_unit: "mario/Enemy/Koopa", kind: "construct" },
+        { class: "TKillerManager", owner_unit: "mario/Enemy/killer", kind: "vtable" },
+      ];
+      const context = (ordering: "off" | "shadow" | "enforce", packet: Record<string, unknown>) => workerPrompt({
+        packet,
+        repoRoot: "/repo",
+        stateDir: "/state",
+        initialBoardPath: "/state/board.json",
+        workerLogDir: "/state/workers",
+        contextBudget: "full",
+        targetSourceText: "void advisory_symbol(void) {}\n",
+        sourceNames: [],
+        ordering,
+      }).kernelContext?.renderedContext ?? "";
+
+      const off = context("off", advisoryPacket);
+      expect(context("shadow", advisoryPacket)).toBe(off);
+      expect(context("off", { ...advisoryPacket, not_ready_classes: unmet })).toBe(off);
+      expect(context("enforce", { ...advisoryPacket, not_ready_classes: [] })).toBe(off);
+      for (const ordering of ["shadow", "enforce"] as const) {
+        for (const [index, packet] of [
+          { ...advisoryPacket, not_ready_classes: unmet },
+          // Read defensively from the target too (the target JSON then shows them as well).
+          { ...advisoryPacket, target: { ...advisoryPacket.target, not_ready_classes: unmet } },
+        ].entries()) {
+          const rendered = context(ordering, packet);
+          expect(rendered).toContain("<not_ready_classes>");
+          expect(rendered).toContain("<instruction>Do not construct or declare these; their units are not decompiled.</instruction>");
+          expect(rendered).toContain('<class name="TKoopa" owner_unit="mario/Enemy/Koopa" kind="construct" />');
+          expect(rendered).toContain('<class name="TKillerManager" owner_unit="mario/Enemy/killer" kind="vtable" />');
+          expect(rendered.indexOf("</first_diff>")).toBeLessThan(rendered.indexOf("<not_ready_classes>"));
+          expect(rendered).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
+          if (index === 0) expect(rendered.replace(/\n\n {4}<not_ready_classes>[\s\S]*?<\/not_ready_classes>/, "")).toBe(off);
+        }
+      }
+      expect(notReadyClassesXml({ not_ready_classes: unmet }, "off")).toBe("");
+      expect(notReadyClassesXml({}, "enforce")).toBe("");
+      expect(notReadyClassesXml({ not_ready_classes: [{ owner_unit: "x" }, "TKoopa"] }, "enforce")).toBe("");
+      expect(notReadyClassesXml({ not_ready_classes: [{ class: "T<A>" }] }, "shadow")).toContain('<class name="T&lt;A&gt;" />');
     });
 
     test("stop_at_frame keeps advisory modes and section targets aligned", () => {

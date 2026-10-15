@@ -11,7 +11,8 @@ import {
   type KernelAgentViewerDefinition,
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
-import type { StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import type { OrderingMode, StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import {
   ADVISORY_ADJUDICATION_ENV,
   parseAdvisoryAdjudicationMode,
@@ -59,6 +60,8 @@ export interface KernelAgentsPayload {
   stackFramePolicy: StackFramePolicy;
   /** The game's steering gate mode the worker sample was rendered for. */
   steeringGate: SteeringGateMode;
+  /** The game's ordering mode the worker sample was rendered for. */
+  ordering: OrderingMode;
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
 }
@@ -73,6 +76,8 @@ export interface KernelPreviewDeps {
   stackFramePolicy?: StackFramePolicy;
   /** Worker steering gate; defaults to the selected game's `matching.steeringGate`, else `off`. */
   steeringGate?: SteeringGateMode;
+  /** Worker ordering mode; defaults to the selected game's `ordering.mode`, else `off`. */
+  ordering?: OrderingMode;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
   loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
   buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
@@ -84,13 +89,14 @@ export interface KernelPreviewTarget {
   symbol: string;
 }
 
-export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate">;
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering">;
 
 /** Shared by the worker prompt bundle and the viewer's prompt document so both show one variant. */
 interface WorkerPreviewMode {
   advisoryAdjudication: AdvisoryAdjudicationMode;
   stackFramePolicy: StackFramePolicy;
   steeringGate: SteeringGateMode;
+  ordering: OrderingMode;
 }
 
 function previewStackFramePolicy(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): StackFramePolicy {
@@ -99,6 +105,10 @@ function previewStackFramePolicy(paths: KernelAgentCatalogContext, deps: KernelP
 
 function previewSteeringGate(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): SteeringGateMode {
   return deps.steeringGate ?? paths.game?.matching?.steeringGate ?? "off";
+}
+
+function previewOrdering(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): OrderingMode {
+  return deps.ordering ?? gameOrdering(paths.game)?.mode ?? "off";
 }
 
 /**
@@ -137,8 +147,21 @@ function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<s
   };
 }
 
+/**
+ * The readiness entry's `unmet` classes as the scheduler attaches them to a
+ * deferred target's packet (contract: `packet.not_ready_classes`). Only an
+ * active ordering mode shows them, the way only a deferred claim carries them.
+ */
+const SAMPLE_NOT_READY_CLASSES = [
+  { class: "TKoopa", owner_unit: "mario/Enemy/Koopa", kind: "construct" },
+  { class: "TKillerManager", owner_unit: "mario/Enemy/killer", kind: "vtable" },
+];
+
 function previewSteeringPacket(mode: WorkerPreviewMode, target: { unit: string; symbol: string }): Record<string, unknown> {
-  return mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target) };
+  return {
+    ...(mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target) }),
+    ...(orderingActive(mode.ordering) ? { not_ready_classes: SAMPLE_NOT_READY_CLASSES } : {}),
+  };
 }
 
 // The server knows no run's `--advisory-adjudication` flag, only the env
@@ -699,6 +722,7 @@ export function loadKernelAgentsPayload(
     advisoryAdjudication,
     stackFramePolicy: previewStackFramePolicy(paths, deps),
     steeringGate: previewSteeringGate(paths, deps),
+    ordering: previewOrdering(paths, deps),
   };
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
@@ -728,6 +752,7 @@ export function loadKernelAgentsPayload(
     advisoryAdjudication,
     stackFramePolicy: mode.stackFramePolicy,
     steeringGate: mode.steeringGate,
+    ordering: mode.ordering,
     agents,
     warnings,
   };

@@ -14,7 +14,7 @@ import {
   workerCheckpointsForWorkerState,
 } from "@server/core/harness-runtime/run-state";
 import { initializeHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
-import { STEERING_LOCATED_INSTRUCTION, type WorkerSteeringResult } from "@server/core/validation/steering/steering-check.js";
+import { STEERING_LOCATED_INSTRUCTION, UNUSED_BODY_INSTRUCTION, type WorkerSteeringResult } from "@server/core/validation/steering/steering-check.js";
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import {
   claimStackOnlyShortcutAllowed,
@@ -83,6 +83,19 @@ describe("steering repair request", () => {
     expect(instruction).toContain(STEERING_LOCATED_INSTRUCTION);
     expect(instruction).toStartWith("Your last submission was rejected: steering_located:");
     expect(instruction).not.toContain("hard gates failed");
+  });
+
+  test("a dead UNUSED body gets the UNUSED-body instruction instead of the steering one", () => {
+    const base = steeringRejected();
+    const passing = steering("enforce", "pass");
+    const violation = { kind: "dead_unused_body", unit: UNIT, file: "src/M3DUtil/MActor.cpp", function: "MActor::unusedHelper" };
+    const validation: WorkerChangeValidation = {
+      ...base,
+      steering: { ...passing, certificate: { sourceChanged: true, reduceAnalysis: "complete", unresolvedGroups: [] }, decision: { ...passing.decision!, attempt: "rule_violation", units: [{ unit: UNIT, built: true, compared: true }], violations: [violation], unused_checks: [] } },
+    };
+    const instruction = workerRepairInstruction({ runnerValidation: validation, latestCheckpoint: null, repairReasons: [], scoreText: "", stopAtFrame: true });
+    expect(instruction).toContain(UNUSED_BODY_INSTRUCTION);
+    expect(instruction).not.toContain(STEERING_LOCATED_INSTRUCTION);
   });
 
   test("shadow never feeds the probe back; other rejections keep today's instructions", () => {

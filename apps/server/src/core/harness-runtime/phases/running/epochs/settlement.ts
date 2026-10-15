@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync
 import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
-import { runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
+import { orderingQaScanFiles, runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
 import { resolveAcceptedAdvisories, type AcceptedAdvisoryResolution } from "@server/core/validation/qa/accepted-advisories.js";
 import { normalizeAdvisoryPath } from "@server/core/validation/qa/advisory-fingerprint.js";
 import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
@@ -48,6 +48,7 @@ import { completeUnitNames, linkCompleteUnitsFromReport, type LinkCompleteUnitsC
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 import { asBoundaryStepError, PhaseTracker, stepFailureCheckpoint } from "./step-failure.js";
 import { baselineSourcePath, prepareEpochBaseline, writeBaselineSource } from "./epoch-baseline.js";
+import { readinessBoardFields } from "../scheduler/readiness.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
@@ -73,6 +74,12 @@ export interface EpochSettlementOptions {
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
   gameId?: string | null;
+  /**
+   * The game's ordering policy for the integration drain's scope gate (null =
+   * off). Omitted: the queue resolves the run's game, recording
+   * `ordering_unresolved` when the descriptor does not resolve.
+   */
+  orderingPolicy?: import("@server/core/validation/edit-scope/edit-scope.js").EditScopeOrderingPolicy | null;
   /** Format the harness worktree before its snapshot commit. Default on. */
   preCommitAutofixEnabled?: boolean;
   /** Promote units complete in the last published report before snapshotting. Default off. */
@@ -1190,6 +1197,7 @@ async function runEpochSettlementInnerTracked(
   const integrationDrain = await processWorkerOutputIntegrationQueue({
     dryRun: false,
     leaseId: options.leaseId,
+    ...(options.orderingPolicy !== undefined ? { ordering: options.orderingPolicy } : {}),
     limit: 64,
     repoRoot,
     runId,
@@ -1603,6 +1611,7 @@ async function runEpochSettlementInnerTracked(
         worktreeId: "epoch",
         baseRef: options.baseRef ?? "origin/master",
         addressNamedStaticDataAllowlist: options.qaScan.addressNamedStaticDataAllowlist,
+        ...orderingQaScanFiles(options.qaScan.game ?? (options.gameId ? { gameId: options.gameId } : undefined)),
       });
       qaGate = await epochQaGateSummary({
         store,
@@ -1789,6 +1798,8 @@ async function runEpochSettlementInnerTracked(
         source: "epoch",
         savePointId: savePoint.id,
         savePointSha: savePoint.commitSha,
+        // Ordering-active games: the readiness admission used (blocked/deferred, or shadow would-*).
+        ...readinessBoardFields(store, runId),
       },
       createdAt: savePoint.createdAt,
     });

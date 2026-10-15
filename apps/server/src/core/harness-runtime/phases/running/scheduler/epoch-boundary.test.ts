@@ -224,6 +224,39 @@ describe("harness epoch handoff", () => {
       expect(getHarnessTimeline(value.store.db, "test").filter(e => e.kind === "epoch_completed")).toHaveLength(2);
     } finally { value.store.db.close(); }
   });
+  test("post-boundary admission loads readiness at the accepted head and parks a blocked-only frontier without an epoch", async () => {
+    const { value, head } = readyFixture();
+    const readinessRevs: Array<string | null | undefined> = [];
+    const blocked = { kind: "readiness_blocked_only", blocked: [{ key: "main/System/MarNameRefGen_Enemy::getNameRef" }], readiness: { mode: "enforce", rev: head, identity: null, unavailable: null } };
+    let admittedWith: unknown;
+    try {
+      const input = params(value, { globals: { ...value.globals, dryRunAgents: false, gameId: "test" }, dependencies: {
+        reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+        runEpochSettlement: async () => ({ ...completedBoundary(value), commitSha: head, scoreDelta: 0, savePointId: "save",
+          savePointEvidence: { status: "recorded", savePointId: "save", artifactPaths: [], commitSha: head, triggerKind: "epoch_finish" } }) as never,
+        runBoundarySync: async () => {
+          const state = getHarnessState(value.store.db, "test")!;
+          transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: state.identity.revision, commandId: "sync-readiness",
+            patch: { execution: { workflow: "none", status: "idle" } },
+            boundary: { eventId: "sync-readiness", kind: "sync_completed", outcome: "no_source_change", epochId: value.epochId } });
+          return { changed: false, headSha: head, plan: { drifted: false } } as never;
+        },
+        readinessForAdmission: (async (input: { rev?: string | null }) => {
+          readinessRevs.push(input.rev);
+          return { mode: "enforce", gatedPaths: ["src/System/MarNameRefGen*.cpp"], rev: input.rev, load: { ok: false, kind: "timeout", error: "timeout" } };
+        }) as never,
+        ensureSchedulerEpochFromBoard: ((input: { readiness?: unknown }) => { admittedWith = input.readiness; return blocked; }) as never,
+      } });
+      const outcome = await runEpochBoundary(input);
+      expect(outcome.error).toBeUndefined();
+      expect(outcome.ok).toBe(true);
+      expect(outcome.paused).toBe(false);
+      expect(outcome.nextEpoch).toEqual(blocked as never);
+      expect(readinessRevs).toEqual([head]);
+      expect(admittedWith).toMatchObject({ mode: "enforce", rev: head });
+      expect(value.store.db.query("SELECT COUNT(*) AS count FROM events WHERE event_type = 'epoch_admitted'").get()).toEqual({ count: 0 });
+    } finally { value.store.db.close(); }
+  });
   test("pause during Sync persists and suppresses next admission", async () => {
     const { value, head } = readyFixture();
     let admissions = 0;
@@ -241,6 +274,30 @@ describe("harness epoch handoff", () => {
       const outcome = await runEpochBoundary(input);
       expect(outcome.error).toBeUndefined(); expect(outcome.paused).toBe(true); expect(admissions).toBe(0);
       expect(getHarnessState(value.store.db, "test")!.execution.desired).toBe("paused");
+    } finally { value.store.db.close(); }
+  });
+  test("a paused boundary still refreshes the readiness artifact at the accepted post-Sync head, without admitting", async () => {
+    const { value, head } = readyFixture();
+    const refreshed: unknown[] = [];
+    let admissions = 0;
+    try {
+      const input = params(value, { globals: { ...value.globals, dryRunAgents: false, gameId: "test" }, dependencies: {
+        reconcilePendingIntegrationAttempt: () => ({ status: "none" }) as never,
+        runEpochSettlement: async () => ({ ...completedBoundary(value), commitSha: head, savePointId: "save", savePointEvidence: { status: "recorded", savePointId: "save", artifactPaths: [], commitSha: head } }) as never,
+        runBoundarySync: async () => {
+          const state = getHarnessState(value.store.db, "test")!;
+          transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: state.identity.revision, commandId: "pause-readiness", patch: { execution: { desired: "paused", workflow: "none", status: "paused" } } });
+          return { changed: false, headSha: head, plan: { drifted: false } } as never;
+        },
+        readinessForAdmission: (async (input: { rev?: string | null }) => ({ mode: "shadow", gatedPaths: [], rev: input.rev, load: { ok: false, kind: "timeout", error: "timeout" } })) as never,
+        refreshReadinessArtifact: ((input: { readiness: unknown }) => { refreshed.push(input.readiness); return true; }) as never,
+        ensureSchedulerEpochFromBoard: (() => { admissions++; throw new Error("must not admit"); }) as never,
+      } });
+      const outcome = await runEpochBoundary(input);
+      expect(outcome.error).toBeUndefined();
+      expect(outcome.paused).toBe(true);
+      expect(admissions).toBe(0);
+      expect(refreshed).toEqual([expect.objectContaining({ mode: "shadow", rev: head })]);
     } finally { value.store.db.close(); }
   });
   test("failed Sync resumes settled evidence without replaying the epoch", async () => {

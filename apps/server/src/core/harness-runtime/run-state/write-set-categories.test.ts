@@ -29,6 +29,16 @@ describe("categorizePath", () => {
     expect(categorizePath("tools/fighter.c", sourcePath)).toBe("other");
   });
 
+  test("C++ sources and libs/*/include headers (SMS layout)", () => {
+    const cppSource = "src/MarioUtil/Mario.cpp";
+    expect(categorizePath(cppSource, cppSource)).toBe("target-source");
+    expect(categorizePath("src/Enemy/BossGesso.cpp", cppSource)).toBe("foreign-source");
+    expect(categorizePath("libs/JSystem/include/JSystem/J3D/J3DModel.hpp", cppSource)).toBe("owning-header");
+    expect(categorizePath("libs/dolphin/include/dolphin/os.h", cppSource)).toBe("owning-header");
+    expect(categorizePath("libs/JSystem/src/J3D/J3DModel.cpp", cppSource)).toBe("other");
+    expect(categorizePath("include/Enemy/BossGesso.HPP", cppSource)).toBe("owning-header");
+  });
+
   test("categorizes every unsupported path as other", () => {
     expect(categorizePath("Makefile", sourcePath)).toBe("other");
     expect(categorizePath("", sourcePath)).toBe("other");

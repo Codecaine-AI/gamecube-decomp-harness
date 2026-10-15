@@ -627,6 +627,7 @@ describe("meleeKernelAgentCatalog", () => {
     expect(melee.steeringGate).toBe("off");
     expect(workerText(melee)).not.toContain("<steering_policy>");
     expect(workerText(melee)).not.toContain("steering_probe");
+    expect(workerText(melee)).not.toContain("unused-test");
 
     const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
     for (const sms of [
@@ -640,9 +641,46 @@ describe("meleeKernelAgentCatalog", () => {
       const text = workerText(sms);
       expect(text).toContain("<steering_policy>");
       expect(text).toContain("A steering match is never done.");
+      expect(text).toContain("steering_check.py unused-test --repo . --file &lt;file&gt; --function &lt;Name&gt;");
       expect(worker(sms)?.context?.renderedContext ?? "").toContain("<steering_probe function=");
       expect(text).toContain('"steering_edits"');
       expect(text).toContain("real_code_evidence inlines --type MActor --member mLightData");
+      expect(text).not.toMatch(unresolvedPlaceholderPattern);
+      expect(text).not.toContain("{{");
+      // The viewer's prompt document is the same variant the rendered body came from.
+      expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
+    }
+  });
+
+  test("renders <order_and_scope> and a sample <not_ready_classes> for an active ordering mode", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const workerText = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      `${worker(payload)?.renderedPrompt?.content ?? ""}\n${worker(payload)?.context?.renderedContext ?? ""}`;
+
+    const melee = loadKernelAgentsPayload(paths);
+    expect(melee.ordering).toBe("off");
+    expect(workerText(melee)).not.toContain("<order_and_scope>");
+    expect(workerText(melee)).not.toContain("not_ready_classes");
+
+    const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" }, ordering: { mode: "shadow", gatedPaths: ["src/System/MarNameRefGen*.cpp"] } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
+    for (const [sms, wording] of [
+      [loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering: "enforce" }), "are rejected"],
+      [loadKernelAgentsPayload({ ...paths, game: smsGame }, { loadTargetCard: () => null, loadBackfillPassContext: () => null }), "are flagged"],
+    ] as const) {
+      expect(sms.ordering).not.toBe("off");
+      const text = workerText(sms);
+      expect(text).toContain("<order_and_scope>");
+      expect(text).toContain(`Edits that break these rules ${wording}.`);
+      const context = worker(sms)?.context?.renderedContext ?? "";
+      expect(context).toContain("<not_ready_classes>");
+      expect(context).toContain('<class name="TKoopa" owner_unit="mario/Enemy/Koopa" kind="construct" />');
       expect(text).not.toMatch(unresolvedPlaceholderPattern);
       expect(text).not.toContain("{{");
       // The viewer's prompt document is the same variant the rendered body came from.

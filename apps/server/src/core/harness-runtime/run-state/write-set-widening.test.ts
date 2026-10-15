@@ -24,6 +24,7 @@ import {
   recordWriteSetWideningDecision,
   recordWriteSetWideningValidation,
   writeSetWideningsForClaim,
+  type HeaderReadinessVerdict,
 } from "./write-set-widening.js";
 
 const SOURCE_PATH = "src/melee/gr/ground.c";
@@ -476,5 +477,137 @@ describe("write-set widening audit rows", () => {
     expect(() => recordWriteSetWideningDecision(store, created.id, decide(request, { wideningId: "widening-b" }))).toThrow(
       "does not match",
     );
+  });
+});
+
+describe("rung-3 header readiness (ordering active)", () => {
+  const HEADER = "src/melee/gr/ground.h";
+  const notReady = new Map<string, HeaderReadinessVerdict>([[HEADER, {
+    state: "not_ready",
+    classes: [{ class: "TBossGesso", owner_unit: "enemy/BossGesso", state: "not_ready" }],
+  }]]);
+  const unresolved = new Map<string, HeaderReadinessVerdict>([[HEADER, {
+    state: "unresolved",
+    classes: [{ class: "THelper", owner_unit: null, state: "unresolved" }],
+  }]]);
+  const ready = new Map<string, HeaderReadinessVerdict>([[HEADER, { state: "ready", classes: [{ class: "TGround", owner_unit: "melee/gr/ground", state: "ready" }] }]]);
+
+  function input(
+    fixture: ReturnType<typeof activeClaimFixture>,
+    verdicts?: Map<string, HeaderReadinessVerdict>,
+    mode: "shadow" | "enforce" = "enforce",
+  ) {
+    return {
+      store: fixture.store,
+      runId: fixture.run.id,
+      epochId: fixture.epoch.id,
+      targetClaimId: fixture.claim.claimId,
+      workerStateId: fixture.claim.workerStateId,
+      attemptIndex: 0,
+      sourcePath: SOURCE_PATH,
+      mode: "header" as const,
+      request: requestFor(3),
+      authority: fixture.token,
+      headerDeclaresEvidenceSymbol: true,
+      ...(verdicts ? { headerReadiness: { mode, verdicts } } : {}),
+    };
+  }
+
+  test("enforce: a not_ready header is denied naming the class and owner unit", () => {
+    const fixture = activeClaimFixture();
+    const result = executeWriteSetWidening(input(fixture, notReady));
+    expect(result.decision.status).toBe("denied");
+    expect(result.decision.reason).toContain("TBossGesso (owner unit enemy/BossGesso, not_ready)");
+    expect(result.decision.reason).toContain("leave it until TBossGesso's own unit enemy/BossGesso is decompiled");
+    expect(result.decision.wouldDeny).toBeUndefined();
+    expect(result.applied).toBe(false);
+    expect(result.writeSetAfter).toEqual([SOURCE_PATH]);
+  });
+
+  test("enforce: an unresolved header is denied", () => {
+    const fixture = activeClaimFixture();
+    const result = executeWriteSetWidening(input(fixture, unresolved));
+    expect(result.decision.status).toBe("denied");
+    expect(result.decision.reason).toContain("THelper (owner unit unknown, unresolved)");
+  });
+
+  test("shadow: approves exactly as before and records wouldDeny", () => {
+    const fixture = activeClaimFixture();
+    const result = executeWriteSetWidening(input(fixture, notReady, "shadow"));
+    expect(result).toMatchObject({ decision: { status: "approved", approvedPaths: [HEADER] }, applied: true, writeSetAfter: [SOURCE_PATH, HEADER] });
+    expect(result.decision.reason).toBe("Approved rung-3 owning-header widening for scoped owner and direct-consumer validation.");
+    expect(result.decision.wouldDeny).toEqual({
+      classes: [{ class: "TBossGesso", owner_unit: "enemy/BossGesso", state: "not_ready" }],
+      reason: expect.stringContaining("TBossGesso (owner unit enemy/BossGesso, not_ready)"),
+    });
+    expect(getWriteSetWidening(fixture.store, result.wideningId)?.status).toBe("approved");
+  });
+
+  test("enforce: a cached approval is re-checked, and a readiness denial is decided again once ready", () => {
+    const fixture = activeClaimFixture();
+    const first = executeWriteSetWidening(input(fixture));
+    expect(first.decision.status).toBe("approved");
+    const rechecked = executeWriteSetWidening(input(fixture, notReady));
+    expect(rechecked).toMatchObject({ wideningId: first.wideningId, idempotent: true, decision: { status: "denied" }, applied: false, newPaths: [] });
+    expect(getWriteSetWidening(fixture.store, first.wideningId)?.status).toBe("denied");
+    const readyAgain = executeWriteSetWidening(input(fixture, ready));
+    expect(readyAgain.decision.status).toBe("approved");
+    expect(getWriteSetWidening(fixture.store, first.wideningId)?.status).toBe("approved");
+  });
+
+  test("shadow: a cached approval stays approved and carries wouldDeny; the audit row is untouched", () => {
+    const fixture = activeClaimFixture();
+    const first = executeWriteSetWidening(input(fixture));
+    const decidedAt = getWriteSetWidening(fixture.store, first.wideningId)?.decidedAt;
+    const cached = executeWriteSetWidening(input(fixture, notReady, "shadow"));
+    expect(cached).toMatchObject({ wideningId: first.wideningId, idempotent: true, decision: { status: "approved" }, applied: true });
+    expect(cached.decision.wouldDeny?.classes[0]?.class).toBe("TBossGesso");
+    expect(getWriteSetWidening(fixture.store, first.wideningId)).toMatchObject({ status: "approved", decidedAt });
+  });
+
+  test("without readiness (ordering off) behaviour is unchanged", () => {
+    const fixture = activeClaimFixture();
+    const result = executeWriteSetWidening(input(fixture));
+    expect(result).toMatchObject({ decision: { status: "approved", approvedPaths: [HEADER] }, applied: true });
+    expect(result.decision.wouldDeny).toBeUndefined();
+    expect(executeWriteSetWidening(input(fixture, ready)).decision).not.toHaveProperty("wouldDeny");
+  });
+
+  test("the in-session handler resolves readiness for rung-3 requests only, with its mode", async () => {
+    async function run(mode: "shadow" | "enforce") {
+      const fixture = activeClaimFixture();
+      const asked: string[][] = [];
+      const handler = createRequestWriteSetWideningHandler({
+        store: fixture.store,
+        runId: fixture.run.id,
+        epochId: fixture.epoch.id,
+        targetClaimId: fixture.claim.claimId,
+        workerStateId: fixture.claim.workerStateId,
+        attemptIndex: 0,
+        sourcePath: SOURCE_PATH,
+        symbol: "Ground_801C57F0",
+        unit: "melee/gr/ground",
+        scoreWithout: 98.4,
+        mode: "header",
+        authority: fixture.token,
+        headerDeclaresEvidenceSymbol: async () => true,
+        headerReadiness: {
+          mode,
+          resolve: async (paths: string[]) => {
+            asked.push(paths);
+            return notReady;
+          },
+        },
+      });
+      const response = await handler({ paths: ["./" + HEADER, "config/GALE01/symbols.txt"], reason: "declaration differs", evidence: "header declares it" });
+      return { asked, response };
+    }
+    const enforced = await run("enforce");
+    expect(enforced.asked).toEqual([[HEADER]]);
+    expect(enforced.response.approved_paths).toEqual(["config/GALE01/symbols.txt"]);
+    expect(enforced.response.denied[0]?.reason).toContain("TBossGesso");
+    const shadow = await run("shadow");
+    expect(shadow.response.approved_paths).toEqual([HEADER, "config/GALE01/symbols.txt"]);
+    expect(shadow.response.denied).toEqual([]);
   });
 });

@@ -176,9 +176,9 @@ function fileOwners(raw: JsonObject): Map<string, Set<string>> {
   return owners;
 }
 
-/** Files of the groups `apply` reverts (removable groups). */
-function revertedFiles(raw: JsonObject): string[] {
-  const files = new Set<string>();
+/** Files `apply` rewrites: removable groups it reverts and dead UNUSED bodies it restores to the base stub. */
+function revertedFiles(raw: JsonObject, decision: SteeringDecision): string[] {
+  const files = new Set<string>((decision.violations ?? []).map((violation) => violation.file));
   for (const group of asArray(asObject(raw.reduce).groups)) {
     const row = asObject(group);
     if (row.status === "removable" && typeof row.file === "string") files.add(row.file);
@@ -197,10 +197,43 @@ function objectsForUnits(raw: JsonObject, units: Iterable<string>, validation?: 
   return [...new Set([...units].map((unit) => table.get(unit) ?? layout.objectPathForUnit(unit)).filter((path): path is string => Boolean(path)))].sort();
 }
 
-/** Certificate facts shared by every unit: a broken reduction or a leftover removable group dirties them all. */
+/**
+ * Units a unit-scoped finding (violation, stub test, order check) belongs to:
+ * its own `unit`, else every unit that compiles its file. Null when no unit is
+ * known: such a finding dirties every unit (fail closed).
+ */
+function findingUnits(row: { unit?: string; file: string }, owners: Map<string, Set<string>>): string[] | null {
+  if (typeof row.unit === "string") return [row.unit];
+  const units = [...(owners.get(row.file) ?? [])];
+  return units.length > 0 ? units : null;
+}
+
+/** Unit-scoped findings of a decision: what dirties single units rather than the whole run. */
+function unitFindings(decision: SteeringDecision) {
+  return {
+    violations: decision.violations ?? [],
+    inconclusive: (decision.unused_checks ?? []).filter((check) => check.status === "inconclusive"),
+    unknownOrder: (decision.order_checks ?? []).filter((check) => check.status === "unknown"),
+  };
+}
+
+/**
+ * Certificate facts shared by every unit: a broken reduction, a leftover
+ * removable group, or a non-pass attempt that no unit-scoped finding explains
+ * dirties them all. Violations, stub tests and order checks carry a unit (or
+ * a file) and are judged per unit instead.
+ */
 function sharedCertificateProblems(report: CheckReport): string[] {
+  const findings = unitFindings(report.decision);
+  const explained = report.decision.functions.some((fn) => fn.decision !== "pass")
+    || findings.violations.length > 0 || findings.inconclusive.length > 0 || findings.unknownOrder.length > 0;
   return steeringCertificateProblems(
-    { ...report.decision, attempt: "pass", functions: [], units: [], no_changes: true },
+    {
+      ...report.decision,
+      // A non-pass attempt is only per-unit when a per-unit finding explains it.
+      attempt: explained ? "pass" : report.decision.attempt,
+      functions: [], units: [], no_changes: true, violations: [], unused_checks: [], order_checks: [],
+    },
     steeringCertificateContext({ decision: report.decision, reduce: report.raw.reduce, sourceChanged: false }),
   );
 }
@@ -249,7 +282,14 @@ export async function runSteeringBackfill(params: {
 
   const final = new Map(considered.map((fn) => [functionKey(fn), { fn, decision: fn.decision }]));
   const appliedKeys = new Set<string>();
-  const needsApply = considered.some((fn) => fn.decision === "steering_located") || initial.decision.removable_noncosmetic.length > 0;
+  // A finding whose unit is unknown stays in every scope (fail closed).
+  const findingInScope = (row: { unit?: string; file: string }) => findingUnits(row, owners)?.some(inScope) ?? true;
+  const violations = (initial.decision.violations ?? []).filter(findingInScope);
+  const unusedChecks = (initial.decision.unused_checks ?? []).filter(findingInScope);
+  const orderChecks = (initial.decision.order_checks ?? []).filter(findingInScope);
+  const needsApply = considered.some((fn) => fn.decision === "steering_located")
+    || initial.decision.removable_noncosmetic.length > 0
+    || violations.length > 0;
   let applied = false;
   let recheckPath: string | null = null;
   let rebuilt: string[] = [];
@@ -258,7 +298,7 @@ export async function runSteeringBackfill(params: {
 
   if (params.apply && needsApply) {
     if (!full) {
-      const outside = revertedFiles(initial.raw).filter((file) => {
+      const outside = revertedFiles(initial.raw, { ...initial.decision, violations }).filter((file) => {
         const fileUnits = owners.get(file);
         return !fileUnits || fileUnits.size === 0 || [...fileUnits].some((unit) => !scopedUnits.has(unit));
       });
@@ -277,6 +317,7 @@ export async function runSteeringBackfill(params: {
       touchedFiles = git.changedPaths(params.repoRoot);
       for (const file of touchedFiles) for (const unit of owners.get(file) ?? []) touchedUnits.add(unit);
       for (const fn of considered) if (fn.decision === "steering_located") touchedUnits.add(fn.unit);
+      for (const violation of violations) for (const unit of findingUnits(violation, owners) ?? []) touchedUnits.add(unit);
       if (!full) {
         const escaped = [...touchedUnits].filter((unit) => !scopedUnits.has(unit));
         if (escaped.length > 0) throw new Error(`steering_check.py apply touched units outside the scope: ${escaped.join(", ")}; review the working tree before rebuilding`);
@@ -316,6 +357,9 @@ export async function runSteeringBackfill(params: {
     ...initial.decision,
     functions: considered,
     ...(initial.decision.units ? { units: initial.decision.units.filter((row) => inScope(row.unit)) } : {}),
+    violations,
+    unused_checks: unusedChecks,
+    order_checks: orderChecks,
   };
   const problems = applied
     ? ["applied: the cleanup is uncommitted; commit it and rerun with --record to certify the new HEAD"]
@@ -323,6 +367,7 @@ export async function runSteeringBackfill(params: {
   const clean = !applied && problems.length === 0;
 
   const shared = sharedCertificateProblems(initial);
+  const belongsTo = (row: { unit?: string; file: string }, unit: string) => findingUnits(row, owners)?.includes(unit) ?? true;
   const coverage = new Map((initial.decision.units ?? []).map((row) => [row.unit, row]));
   const unitNames = new Set([...scopedUnits, ...touchedUnits]);
   const units: SteeringBackfillUnit[] = [...unitNames].sort().map((unit) => {
@@ -330,6 +375,9 @@ export async function runSteeringBackfill(params: {
     const unitClean = !applied
       && shared.length === 0
       && Boolean(covered && unitCovered(covered))
+      && !violations.some((violation) => belongsTo(violation, unit))
+      && !unusedChecks.some((check) => check.status === "inconclusive" && belongsTo(check, unit))
+      && !orderChecks.some((check) => check.status === "unknown" && belongsTo(check, unit))
       && functions.filter((fn) => fn.unit === unit).every((fn) => fn.final === "pass");
     const { unit: _name, ...coverageRow } = covered ?? { unit };
     return { unit, clean: unitClean, provisional: applied, coverage: covered ? coverageRow as SteeringBackfillUnit["coverage"] : null };
@@ -393,7 +441,7 @@ export async function runSteeringBackfill(params: {
         "Rerun steering-gate with --record (no --apply) on the new HEAD to certify it.",
       ]
     : !clean && params.record
-      ? ["Fix or --apply the functions listed under not_pass, commit, and rerun with --record."]
+      ? ["Fix or --apply the functions listed under not_pass (and any dead UNUSED bodies under problems), commit, and rerun with --record."]
       : [];
 
   return {

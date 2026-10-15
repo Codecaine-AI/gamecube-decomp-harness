@@ -2,8 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import type { OrderingMode, StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import { gameStackFramePolicy } from "@server/core/tools/stack-frame-policy.js";
 import { gameSteeringGate, steeringGateActive } from "@server/core/tools/steering-gate.js";
 import type {
@@ -85,6 +86,8 @@ export interface WorkerPromptOptions {
   stackFramePolicy?: StackFramePolicy;
   /** The game's `matching.steeringGate`; omitted resolves it from `game`, else `off` (today's text). */
   steeringGate?: SteeringGateMode;
+  /** The game's `ordering.mode`; omitted resolves it from `game`, else `off` (today's text). */
+  ordering?: OrderingMode;
 }
 
 /** The stack frame policy the worker prompt renders for. */
@@ -99,6 +102,13 @@ export function workerSteeringGate(
   options: Pick<WorkerPromptOptions, "game" | "steeringGate">,
 ): SteeringGateMode {
   return options.steeringGate ?? gameSteeringGate(options.game);
+}
+
+/** The ordering mode the worker prompt renders for. */
+export function workerOrdering(
+  options: Pick<WorkerPromptOptions, "game" | "ordering">,
+): OrderingMode {
+  return options.ordering ?? gameOrdering(options.game)?.mode ?? "off";
 }
 
 export interface WorkerPromptInputXmlOptions {
@@ -120,7 +130,7 @@ const WORKER_PACKET_CONTEXT_TEMPLATE = `
 
 {{TARGET_XML}}
 
-{{FIRST_DIFF_XML}}{{STEERING_PROBE_XML}}
+{{FIRST_DIFF_XML}}{{STEERING_PROBE_XML}}{{NOT_READY_CLASSES_XML}}
 
 {{TARGET_KNOWLEDGE_XML}}
 
@@ -350,6 +360,25 @@ export function steeringProbeXml(packet: Record<string, unknown>, steeringGate: 
     `        <instruction>${xmlText("A previous attempt on this target matched through steering edits. The probe lists those edits, the match without them, hypotheses for the real cause, and evidence. Find the real construct; do not resubmit the steering edits.")}</instruction>`,
     jsonBlockXml("probe_json", probe),
     "    </steering_probe>",
+  ].join("\n");
+}
+
+/**
+ * The classes the target needs whose units are not decompiled
+ * (`packet.not_ready_classes`, else `packet.target.not_ready_classes`: the
+ * readiness entry's `unmet`, attached by the scheduler), or "" when there are
+ * none or ordering is off.
+ */
+export function notReadyClassesXml(packet: Record<string, unknown>, ordering: OrderingMode | null | undefined): string {
+  if (!orderingActive(ordering)) return "";
+  const raw = Array.isArray(packet.not_ready_classes) ? packet.not_ready_classes : asRecord(packet.target).not_ready_classes;
+  const rows = asRecordArray(raw).filter((row) => optionalString(row.class));
+  if (rows.length === 0) return "";
+  return [
+    "    <not_ready_classes>",
+    `        <instruction>${xmlText("Do not construct or declare these; their units are not decompiled.")}</instruction>`,
+    ...rows.map((row) => `        <class name="${xmlAttribute(row.class)}"${optionalAttribute("owner_unit", optionalString(row.owner_unit))}${optionalAttribute("kind", optionalString(row.kind))} />`),
+    "    </not_ready_classes>",
   ].join("\n");
 }
 
@@ -721,12 +750,14 @@ export function buildWorkerKernelContext(
     contextBudget,
   );
   const steeringProbe = steeringProbeXml(options.packet, workerSteeringGate(options));
+  const notReadyClasses = notReadyClassesXml(options.packet, workerOrdering(options));
   const values = {
     DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game, options.advisoryAdjudication ?? "off"),
     FIRST_DIFF_XML: inputXml.firstDiffXml,
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
     // Joined to the first diff so an absent probe leaves the context byte-identical.
     STEERING_PROBE_XML: steeringProbe ? `\n\n${steeringProbe}` : "",
+    NOT_READY_CLASSES_XML: notReadyClasses ? `\n\n${notReadyClasses}` : "",
     TARGET_XML: inputXml.targetXml,
     TARGET_KNOWLEDGE_XML: targetKnowledgeXml,
   };

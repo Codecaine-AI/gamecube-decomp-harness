@@ -23,7 +23,8 @@ export const STEERING_STEP_TIMEOUT_MS = STEERING_GATE_BUDGET_MS;
 /** Upper bound handed to `reduce --budget-seconds`. */
 export const STEERING_REDUCE_BUDGET_SECONDS = 120;
 
-export type SteeringDecisionKind = "pass" | "steering_located" | "unresolved";
+/** `rule_violation`: the attempt would pass but breaks a matching rule (today: a dead UNUSED body). */
+export type SteeringDecisionKind = "pass" | "steering_located" | "unresolved" | "rule_violation";
 
 export interface SteeringFunctionDecision {
   unit: string;
@@ -39,6 +40,110 @@ export interface SteeringProbe {
   function: string;
   unit: string;
   [k: string]: unknown;
+}
+
+/** `dead_unused_body`: a body given to a map-UNUSED function the original never inlined. */
+export interface SteeringDeadUnusedViolation {
+  kind: "dead_unused_body";
+  unit: string;
+  file: string;
+  function: string;
+  line?: number;
+}
+
+/**
+ * `out_of_order`: an added line in an order-gated file (MarNameRefGen-style
+ * registries) references a class whose owner unit is not decompiled. `decide`
+ * names no unit or function; the parser fills `unit` from the function rows
+ * whose groups touch `file` when exactly one unit does, else leaves it absent
+ * (callers filtering by unit treat it as in every scoped unit: fail closed).
+ */
+export interface SteeringOutOfOrderViolation {
+  kind: "out_of_order";
+  file: string;
+  line?: number;
+  class: string;
+  owner_unit: string;
+  owner_progress?: number;
+  reason?: string;
+  unit?: string;
+  function?: string;
+}
+
+/** Any other rule `decide` lists; unknown kinds still reject (generic problem). */
+export interface SteeringOtherViolation {
+  kind: string;
+  file: string;
+  unit?: string;
+  function?: string;
+  line?: number;
+}
+
+/** A rule `decide` found broken. */
+export type SteeringViolation = SteeringDeadUnusedViolation | SteeringOutOfOrderViolation | SteeringOtherViolation;
+
+export function isDeadUnusedViolation(violation: SteeringViolation): violation is SteeringDeadUnusedViolation {
+  return violation.kind === "dead_unused_body";
+}
+
+export function isOutOfOrderViolation(violation: SteeringViolation): violation is SteeringOutOfOrderViolation {
+  return violation.kind === "out_of_order";
+}
+
+/**
+ * `decide`'s resolution of one class reference added to an order-gated file:
+ * `ok` (owner decompiled), `out_of_order` (listed as a violation too) or
+ * `unknown` (owner or progress unknown: analysis incomplete).
+ */
+export interface SteeringOrderCheck {
+  file: string;
+  line?: number;
+  class: string;
+  via?: string;
+  edit_id?: string;
+  header?: string;
+  owner_unit: string | null;
+  owner_progress: number | null;
+  status: "ok" | "out_of_order" | "unknown";
+  reason?: string;
+}
+
+/** One function's status/match before and after the stub test emptied the UNUSED body. */
+export interface SteeringUnusedCheckChange {
+  function: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+}
+
+/**
+ * `decide`'s stub test for a map-UNUSED function the attempt gave a body:
+ * `dead` (emptying it changes no target function: a violation), `inlined`
+ * (some target function changes: allowed, `changed` is the evidence) or
+ * `inconclusive` (the stubbed build failed: analysis incomplete).
+ */
+export interface SteeringUnusedCheck {
+  unit: string;
+  file: string;
+  function: string;
+  mangled?: string;
+  status: "dead" | "inlined" | "inconclusive";
+  stub?: string;
+  changed: SteeringUnusedCheckChange[];
+  reason?: string;
+  /** Line of the definition in `file`. */
+  line?: number;
+  // Binding (the certificate is valid only for the patch it measured; kept verbatim for integration and publication).
+  base_rev?: string;
+  edits_hash?: string;
+  body_sha256?: string;
+  /** Repo-relative paths the unit-content hash covers: the unit source and the changed headers it includes. */
+  unit_inputs?: string[];
+  /** sha256 of `unit_inputs` at the certified candidate (see `unitInputsSha256`). */
+  unit_inputs_sha256?: string;
+  /** sha256 of the unit's objdiff `scratch.c_flags` at certification (null when unknown); edit_scope re-checks it. */
+  unit_flags_sha256?: string | null;
+  /** The worsened same-unit callers `decide` judged (the evidence), verbatim. */
+  callers?: Array<Record<string, unknown>>;
 }
 
 /** Per-unit build/compare coverage reported by `decide`: a unit that was not built and compared is not certified. */
@@ -67,6 +172,12 @@ export interface SteeringDecision {
   no_changes?: boolean;
   /** Group ids still unresolved after `decide`'s evidence promotions (map-call, data-order, approvals). */
   unresolved_groups?: string[];
+  /** Rule violations; the parser always sets it (absent in the JSON = []). */
+  violations?: SteeringViolation[];
+  /** UNUSED-function stub tests; the parser always sets it (absent in the JSON = []). */
+  unused_checks?: SteeringUnusedCheck[];
+  /** Class references added to order-gated files; the parser always sets it (absent in the JSON = []). */
+  order_checks?: SteeringOrderCheck[];
 }
 
 /** What the gate saw besides `decide`'s output; the certificate check reads it. */
@@ -129,6 +240,12 @@ export async function uploadThroughExec(exec: WorkspaceExec, workspacePath: stri
 
 export const STEERING_LOCATED_INSTRUCTION =
   "The steering gate rejected this attempt: the match depends on edits that behave exactly like the code they replace. Use them as a probe. Keep only behaviour-changing fixes, find the real construct the original used (see steering_probe), and remove the steering edits.";
+
+export const UNUSED_BODY_INSTRUCTION =
+  "This attempt reconstructs a function the map marks UNUSED, and emptying its body changes no function in the target, so the original never inlined it. Restore the upstream stub (keep the signature, empty body) — UNUSED functions may only be reconstructed when they were inlined into other functions in the same TU.";
+
+export const OUT_OF_ORDER_INSTRUCTION =
+  "This attempt fills registry/factory code (or other callers) for classes whose own units are not decompiled yet. Remove those hunks and leave them until those units are decompiled — don't jump the fence.";
 
 function failedResult(error: unknown): CommandResult {
   return { exitCode: 127, stdout: "", stderr: error instanceof Error ? error.message : String(error) };
@@ -199,17 +316,148 @@ function finiteOrNull(value: unknown): number | null {
 }
 
 function decisionKind(value: unknown): SteeringDecisionKind | null {
-  return value === "pass" || value === "steering_located" || value === "unresolved" ? value : null;
+  return value === "pass" || value === "steering_located" || value === "unresolved" || value === "rule_violation" ? value : null;
 }
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+/** Absent/null optional field, or a value of the right type; anything else is malformed. */
+function optionalOk(value: unknown, type: "string" | "number"): boolean {
+  return value === undefined || value === null || (type === "number" ? typeof value === "number" && Number.isFinite(value) : typeof value === type);
+}
+
+/**
+ * The one unit whose function rows have a group in `file` (group ids are
+ * `<file>@<hunk>`), or undefined when none or several do.
+ */
+function unitForFile(rawFunctions: unknown[], file: string): string | undefined {
+  const units = new Set<string>();
+  for (const row of rawFunctions) {
+    if (!isRecord(row) || typeof row.unit !== "string" || !Array.isArray(row.groups)) continue;
+    if (row.groups.some((group) => typeof group === "string" && group.startsWith(`${file}@`))) units.add(row.unit);
+  }
+  return units.size === 1 ? [...units][0] : undefined;
+}
+
+function parseViolations(value: unknown, rawFunctions: unknown[]): SteeringViolation[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const rows: SteeringViolation[] = [];
+  for (const row of value) {
+    if (!isRecord(row) || typeof row.kind !== "string" || typeof row.file !== "string") return null;
+    if (!optionalOk(row.line, "number") || !optionalOk(row.unit, "string") || !optionalOk(row.function, "string")) return null;
+    const line = typeof row.line === "number" ? { line: row.line } : {};
+    if (row.kind === "out_of_order") {
+      if (typeof row.class !== "string" || typeof row.owner_unit !== "string") return null;
+      if (!optionalOk(row.owner_progress, "number") || !optionalOk(row.reason, "string")) return null;
+      const unit = typeof row.unit === "string" ? row.unit : unitForFile(rawFunctions, row.file);
+      rows.push({
+        kind: "out_of_order",
+        file: row.file,
+        ...line,
+        class: row.class,
+        owner_unit: row.owner_unit,
+        ...(typeof row.owner_progress === "number" ? { owner_progress: row.owner_progress } : {}),
+        ...(typeof row.reason === "string" ? { reason: row.reason } : {}),
+        ...(unit !== undefined ? { unit } : {}),
+        ...(typeof row.function === "string" ? { function: row.function } : {}),
+      });
+      continue;
+    }
+    if (row.kind === "dead_unused_body") {
+      if (typeof row.unit !== "string" || typeof row.function !== "string") return null;
+      rows.push({ kind: "dead_unused_body", unit: row.unit, file: row.file, function: row.function, ...line });
+      continue;
+    }
+    rows.push({
+      kind: row.kind,
+      file: row.file,
+      ...(typeof row.unit === "string" ? { unit: row.unit } : {}),
+      ...(typeof row.function === "string" ? { function: row.function } : {}),
+      ...line,
+    });
+  }
+  return rows;
+}
+
+function parseOrderChecks(value: unknown): SteeringOrderCheck[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const rows: SteeringOrderCheck[] = [];
+  for (const row of value) {
+    if (!isRecord(row) || typeof row.file !== "string" || typeof row.class !== "string") return null;
+    if (row.status !== "ok" && row.status !== "out_of_order" && row.status !== "unknown") return null;
+    if (!optionalOk(row.line, "number") || !optionalOk(row.via, "string") || !optionalOk(row.edit_id, "string") || !optionalOk(row.header, "string")) return null;
+    if (!optionalOk(row.owner_unit, "string") || !optionalOk(row.owner_progress, "number") || !optionalOk(row.reason, "string")) return null;
+    rows.push({
+      file: row.file,
+      ...(typeof row.line === "number" ? { line: row.line } : {}),
+      class: row.class,
+      ...(typeof row.via === "string" ? { via: row.via } : {}),
+      ...(typeof row.edit_id === "string" ? { edit_id: row.edit_id } : {}),
+      ...(typeof row.header === "string" ? { header: row.header } : {}),
+      owner_unit: typeof row.owner_unit === "string" ? row.owner_unit : null,
+      owner_progress: typeof row.owner_progress === "number" ? row.owner_progress : null,
+      status: row.status,
+      ...(typeof row.reason === "string" ? { reason: row.reason } : {}),
+    });
+  }
+  return rows;
+}
+
+function parseUnusedChecks(value: unknown): SteeringUnusedCheck[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const rows: SteeringUnusedCheck[] = [];
+  for (const row of value) {
+    if (!isRecord(row) || typeof row.unit !== "string" || typeof row.file !== "string" || typeof row.function !== "string") return null;
+    if (row.status !== "dead" && row.status !== "inlined" && row.status !== "inconclusive") return null;
+    if (!optionalOk(row.mangled, "string") || !optionalOk(row.stub, "string") || !optionalOk(row.reason, "string")) return null;
+    for (const key of ["base_rev", "edits_hash", "body_sha256", "unit_inputs_sha256"] as const) if (!optionalOk(row[key], "string")) return null;
+    if (!optionalOk(row.line, "number") || !optionalOk(row.unit_flags_sha256, "string")) return null;
+    if (row.unit_inputs !== undefined && row.unit_inputs !== null
+      && !(Array.isArray(row.unit_inputs) && row.unit_inputs.every((path) => typeof path === "string"))) return null;
+    if (row.callers !== undefined && row.callers !== null && !(Array.isArray(row.callers) && row.callers.every(isRecord))) return null;
+    if (row.changed !== undefined && !Array.isArray(row.changed)) return null;
+    const changed: SteeringUnusedCheckChange[] = [];
+    for (const change of Array.isArray(row.changed) ? row.changed : []) {
+      if (!isRecord(change) || typeof change.function !== "string") return null;
+      if ((change.before !== undefined && !isRecord(change.before)) || (change.after !== undefined && !isRecord(change.after))) return null;
+      changed.push({
+        function: change.function,
+        ...(isRecord(change.before) ? { before: change.before } : {}),
+        ...(isRecord(change.after) ? { after: change.after } : {}),
+      });
+    }
+    rows.push({
+      unit: row.unit,
+      file: row.file,
+      function: row.function,
+      ...(typeof row.mangled === "string" ? { mangled: row.mangled } : {}),
+      status: row.status,
+      ...(typeof row.stub === "string" ? { stub: row.stub } : {}),
+      changed,
+      ...(typeof row.reason === "string" ? { reason: row.reason } : {}),
+      ...(typeof row.line === "number" ? { line: row.line } : {}),
+      ...(typeof row.base_rev === "string" ? { base_rev: row.base_rev } : {}),
+      ...(typeof row.edits_hash === "string" ? { edits_hash: row.edits_hash } : {}),
+      ...(typeof row.body_sha256 === "string" ? { body_sha256: row.body_sha256 } : {}),
+      ...(Array.isArray(row.unit_inputs) ? { unit_inputs: [...row.unit_inputs] as string[] } : {}),
+      ...(typeof row.unit_inputs_sha256 === "string" ? { unit_inputs_sha256: row.unit_inputs_sha256 } : {}),
+      ...(row.unit_flags_sha256 === null || typeof row.unit_flags_sha256 === "string" ? { unit_flags_sha256: row.unit_flags_sha256 } : {}),
+      ...(Array.isArray(row.callers) ? { callers: row.callers.map((caller) => ({ ...(caller as Record<string, unknown>) })) } : {}),
+    });
+  }
+  return rows;
+}
+
 /**
  * Reads `decide` output, or the `decision` field of `check` output. Returns
- * null for anything malformed: a missing/unknown `attempt` or a function row
- * without unit, name and a known decision.
+ * null for anything malformed: a missing/unknown `attempt`, a function row
+ * without unit, name and a known decision, or a `violations` /
+ * `unused_checks` entry of the wrong shape.
  */
 export function parseSteeringDecision(json: unknown): SteeringDecision | null {
   const root = isRecord(json) && isRecord(json.decision) && !("attempt" in json) ? json.decision : json;
@@ -252,6 +500,10 @@ export function parseSteeringDecision(json: unknown): SteeringDecision | null {
       });
     }
   }
+  const violations = parseViolations(root.violations, root.functions);
+  const unusedChecks = parseUnusedChecks(root.unused_checks);
+  const orderChecks = parseOrderChecks(root.order_checks);
+  if (!violations || !unusedChecks || !orderChecks) return null;
   return {
     attempt,
     reasons: stringList(root.reasons),
@@ -261,7 +513,35 @@ export function parseSteeringDecision(json: unknown): SteeringDecision | null {
     ...(units ? { units } : {}),
     ...(root.no_changes === true || root.changed === false ? { no_changes: true } : {}),
     ...(Array.isArray(root.unresolved_groups) ? { unresolved_groups: root.unresolved_groups.map(String) } : {}),
+    violations,
+    unused_checks: unusedChecks,
+    order_checks: orderChecks,
   };
+}
+
+function fileLine(file: string, line: number | undefined): string {
+  return `${file}${line != null ? `:${line}` : ""}`;
+}
+
+/** The certificate problem one violation raises; it names the rule. */
+export function steeringViolationProblem(violation: SteeringViolation): string {
+  if (isOutOfOrderViolation(violation)) {
+    return `out of order: ${fileLine(violation.file, violation.line)} uses ${violation.class} (owner ${violation.owner_unit}, not decompiled) — don't fill in code that needs classes whose units are not decompiled`;
+  }
+  const where = violation.function != null ? `${violation.function} (${fileLine(violation.file, violation.line)})` : fileLine(violation.file, violation.line);
+  return isDeadUnusedViolation(violation)
+    ? `dead UNUSED body: ${where} — UNUSED functions may only be reconstructed when inlined`
+    : `rule violation ${violation.kind}: ${where}`;
+}
+
+/** The certificate problem an `unknown` order check raises (class owner or progress unknown: analysis incomplete). */
+export function steeringOrderCheckProblem(check: SteeringOrderCheck): string {
+  return `order check unknown: ${check.class} at ${fileLine(check.file, check.line)}${check.reason ? `: ${check.reason}` : ""}`;
+}
+
+/** The certificate problem an inconclusive stub test raises (analysis incomplete). */
+export function steeringInconclusiveProblem(check: SteeringUnusedCheck): string {
+  return `UNUSED stub test inconclusive: ${check.function} (${check.file})${check.reason ? `: ${check.reason}` : ""}`;
 }
 
 function functionLabel(fn: SteeringFunctionDecision): string {
@@ -310,8 +590,10 @@ export function editsChangeSource(edits: unknown): boolean {
  * Everything that keeps a decision from certifying an attempt (empty = certified).
  * The top-level `attempt` is never trusted alone: every function row must
  * pass cleanly with complete analysis, no behaviour-identical non-cosmetic
- * group may remain, every touched unit must be built and compared, and a
- * source change must yield at least one considered function and one unit.
+ * group may remain, every touched unit must be built and compared, a
+ * source change must yield at least one considered function and one unit,
+ * no rule violation may be listed, no UNUSED stub test may be inconclusive
+ * and no order check may be unknown.
  */
 export function steeringCertificateProblems(
   decision: SteeringDecision | null,
@@ -324,6 +606,19 @@ export function steeringCertificateProblems(
   const unresolved = decision.functions.filter((fn) => fn.decision === "unresolved");
   if (located.length > 0) problems.push(`steering located in ${located.map(functionLabel).join(", ")}`);
   if (unresolved.length > 0) problems.push(`unresolved: ${unresolved.map(functionLabel).join(", ")}`);
+  const violations = decision.violations ?? [];
+  for (const violation of violations) problems.push(steeringViolationProblem(violation));
+  // A rule_violation row is explained by its violation; one without a listed violation still rejects.
+  const unexplained = decision.functions.filter((fn) => fn.decision === "rule_violation"
+    && !violations.some((violation) => violation.function === fn.name && violation.unit === fn.unit));
+  if (unexplained.length > 0) problems.push(`rule violation in ${unexplained.map((fn) => fn.name).join(", ")}`);
+  for (const check of decision.unused_checks ?? []) {
+    if (check.status === "inconclusive") problems.push(steeringInconclusiveProblem(check));
+  }
+  // `out_of_order` checks are listed as violations already; `ok` adds nothing.
+  for (const check of decision.order_checks ?? []) {
+    if (check.status === "unknown") problems.push(steeringOrderCheckProblem(check));
+  }
   const inconsistent = decision.functions.filter((fn) => fn.decision === "pass" && (fn.semantic !== "clean" || fn.analysis !== "complete"));
   if (inconsistent.length > 0) problems.push(`pass without clean, complete analysis: ${inconsistent.map((fn) => fn.name).join(", ")}`);
   if (decision.removable_noncosmetic.length > 0) {
@@ -532,5 +827,25 @@ export function steeringRejectionReason(result: WorkerSteeringResult): string | 
   }
   const problems = steeringCertificateProblems(result.decision, result.certificate);
   if (problems.length === 0) return null;
-  return `steering_located: ${problems.join("; ")}. ${STEERING_LOCATED_INSTRUCTION}`;
+  return `steering_located: ${problems.join("; ")}. ${steeringRepairInstruction(result)}`;
+}
+
+/**
+ * The standing repair instruction for a rejected attempt, built from the
+ * violation kinds `decide` listed: the UNUSED-body instruction for a dead
+ * UNUSED body, the out-of-order instruction for an `out_of_order` reference
+ * (both when both), plus the steering instruction when something else was
+ * rejected too (or no known violation kind explains the rejection).
+ */
+export function steeringRepairInstruction(result: Pick<WorkerSteeringResult, "decision" | "certificate" | "error"> | null | undefined): string {
+  const decision = result?.error ? null : result?.decision;
+  const violations = decision?.violations ?? [];
+  if (!decision || violations.length === 0) return STEERING_LOCATED_INSTRUCTION;
+  const parts = [
+    ...(violations.some(isDeadUnusedViolation) ? [UNUSED_BODY_INSTRUCTION] : []),
+    ...(violations.some(isOutOfOrderViolation) ? [OUT_OF_ORDER_INSTRUCTION] : []),
+  ];
+  const explained = new Set(violations.filter((violation) => isDeadUnusedViolation(violation) || isOutOfOrderViolation(violation)).map(steeringViolationProblem));
+  const other = steeringCertificateProblems(decision, result?.certificate).filter((problem) => !explained.has(problem));
+  return [...parts, ...(other.length > 0 || parts.length === 0 ? [STEERING_LOCATED_INSTRUCTION] : [])].join(" ");
 }
