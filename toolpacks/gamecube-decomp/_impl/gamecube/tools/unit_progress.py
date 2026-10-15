@@ -388,6 +388,17 @@ def detect_version(repo: Path) -> Optional[str]:
     return cfg[0] if cfg else None
 
 
+def expected_map_path(repo: Path | str, version: str) -> str:
+    """Where the original link map is expected (SMS: orig/<ver>/files/mario.MAP)."""
+    name = "mario.MAP" if str(version).startswith("GMS") else "<game>.MAP"
+    return f"{Path(repo)}/orig/{version}/files/{name}"
+
+
+def missing_map_message(repo: Path | str, version: str) -> str:
+    return (f"link map missing: expected {expected_map_path(repo, version)} (the original CodeWarrior map; "
+            "it is not in git: copy it into the checkout)")
+
+
 def find_map(repo: Path, version: str) -> Optional[Path]:
     for pattern in ("orig/{v}/files/*.MAP", "orig/{v}/files/*.map", "orig/{v}/*.MAP", "orig/{v}/*.map"):
         found = sorted(repo.glob(pattern.format(v=version)))

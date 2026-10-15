@@ -460,3 +460,32 @@ def test_trigraph_file_gives_no_readiness_or_precedent(history, tmp_path) -> Non
     st = r.class_state("TKoopa")
     assert st["started"] is False and st["construct"] == "not_ready"  # fail closed: the file is undecidable
     assert "TKoopa" not in r.precedent("src/System/MarNameRefGen_Enemy.cpp")
+
+
+def test_own_unit_function_uses_the_map_placement(history, tmp_path) -> None:
+    repo, revs = history
+    r = load(repo, revs["stub"], tmp_path)
+    text = "void TMaj::h() { }\nvoid TMaj::f() { }\nvoid TMaj::h(int a) { }\n"
+    # TMaj's owner is Map/a, but h() lives in Map/b's object: b's own function
+    at = lambda needle: text.index("{", text.index(needle))  # noqa: E731  (the definition's body offset)
+    assert r.own_unit_function("mario/Map/b", text, at("TMaj::h()"), "src/Map/b.cpp") is True
+    assert r.own_unit_function("mario/Map/b", text, at("TMaj::f()"), "src/Map/b.cpp") is None  # f() is in Map/a
+    assert r.own_unit_function("mario/Map/b", text, at("TMaj::h(int"), "src/Map/b.cpp") is None  # another signature
+    # two definitions on one line: each is judged on its own
+    same = "void TMaj::h() { } void TMaj::f() { }\n"
+    assert r.own_unit_function("mario/Map/b", same, same.index("{"), "src/Map/b.cpp") is True
+    assert r.own_unit_function("mario/Map/b", same, same.rindex("{"), "src/Map/b.cpp") is None
+    assert r.own_unit_function("mario/Map/b", same, 3, "src/Map/b.cpp") is None  # not a definition's body
+
+
+def test_missing_map_message_names_the_expected_path(history, tmp_path) -> None:
+    repo, revs = history
+    (repo / "orig/V/files/game.MAP").unlink()
+    with pytest.raises(rd.ReadinessError) as e:
+        load(repo, revs["stub"], tmp_path / "x")
+    assert e.value.kind == "missing_map" and f"{repo.resolve()}/orig/V/files/" in e.value.detail
+    import steering_check as sc
+
+    why: dict = {}
+    assert sc.map_unused(repo, revs["stub"], "GMSJ01", "src/a.cpp", why) is None
+    assert "orig/GMSJ01/files/mario.MAP" in why["src/a.cpp"] and "link map missing" in why["src/a.cpp"]

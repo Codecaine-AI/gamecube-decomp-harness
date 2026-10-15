@@ -389,15 +389,30 @@ def make_shadow_root(repo_root: Path, root: Path) -> None:
             os.symlink(entry, root / entry.name)
 
 
-def compile_in(repo: Repo, root: Path, unit: Unit, out: Path) -> CompileResult:
-    """The TU's exact build.ninja MWCC command, run with cwd = `root`."""
+def compile_timeout() -> float:
+    """Seconds one MWCC compile may take (ORCH_MWCC_COMPILE_TIMEOUT, default 300)."""
+    try:
+        return max(1.0, float(os.environ.get("ORCH_MWCC_COMPILE_TIMEOUT", "300")))
+    except ValueError:
+        return 300.0
+
+
+def compile_in(repo: Repo, root: Path, unit: Unit, out: Path, timeout: Optional[float] = None) -> CompileResult:
+    """The TU's exact build.ninja MWCC command, run with cwd = `root`. A compile that
+    exceeds `timeout` (default compile_timeout()) is killed and reported as failed."""
     edge = repo.edges[unit.obj]
     cmd = [repo.runner]
     if "sjis" in edge.rule:
         cmd.append(str(repo.root / "build/tools/sjiswrap.exe"))
     cmd.append(str(repo.root / "build/compilers" / edge.mw_version / "mwcceppc.exe"))
     cmd += shlex.split(edge.cflags) + ["-c", edge.src, "-o", str(out)]
-    result = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, errors="replace")
+    limit = timeout if timeout is not None else compile_timeout()
+    try:
+        result = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, errors="replace",
+                                stdin=subprocess.DEVNULL, timeout=limit)
+    except subprocess.TimeoutExpired:
+        out.unlink(missing_ok=True)
+        return CompileResult(False, None, f"MWCC compile of {unit.source} timed out after {limit:g}s (killed)")
     if result.returncode != 0 or not out.is_file():
         out.unlink(missing_ok=True)
         return CompileResult(False, None, truncate((result.stdout or "") + "\n" + (result.stderr or "")))
@@ -647,12 +662,17 @@ class TargetOracle:
         target = self.repo.root / unit.target
         if not target.is_file():
             return None
-        result = subprocess.run(
-            [self.cli, "diff", "--format", "json", "--output", "-", "-1", str(target), "-2", str(compiled)],
-            cwd=str(self.repo.root),
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                [self.cli, "diff", "--format", "json", "--output", "-", "-1", str(target), "-2", str(compiled)],
+                cwd=str(self.repo.root),
+                capture_output=True,
+                text=True,
+                stdin=subprocess.DEVNULL,
+                timeout=compile_timeout(),
+            )
+        except subprocess.TimeoutExpired:
+            return None  # no classification: the caller treats the unit as not compared
         if result.returncode != 0:
             return None
         try:

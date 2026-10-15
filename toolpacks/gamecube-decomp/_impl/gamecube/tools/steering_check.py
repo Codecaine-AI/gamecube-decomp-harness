@@ -42,8 +42,10 @@ Subcommands (all take --json; exit 0 = analysis produced, 2 = tool failure):
       unit without a full build + comparison makes the attempt unresolved.
   check --repo R --base-ref REV [--oracle-repo H] [--functions ...]
       edits + reduce + mwcc + decide in one process.
-  apply --report CHECK.json [--dry-run]
-      Write S* (line-preserving) into the repo (backfill only).
+  apply --report CHECK.json [--dry-run] [--only-paths F ...]
+      Write S* (line-preserving) into the repo (backfill only). --only-paths
+      limits the writes to those files (the edits_hash check still covers
+      the whole report).
   unused-test --repo R [--base-ref REV] [--overlay-dir D] --file F --function QNAME
       The UNUSED stub test for one function: C' = the candidate with the
       body stubbed (signature kept); dead (no target function changes),
@@ -214,6 +216,13 @@ def read_overlay(overlay_dir: Optional[str | Path]) -> dict[str, bytes]:
         if p.is_file():
             out[p.relative_to(root).as_posix()] = p.read_bytes()
     return out
+
+
+def issue(category: str, *, units: Iterable[str] = (), groups: Iterable[str] = (), files: Iterable[str] = (),
+          detail: str = "") -> dict:
+    """One structured reason (reduce `incomplete_details`, decide `attempt_issues`)."""
+    return {"category": category, "units": sorted(set(units)), "groups": list(groups), "files": sorted(set(files)),
+            "detail": detail}
 
 
 def collect_files(repo: Path, base_rev: str, paths: Sequence[str], overlay_dir: Optional[str | Path] = None) -> list[dict]:
@@ -685,6 +694,8 @@ class Reducer:
         self.start = time.time()
         self.reasons: list[str] = []
         self.global_reasons: list[str] = []  # apply to every function; the rest are group/unit local
+        # The same facts, structured: {category, units, groups, files, detail}; read by the backfill.
+        self.incomplete_details: list[dict] = []
         self.files = {f["path"]: f for f in manifest["files"]}
         self.units = {u["unit"]: u for u in manifest.get("units", [])}
         self.sources = {u["source"] for u in self.units.values()}
@@ -697,6 +708,7 @@ class Reducer:
     def global_reason(self, why: str) -> None:
         self.reasons.append(why)
         self.global_reasons.append(why)
+        self.incomplete_details.append(issue("global", detail=why))
 
     # -- texts -------------------------------------------------------------
 
@@ -833,6 +845,8 @@ class Reducer:
         capped = {rel for rel, us in header_units.items() if len(us) > HEADER_UNIT_CAP}
         for rel in sorted(capped):
             self.reasons.append(f"{rel}: included by {len(header_units[rel])} units (cap {HEADER_UNIT_CAP})")
+            self.incomplete_details.append(issue("header_cap", units=header_units[rel], files=[rel],
+                                                 detail=f"included by {len(header_units[rel])} units (cap {HEADER_UNIT_CAP})"))
         needed = sorted({u for g in self.groups if not g.cosmetic and g.group.file not in capped for u in g.units})
         if oracle_ok:
             cand_texts = self.texts([])
@@ -869,6 +883,7 @@ class Reducer:
         for unit, res in self.unit_ok.items():
             if not res.ok:
                 self.reasons.append(f"{unit}: IR oracle failed: " + "; ".join(res.errors[:2]))
+                self.incomplete_details.append(issue("unit_oracle_failed", units=[unit], detail="; ".join(res.errors[:2])[:300]))
         testable = [g for g in self.groups if g.testable]
         removed: frozenset = frozenset()
         blocked: set[str] = set()
@@ -1044,6 +1059,17 @@ class Reducer:
         incomplete = [g.id for g in self.groups if g.incomplete]
         if incomplete:
             self.reasons.append("groups with incomplete analysis: " + ", ".join(incomplete)[:300])
+            # A group in a changed file no unit compiles (a header-only residual) is its own category.
+            no_unit = [g for g in self.groups if g.incomplete and not g.units]
+            other = [g for g in self.groups if g.incomplete and g.units]
+            if no_unit:
+                self.incomplete_details.append(issue("group_no_unit", groups=[g.id for g in no_unit],
+                                                     files=sorted({g.group.file for g in no_unit}),
+                                                     detail="no unit builds or includes these files"))
+            if other:
+                self.incomplete_details.append(issue("group_incomplete", groups=[g.id for g in other],
+                                                     units=sorted({u for g in other for u in g.units}),
+                                                     files=sorted({g.group.file for g in other})))
         complete = not self.reasons
         groups = []
         for g in self.groups:
@@ -1097,6 +1123,7 @@ class Reducer:
             "changed_files": sorted(self.files),
             "incomplete_reasons": self.reasons,
             "global_incomplete": self.global_reasons,
+            "incomplete_details": self.incomplete_details,
             "groups": groups,
             "units": units,
             "compiles": getattr(self.ctx, "compiles", None),
@@ -1252,6 +1279,40 @@ def run_reduce(manifest: dict, oracle_repo: Optional[Path], cache_dir: Optional[
 # --------------------------------------------------------------------------
 
 
+_CANNOT_OPEN_RE = re.compile(r"""['"`]([^'"`\n]+)['"`][^\n]*?cannot be opened|cannot be opened[^\n]*?['"`]([^'"`\n]+)['"`]""",
+                             re.I)
+_NO_SUCH_INCLUDE_RE = re.compile(r"""#include[^\n]*?['"<]([^'">\n]+)['">][^\n]*?(?:not found|no such file)""", re.I)
+
+
+def shadow_include_failure(error: str) -> Optional[str]:
+    """A compile failure that is the shadow root's, not the source's: MWCC
+    could not open an include. Under wibo a long shadow-root path truncates
+    include names (`fdlibm.h` -> `fdlibm.`), so the unit "fails to build" for
+    reasons that have nothing to do with the code. Returns the tool-error
+    message, or None for an ordinary compile error. The repo itself builds,
+    so any include-open failure inside a shadow root is the tool's."""
+    names = [a or b for a, b in _CANNOT_OPEN_RE.findall(error)] + _NO_SUCH_INCLUDE_RE.findall(error)
+    if not names and not re.search(r"cannot be opened", error, re.I):
+        return None
+    name = names[0] if names else "?"
+    base = name.rsplit("/", 1)[-1]
+    if base.endswith(".") or ("." not in base and name != "?"):
+        return (f"shadow-root path too long: MWCC opened a truncated include name '{name}'; "
+                f"rerun with a shorter --tmp (default {short_tmp_root()})")
+    return (f"shadow-root include failure: MWCC could not open '{name}' inside the shadow root "
+            f"(path length or shadow-root setup, not the source); rerun with a shorter --tmp")
+
+
+def short_tmp_root() -> Path:
+    """Default parent of the shadow roots: short on purpose (macOS $TMPDIR is
+    ~50 chars, and wibo truncates long include paths)."""
+    base = Path("/tmp") if Path("/tmp").is_dir() else Path(tempfile.gettempdir())
+    return base / f"stc-{os.getpid()}"
+
+
+TMP_PATH_WARN = 48
+
+
 class ShadowCompiler:
     """`jobs` shadow roots; each compile writes every changed file's variant text."""
 
@@ -1261,9 +1322,13 @@ class ShadowCompiler:
         self.sc = stack_check
         self.repo = repo
         self.jobs = max(1, min(jobs, MAX_JOBS))
-        if tmp:
-            Path(tmp).mkdir(parents=True, exist_ok=True)
-        self.tmp = Path(tempfile.mkdtemp(prefix="steering-mwcc-", dir=tmp))
+        parent = Path(tmp) if tmp else short_tmp_root()
+        parent.mkdir(parents=True, exist_ok=True)
+        self.parent_owned = not tmp
+        if len(str(parent)) > TMP_PATH_WARN:
+            log(f"steering: --tmp {parent} is {len(str(parent))} chars; MWCC under wibo may truncate include paths "
+                f"(failures are reported as shadow-root tool errors)")
+        self.tmp = Path(tempfile.mkdtemp(prefix="m-", dir=str(parent)))
         self.objdir = self.tmp / "objs"
         self.objdir.mkdir()
         self.free: "queue.Queue[Path]" = queue.Queue()
@@ -1276,6 +1341,11 @@ class ShadowCompiler:
 
     def close(self) -> None:
         shutil.rmtree(self.tmp, ignore_errors=True)
+        if self.parent_owned:
+            try:
+                self.tmp.parent.rmdir()  # only when no other compiler of this process still uses it
+            except OSError:
+                pass
 
     def compile(self, unit_name: str, texts: dict[str, Optional[bytes]], label: str):
         unit = self.repo.units[unit_name]
@@ -1306,13 +1376,31 @@ class RepoBackend:
         self.jobs = self.pool.jobs
         self.root = self.repo.root
         self.unused_reasons: dict[str, str] = {}
+        self.compiles = 0
+        self.compile_seconds = 0.0
+        self.deadline: Optional[float] = None
+        self._progress_lock = threading.Lock()
         self._objdiff_flags: Optional[dict[str, Optional[str]]] = None
 
     def units(self, paths: list[str]) -> tuple[dict[str, list], dict[str, list[str]]]:
         return units_for_paths(self.repo, paths)
 
+    def set_deadline(self, deadline: float) -> None:
+        self.deadline = deadline
+
     def compile(self, unit, texts: dict[str, Optional[bytes]], label: str) -> tuple[bool, Optional[Path], str]:
+        if self.deadline is not None and time.time() > self.deadline:
+            return False, None, "mwcc budget exceeded: not built (analysis incomplete)"
+        t0 = time.time()
         res = self.pool.compile(unit.name, texts, label)
+        took = time.time() - t0
+        with self._progress_lock:
+            self.compiles += 1
+            self.compile_seconds += took
+            n = self.compiles
+        if took > 60 or n % 25 == 0:  # a long mwcc step is visible as progress, not mistaken for a hang
+            log(f"steering: mwcc {n} compiles, {self.compile_seconds:.0f}s compile time"
+                f" (last {unit.name} {label} {took:.1f}s{'' if res.ok else ', failed'})")
         return res.ok, res.obj, res.error
 
     def classify(self, obj: Path, unit) -> Optional[dict]:
@@ -1371,7 +1459,7 @@ class RepoBackend:
 
 @dataclass
 class Built:
-    state: str  # ok | absent (the unit's source does not exist in this variant) | failed
+    state: str  # ok | absent (the unit's source does not exist in this variant) | failed | tool_error (shadow root)
     elf: Optional[sc.ElfObject] = None
     target: Optional[dict] = None
     error: str = ""
@@ -1426,8 +1514,14 @@ def _pair_classes(a: Built, b: Built) -> dict[str, str]:
 def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[str], *,
              functions: Optional[list[str]] = None, attribute: Optional[dict] = None, jobs: int = MAX_JOBS,
              paths: Sequence[str] = DEFAULT_PATHS, overlay_dir: Optional[str | Path] = None,
-             version: Optional[str] = None, tmp: Optional[str] = None, backend=None) -> dict:
+             version: Optional[str] = None, tmp: Optional[str] = None, backend=None,
+             budget: Optional[float] = None) -> dict:
     """Build base, candidate and S* for every touched unit and compare them.
+
+    `budget` (seconds, default $ORCH_MWCC_BUDGET_SECONDS or 3600) bounds the whole
+    MWCC step: once spent, every further compile fails ("mwcc budget exceeded"),
+    so the units it would have built are reported uncompared (fail closed). Each
+    compile is also bounded (stack_check.compile_timeout).
 
     Considered functions: every function whose object code differs between
     base and candidate in a touched unit (added and removed ones included),
@@ -1465,6 +1559,13 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
     sstar_texts = variant(revert)
     texts_of = {"base": base_texts, "cand": cand_texts, "sstar": sstar_texts}
     backend = backend or RepoBackend(repo_path, version, jobs, tmp)
+    if budget is None:
+        try:
+            budget = float(os.environ.get("ORCH_MWCC_BUDGET_SECONDS", "3600"))
+        except ValueError:
+            budget = 3600.0
+    if hasattr(backend, "set_deadline"):
+        backend.set_deadline(time.time() + budget)
     errors: list[dict] = []
     coverage: list[dict] = []
     units: dict[str, Any] = {}
@@ -1484,7 +1585,7 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
                                  "reason": "header unit cap"})
                 continue
             if not us:
-                coverage.append({"unit": f"{rel} (no unit)", "built": {}, "compared": False,
+                coverage.append({"unit": f"{rel} (no unit)", "built": {}, "compared": False, "no_unit": rel,
                                  "reason": "no unit builds or includes this file"})
             for u in us:
                 units[u.name] = u
@@ -1513,6 +1614,9 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
             name, kind = job
             ok, obj, err = backend.compile(units[name], texts_of[kind], kind)
             if not ok or obj is None:
+                tool = shadow_include_failure(err or "")
+                if tool:  # the tool's shadow root, not the source: never a silent build failure
+                    return job, Built("tool_error", error=f"{tool}\n{(err or '')[:600]}")
                 return job, Built("failed", error=(err or "compile failed")[:800])
             try:
                 elf = sc.ElfObject.from_path(str(obj))
@@ -1520,11 +1624,15 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
                 return job, Built("failed", error=str(e))
             return job, Built("ok", elf, backend.classify(obj, units[name]))
 
+        log(f"steering: mwcc {len(jobs_list)} unit builds for {len(units)} units "
+            f"(+ attribution, data-order and UNUSED stub builds), jobs {getattr(backend, 'jobs', 1)}")
         with ThreadPoolExecutor(max_workers=max(1, getattr(backend, "jobs", 1))) as ex:
             for job, res in ex.map(build, jobs_list):
                 built[job] = res
                 if res.state == "failed":
                     errors.append({"unit": job[0], "variant": job[1], "error": res.error})
+                elif res.state == "tool_error":
+                    errors.append({"unit": job[0], "variant": job[1], "error": res.error, "tool_error": True})
         shared_sstar = set()
         for name in units:
             if (name, "sstar") not in built and (name, "cand") in built:
@@ -1539,8 +1647,10 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
             states = {"base": base.state, "candidate": cand.state,
                       "sstar": "same_as_candidate" if name in shared_sstar and sstar.state == "ok" else sstar.state}
             compared = all(s in BUILT_STATES for s in states.values()) and any(s == "ok" for s in states.values())
+            tool_errors = [b.error.split("\n", 1)[0] for b in (base, cand, sstar) if b.state == "tool_error"]
             coverage.append({"unit": name, "built": states, "compared": compared,
-                             "reason": "" if compared else "a variant did not build"})
+                             "reason": "" if compared else (tool_errors[0] if tool_errors else "a variant did not build"),
+                             **({"tool_error": tool_errors[0]} if tool_errors else {})})
             if not compared:
                 continue
             changed = {n: c for n, c in _pair_classes(base, cand).items() if c != "identical"}
@@ -1881,6 +1991,7 @@ class FunctionDef:
     void: bool  # stub `{ }` (void, constructor, destructor) or `{ return 0; }`
     line: int  # 1-based line of `start`
     trivial: bool  # empty, `return;` or `return <constant>;`
+    ret: str = ""  # return type as written (storage words dropped); "" for constructors/destructors
 
 
 def _split_top_commas(text: str) -> list[str]:
@@ -2000,9 +2111,13 @@ def function_defs(text: Optional[str]) -> list[FunctionDef]:
         ctor_dtor = parts[-1].startswith("~") or (len(qual.split("::")) >= 2 and
                                                   qual.split("::")[-1] == qual.split("::")[-2])
         void = ctor_dtor or prefix == ["void"] or not prefix
+        ret = "" if ctor_dtor else re.sub(r"\s+", " ", " ".join(
+            w for w in re.findall(r"[A-Za-z_]\w*(?:\s*<[^;{}]*>)?|::|[*&]", lead_text)
+            if w not in _DECL_STORAGE - {"const", "volatile"} and w not in ("inline", "static", "virtual"))).strip()
+        ret = re.sub(r"\s*::\s*", "::", ret)
         out.append(FunctionDef(
             qualified=re.sub(r"\s+", "", qual), start=start, open=open_, close=close, params=params, void=void,
-            line=text.count("\n", 0, start) + 1, trivial=_trivial_body(code[open_ + 1:close])))
+            line=text.count("\n", 0, start) + 1, trivial=_trivial_body(code[open_ + 1:close]), ret=ret))
     return out
 
 
@@ -2055,15 +2170,38 @@ def demangled_symbol(mangled: str) -> dict:
     return {"mangled": mangled, "function": readable, "qualified": qualified, "params": params}
 
 
+_SCALAR_WORDS = _BUILTIN_WORDS | {"s8", "u8", "s16", "u16", "s32", "u32", "s64", "u64", "f32", "f64", "BOOL",
+                                   "size_t", "intptr_t", "uintptr_t", "vu8", "vu16", "vu32", "vs32", "vf32"}
+
+
+def stub_label(d: FunctionDef) -> str:
+    """A stub body that compiles for d's return type (signature kept):
+    void/constructor/destructor `{ }`; scalar or pointer `{ return 0; }`;
+    reference `{ return *(T*)0; }`; anything else by value (a class, an enum
+    or typedef we cannot classify) `{ T* p = 0; return *p; }`."""
+    if d.void:
+        return UNUSED_STUBS[0]
+    ret = d.ret.strip()
+    if not ret:
+        return UNUSED_STUBS[1]
+    if ret.endswith("&"):
+        target = ret.rstrip("&").strip()
+        return f"{{ return *({target}*)0; }}"
+    if ret.endswith("*"):
+        return UNUSED_STUBS[1]
+    words = [w for w in re.findall(r"[A-Za-z_]\w*", ret) if w not in ("const", "volatile")]
+    if words and all(w in _SCALAR_WORDS for w in words):
+        return UNUSED_STUBS[1]
+    value = re.sub(r"^\s*const\s+", "", ret)
+    return f"{{ {value}* p = 0; return *p; }}"
+
+
 def stub_definition(text: str, d: FunctionDef) -> tuple[str, str]:
-    """`text` with d's body replaced by a stub, line count preserved (asserts
-    embed __LINE__). Returns (new text, stub label)."""
-    label = UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1]
+    """`text` with d's body replaced by a stub (see stub_label), line count
+    preserved (asserts embed __LINE__). Returns (new text, stub label)."""
+    label = stub_label(d)
     k = text.count("\n", d.open, d.close)
-    if k == 0:
-        body = label
-    else:
-        body = ("{" if d.void else "{ return 0;") + "\n" * k + "}"
+    body = label if k == 0 else label[:-1].rstrip() + "\n" * k + "}"
     return text[:d.open] + body + text[d.close + 1:], label
 
 
@@ -2123,7 +2261,9 @@ def map_unused(repo: Path, base_rev: str, version: str, source: str,
     except Exception as e:
         return fail(f"link map unreadable: {type(e).__name__}: {e}")
     if link is None:
-        return fail(f"no link map under orig/{version}")
+        import unit_progress
+
+        return fail(unit_progress.missing_map_message(repo, version))
     _, objects = es._map_objects_for_unit(Path(repo), link, source)
     if not objects:
         return fail(f"{source}: no object in the link map")
@@ -2414,11 +2554,11 @@ def run_unused_checks(backend, base_rev: str, units: dict, built: dict, files: l
         sym, d = c["symbol"], c["def"]
         head = {"unit": name, "file": u.source, "function": sym["function"], "mangled": sym["mangled"]}
         if c.get("unresolved"):
-            return dict(head, status="inconclusive", stub=UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1],
+            return dict(head, status="inconclusive", stub=stub_label(d),
                         changed=[], callers=[], reason="function identity unresolved: " + c["unresolved"],
                         line=d.line, body_sha256=body_sha256(f["cand_text"], d))
         if name not in compared:
-            return dict(head, status="inconclusive", stub=UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1],
+            return dict(head, status="inconclusive", stub=stub_label(d),
                         changed=[], callers=[], reason="the unit's candidate was not built and compared",
                         line=d.line, body_sha256=body_sha256(f["cand_text"], d))
         cand = built.get((name, "cand"))
@@ -2432,7 +2572,7 @@ def run_unused_checks(backend, base_rev: str, units: dict, built: dict, files: l
         d = c["def"]
         rows.append({"unit": name, "file": u.source, "function": c["symbol"]["function"],
                      "mangled": c["symbol"]["mangled"], "status": "inconclusive",
-                     "stub": UNUSED_STUBS[0] if d.void else UNUSED_STUBS[1], "changed": [], "callers": [],
+                     "stub": stub_label(d), "changed": [], "callers": [],
                      "reason": f"over the stub-test cap ({UNUSED_CHECK_CAP})", "line": d.line,
                      "body_sha256": body_sha256(f["cand_text"], d)})
     root = getattr(backend, "root", None)
@@ -2730,6 +2870,8 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
             and c["unit"] not in s2_failed,
             "compared": bool(c.get("compared")),
             "builds": dict(c.get("built") or {}, **({"s_star_star": "failed"} if c["unit"] in s2_failed else {})),
+            **({"no_unit": c["no_unit"]} if c.get("no_unit") else {}),
+            **({"tool_error": c["tool_error"]} if c.get("tool_error") else {}),
         })
     seen_units: set[str] = set()
     for r in unit_rows:
@@ -2741,6 +2883,10 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
     if uncovered:
         attempt_only.append("units without a complete MWCC build/comparison: " + ", ".join(
             f"{r['unit']} ({r['builds']})" for r in uncovered[:6]))
+        tool_rows = [r for r in uncovered if r.get("tool_error")]
+        if tool_rows:
+            attempt_only.append("tool error, not a source failure: " + "; ".join(
+                f"{r['unit']}: {r['tool_error']}" for r in tool_rows[:4])[:600])
     covered_units = {c["unit"] for c in coverage if c.get("compared")}
     stop_at_frame = mwcc.get("stack_frame_policy") == game_policy.STOP_AT_FRAME
     group_touch = mwcc.get("group_touch") or {}
@@ -2970,6 +3116,21 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
     unresolved_ids = [g["id"] for g in groups if g.get("status") == "unresolved"]
     removable_noncosmetic = [g["id"] for g in groups if g.get("status") == "removable" and not g.get("cosmetic")]
     attempt_reasons = list(reasons) + attempt_only
+    # `reasons`/`attempt_reasons` are for people; `attempt_issues` carries the same facts by category.
+    issues = [issue("tool", detail=r) for r in reasons]
+    for r in uncovered:
+        if r.get("no_unit"):
+            issues.append(issue("header_no_unit", files=[r["no_unit"]], detail="no unit builds or includes this file"))
+        elif r.get("tool_error"):
+            issues.append(issue("tool_error", units=[r["unit"]], detail=r["tool_error"]))
+        else:
+            issues.append(issue("uncovered_unit", units=[r["unit"]], detail=str(r["builds"])))
+    if not reduce_complete:
+        details = reduce.get("incomplete_details")
+        if details is None:  # an older reduce report: its reasons have no category
+            issues += [issue("reduce_unstructured", detail=r) for r in (reduce.get("incomplete_reasons") or ["incomplete"])]
+        else:
+            issues += [dict(d) for d in details]
     if not reduce_complete:
         attempt_reasons += ["analysis incomplete: " + r for r in (reduce.get("incomplete_reasons") or [])[:4]]
     if attempt_only:
@@ -3019,12 +3180,39 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
                                            f"{v['file']}:{v['line']}" for v in late[:6]))
     if violations and attempt == "pass":
         attempt = "rule_violation"
+    group_units = {g["id"]: g.get("units") or [] for g in groups}
+    fn_names = lambda kind: [f for f in functions_out if f["decision"] == kind]  # noqa: E731
+    for kind, category in (("steering_located", "steering_functions"), ("unresolved", "unresolved_functions")):
+        if fn_names(kind):
+            issues.append(issue(category, units=[f["unit"] for f in fn_names(kind)],
+                                detail=", ".join(f["name"] for f in fn_names(kind))[:300]))
+    if unresolved_ids:
+        issues.append(issue("unresolved_groups", groups=unresolved_ids,
+                            units=[u for gid in unresolved_ids for u in group_units.get(gid, [])],
+                            files=[by_id[gid]["file"] for gid in unresolved_ids if by_id.get(gid, {}).get("file")]))
+    if removable_noncosmetic:
+        issues.append(issue("removable_noncosmetic", groups=removable_noncosmetic,
+                            units=[u for gid in removable_noncosmetic for u in group_units.get(gid, [])],
+                            files=[by_id[gid]["file"] for gid in removable_noncosmetic if by_id.get(gid, {}).get("file")]))
+    if inconclusive:
+        issues.append(issue("unused_inconclusive", units=[r.get("unit") for r in inconclusive if r.get("unit")],
+                            files=[r.get("file") for r in inconclusive if r.get("file")]))
+    if map_gaps:
+        issues.append(issue("unused_map_gap", units=[u for u, _ in map_gaps],
+                            detail=", ".join(f"{u} ({why})" for u, why in map_gaps[:4])))
+    if order_unknown:
+        issues.append(issue("order_unknown", files=[c["file"] for c in order_unknown]))
+    for kind in ("dead_unused_body", "out_of_order"):
+        rows = [v for v in violations if v["kind"] == kind]
+        if rows:
+            issues.append(issue(kind, units=[v["unit"] for v in rows if v.get("unit")], files=[v["file"] for v in rows]))
     return {
         "tool": TOOL,
         "version": VERSION,
         "edits_hash": reduce.get("edits_hash"),
         "attempt": attempt,
         "reasons": attempt_reasons,
+        "attempt_issues": issues,
         "functions": functions_out,
         "removable_noncosmetic": removable_noncosmetic,
         "unresolved_groups": unresolved_ids,
@@ -3114,6 +3302,7 @@ def revert_edit_ids(reduce: dict) -> list[str]:
 def run_check(repo: Path, base_ref: str, *, oracle_repo: Optional[Path] = None, cache_dir: Optional[Path] = None,
               functions: Optional[list[str]] = None, paths: Sequence[str] = DEFAULT_PATHS,
               overlay_dir: Optional[str] = None, jobs: int = MAX_JOBS, budget: float = DEFAULT_BUDGET,
+              mwcc_budget: Optional[float] = None,
               max_groups: int = DEFAULT_MAX_GROUPS, approvals_path: Optional[Path] = None,
               evidence_repo: Optional[Path] = None, lessons_path: Optional[Path] = None,
               version: Optional[str] = None, tmp: Optional[str] = None, oracle: Optional[Callable] = None,
@@ -3130,7 +3319,7 @@ def run_check(repo: Path, base_ref: str, *, oracle_repo: Optional[Path] = None, 
     log(f"steering: reduce {red['analysis']} in {red['elapsed_s']}s, {len(red['groups'])} groups")
     mw = run_mwcc(Path(repo), edits["base_rev"], edits["edits_hash"], revert_edit_ids(red), functions=functions,
                   attribute=red, jobs=jobs, paths=paths, overlay_dir=overlay_dir, version=version, tmp=tmp,
-                  backend=backend)
+                  backend=backend, budget=mwcc_budget)
     approvals = read_jsonl(approvals_path if approvals_path else default_approvals_path())
     dec = decide(red, mw, evidence_repo=evidence_repo or oracle_repo or Path(repo), approvals=approvals,
                  lessons_path=lessons_path, version=edits.get("game_version"))
@@ -3147,10 +3336,16 @@ def omit_texts(edits: dict) -> dict:
     return out
 
 
-def run_apply(report: dict, dry_run: bool) -> dict:
+def run_apply(report: dict, dry_run: bool, only_paths: Optional[Sequence[str]] = None) -> dict:
     """Write S* into the repo. Decision violations: dead UNUSED bodies get the
     base text of that function back (the stub, or no definition), re-checked
-    in the written text; out-of-order hunks are reverted."""
+    in the written text; out-of-order hunks are reverted.
+
+    `only_paths` (sharded backfill) limits the writes to those repo-relative
+    files; the edits_hash check still covers every file of the report, so a
+    file shared with another report (a changed header) is never written by
+    this call and later reports still verify against an unchanged tree."""
+    only = None if only_paths is None else set(only_paths)
     edits = report["edits"]
     repo = Path(edits["repo"])
     files = edits["files"]
@@ -3170,6 +3365,8 @@ def run_apply(report: dict, dry_run: bool) -> dict:
             late.setdefault(v["file"], set()).add(int(v["line"]))
     written = []
     for f in files:
+        if only is not None and f["path"] not in only:
+            continue
         es_ = se.enumerate_edits(f["path"], f["base_text"], f["cand_text"])
         lines = late.get(f["path"], set())
         # out-of-order hunks are reverted too (S* excludes them)
@@ -3194,7 +3391,10 @@ def run_apply(report: dict, dry_run: bool) -> dict:
         else:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(se.encode(text))
-    return {"tool": TOOL, "repo": str(repo), "dry_run": dry_run, "files": written}
+    out = {"tool": TOOL, "repo": str(repo), "dry_run": dry_run, "files": written}
+    if only is not None:
+        out["only_paths"] = sorted(only)
+    return out
 
 
 def restore_dead_bodies(base_text: Optional[str], cand_text: str, text: str,
@@ -3306,7 +3506,9 @@ def run_unused_test(repo_path: Path | str, base_ref: str, file: str, function: s
     return {"tool": TOOL, "version": VERSION, "repo": str(repo), "base_rev": base_rev, "file": file,
             "function": function, "status": status,
             "map": {"available": symbols is not None, "unused": bool(hits) if symbols is not None else None,
-                    "mangled": [h["mangled"] for h in hits]},
+                    "mangled": [h["mangled"] for h in hits],
+                    **({"reason": (getattr(backend, "unused_reasons", None) or {}).get(u.name, "link map unavailable")}
+                       if symbols is None else {})},
             "checks": checks}
 
 
@@ -3383,7 +3585,8 @@ def cmd_mwcc(args) -> int:
     payload = run_mwcc(Path(args.repo), args.base_ref, args.edits_hash, _split(args.revert_edits),
                        functions=_split(args.functions) or None,
                        attribute=_load(args.attribute) if args.attribute else None,
-                       jobs=args.jobs, paths=args.paths, overlay_dir=args.overlay_dir, version=args.version, tmp=args.tmp)
+                       jobs=args.jobs, paths=args.paths, overlay_dir=args.overlay_dir, version=args.version, tmp=args.tmp,
+                       budget=args.mwcc_budget_seconds)
     human = [f"{f['sstar_vs_candidate']!s:<10} {f['candidate']} S* {f['real_only']}  {f['demangled']}" for f in payload["functions"]]
     _emit(args, payload, human)
     return 0
@@ -3410,7 +3613,8 @@ def cmd_check(args) -> int:
                         jobs=args.jobs, budget=args.budget_seconds, max_groups=args.max_groups,
                         approvals_path=Path(args.approvals) if args.approvals else None,
                         evidence_repo=Path(args.evidence_repo) if args.evidence_repo else None,
-                        lessons_path=Path(args.lessons) if args.lessons else None, version=args.version, tmp=args.tmp)
+                        lessons_path=Path(args.lessons) if args.lessons else None, version=args.version, tmp=args.tmp,
+                        mwcc_budget=args.mwcc_budget_seconds)
     if not args.full:
         payload["edits"] = omit_texts(payload["edits"])
     _emit(args, payload, _decision_lines(payload["decision"]))
@@ -3418,7 +3622,7 @@ def cmd_check(args) -> int:
 
 
 def cmd_apply(args) -> int:
-    payload = run_apply(_load(args.report), args.dry_run)
+    payload = run_apply(_load(args.report), args.dry_run, only_paths=args.only_paths)
     _emit(args, payload, [f"{'would write' if args.dry_run else 'wrote'} {f['path']} ({len(f['reverted'])} edits reverted)"
                           for f in payload["files"]])
     return 0
@@ -3429,7 +3633,7 @@ def cmd_unused_test(args) -> int:
                               version=args.version, jobs=args.jobs, tmp=args.tmp)
     m = payload["map"]
     human = [f"{payload['function']}: {payload['status'].upper()}"
-             f"  (map: {'UNUSED' if m['unused'] else 'not UNUSED' if m['available'] else 'no link map'})"]
+             f"  (map: {'UNUSED' if m['unused'] else 'not UNUSED' if m['available'] else m.get('reason') or 'no link map'})"]
     for c in payload["checks"]:
         human.append(f"  {c['status']:<12} {c['file']}:{c['line']} stub {c['stub']}  base {c['base']}  {c['reason']}")
         human += [f"      {x['function']}: {x['before']['status']} {x['before']['match_percent']}%"
@@ -3472,7 +3676,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--oracle-repo", help="host checkout whose git objects hold base_rev")
     p.add_argument("--input", required=True)
     p.add_argument("--cache-dir")
-    p.add_argument("--budget-seconds", type=float, default=DEFAULT_BUDGET)
+    p.add_argument("--budget-seconds", type=float, default=DEFAULT_BUDGET, help="IR-oracle reduce budget (not the MWCC step)")
     p.add_argument("--max-groups", type=int, default=DEFAULT_MAX_GROUPS)
     p.add_argument("--approvals")
     p.add_argument("--evidence-repo")
@@ -3487,6 +3691,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--revert-edits", nargs="*", default=[])
     p.add_argument("--functions", nargs="*")
     p.add_argument("--attribute", help="reduce output (groups) for attribution and call evidence")
+    p.add_argument("--mwcc-budget-seconds", type=float, help="MWCC step budget (default $ORCH_MWCC_BUDGET_SECONDS or 3600)")
     p.add_argument("--paths", nargs="*", default=list(DEFAULT_PATHS))
     p.add_argument("--overlay-dir")
     p.add_argument("--tmp")
@@ -3511,12 +3716,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--functions", nargs="*")
     p.add_argument("--paths", nargs="*", default=list(DEFAULT_PATHS))
     p.add_argument("--overlay-dir")
-    p.add_argument("--budget-seconds", type=float, default=DEFAULT_BUDGET)
+    p.add_argument("--budget-seconds", type=float, default=DEFAULT_BUDGET, help="IR-oracle reduce budget (not the MWCC step)")
     p.add_argument("--max-groups", type=int, default=DEFAULT_MAX_GROUPS)
     p.add_argument("--approvals")
     p.add_argument("--evidence-repo")
     p.add_argument("--lessons")
     p.add_argument("--full", action="store_true", help="keep file texts in the edits section")
+    p.add_argument("--mwcc-budget-seconds", type=float, help="MWCC step budget (default $ORCH_MWCC_BUDGET_SECONDS or 3600)")
     p.add_argument("--tmp")
     p.set_defaults(func=cmd_check)
 
@@ -3524,6 +3730,7 @@ def build_parser() -> argparse.ArgumentParser:
     common(p)
     p.add_argument("--report", required=True)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--only-paths", nargs="*", help="write only these repo-relative files (sharded backfill)")
     p.set_defaults(func=cmd_apply)
 
     p = sub.add_parser("unused-test", help="stub test: does a function's body change any target function?")

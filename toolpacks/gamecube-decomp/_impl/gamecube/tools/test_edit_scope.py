@@ -716,3 +716,35 @@ def test_trigraph_splice_in_a_comment_gives_no_evidence():
     res = run({"src/Enemy/Koopa.cpp": (KOOPA_CPP + TRIGRAPH_BASE, KOOPA_CPP + TRIGRAPH_CAND)},
               readiness=r, unused_checks=[])
     assert unused_verdicts(res) == [("TKoopa", "unused_unverified")] and res["verdict"] == "reject"
+
+
+def test_out_of_class_definition_placed_in_own_unit_by_the_map_is_own_work():
+    class Placed(FakeReadiness):
+        def own_unit_function(self, unit, text, open_offset, path):
+            # the exact definition: the text right before its body names TStub::act()
+            head = text[:open_offset].rsplit("}", 1)[-1]
+            return True if unit == "Enemy/Koopa" and "TStub::act()" in head else None
+
+    after = KOOPA_CPP + "void TStub::act() { mX = 1; }\nvoid TStub::other() { mY = 2; }\n"
+    res = run({"src/Enemy/Koopa.cpp": (KOOPA_CPP, after)}, readiness=Placed())
+    rows = sorted((h["class"], h["verdict"], h["line"]) for h in res["hunks"])
+    # act: the map places its symbol in Koopa's own object -> own work; other: unknown -> class owner rules
+    assert rows == [("TStub", "not_ready", 5), ("TStub", "own_class", 4)]
+    # a class declaration in a header still follows the class owner
+    res = run({"include/Enemy/Stub.hpp": ("class TStub {\n  int a;\n};\n", "class TStub {\n  int a;\n  void act();\n};\n")},
+              readiness=Placed())
+    assert verdicts(res) == [("include/Enemy/Stub.hpp", "TStub", "not_ready")]
+
+
+
+def test_own_unit_exemption_is_per_definition_not_per_line():
+    class Placed(FakeReadiness):
+        def own_unit_function(self, unit, text, open_offset, path):
+            head = text[:open_offset].rsplit("}", 1)[-1]
+            return True if unit == "Enemy/Koopa" and "TStub::act()" in head else None
+
+    # TStub::act is mapped to Koopa's own object; TStub::other is not: on ONE line, other is still judged
+    after = KOOPA_CPP + "void TStub::act() { mX = 1; } void TStub::other() { mY = 2; }\n"
+    res = run({"src/Enemy/Koopa.cpp": (KOOPA_CPP, after)}, readiness=Placed())
+    assert sorted((h["class"], h["verdict"]) for h in res["hunks"]) == [("TStub", "not_ready"), ("TStub", "own_class")]
+    assert res["verdict"] == "reject"

@@ -331,6 +331,33 @@ def test_failed_build_is_explicit_coverage_gap(toolchain) -> None:
         assert dec["units"][0]["compared"] is False
 
 
+class WiboMwcc(FakeMwcc):
+    """MWCC under wibo with a long shadow-root path: include names come back truncated."""
+
+    def compile(self, unit, texts, label):
+        if label == "cand":
+            self.built.append((unit.name, label))
+            return False, None, "### mwcceppc.exe Compiler:\n#    File: src/a.c\n# Error: the file 'fdlibm.' cannot be opened"
+        return super().compile(unit, texts, label)
+
+
+def test_truncated_include_is_a_shadow_root_tool_error(toolchain) -> None:
+    repo, tmp, _ = toolchain
+    edits = sc.build_edits(repo, "HEAD", unit_resolver=fake_units)
+    red = sc.run_reduce(edits, repo, tmp / "c", budget=60, max_groups=16, jobs=1, approvals_path=None,
+                        evidence_repo=None, oracle=FakeOracle())
+    mw = sc.run_mwcc(repo, "HEAD", edits["edits_hash"], sc.revert_edit_ids(red), attribute=red,
+                     backend=WiboMwcc(tmp / "m", TARGET))
+    [row] = mw["coverage"]
+    assert row["compared"] is False and row["built"]["candidate"] == "tool_error"
+    assert row["tool_error"].startswith("shadow-root path too long") and "'fdlibm.'" in row["tool_error"]
+    assert [e for e in mw["errors"] if e.get("tool_error")][0]["variant"] == "cand"
+    dec = sc.decide(red, mw, probes=False)
+    assert dec["attempt"] == "unresolved" and dec["units"][0]["tool_error"] == row["tool_error"]
+    assert any(r.startswith("tool error, not a source failure: u1: shadow-root path too long") for r in dec["reasons"])
+    assert [i["units"] for i in dec["attempt_issues"] if i["category"] == "tool_error"] == [["u1"]]
+
+
 def test_unit_without_build_is_a_coverage_gap(toolchain) -> None:
     repo, tmp, _ = toolchain
     (repo / "src/b.c").write_text("void z()\n{\n    q();\n}\n")
@@ -340,7 +367,11 @@ def test_unit_without_build_is_a_coverage_gap(toolchain) -> None:
     assert gaps and "src/b.c" in gaps[0]["unit"]
     red = {"edits_hash": edits["edits_hash"], "analysis": "complete", "incomplete_reasons": [],
            "global_incomplete": [], "groups": [], "units": []}
-    assert sc.decide(red, mw, probes=False)["attempt"] == "unresolved"
+    dec = sc.decide(red, mw, probes=False)
+    assert dec["attempt"] == "unresolved"
+    # A changed file no unit compiles is marked structurally (the backfill's header residual).
+    assert gaps[0]["no_unit"] == "src/b.c"
+    assert [i for i in dec["attempt_issues"] if i["category"] == "header_no_unit"][0]["files"] == ["src/b.c"]
 
 
 def test_new_source_unit_has_absent_base(toolchain) -> None:

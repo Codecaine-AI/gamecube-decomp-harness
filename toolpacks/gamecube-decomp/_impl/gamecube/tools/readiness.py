@@ -362,6 +362,7 @@ class Readiness:
         self._namespace_names: Optional[set[str]] = None
         self._type_index = None
         self._precedent: dict[str, set[str]] = {}
+        self._file_sigs: dict[tuple, list] = {}
         self._states: dict[str, dict] = {}
         self._rev_cache = rev_cache
         self._deadline = deadline
@@ -436,6 +437,32 @@ class Readiness:
         """objdiff.json `scratch.c_flags` of the unit (certificate binding: `unit_flags_sha256`)."""
         u = self.units.get(unit)
         return None if u is None else (u.get("cflags") or None)
+
+    def own_unit_function(self, unit: str, text: str, open_offset: int, path: str = "") -> Optional[bool]:
+        """Is the exact function definition whose body opens at `open_offset` in `text`
+        (the unit's source) one of the unit's own functions, i.e. does the base-rev
+        target object or link map (UNUSED rows) place a symbol with exactly its
+        signature in this unit? True, or None when that cannot be shown (the caller
+        keeps its rules). Bound to one definition, never to a line."""
+        import signatures
+
+        key = (path, hashlib.sha1(text.encode("utf-8", "surrogateescape")).hexdigest())
+        sigs = self._file_sigs.get(key)
+        if sigs is None:
+            sigs = signatures.source_signatures(text, self.type_index().with_texts({path or "<source>": text}), path)
+            self._file_sigs[key] = sigs
+        hits = [g for g in sigs if g.open == open_offset]
+        if not hits:
+            return None
+        symbols = list((self.funcs.get(unit) or {}).keys()) + self.unused_symbols(unit)
+        for g in hits:
+            member = g.qualified.split("::")[-1]
+            for sym in symbols:
+                if member not in sym and not sym.startswith(("__ct__", "__dt__", "__")):
+                    continue
+                if signatures.matches(g, sym) is True:
+                    return True
+        return None
 
     def defines_of(self, unit: str) -> dict:
         """The unit's -D flags (objdiff scratch c_flags): known macros for #if evaluation."""
@@ -652,7 +679,7 @@ def load(repo: Path | str, rev: str, *, version: Optional[str] = None, policy: O
         raise ReadinessError("missing_objects", "cannot detect the build version")
     map_path = unit_progress.find_map(repo, version)
     if map_path is None:
-        raise ReadinessError("missing_map", f"no link map under {repo}/orig/{version}")
+        raise ReadinessError("missing_map", unit_progress.missing_map_message(repo, version))
     stamp = target_stamp(repo, units)
     if not any((repo / u["target_path"]).is_file() for u in units):
         raise ReadinessError("missing_objects", f"no target objects under {repo}/build/{version}/obj")

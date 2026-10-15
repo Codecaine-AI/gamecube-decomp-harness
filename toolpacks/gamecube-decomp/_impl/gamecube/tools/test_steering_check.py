@@ -619,6 +619,57 @@ def test_apply_writes_line_preserving_sstar(tmp_path: Path) -> None:
         sc.run_apply(report, dry_run=True)
 
 
+def test_apply_only_paths_writes_just_those_files(tmp_path: Path) -> None:
+    base = "int f(int* p)\n{\n    return p[0] * p[0] + 1;\n}\n"
+    cand = "int f(int* p)\n{\n    int t = p[0];\n    t *= t;\n    return t + 2;\n}\n"
+    repo = git_repo(tmp_path, {"src/a.c": base, "include/h.h": base})
+    (repo / "src/a.c").write_text(cand)
+    (repo / "include/h.h").write_text(cand)
+    edits = sc.build_edits(repo, "HEAD", unit_resolver=fake_units)
+    ids = [e.id for path in ("src/a.c", "include/h.h") for e in se.enumerate_edits(path, base, cand)
+           if any("int t" in x or "t *= t" in x for x in e.added)]
+    report = {"edits": sc.omit_texts(edits), "reduce": {"groups": []}, "mwcc": {"revert_edits": ids}}
+    out = sc.run_apply(report, dry_run=False, only_paths=["src/a.c"])
+    assert [f["path"] for f in out["files"]] == ["src/a.c"] and out["only_paths"] == ["src/a.c"]
+    assert (repo / "src/a.c").read_text() != cand
+    assert (repo / "include/h.h").read_text() == cand
+    # The hash check still covers the unwritten file: a second report over the same paths now refuses.
+    with pytest.raises(sc.ToolFailure, match="changed since the check"):
+        sc.run_apply(report, dry_run=True, only_paths=["include/h.h"])
+
+
+def test_shadow_include_failure_classifies_tool_errors() -> None:
+    truncated = sc.shadow_include_failure("# Error: the file 'fdlibm.' cannot be opened")
+    assert truncated and truncated.startswith("shadow-root path too long") and "fdlibm." in truncated
+    other = sc.shadow_include_failure('# Error: the file "JSystem/JGeometry.h" cannot be opened')
+    assert other and other.startswith("shadow-root include failure")
+    assert sc.shadow_include_failure("# Error: undefined identifier 'foo'") is None
+
+
+def test_shadow_roots_default_to_a_short_tmp(tmp_path: Path) -> None:
+    import types
+
+    (tmp_path / "r" / "src").mkdir(parents=True)
+    pool = sc.ShadowCompiler(types.SimpleNamespace(root=tmp_path / "r"), 1)
+    try:
+        assert pool.tmp.parent == sc.short_tmp_root() and len(str(sc.short_tmp_root())) <= 24
+        assert len(str(pool.tmp / "w0")) < len(str(tmp_path))
+    finally:
+        pool.close()
+    assert not pool.tmp.exists() and not sc.short_tmp_root().exists()
+
+
+def test_reduce_reports_incomplete_details_by_category(tmp_path: Path) -> None:
+    repo = git_repo(tmp_path, {"src/a.c": "int f() { return 1; }\n"})
+    (repo / "include").mkdir()
+    (repo / "include/new.h").write_text("int g(void);\n")
+    edits = sc.build_edits(repo, "HEAD", unit_resolver=lambda files: ("V1", [], {"include/new.h": []}))
+    red = sc.run_reduce(edits, repo, tmp_path / "c", budget=60, max_groups=8, jobs=1, approvals_path=None,
+                        evidence_repo=None, oracle=FakeOracle())
+    [detail] = [d for d in red["incomplete_details"] if d["category"] == "group_no_unit"]
+    assert detail["files"] == ["include/new.h"] and detail["units"] == []
+
+
 def test_decide_missing_requested_function_is_unresolved() -> None:
     dec = decide([], [mw_fn()], mw={"missing_functions": ["T::gone"]})
     assert dec["attempt"] == "unresolved" and any("T::gone" in r for r in dec["reasons"])

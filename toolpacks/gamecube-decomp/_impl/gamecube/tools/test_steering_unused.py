@@ -391,6 +391,10 @@ def test_missing_map_coverage_is_incomplete_when_required(repo, tmp_path, monkey
            "groups": [], "units": []}
     dec = sc.decide(red, mw, probes=False)
     assert dec["attempt"] == "unresolved" and any("link-map coverage" in r for r in dec["reasons"])
+    # The backfill reads the category, not the wording: the function rows can all pass.
+    assert [i for i in dec["attempt_issues"] if i["category"] == "unused_map_gap"] == [
+        {"category": "unused_map_gap", "units": ["u1"], "groups": [], "files": [], "detail": dec["attempt_issues"][-1]["detail"]}]
+    assert all(f["decision"] == "pass" for f in dec["functions"])
 
 
 def test_link_map_required_policy(tmp_path) -> None:
@@ -589,3 +593,65 @@ def test_unmodelled_translation_constructs_make_the_whole_file_undecidable() -> 
         assert preprocess.undecidable_file(text), tail
     assert preprocess.undecidable_file(before + 'printf("%d", a ? b : c);\n') is None  # no false alarm
     assert ev("#def\\\nine X 1\n#if X\nyes\n#endif\n").count("yes") == 1  # a plain splice is modelled
+
+
+def test_stubs_follow_the_return_type() -> None:
+    text = ("TNerveMantaMove& TNerveMantaMove::theNerve()\n{\n    static TNerveMantaMove n;\n    return n;\n}\n"
+            "const JGeometry::TVec3<f32>& T::pos() const { return mPos; }\n"
+            "TFoo T::make(int a) { return TFoo(a); }\n"
+            "s32 T::n() { return mN; }\nTFoo* T::p() { return mP; }\nvoid T::v() { x(); }\nT::~T() { x(); }\n"
+            "EState T::state() { return mS; }\n")
+    stubs = {d.qualified: sc.stub_label(d) for d in sc.function_defs(text)}
+    assert stubs == {"TNerveMantaMove::theNerve": "{ return *(TNerveMantaMove*)0; }",
+                     "T::pos": "{ return *(const JGeometry::TVec3<f32>*)0; }",
+                     "T::make": "{ TFoo* p = 0; return *p; }", "T::n": "{ return 0; }", "T::p": "{ return 0; }",
+                     "T::v": "{ }", "T::~T": "{ }", "T::state": "{ EState* p = 0; return *p; }"}
+    d = sc.function_defs(text)[0]
+    stubbed, label = sc.stub_definition(text, d)
+    assert stubbed.count("\n") == text.count("\n") and "{ return *(TNerveMantaMove*)0;\n" in stubbed
+
+
+def test_a_hung_compile_is_a_failed_build(tmp_path, monkeypatch) -> None:
+    import stack_check
+
+    monkeypatch.setenv("ORCH_MWCC_COMPILE_TIMEOUT", "7")
+    assert stack_check.compile_timeout() == 7.0
+
+    class Repo:
+        root = tmp_path
+        runner = "/bin/sh"
+        edges = {"o.o": type("E", (), {"rule": "mwcc", "src": "a.c", "mw_version": "x", "cflags": "", "extab_padding": None})()}
+
+    unit = stack_check.Unit("u", "o.o", "t.o", "a.c")
+    real_run = subprocess.run
+
+    def fake_run(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+
+    monkeypatch.setattr(stack_check.subprocess, "run", fake_run)
+    res = stack_check.compile_in(Repo(), tmp_path, unit, tmp_path / "out.o", timeout=1)
+    monkeypatch.setattr(stack_check.subprocess, "run", real_run)
+    assert res.ok is False and "timed out" in res.error
+
+
+def test_mwcc_budget_exhausted_leaves_units_uncompared(repo, tmp_path) -> None:
+    class Slow(InliningMwcc):
+        deadline = None
+
+        def set_deadline(self, deadline):
+            self.deadline = deadline
+
+        def compile(self, unit, texts, label):
+            import time as _t
+
+            if self.deadline is not None and _t.time() > self.deadline:
+                return False, None, "mwcc budget exceeded: not built (analysis incomplete)"
+            return super().compile(unit, texts, label)
+
+    edits = sc.build_edits(repo, "HEAD", unit_resolver=fake_units)
+    mw = sc.run_mwcc(repo, "HEAD", edits["edits_hash"], [], jobs=1, budget=-1,
+                     backend=Slow(tmp_path / "m", TARGET_DEAD, unused={"u1": ["h__Fv"]}))
+    assert mw["coverage"][0]["compared"] is False and "budget" in mw["errors"][0]["error"]
+    red = {"edits_hash": edits["edits_hash"], "analysis": "complete", "incomplete_reasons": [], "global_incomplete": [],
+           "groups": [], "units": []}
+    assert sc.decide(red, mw, probes=False)["attempt"] == "unresolved"

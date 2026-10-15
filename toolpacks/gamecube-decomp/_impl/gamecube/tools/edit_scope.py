@@ -175,6 +175,7 @@ class OutOfClass:
     file: str
     line: int
     text: str  # normalized declaration + body
+    open: int = -1  # offset of the body's `{` in the file text (identifies this exact definition)
 
 
 @dataclass
@@ -346,7 +347,7 @@ def parse_source(path: str, text: Optional[str]) -> Parsed:
         if not owner or owner in namespaces:
             continue
         ooc.append(OutOfClass(owner, (member, tuple(d.params) if d.params is not None else None), path,
-                              d.line, norm(code[d.start:d.close + 1])))
+                              d.line, norm(code[d.start:d.close + 1]), d.open))
     return Parsed(classes, ooc, fwd, aliases, namespaces)
 
 
@@ -559,7 +560,9 @@ def analyze(files: list[dict]) -> Analysis:
                 continue
             known = any(b.sig == o.sig for b in olds)
             detail = f"out-of-class definition {'changed' if known else 'added'}: {cls}::{o.sig[0]}"
-            changes.setdefault(cls, []).append((o.file, o.line, "change", detail, head_line(cls, o.file, o.line)))
+            # kind ("ooc", open offset): this exact definition, for the own-unit check
+            changes.setdefault(cls, []).append((o.file, o.line, ("ooc", o.open), detail,
+                                                head_line(cls, o.file, o.line)))
             ooc_added.setdefault(cls, []).append((o.file, o.line, o.sig[0]))
     fwd = []
     for path, p in after.items():
@@ -576,6 +579,20 @@ class _Context:
         self.state = state
         self.targets_for = targets_for
         self.analysis = analysis
+
+    def own_unit_function(self, path: str, open_offset: int) -> bool:
+        """Does the base-rev map place the exact function definition whose body opens at
+        `open_offset` in `path` in the object of `path`'s own unit? (readiness.own_unit_function;
+        unknown -> False: current behaviour)."""
+        fn = getattr(self.state.r, "own_unit_function", None)
+        unit = self.state.unit_for_source(path)
+        text = self.analysis.after_text.get(path)
+        if fn is None or unit is None or text is None:
+            return False
+        try:
+            return open_offset >= 0 and fn(unit, text, open_offset, path) is True
+        except Exception:
+            return False
 
     def header_owned(self, path: str) -> bool:
         stem = _stem(path)
@@ -617,9 +634,25 @@ def _class_hunks(ctx: _Context) -> tuple[list[dict], list[str]]:
     for cls, rows in sorted(ctx.analysis.changes.items()):
         per_file: dict[str, dict] = {}
         for path, line, kind, detail, class_line in rows:
-            slot = per_file.setdefault(path, {"change": [], "moved": []})
+            slot = per_file.setdefault(path, {"change": [], "moved": [], "own": []})
+            if isinstance(kind, tuple):
+                # an out-of-class member definition whose symbol the base-rev map places in this
+                # file's own unit is the unit's own work, whoever owns the class; judged per exact
+                # definition (its body offset), never per line
+                if ctx.own_unit_function(path, kind[1]):
+                    slot["own"].append((line, detail, class_line))
+                    continue
+                kind = "change"
             slot[kind].append((line, detail, class_line))
         for path, slot in sorted(per_file.items()):
+            if slot["own"]:
+                unit = ctx.state.unit_for_source(path)
+                line = min(l for l, _, _ in slot["own"])
+                detail = "; ".join(dict.fromkeys(d for _, d, _ in sorted(slot["own"])))
+                hunks.append({"file": path, "line": line, "class": cls, "verdict": "own_class",
+                              "reason": f"functions of this file's own unit {unit}: the map places their symbols "
+                                        f"in its object ({detail})",
+                              "class_line": min(c for _, _, c in slot["own"])})
             if slot["change"]:
                 # `line`: first added/changed line of the class's members; `class_line`: the class head
                 line = min(l for l, _, _ in slot["change"])
@@ -638,7 +671,7 @@ def _class_hunks(ctx: _Context) -> tuple[list[dict], list[str]]:
                     warnings.append(f"{path}:{line}: {reason}")
                 hunks.append({"file": path, "line": line, "class": cls, "verdict": verdict,
                               "reason": f"{reason} ({detail})", "class_line": class_line})
-            else:
+            elif slot["moved"]:
                 line, detail, class_line = min(slot["moved"])
                 hunks.append({"file": path, "line": line, "class": cls, "verdict": "moved", "reason": detail,
                               "class_line": class_line})
