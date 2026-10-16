@@ -8,12 +8,16 @@ import {
   section,
   usesContext,
 } from "@server/core/agent-catalog/prompt-kit-compat";
-import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
+import type { OrderingMode, StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import type { PiPromptBundle } from "@server/core/shared/types";
+import { orderingActive } from "@server/core/tools/ordering.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 import {
   buildWorkerKernelContext,
+  workerOrdering,
   workerStackFramePolicy,
+  workerSteeringGate,
   type WorkerPromptOptions,
 } from "./context.js";
 export {
@@ -91,6 +95,39 @@ function stackFramePolicySection() {
   ]);
 }
 
+// Only an active steering gate (shadow or enforce; SMS) renders this section;
+// `off` keeps today's text.
+function steeringPolicySection() {
+  return section("steering_policy", [
+    bulletList([
+      "Steering is a source rewrite that behaves exactly like the code it replaces (single-use temps and aliases, split expressions, reordered declarations or statements, accessor↔field swaps, if↔ternary, operand order, `int`↔`s32`, `* 0.5f`↔`/ 2.0f`). It only moves register choice, instruction order or the stack frame.",
+      "A steering match is never done. The steering gate reverts every behaviour-identical edit, rebuilds, and only counts what survives. Edits it cannot certify are rejected too.",
+      "Use steering as a probe: find the smallest same-behaviour edit that moves the codegen, then find what the original source really had. Likely causes: a missing inline function, the wrong inline, a wrong type or signedness, an inline whose body is wrong.",
+      "Read the `steering_probe` block when present: it lists the steering edits, the match without them, hypotheses, and evidence.",
+      "Read the `previous_attempt` block when present: an earlier match on this function was rolled back because it relied on steering, a dead UNUSED body or an out-of-order fill. It lists what was removed and the rule it broke; do not repeat it.",
+      "Search for real evidence with `real_code_evidence`: `map-calls` (what the original calls), `map-unit` (inline and weak functions emitted in this unit), `inlines` (header inlines for a type or member), `usage` (matching functions that use an inline), `jsystem` (Twilight Princess and Wind Waker JSystem sources).",
+      "Write the real construct, remove every steering edit, and keep real fixes in their own statements; a hunk mixing a real fix with steering is rejected as unresolved.",
+      "A function the map marks UNUSED that upstream left as a stub gets a body only if the original inlined it into another function in the same TU: run `steering_check.py unused-test --repo . --file <file> --function <Name>`; if emptying the body changes no target function, the body is dead code and is rejected.",
+    ]),
+  ]);
+}
+
+// Only an active ordering mode (shadow or enforce; SMS) renders this section;
+// `off` keeps today's text.
+function orderAndScopeSection(mode: "shadow" | "enforce") {
+  return section("order_and_scope", [
+    bulletList([
+      `Work in order: decompile a class's own unit before code that needs it. Edits that break these rules ${mode === "enforce" ? "are rejected" : "are flagged"}.`,
+      "Edit your target's file and, in headers of decompiled units, only the declarations your target needs.",
+      "Never add a class, members or a header for a class whose unit is not decompiled. Forward declarations are fine.",
+      "Registries such as MarNameRefGen are filled after their classes exist: don't jump the fence.",
+      "Give an UNUSED function a body only with inline evidence (`steering_check.py unused-test`).",
+      "Keep one unit per change.",
+      "Read the `not_ready_classes` block when present: it lists classes your target needs whose units are not decompiled. Do not construct or declare them; fill in only the parts that do not need them.",
+    ]),
+  ]);
+}
+
 function keptAdvisoriesItem(mode: keyof typeof KEPT_ADVISORIES_LEAD, policy: StackFramePolicy) {
   return item(KEPT_ADVISORIES_LEAD[mode], [
     bulletList([
@@ -139,7 +176,7 @@ function submissionSection(mode: AdvisoryAdjudicationMode, policy: StackFramePol
   ]);
 }
 
-function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode) {
+function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode, steering = false, ordering: OrderingMode = "off") {
   const text = FRAME_TEXT[policy];
   return definePrompt({
     id: "melee.worker.system",
@@ -167,6 +204,8 @@ function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode
         ]),
       ]),
       ...(policy === "stop_at_frame" ? [stackFramePolicySection()] : []),
+      ...(steering ? [steeringPolicySection()] : []),
+      ...(orderingActive(ordering) ? [orderAndScopeSection(ordering)] : []),
       section("thinking", [
         bulletList([
           item("Understand how the original programmers wrote this code", [
@@ -571,13 +610,13 @@ export function renderSystemPrompt(): string {
   return renderXmlMarkdown(prompt);
 }
 
-const functionPrompts = new Map<string, typeof prompt>([["match_frame:off", prompt]]);
+const functionPrompts = new Map<string, typeof prompt>([["match_frame:off:off", prompt]]);
 
-function functionPromptFor(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode): typeof prompt {
-  const key = `${policy}:${mode}`;
+function functionPromptFor(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode, steering: boolean, ordering: OrderingMode): typeof prompt {
+  const key = `${policy}:${mode}:${steering ? "steering" : "off"}${orderingActive(ordering) ? `:ordering-${ordering}` : ""}`;
   let selected = functionPrompts.get(key);
   if (!selected) {
-    selected = functionPrompt(policy, mode);
+    selected = functionPrompt(policy, mode, steering, ordering);
     functionPrompts.set(key, selected);
   }
   return selected;
@@ -594,14 +633,20 @@ function isSectionTarget(packet: Record<string, unknown>): boolean {
 
 /**
  * The system prompt document a worker gets: the section-target prompt, or the
- * function prompt for the game's stack frame policy and the advisory mode.
+ * function prompt for the game's stack frame policy, the advisory mode,
+ * whether the game's steering gate is active, and its ordering mode.
  */
 export function workerSystemPromptDocument(
-  options: Pick<WorkerPromptOptions, "packet" | "game" | "advisoryAdjudication" | "stackFramePolicy">,
+  options: Pick<WorkerPromptOptions, "packet" | "game" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering">,
 ): typeof prompt {
   return isSectionTarget(options.packet)
     ? sectionTargetPrompt
-    : functionPromptFor(workerStackFramePolicy(options), options.advisoryAdjudication ?? "off");
+    : functionPromptFor(
+        workerStackFramePolicy(options),
+        options.advisoryAdjudication ?? "off",
+        steeringGateActive(workerSteeringGate(options)),
+        workerOrdering(options),
+      );
 }
 
 export function workerPrompt(options: WorkerPromptOptions): PiPromptBundle {

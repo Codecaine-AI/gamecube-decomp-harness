@@ -33,6 +33,9 @@ import {
 import { changedSourcePathsFromDiff, runClangFormatCheck } from "@server/core/validation/format/clang-format.js";
 import { SYMBOL_BASELINE_DIR, SYMBOL_CHECK_SOURCE_RE, changedCppPathsFromDiff, runSymbolCheck, snapshotBaselineObjects } from "@server/core/validation/symbols/symbol-check.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
+import { evaluateWorkerSteeringGate, type WorkerSteeringGateOptions } from "./steering-validation.js";
+import { evaluateWorkerEditScopeGate, evaluateWorkerEditScopeUnused, type WorkerEditScopeGateOptions } from "./edit-scope-validation.js";
+import { uploadThroughExec } from "@server/core/validation/steering/steering-check.js";
 import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import {
   STACK_HUNK_CHECK_MAX_HUNKS,
@@ -1638,15 +1641,27 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
   };
 }
 
+/**
+ * Candidate owning sources of a header, in probe order: `include/X.h` →
+ * `src/X.c` (then `src/X.cpp`), `X.hpp` → `X.cpp`, extensions matched
+ * case-insensitively.
+ */
+export function headerOwnerCandidates(headerPath: string): string[] {
+  const normalized = normalizeRepoPath(headerPath);
+  const match = /\.(h|hpp)$/i.exec(normalized);
+  // Other extensions keep the legacy probe of the path itself (under src/).
+  if (!match) return [normalized.startsWith("include/") ? `src/${normalized.slice("include/".length)}` : normalized];
+  const stem = normalized.slice(0, -match[0].length);
+  const base = stem.startsWith("include/") ? `src/${stem.slice("include/".length)}` : stem;
+  return match[1]!.toLowerCase() === "hpp" ? [`${base}.cpp`] : [`${base}.c`, `${base}.cpp`];
+}
+
 async function inferredHeaderOwner(
   _repoRoot: string,
   headerPath: string,
   workspaceExec: WorkspaceExec,
 ): Promise<string | null> {
-  const normalized = normalizeRepoPath(headerPath);
-  const candidates = normalized.startsWith("include/")
-    ? [`src/${normalized.slice("include/".length).replace(/\.h$/i, ".c")}`]
-    : [normalized.replace(/\.h$/i, ".c")];
+  const candidates = headerOwnerCandidates(headerPath);
   for (const candidate of candidates) {
     const result = await workspaceExec.exec(["test", "-f", candidate]);
     if (result.exitCode === 0) return candidate;
@@ -1948,6 +1963,13 @@ export async function validateWorkerChange(params: {
   stackFramePolicy?: StackFramePolicy | null;
   /** Injectable stack_check.py runner; defaults to the toolpack copy in the sandbox. */
   stackCheckRunner?: StackCheckRunner;
+  /** The game's steering gate (`matching.steeringGate` not `off`); absent or `off` never runs it. */
+  steeringGate?: WorkerSteeringGateOptions | null;
+  /**
+   * The game's order-and-scope fence (`ordering.mode` shadow/enforce); absent
+   * or `off` never runs it. Runs after the micro-gates, before steering.
+   */
+  editScope?: WorkerEditScopeGateOptions | null;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
@@ -2056,7 +2078,43 @@ export async function validateWorkerChange(params: {
   const withQaLint = applyQaLintToValidation(scoreValidation, qaLint, {
     deferAdvisories: params.deferAdvisories === true && preQa.status === "passed",
   });
-  const gated = applyMicroGatesToValidation(withQaLint, microGates);
+  // The order-and-scope fence runs on every attempt that changed source while
+  // ordering is active; enforce rejects only an otherwise-passing attempt, so
+  // the steering gate below (passed attempts only) never runs after it rejects.
+  const editScopeOptions: WorkerEditScopeGateOptions | null = params.editScope
+    ? {
+        ...params.editScope,
+        uploadToSandbox: params.editScope.uploadToSandbox
+          ?? ((workspacePath, content) => uploadThroughExec(params.workspaceExec, workspacePath, content)),
+      }
+    : null;
+  const scoped = await evaluateWorkerEditScopeGate({
+    validation: applyMicroGatesToValidation(withQaLint, microGates),
+    options: editScopeOptions,
+    targetUnit: stringValue(params.target.unit),
+    outputDir: params.outputDir,
+    attemptIndex: params.attemptIndex,
+    postAttemptDiffText: params.postAttemptDiffText,
+  });
+  // The steering gate runs last, only on an attempt that otherwise passed and
+  // changed source: it is the most expensive gate and only certifies.
+  const steered = await evaluateWorkerSteeringGate({
+    validation: scoped,
+    options: params.steeringGate,
+    symbol: stringValue(params.target.symbol),
+    outputDir: params.outputDir,
+    attemptIndex: params.attemptIndex,
+    postAttemptDiffText: params.postAttemptDiffText,
+    stackFramePolicy: params.stackFramePolicy,
+  });
+  // UNUSED bodies the fence deferred are re-checked with this attempt's steering certificates.
+  const gated = await evaluateWorkerEditScopeUnused({
+    validation: steered,
+    options: editScopeOptions,
+    targetUnit: stringValue(params.target.unit),
+    outputDir: params.outputDir,
+    attemptIndex: params.attemptIndex,
+  });
   const validation: WorkerChangeValidation = params.retainPreQa
     ? { ...gated, preQa: { status: preQa.status, reasons: [...preQa.reasons] } }
     : gated;

@@ -25,7 +25,7 @@ import {
 } from "@server/core/harness-state";
 import { recentGameEvents, type GameEventDto } from "@server/core/harness-state/event-query";
 import type { RunRecord, RunSchedulerCondition, RunStatus } from "@server/core/shared/types";
-import { gameToSummary as defaultGameToSummary, type GameRuntimeContext, type ResolvedGame } from "@server/core/game-registry";
+import { gameToSummary as defaultGameToSummary, resolveGame, type GameRuntimeContext, type ResolvedGame } from "@server/core/game-registry";
 import { latestChildDirectory, latestPrSplitPlanSummary, latestQaRepairSummary, latestRegressionCheckSummary } from "@server/core/harness-runtime/phases/pr/artifacts";
 import { getSyncState } from "@server/core/harness-runtime/phases/sync/state";
 import type { SyncState, SyncStatus } from "@server/core/harness-runtime/phases/sync/types";
@@ -37,8 +37,34 @@ import { parseBaseRef } from "@server/core/harness-runtime/phases/sync/upstream.
 import { observeUpstreamDrift, withLiveUpstreamDrift } from "@server/core/harness-state/upstream-drift.js";
 import { quietGit } from "@server/core/harness-runtime/phases/pr/pr-sync.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
-import { scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
+import { savePointProgress, scoreTiersProjection, type DashboardScoreTiers } from "./score-tiers.js";
+import {
+  completionIndexAt,
+  withholdUnverifiedReport,
+  withholdUnverifiedStoredMeasures,
+  type CompletionIndexSource,
+} from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
+import { completionIndexUnknown, isUnverifiedTarget, type UnverifiedIndex } from "@server/core/harness-runtime/phases/running/board/candidates.js";
+import {
+  steeringCompletionHolds,
+  unknownCompletionHolds,
+  type SteeringCompletionHolds,
+} from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { parseEpochTargetReadiness } from "@server/core/harness-runtime/run-state/epochs.js";
+import {
+  latestReadinessArtifact,
+  readinessWaitingLabel,
+  type ReadinessTargetRow,
+} from "@server/core/harness-runtime/phases/running/scheduler/readiness.js";
 import { boundaryDashboardForRun, type BoundaryDashboard } from "./boundary-view.js";
+import { unverifiedTargetCertified, type UnverifiedTargetEvidence } from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
+import type { WorkerSteeringResult } from "@server/core/validation/steering/steering-check.js";
+import {
+  UNVERIFIED_MATCH_LABEL,
+  UNVERIFIED_MATCH_STATE,
+  unverifiedMatchKey,
+  type UnverifiedMatchIndex,
+} from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import {
   boundaryStepDetailForRun,
   type BoundaryStepDetail,
@@ -71,6 +97,10 @@ type WorkerStateOutcome =
   | "validation_no_official_score_change"
   | "validation_target_regressed"
   | "validation_same_unit_regression"
+  /** Steering gate enforce rejected the worker's latest attempt: its match depended on behaviour-identical edits. */
+  | "validation_steering_located"
+  /** The edit-scope fence rejected the worker's latest attempt: it declared or filled in classes whose units are not decompiled. */
+  | "validation_edit_scope_rejected"
   | "validation_failed"
   | "validation_skipped"
   | "cancelled"
@@ -155,6 +185,12 @@ export interface GameRunActionStateOptions {
   hasActiveProcess?: (stateDir: string) => { active: boolean };
   now?: Date | number | string;
   runId?: string;
+  /**
+   * Completion holds for the run's board figures (a revision-aware index
+   * judges rollback holds at each board's saved revision). Explicit null
+   * means the selected game has no active gate.
+   */
+  unverified?: CompletionIndexSource | null;
 }
 
 export interface DashboardSyncSummary {
@@ -288,7 +324,7 @@ export interface HarnessStateView {
   available_actions: ActionProjection[];
 }
 
-export interface HarnessStateViewOptions extends Pick<GameRunActionStateOptions, "hasActiveProcess" | "now"> {
+export interface HarnessStateViewOptions extends Pick<GameRunActionStateOptions, "hasActiveProcess" | "now" | "unverified"> {
   /** Game checkout used for the local-only repo_sync git observation. */
   gameContext?: Pick<GameRuntimeContext, "game" | "repoRoot">;
 }
@@ -417,12 +453,23 @@ function nullableFiniteNumber(value: unknown): number | null {
   return Number.isFinite(number) ? number : null;
 }
 
-function scoreFromBoardArtifact(payload: JsonObject, goalKind: string): number | null {
-  const measures = asObject(payload.measures);
+/**
+ * The saved revision a board snapshot measures: its save point's commit,
+ * else the revision pinned when it was written (`measuredRevision`). Never
+ * the run's head, which moves after the board is measured. Null when
+ * unknown: then no rollback hold is cleared for it.
+ */
+function boardRevision(payload: JsonObject): string | null {
+  return stringValue(payload.savePointSha) || stringValue(payload.measuredRevision) || null;
+}
+
+function scoreFromBoardArtifact(payload: JsonObject, goalKind: string, unverified?: UnverifiedIndex): number | null {
+  const measures = withholdUnverifiedStoredMeasures(asObject(payload.measures), stringValue(payload.reportPath), unverified);
+  if (measures.unverified_unbounded === true) return null;
   return nullableFiniteNumber(measures[goalKind] ?? measures.matched_code_percent);
 }
 
-function runProgress(store: ReturnType<typeof openState>, run: RunRecord): DashboardRunSummary["progress"] {
+function runProgress(store: ReturnType<typeof openState>, run: RunRecord, unverified?: CompletionIndexSource): DashboardRunSummary["progress"] {
   const initial = latestDashboardArtifactPayload(store, {
     runId: run.id,
     artifactType: "board_snapshot",
@@ -433,8 +480,15 @@ function runProgress(store: ReturnType<typeof openState>, run: RunRecord): Dashb
     artifactType: "board_snapshot",
     artifactKey: "current",
   });
-  const baselineScore = scoreFromBoardArtifact(initial, run.goalKind);
-  const confirmedScore = scoreFromBoardArtifact(current, run.goalKind) ?? baselineScore;
+  const baselineScore = scoreFromBoardArtifact(initial, run.goalKind, completionIndexAt(unverified, boardRevision(initial)));
+  const currentIndex = completionIndexAt(unverified, boardRevision(current));
+  // No hold index (gate off, Melee): the current figure, else the baseline's, as before the gate.
+  // With holds, unknown completion stays unknown: never the baseline's figure standing in for it.
+  const confirmedScore = !unverified
+    ? scoreFromBoardArtifact(current, run.goalKind) ?? baselineScore
+    : Object.keys(current).length > 0 || completionIndexUnknown(currentIndex)
+      ? scoreFromBoardArtifact(current, run.goalKind, currentIndex)
+      : baselineScore;
   const validationRows = store.db
     .query(
       `SELECT COALESCE(
@@ -585,6 +639,7 @@ function runSummaryProjection(
   store: ReturnType<typeof openState>,
   gameId: string,
   run: RunRecord,
+  unverified?: CompletionIndexSource,
 ): DashboardRunSummary {
   const status = runStatusProjection(store, run);
   const schedulerEpoch = asObject(status.schedulerEpoch);
@@ -603,7 +658,7 @@ function runSummaryProjection(
     admitted,
     claimed: numberValue(schedulerEpoch.claimed),
     running: numberValue(status.activeClaims),
-    progress: runProgress(store, run),
+    progress: runProgress(store, run, unverified),
     provider_circuit: providerCircuitProjection(store, run.id),
     recovery_points: runRecoveryPoints(store, gameId, run.id),
   };
@@ -865,7 +920,9 @@ export function gameRunActionState(
         ];
 
   return {
-    run: runSummaryProjection(store, gameId, run),
+    run: runSummaryProjection(store, gameId, run, options.unverified === undefined
+      ? unverifiedIndexForDashboardGameId(store.stateDir, gameId)
+      : options.unverified ?? undefined),
     availableActions: [
       runActionProjection(run, "run.start", startBlockers, "ready → active", false),
       runActionProjection(run, "run.resume", resumeBlockers, "paused → active", false),
@@ -1286,7 +1343,12 @@ export function getHarnessStateView(
   gameId: string,
   options: HarnessStateViewOptions = {},
 ): HarnessStateView {
-  const runState = gameRunActionState(store, gameId, options);
+  const runState = gameRunActionState(store, gameId, {
+    ...options,
+    unverified: options.unverified !== undefined ? options.unverified
+      : options.gameContext?.game ? unverifiedIndexForDashboard(store.stateDir, options.gameContext.game, options.gameContext.repoRoot) ?? null
+      : undefined,
+  });
   const syncState = gameSyncActionState(store, gameId, options);
   const knowledge = gameKnowledgeSummary(store, gameId);
   const knowledgeAction = knowledgeActionProjection(gameId, knowledge);
@@ -1453,6 +1515,7 @@ function compactMeasures(measures: JsonObject): JsonObject {
     complete_units: numberValue(measures.complete_units, NaN),
     total_units: numberValue(measures.total_units, NaN),
     unmatched_targets: unmatchedTargetsValue(measures),
+    ...Object.fromEntries(Object.entries(measures).filter(([key]) => key.startsWith("unverified_"))),
   };
 }
 
@@ -1473,11 +1536,53 @@ function measureDelta(initial: JsonObject, current: JsonObject, key: string): nu
   return Number.isFinite(start) && Number.isFinite(now) ? now - start : 0;
 }
 
+/** Unit progress is re-derived from the same archived report as the game measures. */
+function boardUnitProgress(reportPath: unknown, unverified?: UnverifiedIndex): { units?: JsonObject[] } {
+  if (!unverified) return {};
+  const report = readJsonObject(stringValue(reportPath));
+  const progress = withholdUnverifiedReport(report, unverified);
+  return {
+    units: asArray(report.units).map(asObject).map((unit) => ({
+      name: unit.name,
+      measures: progress.units.get(stringValue(unit.name)) ?? asObject(unit.measures),
+    })),
+  };
+}
+
+function campaignProgress(campaign: JsonObject, unverified?: CompletionIndexSource): JsonObject {
+  if (!unverified) return campaign;
+  const project = (value: unknown): JsonObject => {
+    const point = asObject(value);
+    const payload = asObject(point.payload);
+    const commitSha = stringValue(point.commitSha) || null;
+    const progress = savePointProgress({
+      matched_code_percent: nullableFiniteNumber(point.matchedCodePercent),
+      commit_sha: commitSha,
+      report_path: stringValue(point.reportPath),
+      payload_json: JSON.stringify(payload),
+    }, unverified);
+    return {
+      ...point,
+      matchedCodePercent: progress.score,
+      payload: { ...payload, measures: progress.measures, ...boardUnitProgress(point.reportPath, completionIndexAt(unverified, commitSha)) },
+    };
+  };
+  return {
+    ...campaign,
+    ...(campaign.savePoint ? { savePoint: project(campaign.savePoint) } : {}),
+    ...(Array.isArray(campaign.savePoints) ? { savePoints: campaign.savePoints.map(project) } : {}),
+  };
+}
+
 function loadCurrentBoard(
   stateDir: string,
   runId: string,
   campaign?: JsonObject,
-): { error?: string; generatedAt?: string; measures: JsonObject; candidates: unknown[]; reportPath?: string; source?: string; savePointSha?: string | null } {
+  unverified?: CompletionIndexSource,
+): {
+  units?: JsonObject[]; error?: string; generatedAt?: string; measures: JsonObject; candidates: unknown[]; reportPath?: string; source?: string;
+  savePointSha?: string | null; measuredRevision?: string | null;
+} {
   const current = runId
     ? dashboardArtifactPayload(stateDir, {
         runId,
@@ -1487,13 +1592,16 @@ function loadCurrentBoard(
     : {};
   const currentMeasures = asObject(current.measures);
   if (summaryHasValue(currentMeasures)) {
+    const index = completionIndexAt(unverified, boardRevision(current));
     return {
       generatedAt: stringValue(current.generatedAt) || undefined,
-      measures: compactMeasures(currentMeasures),
+      measures: compactMeasures(withholdUnverifiedStoredMeasures(currentMeasures, stringValue(current.reportPath), index)),
+      ...boardUnitProgress(current.reportPath, index),
       candidates: asArray(current.candidates),
       reportPath: stringValue(current.reportPath),
       source: stringValue(current.source, "database"),
       savePointSha: stringValue(current.savePointSha) || null,
+      ...(stringValue(current.measuredRevision) ? { measuredRevision: stringValue(current.measuredRevision) } : {}),
     };
   }
 
@@ -1506,9 +1614,11 @@ function loadCurrentBoard(
     : {};
   const initialMeasures = asObject(initial.measures);
   if (summaryHasValue(initialMeasures)) {
+    const index = completionIndexAt(unverified, boardRevision(initial));
     return {
       generatedAt: stringValue(initial.generatedAt) || undefined,
-      measures: compactMeasures(initialMeasures),
+      measures: compactMeasures(withholdUnverifiedStoredMeasures(initialMeasures, stringValue(initial.reportPath), index)),
+      ...boardUnitProgress(initial.reportPath, index),
       candidates: asArray(initial.candidates),
       reportPath: stringValue(initial.reportPath),
       source: "initial_board",
@@ -1521,6 +1631,7 @@ function loadCurrentBoard(
     return {
       generatedAt: stringValue(savePoint.createdAt) || undefined,
       measures: compactMeasures(savePointMeasures),
+      ...boardUnitProgress(savePoint.reportPath, completionIndexAt(unverified, stringValue(savePoint.commitSha) || null)),
       candidates: [],
       reportPath: stringValue(savePoint.reportPath),
       source: "save_point",
@@ -2140,7 +2251,9 @@ function boundaryStepDetail(
 ): BoundaryStepDetail | { error: string } {
   const store = openState(stateDir);
   try {
-    return boundaryStepDetailForRun(store.db, stateDir, runId, query);
+    const gameId = getRun(store, runId)?.gameId;
+    const holds = gameId ? unverifiedIndexForDashboardGameId(stateDir, gameId) : undefined;
+    return boundaryStepDetailForRun(store.db, stateDir, runId, query, undefined, holds);
   } finally {
     store.db.close();
   }
@@ -2232,7 +2345,36 @@ function workerStateRunnerTarget(workerState: JsonObject): JsonObject | null {
   return runnerValidationTarget(asObject(workerState.runnerValidation));
 }
 
+/**
+ * A passed validation certifies this `unverified_match` target: re-derived
+ * from its two recorded gate runs (the claim-base run passed an attempt that
+ * edited the target, and the target-only run against the trusted base passed
+ * it), exactly as the runtime decides, never from a stored flag.
+ */
+function certifiedUnverifiedTarget(runnerValidation: JsonObject, unit: string, symbol: string): boolean {
+  if (stringValue(runnerValidation.status) !== "passed" || !unit || !symbol) return false;
+  const claimBase = runnerValidation.steering as WorkerSteeringResult | null | undefined;
+  const evidence = runnerValidation.unverifiedTarget as UnverifiedTargetEvidence | null | undefined;
+  try {
+    return unverifiedTargetCertified(claimBase ?? null, evidence ?? null, { unit, symbol });
+  } catch {
+    // A malformed artifact certifies nothing.
+    return false;
+  }
+}
+
+/**
+ * The worker state's exact result earns no completion credit: its function
+ * is an active `unverified_match` (labeled row), or the game's holds at the
+ * revision the result measured withhold it (`completionHold`, a rollback not
+ * certified there, or unknown holds).
+ */
+function workerStateCompletionWithheld(workerState: JsonObject): boolean {
+  return workerState.verification === UNVERIFIED_MATCH_STATE || workerState.completionHold !== undefined;
+}
+
 function workerStateHasExactCheckpoint(workerState: JsonObject): boolean {
+  if (workerStateCompletionWithheld(workerState)) return false;
   const runnerTarget = workerStateRunnerTarget(workerState);
   if (runnerTarget) return runnerTarget.exact === true;
   return workerStatePositiveAttempts(workerState).some(
@@ -2249,6 +2391,31 @@ function workerStateValidationFailed(workerState: JsonObject): boolean {
     (validationStatus !== "" && validationStatus !== "passed" && validationStatus !== "skipped") ||
     exhaustedFiniteRepairBudget
   );
+}
+
+const GATE_REJECTION_OUTCOMES: Record<string, WorkerStateOutcome> = {
+  steering_located: "validation_steering_located",
+  edit_scope_rejected: "validation_edit_scope_rejected",
+};
+
+/**
+ * The worker's latest attempt was rejected by an enforced gate (steering gate
+ * or edit-scope fence). The latest checkpoint decides when there is one (a
+ * later accepted attempt clears it); otherwise the embedded runner validation
+ * does.
+ */
+function workerStateGateRejection(workerState: JsonObject): WorkerStateOutcome | null {
+  const latest = asObject(workerState.latestCheckpoint);
+  const status = stringValue(latest.id) ? stringValue(latest.validationStatus) : stringValue(asObject(workerState.runnerValidation).status);
+  return GATE_REJECTION_OUTCOMES[status] ?? null;
+}
+
+/** What an accepted (selectable) checkpoint established, ignoring any rejected attempt's raw target score. */
+function acceptedCheckpointResult(workerState: JsonObject): WorkerStateResult {
+  const selected = asObject(workerState.selectedCheckpoint);
+  if (!stringValue(selected.id) || selected.selectable !== true || selected.hardGatesPassed !== true) return "no_progress";
+  if (selected.exact === true) return "exact";
+  return numberValue(selected.delta, 0) > 0 ? "improved" : "no_progress";
 }
 
 function runnerValidationRejected(workerState: JsonObject): boolean {
@@ -2326,6 +2493,8 @@ function workerStateValidationEndstate(workerState: JsonObject): WorkerStateOutc
   if (status === "no_official_score_change") return "validation_no_official_score_change";
   if (status === "target_regressed") return "validation_target_regressed";
   if (status === "same_unit_regression") return "validation_same_unit_regression";
+  if (status === "steering_located") return "validation_steering_located";
+  if (status === "edit_scope_rejected") return "validation_edit_scope_rejected";
   if (status === "failed") return "validation_failed";
   if (status === "skipped") return "validation_skipped";
   if (/^runner_validation_/.test(errorKind)) return "validation_failed";
@@ -2350,6 +2519,15 @@ function workerStateStopReasonEndstate(workerState: JsonObject): WorkerStateOutc
 }
 
 function workerStateResult(workerState: JsonObject): WorkerStateResult {
+  // A gate rejection (steering, edit scope) outranks the rejected attempt's raw
+  // exact/improved target: only an accepted checkpoint counts as progress.
+  if (workerStateGateRejection(workerState)) {
+    const result = acceptedCheckpointResult(workerState);
+    return result === "exact" && workerStateCompletionWithheld(workerState)
+      ? numberValue(asObject(workerState.selectedCheckpoint).delta) > 0 ? "improved" : "no_progress"
+      : result;
+  }
+  if (workerStateCompletionWithheld(workerState)) return workerStateScoreDelta(workerState) > 0 ? "improved" : "no_progress";
   const runnerTarget = workerStateRunnerTarget(workerState);
   if (runnerTarget) {
     if (runnerTarget.exact === true) return "exact";
@@ -2382,8 +2560,12 @@ function workerStateOutcome(workerState: JsonObject): WorkerStateOutcome {
   if (workerStateSessionFailed(workerState)) return "worker_session_failed";
   if (workerStateAgentToolError(workerState)) return "agent_tool_error";
   const stopReasonEndstate = workerStateStopReasonEndstate(workerState);
+  if (stopReasonEndstate === "exact") return workerStateCompletionWithheld(workerState) ? "finished" : stopReasonEndstate;
+  // The worker stopped on a gate rejection: that, not the budget or deadline, is why it is not done.
+  const gateRejection = workerStateGateRejection(workerState);
+  if (gateRejection) return gateRejection;
   if (stopReasonEndstate) return stopReasonEndstate;
-  if (lifecycle === "exact") return "exact";
+  if (lifecycle === "exact") return workerStateCompletionWithheld(workerState) ? "finished" : "exact";
   if (lifecycle === "cancelled") return "cancelled";
   if (lifecycle === "timeout") return workerStateHasSelectedCheckpoint(workerState) ? "timeout_selected_checkpoint" : "timeout_baseline";
   const validationEndstate = workerStateValidationEndstate(workerState);
@@ -2420,6 +2602,8 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
     validation_no_official_score_change: 0,
     validation_target_regressed: 0,
     validation_same_unit_regression: 0,
+    validation_steering_located: 0,
+    validation_edit_scope_rejected: 0,
     validation_failed: 0,
     validation_skipped: 0,
     cancelled: 0,
@@ -2453,7 +2637,9 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
     // Runner-validated progress is canonical even when the compact checkpoint
     // note attempts[] narrative has no numeric score fields.
     const runnerTarget = workerStateRunnerTarget(workerState);
-    if (!runnerTarget && runnerValidationRejected(workerState)) continue;
+    if (!runnerTarget && (runnerValidationRejected(workerState) || workerStateGateRejection(workerState))) continue;
+    // Held at the revision the result measured: its score delta stays, its 100% is not done.
+    const held = workerState.completionHold !== undefined ? { completionHold: workerState.completionHold } : null;
     const runnerDelta = runnerValidationDelta(asObject(workerState.runnerValidation));
     if (runnerTarget && runnerDelta !== null && (runnerDelta > 0 || runnerTarget.exact === true)) {
       const before = numberValue(runnerTarget.before, NaN);
@@ -2468,14 +2654,19 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
         admissionBaselineScore < 99.99999;
       const displayedBefore = staleExactBaseline ? admissionBaselineScore : before;
       const displayedDelta = staleExactBaseline ? after - admissionBaselineScore : runnerDelta;
+      // 100% unverified -> verified 100%: done with no score delta (withheld again while the function is still unverified).
+      const verifiedCompletion = !held && runnerTarget.exact === true && certifiedUnverifiedTarget(asObject(workerState.runnerValidation), base.unit, base.symbol);
+      const positiveAttempts = workerStatePositiveAttempts(workerState).length;
       rows.push({
         ...base,
         totalDelta: Math.max(0, displayedDelta),
         bestDelta: Math.max(0, displayedDelta),
         oldScore: displayedBefore,
         newScore: after,
-        attempts: Math.max(1, workerStatePositiveAttempts(workerState).length),
-        exactMatches: runnerTarget.exact === true && displayedBefore < 99.99999 ? 1 : 0,
+        attempts: verifiedCompletion && displayedDelta <= 0 ? positiveAttempts : Math.max(1, positiveAttempts),
+        exactMatches: !held && runnerTarget.exact === true && (displayedBefore < 99.99999 || verifiedCompletion) ? 1 : 0,
+        ...(verifiedCompletion ? { verifiedCompletion: true } : {}),
+        ...held,
         source: "runner",
       });
       continue;
@@ -2487,7 +2678,7 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
     const oldScores = attempts.map((attempt) => numberValue(attempt.oldScore, NaN)).filter(Number.isFinite);
     const newScores = attempts.map((attempt) => numberValue(attempt.newScore, NaN)).filter(Number.isFinite);
     const totalDelta = attempts.reduce((sum, attempt) => sum + numberValue(attempt.delta), 0);
-    const exactMatches = attempts.filter((attempt) => numberValue(attempt.oldScore, NaN) < 99.99999 && numberValue(attempt.newScore, NaN) >= 99.99999).length;
+    const exactMatches = held ? 0 : attempts.filter((attempt) => numberValue(attempt.oldScore, NaN) < 99.99999 && numberValue(attempt.newScore, NaN) >= 99.99999).length;
     rows.push({
       ...base,
       totalDelta,
@@ -2496,6 +2687,7 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
       newScore: newScores.length ? Math.max(...newScores) : NaN,
       attempts: attempts.length,
       exactMatches,
+      ...held,
       source: "model",
     });
   }
@@ -2577,6 +2769,8 @@ function runSummary(
     numberValue(outcomeCounts.validation_no_official_score_change) +
     numberValue(outcomeCounts.validation_target_regressed) +
     numberValue(outcomeCounts.validation_same_unit_regression) +
+    numberValue(outcomeCounts.validation_steering_located) +
+    numberValue(outcomeCounts.validation_edit_scope_rejected) +
     numberValue(outcomeCounts.validation_failed) +
     numberValue(outcomeCounts.validation_skipped);
   return {
@@ -2780,6 +2974,7 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
               epoch_targets.baseline_score AS fuzzy,
               epoch_targets.status AS target_status,
               epoch_targets.admitted_at AS target_created_at,
+              epoch_targets.reason AS readiness_reason,
               epochs.ordinal AS epoch_ordinal,
               epochs.status AS epoch_status
             FROM epoch_targets
@@ -2807,10 +3002,245 @@ function epochTargetsForRun(stateDir: string, runId: string): JsonObject[] {
       matched: NaN,
       complete: NaN,
       risk: null,
+      ...epochTargetReadinessFields(row.readiness_reason),
     }));
   } finally {
     store.db.close();
   }
+}
+
+/** How many of the gate's reasons a dashboard row carries. */
+const UNVERIFIED_REASON_LIMIT = 3;
+
+/**
+ * The game's completion holds, or undefined for games without an active
+ * steering gate (Melee): their rows and counts stay exactly as before.
+ * `active` holds the active `unverified_match` rows ("100% unverified") for
+ * labels and counts; every stored figure is withheld at its own saved
+ * revision (`at(rev)`: active rows plus the rollbacks not certified there,
+ * the same holds settlement, save points and sync withheld when writing).
+ * A store behind migration 015 yields no active rows. A failed state read
+ * publishes unknown completion (`unknownCompletionHolds`), never raw credit.
+ */
+function unverifiedIndexForDashboard(
+  stateDir: string,
+  game: { gameId?: string | null; repoRoot?: string | null; matching?: { steeringGate?: string | null } | null } | null | undefined,
+  repoRoot?: string | null,
+): SteeringCompletionHolds | undefined {
+  const steeringGate = game?.matching?.steeringGate ?? null;
+  if (!game?.gameId || !steeringGate || steeringGate === "off") return undefined;
+  try {
+    const store = openState(stateDir);
+    try {
+      return steeringCompletionHolds(store, { gameId: game.gameId, steeringGate }, repoRoot || game.repoRoot || null);
+    } finally {
+      store.db.close();
+    }
+  } catch (error) {
+    uiLog("stderr", `unverified match read failed: ${error instanceof Error ? error.message : String(error)}`);
+    return unknownCompletionHolds();
+  }
+}
+
+/** Endpoints carrying only a run/game id still use that game's configured gate. */
+function unverifiedIndexForDashboardGameId(stateDir: string, gameId: string): SteeringCompletionHolds | undefined {
+  try {
+    return unverifiedIndexForDashboard(stateDir, resolveGame({ gameId }));
+  } catch {
+    return undefined;
+  }
+}
+
+/** The row's `verification*` fields when its function has an active unverified row; {} otherwise. */
+function unverifiedFields(index: UnverifiedMatchIndex | undefined, unit: unknown, symbol: unknown): JsonObject {
+  if (!index || index.size === 0) return {};
+  const record = index.get(unverifiedMatchKey(stringValue(unit), stringValue(symbol)));
+  if (!record) return {};
+  return {
+    verification: UNVERIFIED_MATCH_STATE,
+    verification_label: UNVERIFIED_MATCH_LABEL,
+    verification_match: record.match,
+    verification_reasons: record.reasons.slice(0, UNVERIFIED_REASON_LIMIT),
+    verification_recorded_at: record.recordedAt,
+  };
+}
+
+/** Annotates target rows (top-level `unit`/`symbol`, else `target.unit`/`target.symbol`). Identity without an index. */
+function annotateUnverified<T>(rows: T[], index: UnverifiedMatchIndex | undefined): T[] {
+  if (!index || index.size === 0) return rows;
+  return rows.map((value) => {
+    const row = asObject(value);
+    const target = asObject(row.target);
+    const fields = unverifiedFields(index, row.unit ?? target.unit, row.symbol ?? target.symbol);
+    return Object.keys(fields).length > 0 ? ({ ...row, ...fields } as T) : value;
+  });
+}
+
+/**
+ * The revision each worker state's result measured: the `integrated_rev` of
+ * its own durable integration (applied, neither the checkpoint nor the
+ * confirmation pass regressed), else its claim base. A certified integration
+ * is one of the ledger's certifying revs, so its own result clears there,
+ * while an older result keeps the revision it landed (or was claimed) at and
+ * a later certificate on another line never credits it. Never the run head.
+ */
+function workerResultRevisions(stateDir: string, runId: string): Map<string, string> {
+  const store = openState(stateDir);
+  try {
+    const rows = store.db
+      .query(
+        `SELECT worker_state.id AS worker_state_id, target_claims.base_rev,
+                integration_outcomes.metadata_json AS integration_metadata,
+                worker_checkpoints.validation_state AS checkpoint_validation_state
+           FROM worker_state
+           LEFT JOIN target_claims ON target_claims.id = worker_state.target_claim_id
+           LEFT JOIN integration_outcomes ON integration_outcomes.worker_state_id = worker_state.id
+             AND integration_outcomes.status = 'applied'
+           LEFT JOIN worker_checkpoints ON worker_checkpoints.id = integration_outcomes.worker_checkpoint_id
+          WHERE worker_state.run_id = ?
+          ORDER BY integration_outcomes.rowid ASC`,
+      )
+      .all(runId) as JsonObject[];
+    const revisions = new Map<string, string>();
+    for (const row of rows) {
+      const id = stringValue(row.worker_state_id);
+      const integration = jsonObjectValue(row.integration_metadata);
+      const integratedRev = stringValue(integration.integrated_rev);
+      const regressed = stringValue(row.checkpoint_validation_state) === "regressed"
+        || stringValue(asObject(integration.confirmation).validation_state) === "regressed";
+      if (integratedRev && !regressed) revisions.set(id, integratedRev);
+      else if (!revisions.has(id)) revisions.set(id, stringValue(row.base_rev));
+    }
+    return revisions;
+  } finally {
+    store.db.close();
+  }
+}
+
+/**
+ * Worker states labeled with the game's completion holds: active
+ * `unverified_match` rows (`annotateUnverified`), then `completionHold` on
+ * every other row its holds withhold at the revision its result measured
+ * (`workerResultRevisions`: a rollback none of whose certifying revs is an
+ * ancestor of it, or unknown holds). A missing revision clears no rollback.
+ * Identity without holds (Melee).
+ */
+function annotateWorkerCompletionHolds(stateDir: string, runId: string, workerStates: JsonObject[], holds: SteeringCompletionHolds | undefined): JsonObject[] {
+  const labeled = annotateUnverified(workerStates, holds?.active);
+  if (!holds || labeled.length === 0) return labeled;
+  const revisions = workerResultRevisions(stateDir, runId);
+  return labeled.map((workerState) => {
+    if (workerState.verification === UNVERIFIED_MATCH_STATE) return workerState;
+    const target = asObject(workerState.target);
+    const index = holds.at(revisions.get(stringValue(workerState.id)) || null);
+    if (!isUnverifiedTarget(index, unverifiedMatchKey(stringValue(target.unit), stringValue(target.symbol)))) return workerState;
+    return { ...workerState, completionHold: completionIndexUnknown(index) ? "unknown" : "steering_rollback" };
+  });
+}
+
+/** Readiness work-table rows from `readinessTargetsForRun`, annotated. */
+function annotateUnverifiedReadiness(readiness: JsonObject, index: UnverifiedMatchIndex | undefined): JsonObject {
+  if (!index || index.size === 0) return readiness;
+  const next: JsonObject = { ...readiness };
+  for (const key of ["blockedTargets", "deferredTargets", "wouldBlockTargets", "wouldDeferTargets"]) {
+    if (Array.isArray(next[key])) next[key] = annotateUnverified(next[key] as JsonObject[], index);
+  }
+  return next;
+}
+
+/**
+ * Improvement rows of functions currently `unverified_match`: annotated, and
+ * never an exact match (an earlier attempt's 100% is not done until an
+ * attempt the gate certifies, or a backfill, clears the state). Their
+ * score delta stays. Identity without an index.
+ */
+function withholdUnverifiedExact(improvements: JsonObject[], index: UnverifiedMatchIndex | undefined): JsonObject[] {
+  if (!index || index.size === 0) return improvements;
+  return improvements.map((row) => {
+    const fields = unverifiedFields(index, row.unit, row.symbol);
+    if (Object.keys(fields).length === 0) return row;
+    const { verifiedCompletion: _verifiedCompletion, ...rest } = row;
+    return { ...rest, ...fields, exactMatches: 0 };
+  });
+}
+
+/**
+ * Counts reported next to done/exact counts: `unverified_matches` (the game's
+ * active rows) and `unverified_run_targets` (distinct run targets among them).
+ * {} for games without an active steering gate; unknown (null) when the
+ * steering state could not be read.
+ */
+function unverifiedCounts(holds: SteeringCompletionHolds | undefined, epochTargets: JsonObject[]): JsonObject {
+  if (!holds) return {};
+  if (holds.unknown) return { unverified_matches: null, unverified_run_targets: null };
+  const index = holds.active;
+  const runTargets = new Set<string>();
+  for (const row of epochTargets) {
+    const key = unverifiedMatchKey(stringValue(row.unit), stringValue(row.symbol));
+    if (index.has(key)) runTargets.add(key);
+  }
+  return { unverified_matches: index.size, unverified_run_targets: runTargets.size };
+}
+
+/** Admitted targets with not-ready classes: their readiness and the queue's "waiting on" label. */
+function epochTargetReadinessFields(reason: unknown): JsonObject {
+  const readiness = parseEpochTargetReadiness(reason);
+  if (!readiness || (readiness.unmet.length === 0 && readiness.unresolved.length === 0)) return {};
+  return {
+    readiness,
+    readinessStatus: readiness.state === "blocked" ? "would block" : "deferred",
+    reason: readinessWaitingLabel({ reason: "deferred", unmet: readiness.unmet, unresolved: readiness.unresolved }),
+  };
+}
+
+function readinessTargetView(value: unknown, status: string): JsonObject {
+  const row = asObject(value) as unknown as ReadinessTargetRow;
+  const unmet = asArray(row.unmet) as ReadinessTargetRow["unmet"];
+  const unresolved = asArray(row.unresolved) as ReadinessTargetRow["unresolved"];
+  return {
+    key: stringValue(row.key),
+    unit: stringValue(row.unit),
+    symbol: stringValue(row.symbol),
+    sourcePath: stringValue(row.sourcePath),
+    size: numberValue(row.size),
+    fuzzy: numberValue(row.fuzzy, NaN),
+    readinessStatus: status,
+    blockedReason: stringValue(row.reason),
+    unmet,
+    unresolved,
+    label: readinessWaitingLabel({ reason: row.reason ?? "deferred", unmet, unresolved }),
+  };
+}
+
+/**
+ * Dashboard work-table readiness rows from the run's latest readiness
+ * artifact: enforce `blockedTargets`/`deferredTargets`, shadow
+ * `wouldBlockTargets`/`wouldDeferTargets`. Empty object for games without
+ * ordering (no artifact), so their dashboard is unchanged.
+ */
+function readinessTargetsForRun(stateDir: string, runId: string): JsonObject {
+  if (!runId) return {};
+  const store = openState(stateDir);
+  let artifact: Record<string, unknown> | null;
+  try {
+    artifact = latestReadinessArtifact(store, runId);
+  } finally {
+    store.db.close();
+  }
+  if (!artifact) return {};
+  return {
+    readiness: {
+      mode: stringValue(artifact.mode),
+      rev: artifact.rev ?? null,
+      unavailable: artifact.unavailable ?? null,
+      parked: artifact.parked === true,
+      generatedAt: artifact.generatedAt ?? null,
+    },
+    blockedTargets: asArray(artifact.blocked).map((row) => readinessTargetView(row, "blocked")),
+    deferredTargets: asArray(artifact.deferred).map((row) => readinessTargetView(row, "deferred")),
+    wouldBlockTargets: asArray(artifact.wouldBlock).map((row) => readinessTargetView(row, "would block")),
+    wouldDeferTargets: asArray(artifact.wouldDefer).map((row) => readinessTargetView(row, "would defer")),
+  };
 }
 
 function checkpointForRun(stateDir: string, runId: string): JsonObject | null {
@@ -2863,7 +3293,10 @@ function runTimeline(params: {
       path: target.sourcePath,
       detail: `${stringValue(workerState.lifecycleStatus)} / ${stringValue(workerState.workerId)}`,
       delta: numberValue(workerState.scoreDelta),
-      exactMatches: workerStateHasExactCheckpoint(workerState)
+      // A withheld function (active `unverified_match`, or held at the result's revision) is not an exact match.
+      exactMatches: workerStateCompletionWithheld(workerState)
+        ? 0
+        : workerStateHasExactCheckpoint(workerState)
         ? 1
         : workerStatePositiveAttempts(workerState).filter(
             (attempt) => numberValue(attempt.oldScore, NaN) < 99.99999 && numberValue(attempt.newScore, NaN) >= 99.99999,
@@ -3005,6 +3438,7 @@ function knowledgeIntakeSummary(stateDir: string, graphDbPath: string): JsonObje
 }
 
 function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | null = null): JsonObject {
+  let holds = unverifiedIndexForDashboard(stateDir, game);
   const store = openState(stateDir);
   let status: JsonObject;
   let runId = explicitRunId;
@@ -3013,19 +3447,22 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
     if (!runId && game) runId = getHarnessState(store.db, game.gameId)?.history.run_id ?? "";
     const run = runId ? getRun(store, runId) : null;
     if (run && game && run.gameId !== game.gameId) return { error: "Run does not belong to this game." };
+    if (!game && run?.gameId) holds = unverifiedIndexForDashboardGameId(stateDir, run.gameId);
     status = run ? runStatusProjection(store, run) : { run: null };
-    if (runId) boundary = boundaryDashboardForRun(store.db, runId);
+    if (runId) boundary = boundaryDashboardForRun(store.db, runId, undefined, holds);
   } finally {
     store.db.close();
   }
+  // Active rows label target rows; the holds withhold stored progress.
+  const unverified = holds?.active;
   if (!runId) return { game: game ? gameSummary(game) : null, stateDir, status, runId: "", summary: {}, timeline: [], boundary };
 
-  const workerStates = workerStatesForRun(stateDir, runId, 0);
+  const workerStates = annotateWorkerCompletionHolds(stateDir, runId, workerStatesForRun(stateDir, runId, 0), holds);
   const events = eventsForRun(stateDir, runId, 0);
   const sessions = piSessionsForRun(stateDir, runId);
-  const targetClaims = targetClaimsForRun(stateDir, runId);
-  const epochTargets = epochTargetsForRun(stateDir, runId);
-  const improvements = improvementRowsFromWorkerStates(workerStates);
+  const targetClaims = annotateUnverified(targetClaimsForRun(stateDir, runId), unverified);
+  const epochTargets = annotateUnverified(epochTargetsForRun(stateDir, runId), unverified);
+  const improvements = withholdUnverifiedExact(improvementRowsFromWorkerStates(workerStates), unverified);
   const improvedFiles = fileImprovementRows(improvements);
   const timeline = runTimeline({ workerStates, events, sessions, targetClaims });
   const exactMatches = improvements.reduce((sum, improvement) => sum + numberValue(improvement.exactMatches), 0);
@@ -3042,6 +3479,7 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
       workerStateOutcomeCounts: workerStateOutcomeCounts(workerStates),
       positiveAttempts: improvements.reduce((sum, improvement) => sum + numberValue(improvement.attempts), 0),
       exactMatches,
+      ...unverifiedCounts(holds, epochTargets),
       improvedFiles: improvedFiles.length,
       improvedSymbols: improvements.length,
       totalPositiveDelta: improvements.reduce((sum, improvement) => sum + numberValue(improvement.totalDelta), 0),
@@ -3064,6 +3502,7 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
     sessions,
     targetClaims,
     epochTargets,
+    ...annotateUnverifiedReadiness(readinessTargetsForRun(stateDir, runId), unverified),
     improvements,
     improvedFiles,
     knowledgeIntake: knowledgeIntakeSummary(stateDir, game?.graphDbPath ?? ""),
@@ -3207,6 +3646,37 @@ function cumulativeTrustedReport(reports: JsonObject[]): JsonObject {
   };
 }
 
+/**
+ * Raw report evidence stays separate from the dashboard's completion credit:
+ * matches of held functions (`withheld`: active rows, uncertified rollbacks,
+ * or unknown state) move to the improvements, flagged when `labels` (the
+ * active rows) holds them.
+ */
+function trustedReportProgress(report: JsonObject, withheld?: UnverifiedIndex, labels?: UnverifiedMatchIndex): JsonObject {
+  if (!withheld || (withheld.size === 0 && !completionIndexUnknown(withheld))) return report;
+  const active = (row: JsonObject) => isUnverifiedTarget(withheld, unverifiedMatchKey(stringValue(row.unitName), stringValue(row.itemName)));
+  const flag = (row: JsonObject) => ({ ...row, ...unverifiedFields(labels, row.unitName, row.itemName) });
+  const matches = asArray(report.newMatches).map(asObject);
+  const broken = asArray(report.brokenMatches).map(asObject);
+  const newMatches = matches.filter((row) => !active(row));
+  const brokenMatches = broken.filter((row) => !active(row));
+  const improvements = [...matches.filter(active), ...asArray(report.improvements).map(asObject)].map(flag);
+  const fuzzyRegressions = [...broken.filter(active), ...asArray(report.fuzzyRegressions).map(asObject)].map(flag);
+  return {
+    ...report,
+    rawEvidence: report,
+    newMatches, brokenMatches, improvements, fuzzyRegressions,
+    // Aggregate deltas and promotion were computed before the active index.
+    // Keep them in rawEvidence until the underlying reports can bound them.
+    measures: null,
+    promotion: null,
+    metricProgressions: [],
+    counts: { ...asObject(report.counts), newMatches: newMatches.length, brokenMatches: brokenMatches.length,
+      improvements: improvements.length, fuzzyRegressions: fuzzyRegressions.length, metricProgressions: 0 },
+    ...(report.latestReport ? { latestReport: trustedReportProgress(asObject(report.latestReport), withheld, labels) } : {}),
+  };
+}
+
 function trustedReportsFromDatabase(stateDir: string, runId: string): JsonObject[] {
   const store = openState(stateDir);
   try {
@@ -3249,6 +3719,9 @@ function runScopedTrustedReport(report: JsonObject, runCreatedAt: string, report
 
 async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   const { stateDir } = paths;
+  const holds = unverifiedIndexForDashboard(stateDir, paths.game, paths.repoRoot);
+  // Active rows label rows and count; the holds withhold every stored figure at its saved revision.
+  const unverified = holds?.active;
   let repoRoot = paths.repoRoot;
   const store = openState(stateDir);
   let status: JsonObject;
@@ -3267,7 +3740,7 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     runCreatedAt = stringValue(run.createdAt);
     runDesiredWorkers = numberValue(run.desiredWorkers, 0);
     if (runId) {
-      boundary = boundaryDashboardForRun(store.db, runId);
+      boundary = boundaryDashboardForRun(store.db, runId, undefined, holds);
       providerCircuit = providerCircuitProjection(store, runId);
     }
     repoRoot = dashboardAuthorityRepoRoot(paths, canonicalState);
@@ -3276,19 +3749,23 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
   }
 
   const initialSnapshot = runId ? latestInitialSnapshot(stateDir, runId) : {};
-  let initialMeasures = compactMeasures(measuresFromSnapshot(initialSnapshot));
-  const campaign = dashboardDeps().campaignStatus(repoRoot, stateDir, paths.game?.baseRef ?? "origin/master", paths.game?.gameId ?? "");
+  let initialMeasures = compactMeasures(withholdUnverifiedStoredMeasures(measuresFromSnapshot(initialSnapshot), stringValue(initialSnapshot.reportPath),
+    completionIndexAt(holds, boardRevision(initialSnapshot))));
+  const campaign = campaignProgress(dashboardDeps().campaignStatus(repoRoot, stateDir, paths.game?.baseRef ?? "origin/master", paths.game?.gameId ?? ""), holds);
   const observedUpstream = stringValue(campaign.baseSha);
   if (observedUpstream) {
     await dashboardDeps().refreshSyncUpstreamObservation?.(paths, observedUpstream);
   }
-  const currentBoard = loadCurrentBoard(stateDir, runId, campaign);
+  const loadedBoard = loadCurrentBoard(stateDir, runId, campaign, holds);
+  const currentBoard = holds
+    ? { ...loadedBoard, candidates: annotateUnverified(loadedBoard.candidates, holds.active), unverified_matches: holds.unknown ? null : holds.active.size }
+    : loadedBoard;
   // With no run baseline, "start" is the campaign anchor: the last save point.
   // A future run measures forward from here, and until then the metric table
   // shows drift since the anchor instead of n/a.
   let initialSource: string | null = runId ? "run" : null;
   let initialGeneratedAt: unknown = initialSnapshot.generatedAt ?? null;
-  if (!Object.values(initialMeasures).some((value) => Number.isFinite(Number(value)))) {
+  if (!summaryHasValue(measuresFromSnapshot(initialSnapshot))) {
     const savePoint = asObject(campaign.savePoint);
     const savePointMeasures = asObject(asObject(savePoint.payload).measures);
     if (Object.keys(savePointMeasures).length > 0) {
@@ -3297,19 +3774,20 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
       initialGeneratedAt = savePoint.createdAt ?? null;
     }
   }
-  const workerStates = runId ? workerStatesForRun(stateDir, runId, 100) : [];
-  const allWorkerStates = runId ? workerStatesForRun(stateDir, runId, 0) : [];
+  const workerStates = runId ? annotateWorkerCompletionHolds(stateDir, runId, workerStatesForRun(stateDir, runId, 100), holds) : [];
+  const allWorkerStates = runId ? annotateWorkerCompletionHolds(stateDir, runId, workerStatesForRun(stateDir, runId, 0), holds) : [];
   const progressWorkerStates = workerStates.filter((workerState) => {
     const result = workerStateResult(workerState);
     return result === "exact" || result === "improved";
   });
-  const improvements = improvementRowsFromWorkerStates(allWorkerStates);
+  const improvements = withholdUnverifiedExact(improvementRowsFromWorkerStates(allWorkerStates), unverified);
   const improvedFiles = fileImprovementRows(improvements);
-  const epochTargets = runId ? epochTargetsForRun(stateDir, runId) : [];
-  const trustedReport = trustedReportFromDatabase(stateDir, runId, runCreatedAt);
+  const epochTargets = runId ? annotateUnverified(epochTargetsForRun(stateDir, runId), unverified) : [];
+  const trustedReport = trustedReportProgress(trustedReportFromDatabase(stateDir, runId, runCreatedAt),
+    completionIndexAt(holds, loadedBoard.savePointSha || loadedBoard.measuredRevision || null), unverified);
   const checkpoint = runId ? checkpointForRun(stateDir, runId) : null;
   const handoff = runId ? handoffForRun(stateDir, runId, checkpoint) : { checkpoint: null, qa: null, splitPlan: null };
-  const epochs = runId ? runningEpochHistory(stateDir).filter(epoch => epoch.runId === runId) : [];
+  const epochs = runId ? runningEpochHistory(stateDir, 48, { unverified: holds }).filter(epoch => epoch.runId === runId) : [];
   const gameId = paths.game?.gameId ?? "";
   let harnessState: HarnessStateView | null = null;
   let scoreTiers: DashboardScoreTiers = {
@@ -3325,9 +3803,12 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     const harnessStateStore = openState(stateDir);
     try {
       scoreTiers = await scoreTiersProjection(harnessStateStore, gameId, {
+        unverified: holds,
+        labels: unverified,
         sourceState: { head: stringValue(asObject(campaign.head).sha) || null, dirty: typeof asObject(campaign.head).dirty === "boolean" ? asObject(campaign.head).dirty as boolean : null },
       });
       harnessState = getHarnessStateView(harnessStateStore, gameId, {
+        unverified: holds ?? null,
         gameContext: { game: paths.game, repoRoot: repoRoot || paths.repoRoot },
         hasActiveProcess: dashboardDeps().hasActiveProcess,
       });
@@ -3358,12 +3839,14 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     handoff,
     runSummary: {
       ...runSummary(status, allWorkerStates, initialMeasures, currentBoard.measures, improvements, trustedReport as unknown as JsonObject),
+      ...unverifiedCounts(holds, epochTargets),
       providerCircuit: providerCircuitDashboardProjection(providerCircuit),
     },
     improvements,
     improvedFiles,
-    activeFiles: runId ? activeFilesForRun(stateDir, runId) : [],
+    activeFiles: runId ? annotateUnverified(activeFilesForRun(stateDir, runId), unverified) : [],
     epochTargets,
+    ...(runId ? annotateUnverifiedReadiness(readinessTargetsForRun(stateDir, runId), unverified) : {}),
     workerStates,
     progressWorkerStates,
     touchedFiles: touchedFilesFromWorkerStates(allWorkerStates),

@@ -1,4 +1,6 @@
 import type { WorkerStackPolicyResult } from "@server/core/validation/stack/stack-check.js";
+import type { WorkerSteeringResult } from "@server/core/validation/steering/steering-check.js";
+import type { EditScopeHunk, EditScopeResult } from "@server/core/validation/edit-scope/edit-scope.js";
 
 export interface WorkerRunnerValidation {
   status:
@@ -11,7 +13,11 @@ export interface WorkerRunnerValidation {
     | "target_regressed"
     | "same_unit_regression"
     /** stop_at_frame games: every function the attempt changed differs only in the stack frame. */
-    | "stack_only_perturbation";
+    | "stack_only_perturbation"
+    /** Steering gate enforce: the match depends on behaviour-identical edits, or the gate could not certify the attempt. */
+    | "steering_located"
+    /** Ordering enforce: the order-and-scope fence rejected the attempt (a not-ready/unresolved class or gated reference), or could not run. */
+    | "edit_scope_rejected";
   reasons: string[];
   command?: string;
   exitCode?: number;
@@ -46,6 +52,28 @@ export interface WorkerRunnerValidation {
   }>;
   /** stop_at_frame games only: stack-frame classification of the attempt. */
   stackPolicy?: WorkerStackPolicyResult;
+  /** Steering gate shadow/enforce: the gate's result for this attempt (shadow never changes `status`). */
+  steering?: WorkerSteeringResult;
+  /**
+   * Enforce, claimed target `unverified_match`: the trusted base and the
+   * target-only gate run against it (steering-validation.ts
+   * `UnverifiedTargetEvidence`). Certification is re-derived from it and
+   * `steering`; only a certified attempt can be selected without raising the
+   * score, and only its integration clears the target's unverified state.
+   */
+  unverifiedTarget?: {
+    unit: string;
+    symbol: string;
+    trustedBaseRev: string | null;
+    baseline: WorkerSteeringResult | null;
+    skipped?: string;
+  };
+  /** Ordering shadow/enforce: the order-and-scope fence's result for this attempt (shadow never changes `status`). */
+  editScope?: EditScopeResult;
+  /** `unused_unverified` hunks the pre-steering check deferred to the post-steering UNUSED re-check. */
+  editScopeDeferredUnused?: EditScopeHunk[];
+  /** The post-steering re-check with this attempt's steering `unused_checks` (only when the first check saw UNUSED hunks). */
+  editScopeUnused?: EditScopeResult;
   postReturnCheck?: {
     status: "passed" | "failed" | "skipped";
     reasons: string[];

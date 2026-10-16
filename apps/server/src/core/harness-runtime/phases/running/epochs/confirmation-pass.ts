@@ -1,5 +1,6 @@
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
 import { addEvent } from "@server/core/harness-runtime/run-state/events.js";
+import { integrationClearedBy, restoreUnverifiedMatchesClearedBy } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 
 export type ValidationState = "tentative" | "confirmed" | "regressed";
 
@@ -300,7 +301,7 @@ export async function runConfirmationPass(params: {
   }
 
   const confirmed = widened.filter((candidate) => candidate.integrationId !== blame.guilty?.integrationId);
-  immediateTransaction(params.store.db, () => {
+  const restoredUnverifiedMatches = immediateTransaction(params.store.db, () => {
     writeValidationState({
       store: params.store,
       candidates: confirmed,
@@ -318,6 +319,9 @@ export async function runConfirmationPass(params: {
       disposition: "confirmation_regressed_reverted",
       confirmation: { ...confirmation, revert_revision: reverted.revision ?? null },
     });
+    // The revert removed the code this integration's certified apply accepted,
+    // so an unverified_match it cleared is unverified (and claimable) again.
+    return restoreUnverifiedMatchesClearedBy(params.store, integrationClearedBy(blame.guilty!.integrationId));
   });
   addEvent(params.store, params.runId, "epoch_checkpoint_progress", "confirmation-pass", {
     phase: "confirmation_pass",
@@ -327,6 +331,7 @@ export async function runConfirmationPass(params: {
     integration_id: blame.guilty.integrationId,
     checkpoint_id: blame.guilty.checkpointId,
     revert_revision: reverted.revision ?? null,
+    restored_unverified_matches: restoredUnverifiedMatches,
     confirmed_integration_ids: confirmed.map((candidate) => candidate.integrationId),
   });
   const remainingTentative = tentative.filter((candidate) => !candidate.widened);

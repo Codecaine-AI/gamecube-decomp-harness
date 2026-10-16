@@ -15,6 +15,8 @@ export interface AgentToolRuntimeContext {
   role: RuntimeAgentRole;
   cwd: string;
   repoRoot: string;
+  /** Host game checkout for host-executed tools; `repoRoot` may be a sandbox path. */
+  hostRepoRoot?: string;
   stateDir?: string;
   /** Checkout pinned by a librarian pass for source views and canonical evidence. */
   knowledgeCheckoutRoot?: string;

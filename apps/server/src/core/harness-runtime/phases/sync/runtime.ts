@@ -422,6 +422,7 @@ function syncLeaseContext(
     verifyConfiguration,
     game: paths.game ? {
       baseRef: paths.game.baseRef,
+      steeringGate: paths.game.matching?.steeringGate,
       reportPath: paths.game.validation?.reportPath,
       reportChangesPath: paths.game.validation?.reportChangesPath,
       qaTarget: paths.game.validation?.qaTarget,
@@ -494,6 +495,7 @@ function requestedSyncContext(
     harnessWorktreePath: durableHarnessWorktreePath(paths, store, sync),
     game: paths.game ? {
       baseRef: paths.game.baseRef,
+      steeringGate: paths.game.matching?.steeringGate,
       reportPath: paths.game.validation?.reportPath,
       reportChangesPath: paths.game.validation?.reportChangesPath,
       qaTarget: paths.game.validation?.qaTarget,

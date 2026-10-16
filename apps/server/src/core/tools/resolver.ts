@@ -17,6 +17,8 @@ import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccA
 import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-exec.js";
 import { toolTimeoutScale } from "./timeout-scale.js";
 import { gameStackFramePolicy, STACK_FRAME_POLICY_ENV } from "./stack-frame-policy.js";
+import { gameSteeringGate, STEERING_GATE_ENV, steeringGateActive } from "./steering-gate.js";
+import { gameOrdering, orderingToolEnv } from "./ordering.js";
 
 export { SANDBOX_TOOLPACK_ROOT } from "./wrappers/workspace-tool-exec.js";
 
@@ -29,9 +31,18 @@ const WORKSPACE_SURFACED_SCRIPTS: Record<string, "*" | readonly string[]> = {
   review_lint: ["sdata2_order_helper.py"],
 };
 
+/** Env var naming the host game checkout for host-executed tools (never a sandbox path). */
+export const GAME_HOST_REPO_ROOT_ENV = "ORCH_GAME_HOST_REPO_ROOT";
+
 export interface ToolRuntimeContext {
   game?: RunGameMetadata;
   repoRoot?: string;
+  /**
+   * Host checkout of the game repo. Worker contexts point `repoRoot` and
+   * `game.repoRoot` at the sandbox workspace; host-executed tools that read
+   * the map, symbols or headers use this instead.
+   */
+  hostRepoRoot?: string;
   stateDir?: string;
   toolPlatform?: ToolPlatform;
   worktreeId?: string;
@@ -85,6 +96,8 @@ export interface ResolvedRegisteredTool {
   gameId: string;
   gameDir: string;
   gameRepoRoot: string;
+  /** Host checkout for host-executed tools (`ORCH_GAME_HOST_REPO_ROOT`). */
+  gameHostRepoRoot: string;
   gameStateDir: string;
   worktreeId: string;
   bindingPath: string;
@@ -108,6 +121,7 @@ interface GameRuntimePaths {
   gameId: string;
   gameDir: string;
   repoRoot: string;
+  hostRepoRoot: string;
   stateDir: string;
   descriptorPath: string;
 }
@@ -145,11 +159,15 @@ function gameRuntimePaths(context: ToolRuntimeContext): GameRuntimePaths {
   const descriptorPath = context.game?.descriptorPath ?? resolve(gameRoot(gameId), "game.json");
   const gameDir = dirname(descriptorPath);
   const raw = existsSync(descriptorPath) ? readGameConfigWithLocal(descriptorPath) : {};
+  const configuredRepoRoot = (stringField(raw.repoRoot) ? resolve(gameDir, raw.repoRoot as string) : undefined) ?? gameLayoutPath(gameDir, "workspace/checkout");
+  const repoRoot = context.repoRoot ?? context.game?.repoRoot ?? configuredRepoRoot;
   return {
     gameId,
     gameDir,
     descriptorPath,
-    repoRoot: context.repoRoot ?? context.game?.repoRoot ?? (stringField(raw.repoRoot) ? resolve(gameDir, raw.repoRoot as string) : undefined) ?? gameLayoutPath(gameDir, "workspace/checkout"),
+    repoRoot,
+    // A sandbox-attached context's repoRoot is a sandbox path; never hand it to host tools.
+    hostRepoRoot: context.hostRepoRoot ?? (context.sandboxHandle ? configuredRepoRoot : repoRoot),
     stateDir: context.stateDir ?? context.game?.stateDir ?? (stringField(raw.stateDir) ? resolve(gameDir, raw.stateDir as string) : undefined) ?? gameLayoutPath(gameDir, "runtime/state"),
   };
 }
@@ -311,6 +329,14 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     ORCH_TOOL_BINDING_PATH: bindingPath,
     ORCH_TOOL_IMPL_ROOT: resolve(packRoot, "_impl/gamecube"),
   };
+  // Steering-gated games only (SMS): games with the gate off (Melee) keep their tool env unchanged.
+  const steeringGate = gameSteeringGate({ gameId: paths.gameId, descriptorPath: paths.descriptorPath });
+  if (steeringGateActive(steeringGate)) {
+    env[STEERING_GATE_ENV] = steeringGate;
+    env[GAME_HOST_REPO_ROOT_ENV] = paths.hostRepoRoot;
+  }
+  // Ordering-active games only (SMS): games without an ordering block (Melee) keep their tool env unchanged.
+  Object.assign(env, orderingToolEnv(gameOrdering({ gameId: paths.gameId, descriptorPath: paths.descriptorPath })));
   const toolPlatform = resolveToolPlatform({ targetPlatform: context.toolPlatform });
   const wibo = gameWiboPath(paths, config.toolsRoot, toolPlatform);
   if (config.reportPath) env.ORCH_GAME_REPORT_PATH = config.reportPath;
@@ -329,6 +355,7 @@ export function resolveRegisteredTool(context: ToolRuntimeContext, toolId: strin
     gameId: paths.gameId,
     gameDir: paths.gameDir,
     gameRepoRoot: paths.repoRoot,
+    gameHostRepoRoot: paths.hostRepoRoot,
     gameStateDir: paths.stateDir,
     worktreeId,
     bindingPath,

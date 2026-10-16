@@ -2,14 +2,13 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { gameKnowledgeRoot, knowledgeStorePath } from "../knowledge/paths.js";
-import type { StackFramePolicy } from "../game-registry/resolver.js";
 import type { KnowledgeStoreHandle } from "./records/index.js";
 import {
-  STACK_POLICY_NOTE,
   STACK_POLICY_REDACTION,
-  filtersStackTactics,
-  redactStackTacticsInPayload,
-  stackFramePolicyForGame,
+  applyKnowledgePolicy,
+  knowledgePolicyActive,
+  knowledgePolicyForGame,
+  type KnowledgePolicy,
 } from "./stack-policy-filter.js";
 import {
   knowledgeRecord,
@@ -138,6 +137,8 @@ export interface V2TargetCard {
   context_budget: V2CardBudget;
   /** Present only for stop_at_frame games: banned stack tactics were redacted from this card. */
   stack_policy_note?: string;
+  /** Present only while the game's steering gate is not off: steering recommendations are labelled as probes. */
+  steering_policy_note?: string;
   ledger: V2CardLedger;
   status: V2TargetStatus | null;
   facts: V2CardFacts;
@@ -170,10 +171,12 @@ const BUDGET_CAPS: Record<V2CardBudget, { ledgerEntries: number; links: number; 
   minimal: { ledgerEntries: 3, links: 2, linkedFacts: 0, priorRuns: 1, acceptedPrs: 1, chars: 1_500 },
 };
 
-export interface V2TargetCardOptions {
-  /** `stop_at_frame` redacts banned stack-frame tactics from every narrative field. */
-  stackFramePolicy?: StackFramePolicy;
-}
+/**
+ * `stackFramePolicy: stop_at_frame` redacts banned stack-frame tactics from
+ * every narrative field; a steering gate other than `off` labels steering
+ * recommendations as diagnostic probes.
+ */
+export type V2TargetCardOptions = Partial<KnowledgePolicy>;
 
 export function buildV2TargetCard(
   store: KnowledgeStoreHandle,
@@ -212,7 +215,6 @@ export function buildV2TargetCard(
       identity_status: target.identity_status,
     },
     context_budget: budget,
-    ...(filtersStackTactics(options.stackFramePolicy) ? { stack_policy_note: STACK_POLICY_NOTE } : {}),
     ledger: buildLedger(ledgerRows, budget),
     status,
     facts: {
@@ -223,17 +225,27 @@ export function buildV2TargetCard(
     prior_runs: priorRuns,
     accepted_prs: acceptedPrs,
   };
-  if (filtersStackTactics(options.stackFramePolicy)) card = redactCardStackTactics(card);
+  if (knowledgePolicyActive(options)) card = applyCardPolicies(card, options);
   enforceCharacterBudget(card, BUDGET_CAPS[budget].chars);
   return card;
 }
 
 /**
- * Stop-at-frame games: redact banned stack tactics from every narrative field
- * and drop accepted PRs and observations that carried nothing else.
+ * Apply the game's knowledge policies to every narrative field (stack
+ * redaction, then steering relabel) and drop accepted PRs and observations
+ * that carried nothing but a redaction. The notes sit after `context_budget`.
  */
-function redactCardStackTactics(card: V2TargetCard): V2TargetCard {
-  const { value } = redactStackTacticsInPayload(card);
+function applyCardPolicies(card: V2TargetCard, policy: Partial<KnowledgePolicy>): V2TargetCard {
+  const { stack_policy_note, stack_policy_redactions: _redactions, steering_policy_note, steering_policy_relabels: _relabels, ...rest } = applyKnowledgePolicy(policy, card);
+  const { stable_key, target, context_budget, ...body } = rest;
+  const value: V2TargetCard = {
+    stable_key,
+    target,
+    context_budget,
+    ...(stack_policy_note ? { stack_policy_note } : {}),
+    ...(steering_policy_note ? { steering_policy_note } : {}),
+    ...body,
+  };
   const onlyRedaction = (text: string) => text.split(STACK_POLICY_REDACTION).join("").replace(/[\s.,;:…-]+/g, "") === "";
   value.accepted_prs = value.accepted_prs.filter((pr) => !onlyRedaction(pr.summary));
   for (const run of value.prior_runs) {
@@ -268,9 +280,7 @@ export function loadV2TargetCard(options: {
   let db: Database | null = null;
   try {
     db = new Database(dbPath, { readonly: true });
-    return buildV2TargetCard({ db }, stableKey, options.budget, {
-      stackFramePolicy: stackFramePolicyForGame(options.gameId ?? "melee"),
-    });
+    return buildV2TargetCard({ db }, stableKey, options.budget, knowledgePolicyForGame(options.gameId ?? "melee"));
   } catch {
     return null;
   } finally {

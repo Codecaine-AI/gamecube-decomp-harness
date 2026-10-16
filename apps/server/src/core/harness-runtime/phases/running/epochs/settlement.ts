@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync
 import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
-import { runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
+import { orderingQaScanFiles, runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
 import { resolveAcceptedAdvisories, type AcceptedAdvisoryResolution } from "@server/core/validation/qa/accepted-advisories.js";
 import { normalizeAdvisoryPath } from "@server/core/validation/qa/advisory-fingerprint.js";
 import { runPreCommitAutofix as runPreCommitAutofixDefault, type PreCommitAutofixResult } from "@server/core/validation/ci-parity/index.js";
@@ -20,6 +20,9 @@ import {
 } from "@server/core/harness-state";
 import type { BoundarySavePointResult } from "@server/core/harness-runtime/phases/pr/save-points-runtime.js";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
+import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { withholdUnverifiedRegression, withholdUnverifiedStoredMeasures } from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
+import { steeringCompletionIndex } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { blockingWorkerOutputIntegrationCount } from "@server/core/harness-runtime/run-state";
 import { addEvent } from "@server/core/harness-runtime/run-state/events.js";
 import { activeLockedSourcePaths } from "@server/core/harness-runtime/run-state/targets.js";
@@ -48,6 +51,7 @@ import { completeUnitNames, linkCompleteUnitsFromReport, type LinkCompleteUnitsC
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 import { asBoundaryStepError, PhaseTracker, stepFailureCheckpoint } from "./step-failure.js";
 import { baselineSourcePath, prepareEpochBaseline, writeBaselineSource } from "./epoch-baseline.js";
+import { readinessBoardFields } from "../scheduler/readiness.js";
 
 /** Paths never staged by an epoch commit: the nested orchestrator repo and generated state. */
 const EPOCH_COMMIT_EXCLUDES = ["decomp-orchestrator", ".decomp-orchestrator-state", ...ORCHESTRATOR_SCRATCH_EXCLUDES];
@@ -73,6 +77,14 @@ export interface EpochSettlementOptions {
   /** Untracked build inputs symlinked from the live repo into the worktree (e.g. orig assets). */
   linkPaths?: string[];
   gameId?: string | null;
+  /** The game's steering gate: when active, progress withholds unverified and rollback-held functions from done. */
+  steeringGate?: SteeringGateMode | null;
+  /**
+   * The game's ordering policy for the integration drain's scope gate (null =
+   * off). Omitted: the queue resolves the run's game, recording
+   * `ordering_unresolved` when the descriptor does not resolve.
+   */
+  orderingPolicy?: import("@server/core/validation/edit-scope/edit-scope.js").EditScopeOrderingPolicy | null;
   /** Format the harness worktree before its snapshot commit. Default on. */
   preCommitAutofixEnabled?: boolean;
   /** Promote units complete in the last published report before snapshotting. Default off. */
@@ -184,7 +196,10 @@ export interface EpochSettlementResult {
   lockedPathsExcluded: string[];
   matchedCodePercent: number | null;
   matchedDataPercent: number | null;
+  /** Progress measures: steering-gated games withhold unverified and rollback-held functions (see `progressView`). */
   measures: Record<string, unknown>;
+  /** The epoch report's own measures (evidence); equal to `measures` without completion holds. */
+  reportMeasures?: Record<string, unknown>;
   sectionMeasures: Record<string, SectionMeasure>;
   /** QA scan verdict for this epoch's diff, or null when the scan was not requested. */
   qaGate: EpochQaGateSummary | null;
@@ -426,6 +441,36 @@ function shellQuote(value: string): string {
 function readJsonObject(path: string): Record<string, unknown> {
   const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
   return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+}
+
+/**
+ * The epoch's progress view: the report's measures and regression report with
+ * a steering-gated game's active unverified and rollback-held functions withheld (not
+ * done: no matched, complete or fuzzy credit, no new match) plus the separate
+ * "100% unverified" figure. The save point, board snapshot, trusted report,
+ * events, summary and score delta record this view; the archived report.json
+ * and report_changes.json and `reportMeasures` keep the raw evidence. A report
+ * that cannot be re-read while rows are active leaves the score unknown.
+ */
+async function progressView(
+  store: StateStore,
+  reportPath: string,
+  measures: Record<string, unknown>,
+  regressionReport: RegressionReport,
+  options: EpochSettlementOptions,
+): Promise<{ measures: Record<string, unknown>; matchedCodePercent: number | null; regressionReport: RegressionReport }> {
+  const unverified = await steeringCompletionIndex(store, { gameId: options.gameId, steeringGate: options.steeringGate }, options.worktreeDir);
+  const withheld = withholdUnverifiedStoredMeasures(measures, reportPath, unverified);
+  const matchedCode = Number(withheld.matched_code_percent);
+  const totalCode = Number(measures.total_code);
+  return {
+    measures: withheld,
+    matchedCodePercent: withheld.matched_code_percent != null && Number.isFinite(matchedCode) ? matchedCode : null,
+    regressionReport: withholdUnverifiedRegression(regressionReport, unverified, {
+      totalCode: Number.isFinite(totalCode) ? totalCode : null,
+      toMeasures: withheld,
+    }),
+  };
 }
 
 function reportMeasures(reportPath: string): Record<string, unknown> {
@@ -1190,6 +1235,7 @@ async function runEpochSettlementInnerTracked(
   const integrationDrain = await processWorkerOutputIntegrationQueue({
     dryRun: false,
     leaseId: options.leaseId,
+    ...(options.orderingPolicy !== undefined ? { ordering: options.orderingPolicy } : {}),
     limit: 64,
     repoRoot,
     runId,
@@ -1452,7 +1498,7 @@ async function runEpochSettlementInnerTracked(
     label,
     phase: "report_read",
     status: "finished",
-    message: `report read finished at matched_code ${matchedCodePercent ?? "?"}%`,
+    message: `report read finished at raw report matched_code ${matchedCodePercent ?? "?"}%`,
     matched_code_percent: matchedCodePercent,
     regressed_functions: regressionReport.brokenMatches.length + regressionReport.fuzzyRegressions.length,
   });
@@ -1577,10 +1623,16 @@ async function runEpochSettlementInnerTracked(
     });
   }
 
+  // Raw report measures and changes stay evidence (reportMeasures, the archived
+  // report.json and report_changes.json); progress withholds unverified and rollback-held functions.
+  const reportMeasuresRaw = measures;
+  const progressed = await progressView(store, worktreeReportPath, measures, regressionReport, options);
+  ({ measures, matchedCodePercent } = progressed);
+  const progressReport = progressed.regressionReport;
   await mkdir(artifactDir, { recursive: true });
   await copyFile(worktreeReportPath, resolve(artifactDir, "report.json"));
   await copyFile(worktreeChangesPath, resolve(artifactDir, "report_changes.json"));
-  await writeFile(resolve(artifactDir, "pr_report.md"), regressionReport.markdown);
+  await writeFile(resolve(artifactDir, "pr_report.md"), progressReport.markdown);
 
   // QA scan of this epoch's diff, recorded for observability. Any failure here
   // (including a broken scanner) must never abort the epoch cycle: the L2 ship
@@ -1603,6 +1655,7 @@ async function runEpochSettlementInnerTracked(
         worktreeId: "epoch",
         baseRef: options.baseRef ?? "origin/master",
         addressNamedStaticDataAllowlist: options.qaScan.addressNamedStaticDataAllowlist,
+        ...orderingQaScanFiles(options.qaScan.game ?? (options.gameId ? { gameId: options.gameId } : undefined)),
       });
       qaGate = await epochQaGateSummary({
         store,
@@ -1766,12 +1819,13 @@ async function runEpochSettlementInnerTracked(
         epoch: true,
         matched_data_percent: matchedDataPercent,
         measures,
+        report_measures: reportMeasuresRaw,
         section_measures: sectionMeasures,
         qa_gate: qaGate,
         regressions: plan.summary,
         repair,
         locked_paths_excluded: lockedPaths,
-        summary_delta: regressionReport.summary,
+        summary_delta: progressReport.summary,
       },
     });
     recordDashboardArtifact(store, {
@@ -1789,6 +1843,8 @@ async function runEpochSettlementInnerTracked(
         source: "epoch",
         savePointId: savePoint.id,
         savePointSha: savePoint.commitSha,
+        // Ordering-active games: the readiness admission used (blocked/deferred, or shadow would-*).
+        ...readinessBoardFields(store, runId),
       },
       createdAt: savePoint.createdAt,
     });
@@ -1800,7 +1856,7 @@ async function runEpochSettlementInnerTracked(
       sourcePath: resolve(artifactDir, "report_changes.json"),
       sourceLabel: "build/GALE01/report_changes.json",
       payload: trustedReportFromRegressionReport(
-        regressionReport,
+        progressReport,
         resolve(artifactDir, "report_changes.json"),
         "build/GALE01/report_changes.json",
         savePoint.createdAt,
@@ -1869,6 +1925,7 @@ async function runEpochSettlementInnerTracked(
     matchedCodePercent,
     matchedDataPercent,
     measures,
+    reportMeasures: reportMeasuresRaw,
     sectionMeasures,
     qaGate,
     regressions: plan.summary,
@@ -1877,7 +1934,7 @@ async function runEpochSettlementInnerTracked(
     savePoint: savePointResult,
     savePointEvidence,
     savePointId: savePointResult.savePointId,
-    scoreDelta: regressionReport.summary.matchedCodePercentDelta,
+    scoreDelta: progressReport.summary.matchedCodePercentDelta,
     worktreeDir: options.worktreeDir,
   };
   await writeFile(resolve(artifactDir, "summary.json"), `${JSON.stringify(result, null, 2)}\n`);

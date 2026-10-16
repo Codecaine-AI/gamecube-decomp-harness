@@ -84,4 +84,33 @@ describe("handleAgentsApiRoute", () => {
     expect(called).toBeFalse();
     expect(await response?.json()).toEqual({ error: "target must use <unit>:<symbol>" });
   });
+
+  test("threads the previous_attempt variant next to the target", async () => {
+    const received: unknown[] = [];
+    const response = await handleAgentsApiRoute(
+      new URL("http://localhost/api/kernel/agents?target=unit%2Fa%3ASym&previous_attempt=unverified_match"),
+      deps({
+        loadKernelAgentsPayload: (_paths, options) => {
+          received.push(options);
+          return { previousAttempt: options?.previousAttempt };
+        },
+      }),
+    );
+
+    expect(response?.status).toBe(200);
+    expect(received).toEqual([{ target: { unit: "unit/a", symbol: "Sym" }, previousAttempt: "unverified_match" }]);
+    expect(await response?.json()).toEqual({ previousAttempt: "unverified_match" });
+  });
+
+  test("rejects an unknown previous_attempt variant", async () => {
+    let called = false;
+    const response = await handleAgentsApiRoute(
+      new URL("http://localhost/api/kernel/agents?previous_attempt=verified"),
+      deps({ loadKernelAgentsPayload: () => { called = true; return {}; } }),
+    );
+
+    expect(response?.status).toBe(400);
+    expect(called).toBeFalse();
+    expect(await response?.json()).toEqual({ error: "previous_attempt must be one of: rollback, unverified_match" });
+  });
 });

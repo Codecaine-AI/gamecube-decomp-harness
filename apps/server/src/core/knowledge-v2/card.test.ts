@@ -330,6 +330,21 @@ describe("knowledge-v2 target cards", () => {
     expect(buildV2TargetCard(store, "GALE01:test:test_symbol", "full")).toEqual(melee);
   });
 
+  test("labels steering recommendations as probes while the steering gate is on", () => {
+    const store = fixture();
+    store.db.query(`INSERT INTO pull_request
+      (id, target_id, pr_ref, summary, outcome, merged_at)
+      VALUES ('pr-temp', 'target', '#330', 'Matched the loop. Store the position in a temp to match.', 'match', '2026-02-01')`).run();
+    const label = "[diagnostic probe: shows what codegen the original needs; not a fix]";
+    const sms = buildV2TargetCard(store, "GALE01:test:test_symbol", "full", { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" })!;
+    expect(sms.steering_policy_note).toContain("diagnostic probe");
+    expect(sms.accepted_prs[0]!.summary).toBe(`Matched the loop. Store the position in a temp to match. ${label}`);
+    expect(sms.accepted_prs[0]!.pr_ref).toBe("#330");
+    const off = buildV2TargetCard(store, "GALE01:test:test_symbol", "full", { stackFramePolicy: "stop_at_frame", steeringGate: "off" })!;
+    expect(off.steering_policy_note).toBeUndefined();
+    expect(off.accepted_prs[0]!.summary).toBe("Matched the loop. Store the position in a temp to match.");
+  });
+
   test("loadV2TargetCard applies the game's stack-frame policy", () => {
     const previous = process.env.ORCH_GAME_KNOWLEDGE_ROOT;
     const store = fixture();

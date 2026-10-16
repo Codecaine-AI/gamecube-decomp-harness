@@ -20,6 +20,8 @@ import {
   type CiParityResult,
 } from "@server/core/validation/ci-parity/index.js";
 import { sectionMeasuresFromReport } from "@server/core/validation/objdiff/section-measures.js";
+import { withholdUnverifiedMeasures } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
+import { steeringCompletionIndex } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { addSavePoint, ensureCampaign, latestSavePointByTrigger, mergeSavePointPayload } from "@server/core/harness-runtime/phases/pr/state";
 import { mergedPullRequestNumbers } from "@server/core/harness-runtime/phases/sync/upstream.js";
 import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/harness-runtime/phases/running/epochs/boundary-sync.js";
@@ -33,7 +35,13 @@ import {
   type BoundaryDeferredFinding,
   type EpochSettlementResult,
 } from "@server/core/harness-runtime/phases/running/epochs";
-import { publishHarnessDraftPr as publishHarnessDraftPrDefault } from "@server/core/harness-runtime/phases/running/epochs/harness-draft-pr.js";
+import {
+  publishHarnessDraftPr as publishHarnessDraftPrDefault,
+  type HarnessDraftPrPublishResult,
+} from "@server/core/harness-runtime/phases/running/epochs/harness-draft-pr.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
+import { preparePrUnusedChecks } from "@server/core/validation/edit-scope/pr-unused-checks.js";
+import { editScopePolicyFromGame } from "@server/core/validation/edit-scope/edit-scope.js";
 import {
   PhaseTracker,
   isBoundaryStepError,
@@ -55,7 +63,12 @@ import {
   runKnowledgeMaintenance as runKnowledgeMaintenanceDefault,
   type KnowledgeMaintenanceProgressEvent,
 } from "@server/core/knowledge/jobs/kg.js";
-import { ensureSchedulerEpochFromBoard as ensureSchedulerEpochFromBoardDefault } from "./tick.js";
+import {
+  ensureSchedulerEpochFromBoard as ensureSchedulerEpochFromBoardDefault,
+  isReadinessBlockedOnly,
+  readinessForAdmission as readinessForAdmissionDefault,
+  refreshReadinessArtifact as refreshReadinessArtifactDefault,
+} from "./tick.js";
 import type { GlobalArgs, SyncMergePolicy, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 
 export type KnowledgeProgressReporter = (
@@ -99,6 +112,10 @@ export interface EpochBoundaryDependencies {
   publishHarnessDraftPr?: PublishHarnessDraftPr;
   runKnowledgeMaintenance?: RunKnowledgeMaintenance;
   ensureSchedulerEpochFromBoard?: EnsureSchedulerEpochFromBoard;
+  /** Class readiness for post-boundary admission (ordering-active games only). */
+  readinessForAdmission?: typeof readinessForAdmissionDefault;
+  /** Records the revision-bound readiness artifact when a paused boundary skips admission. */
+  refreshReadinessArtifact?: typeof refreshReadinessArtifactDefault;
   runBoundarySync?: RunBoundarySync;
   productionRunBoundarySync?: ProductionRunBoundarySync;
   closeSchedulerEpochWithEvidence?: CloseSchedulerEpochWithEvidence;
@@ -168,9 +185,14 @@ export interface EpochBoundaryOutcome {
   terminal?: boolean;
 }
 
-function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unknown> {
+/**
+ * The report's measures as Sync publishes them: steering-gated games withhold
+ * active `unverified_match` and uncertified rollback functions from the done counts. The save point's
+ * copied report keeps the raw measures as evidence.
+ */
+async function completionMeasuresAt(store: StateStore, game: GlobalArgs["game"], gameId: string, repoRoot: string, reportRelPath: string): Promise<Record<string, unknown>> {
   const parsed = JSON.parse(readFileSync(resolve(repoRoot, reportRelPath), "utf8")) as Record<string, unknown>;
-  return parsed.measures && typeof parsed.measures === "object" ? parsed.measures as Record<string, unknown> : {};
+  return withholdUnverifiedMeasures(parsed, await steeringCompletionIndex(store, { gameId, steeringGate: game?.matching?.steeringGate }, repoRoot)) as Record<string, unknown>;
 }
 
 async function boundaryGitOutput(repoRoot: string, args: string[]): Promise<string> {
@@ -477,7 +499,7 @@ async function productionBoundarySync(
       },
       recomputeReport: async () => {
         await forceReportRun(params.globals.repoRoot, { ...reportRunOptionsForGame(params.globals.game), resetBaseline: false });
-        const measures = measuresAt(params.globals.repoRoot, reportRelPath);
+        const measures = await completionMeasuresAt(params.store, params.globals.game, gameId, params.globals.repoRoot, reportRelPath);
         const score = Number(measures.matched_code_percent);
         const dataScore = Number(measures.matched_data_percent);
         const sectionMeasures = sectionMeasuresFromReport(resolve(params.globals.repoRoot, reportRelPath));
@@ -570,6 +592,70 @@ function publicationGateFailureReason(ciParityStatus: unknown, preCommitStatus: 
   if (ciParityStatus === "failed" || ciParityStatus === "error") return "ci_parity_failed";
   if (preCommitStatus === "failed" || preCommitStatus === "error") return "pre_commit_failed";
   return null;
+}
+
+/**
+ * `draft_pr_publish` skip reasons that leave the range unpublished: recovery
+ * reruns publication instead of treating the step as done. `scope_refused`
+ * (the order-and-scope fence refused the range) is retry-aware, not terminal.
+ */
+const UNPUBLISHED_PUBLISH_SKIP_REASONS = ["ci_parity_failed", "pre_commit_failed", "scope_refused"];
+
+/** Scope-check fields for a `draft_pr_publish` event; empty while ordering is off. */
+function draftPrScopeEventFields(publish: Pick<HarnessDraftPrPublishResult, "scopeCheck">): Record<string, unknown> {
+  const check = publish.scopeCheck;
+  if (!check) return {};
+  return {
+    scope_check: {
+      mode: check.mode, head_sha: check.headSha, verdict: check.verdict, problem: check.problem, error: check.error,
+      warnings: check.warnings.slice(0, 20), rejected_hunks: check.rejected_hunks.slice(0, 20), pr_size: check.pr_size,
+      artifact_path: check.artifactPath,
+    },
+  };
+}
+
+/** The `draft_pr_publish` event for a refused range: skipped, unpublished, retried by recovery. */
+function scopeRefusedPublishEvent(publish: HarnessDraftPrPublishResult, base: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...base, status: "skipped", reason: "scope_refused", scope_problem: (publish.reason ?? "scope check refused").slice(0, 2000),
+    head_sha: publish.commitSha ?? undefined, ...draftPrScopeEventFields(publish), created_by: "run-loop",
+  };
+}
+
+/**
+ * UNUSED evidence for the publication scope check (ordering active only; off
+ * returns nothing so publication stays as it was). Resolves the head being
+ * published once, collects the certificates integrated on `base..head`,
+ * re-validates them at that head and writes them to the boundary artifact
+ * dir. The resolved SHA is returned as `commitSha`, so the publisher checks
+ * and pushes the commit the evidence was validated at. Never throws: a
+ * collection failure is a warning and the check runs without evidence
+ * (enforce then refuses UNUSED bodies: fail closed).
+ */
+async function publicationUnusedChecks(params: {
+  store: StateStore;
+  globals: GlobalArgs;
+  commitSha: string | null | undefined;
+  artifactDir: string;
+}): Promise<{ commitSha?: string; unusedChecksPath?: string; unusedChecksStale?: string[] }> {
+  if (!orderingActive(gameOrdering(params.globals.game)?.mode)) return {};
+  const repoRoot = params.globals.repoRoot;
+  const ref = params.commitSha?.trim() || "HEAD";
+  const resolved = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", `${ref}^{commit}`], { stdout: "pipe", stderr: "pipe" });
+  if (resolved.exitCode !== 0) return { unusedChecksStale: [`unused checks unavailable: cannot resolve ${ref}: ${resolved.stderr.toString().trim().slice(-300)}`] };
+  const head = resolved.stdout.toString().trim();
+  try {
+    const prepared = await preparePrUnusedChecks({
+      store: params.store,
+      repoRoot,
+      base: params.globals.game?.baseRef?.trim() || "origin/master",
+      head,
+      outputPath: resolve(params.artifactDir, `pr_unused_checks_${head}.json`),
+    });
+    return { commitSha: head, unusedChecksPath: prepared.path, unusedChecksStale: prepared.stale };
+  } catch (error) {
+    return { commitSha: head, unusedChecksStale: [`unused checks unavailable: ${error instanceof Error ? error.message : String(error)}`] };
+  }
 }
 
 function completedBoundaryEvent(
@@ -845,7 +931,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         });
         const publishEvidence = completedBoundaryEvent(store, runId, retained.completed.epochId, boundaryAttempt, "draft_pr_publish");
         const publishCompleted = publishEvidence && (publishEvidence.status === "finished"
-          || (publishEvidence.status === "skipped" && !["ci_parity_failed", "pre_commit_failed"].includes(String(publishEvidence.reason))));
+          || (publishEvidence.status === "skipped" && !UNPUBLISHED_PUBLISH_SKIP_REASONS.includes(String(publishEvidence.reason))));
         const gateFailureReason = publicationGateFailureReason(ciParityStatus, preCommitStatus);
         if (config.harnessDraftPrEnabled && !publishCompleted) {
           if (gateFailureReason) {
@@ -859,16 +945,20 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             trackPhase("draft_pr_publish", "started");
             const publish = await publishHarnessDraftPr({
               baseRef: globals.game?.baseRef, commitSha: acceptedHead,
+              ...(await publicationUnusedChecks({ store, globals, commitSha: acceptedHead, artifactDir: boundaryResult.artifactDir })),
               epochLabel: label, epochOrdinal, matchedCodePercent: null,
               gameId: globals.game?.gameId ?? globals.gameId ?? null, qaGate: null,
+              ordering: gameOrdering(globals.game),
               regressions: boundaryResult.regressions as unknown as Record<string, unknown>, repoRoot: globals.repoRoot,
               runId, savePointId: null, stateDir: globals.stateDir, store,
             });
-            addEvent(store, runId, "draft_pr_publish", "run-loop", publish.status === "failed"
+            addEvent(store, runId, "draft_pr_publish", "run-loop", publish.status === "scope_refused"
+              ? scopeRefusedPublishEvent(publish, { epoch: epochOrdinal, epoch_id: retained.completed.epochId, boundary_attempt: boundaryAttempt })
+              : publish.status === "failed"
               ? { epoch: epochOrdinal, epoch_id: retained.completed.epochId, boundary_attempt: boundaryAttempt, status: "failed", error: publish.error ?? publish.reason, created_by: "run-loop" }
               : publish.status === "skipped"
                 ? { epoch: epochOrdinal, epoch_id: retained.completed.epochId, boundary_attempt: boundaryAttempt, status: "skipped", reason: publish.reason ?? "publisher_skipped", created_by: "run-loop" }
-                : { epoch: epochOrdinal, epoch_id: retained.completed.epochId, boundary_attempt: boundaryAttempt, status: "finished", pr_url: publish.url, head_sha: publish.commitSha, created_by: "run-loop" });
+                : { epoch: epochOrdinal, epoch_id: retained.completed.epochId, boundary_attempt: boundaryAttempt, status: "finished", pr_url: publish.url, head_sha: publish.commitSha, ...draftPrScopeEventFields(publish), created_by: "run-loop" });
             trackPhase("draft_pr_publish", "finished");
           }
         } else reconcileSkippedSteps.push("draft_pr_publish");
@@ -883,12 +973,14 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
         const boundaryUpstreamSha = canonicalState?.source.upstream_revision ?? null;
         const result = await runEpochSettlement(store, runId, globals.repoRoot, globals.stateDir, {
           baseRef: globals.game?.baseRef,
+          ...(globals.game ? { orderingPolicy: editScopePolicyFromGame({ ordering: gameOrdering(globals.game) }) } : {}),
           configureCommand: config.epochConfigureCommand,
           epochId: schedulerEpochId,
           label,
           leaseId,
           linkPaths: config.epochLinkPaths,
           gameId: globals.game?.gameId ?? globals.gameId ?? null,
+          steeringGate: globals.game?.matching?.steeringGate ?? null,
           preCommitAutofixEnabled: config.preCommitAutofixEnabled,
           linkCompleteUnitsEnabled: config.linkCompleteUnitsEnabled !== false,
           runPreCommitAutofix: params.dependencies?.runPreCommitAutofix,
@@ -1150,10 +1242,12 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               publish = await publishHarnessDraftPr({
                 baseRef: globals.game?.baseRef,
                 commitSha: pushSha,
+                ...(await publicationUnusedChecks({ store, globals, commitSha: pushSha, artifactDir: result.artifactDir })),
                 epochLabel: result.label,
                 epochOrdinal,
                 matchedCodePercent: result.matchedCodePercent,
                 gameId: globals.game?.gameId ?? globals.gameId ?? null,
+                ordering: gameOrdering(globals.game),
                 qaGate: result.qaGate as unknown as Record<string, unknown> | null,
                 regressions: result.regressions as unknown as Record<string, unknown>,
                 repoRoot: globals.repoRoot,
@@ -1173,11 +1267,13 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
               });
               throw error;
             }
-            addEvent(store, runId, "draft_pr_publish", "run-loop", publish.status === "failed"
+            addEvent(store, runId, "draft_pr_publish", "run-loop", publish.status === "scope_refused"
+              ? scopeRefusedPublishEvent(publish, { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? null, boundary_attempt: boundaryAttempt })
+              : publish.status === "failed"
               ? { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? null, boundary_attempt: boundaryAttempt, status: "failed", error: publish.error ?? publish.reason ?? "draft PR publish failed", created_by: "run-loop" }
               : publish.status === "skipped"
                 ? { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? null, boundary_attempt: boundaryAttempt, status: "skipped", reason: publish.reason ?? "publisher_skipped", created_by: "run-loop" }
-                : { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? null, boundary_attempt: boundaryAttempt, status: "finished", pr_url: publish.url ?? undefined, head_sha: publish.commitSha ?? pushSha ?? undefined, created_by: "run-loop" });
+                : { epoch: epochOrdinal, epoch_id: schedulerEpochId ?? null, boundary_attempt: boundaryAttempt, status: "finished", pr_url: publish.url ?? undefined, head_sha: publish.commitSha ?? pushSha ?? undefined, ...draftPrScopeEventFields(publish), created_by: "run-loop" });
             trackPhase("draft_pr_publish", "finished");
             console.error(
               `[run-loop] epoch ${epochOrdinal}: harness draft PR ${publish.status}` +
@@ -1344,9 +1440,22 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       }
     }
 
+    // Readiness at the accepted post-Sync head, loaded before the admission transaction
+    // (and before the pause check, so a paused boundary still refreshes the readiness artifact).
+    const admissionHead = (harnessGameId ? getHarnessState(store.db, harnessGameId)?.source.head : null) ?? boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined;
+    const readiness = await (params.dependencies?.readinessForAdmission ?? readinessForAdmissionDefault)({
+      globals, store, runId, ...(admissionHead ? { rev: admissionHead } : {}),
+    });
     const currentRun = store.db.query("SELECT status, stop_request_json FROM runs WHERE id = ?").get(runId) as { status: string; stop_request_json: string | null } | undefined;
     const currentHarness = harnessGameId ? getHarnessState(store.db, harnessGameId) : null;
     if (currentHarness?.execution.desired === "paused" || currentRun?.status === "paused" || (currentRun?.stop_request_json && currentRun.stop_request_json !== "null")) {
+      if (readiness) {
+        try {
+          (params.dependencies?.refreshReadinessArtifact ?? refreshReadinessArtifactDefault)({ globals, graphDbPath: config.graphDbPath, runId, store, readiness });
+        } catch (error) {
+          console.error(`[run-loop] epoch ${epochOrdinal}: readiness artifact refresh failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       return { ok: true, boundaryResult, reconciled, paused: true, knowledgeMaintenanceRun, boundarySync,
         boundaryHeadSha: (harnessGameId ? getHarnessState(store.db, harnessGameId)?.source.head : null) ?? boundarySync?.headSha ?? boundaryResult?.commitSha ?? undefined, breakageGate };
     }
@@ -1357,7 +1466,17 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
       graphDbPath: config.graphDbPath,
       runId,
       store,
+      ...(readiness ? { readiness } : {}),
     });
+    if (isReadinessBlockedOnly(nextEpoch)) {
+      // Parked: no epoch and no settlement; the run-loop retries admission when readiness can change.
+      console.error(`[run-loop] admission parked: all ${nextEpoch.blocked.length} remaining target(s) are blocked by class readiness`);
+      trackPhase("admission", "finished");
+      return {
+        ok: true, boundaryResult, reconciled, paused: false, nextEpoch, knowledgeMaintenanceRun, boundarySync,
+        boundaryHeadSha: admissionHead, breakageGate,
+      };
+    }
     console.error(
       `[run-loop] epoch ${nextEpoch.progress.ordinal}: admitted ${nextEpoch.progress.admitted} targets, ` +
         `${nextEpoch.progress.available} available`,

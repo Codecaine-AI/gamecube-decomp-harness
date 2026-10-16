@@ -66,6 +66,22 @@ describe("runKnowledgeGraphRebuild", () => {
     expect(result).toEqual({ graph_db: "/tmp/custom-graph.sqlite", stamped: true });
   });
 
+  test("a game's rebuild child reads the active verification state from this run's state dir", async () => {
+    let spawnedCommand: string[] | undefined;
+    const spawn = ((command: string[]) => {
+      spawnedCommand = command;
+      return fakeProcess(0);
+    }) as unknown as typeof Bun.spawn;
+    const runStateDir = "/tmp/kg-rebuild-run-state";
+
+    await runKnowledgeGraphRebuild({ ...globals, gameId: "sms", stateDir: runStateDir }, new Map(), { rebuildSpawn: spawn });
+
+    // Without --state-dir the child resolves the game's default state dir and reads another run's rows.
+    const stateDirAt = spawnedCommand?.indexOf("--state-dir") ?? -1;
+    expect(spawnedCommand?.slice(3, 5)).toEqual(["--game", "sms"]);
+    expect(spawnedCommand?.[stateDirAt + 1]).toBe(runStateDir);
+  });
+
   test("fails when the rebuild CLI exits nonzero", async () => {
     const spawn = (() => fakeProcess(9, "", "sqlite failed")) as unknown as typeof Bun.spawn;
 

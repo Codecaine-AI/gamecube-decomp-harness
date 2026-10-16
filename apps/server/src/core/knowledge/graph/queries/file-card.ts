@@ -1,5 +1,13 @@
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
-import { fileEntityId, functionEntityId } from "../builders/code-graph.js";
+import {
+  countsAsMatched,
+  fileEntityId,
+  functionEntityId,
+  sourceFileEditability,
+  UNVERIFIED_MATCH_VERIFICATION,
+  verificationKey,
+  type UnverifiedFunctionRef,
+} from "../builders/code-graph.js";
 import type { KnowledgeGraphStore } from "../db.js";
 import { graphFactPayload, graphPayload } from "../payloads.js";
 import { functionRelationshipEvidence } from "./related-functions.js";
@@ -7,7 +15,101 @@ import { graphEdges, graphEntities, graphFacts, searchChunks } from "../storage/
 import type { FileGraphCard } from "../types.js";
 import { arrayValue, objectValue, stringValue } from "../util.js";
 
-export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string): FileGraphCard {
+export interface FileGraphCardOptions {
+  /**
+   * Steering-gated games: the game's active `unverified_match` functions,
+   * overlaid on the stored card (`withActiveVerification`) so a graph built
+   * before the state changed never calls an unverified file complete.
+   */
+  unverifiedMatches?: readonly UnverifiedFunctionRef[];
+}
+
+export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string, options: FileGraphCardOptions = {}): FileGraphCard {
+  const card = storedFileGraphCard(store, sourcePath);
+  return options.unverifiedMatches?.length ? withActiveVerification(card, options.unverifiedMatches) : card;
+}
+
+/**
+ * A file card with active `unverified_match` functions overlaid on the counts
+ * and editability the graph recorded. The graph build applies the same rule
+ * (`buildCodeGraphRecords`), but a backfill can record a row without changing
+ * the report or rebuilding the graph, so a stored card can still call a file
+ * holding an unverified function `read_only_complete` ("reference evidence
+ * only"). Each applying function is labeled `unverified_match`, counted
+ * unmatched, and its file is editable. Raw scores are never changed.
+ *
+ * A ref applies when it names one of the card's functions or one of its units;
+ * `sameFile` asserts every ref is in this file (the worker's own target).
+ * `locked` and `blocked` editability are left alone. No applying ref: the card
+ * is returned unchanged.
+ */
+export function withActiveVerification<T extends Pick<FileGraphCard, "editability" | "match_status" | "functions">>(
+  card: T,
+  refs: readonly UnverifiedFunctionRef[],
+  options: { sameFile?: boolean } = {},
+): T {
+  const rows = (card.functions ?? []).map(objectValue);
+  const units = new Set(arrayValue(objectValue(card.match_status).units).map(String));
+  const rowKeys = new Set(rows.map((row) => verificationKey(stringValue(row.unit), stringValue(row.symbol))));
+  const keys = new Set(
+    refs
+      .filter((ref) => options.sameFile || rowKeys.has(verificationKey(ref.unit, ref.symbol)) || units.has(ref.unit))
+      .map((ref) => verificationKey(ref.unit, ref.symbol)),
+  );
+  if (keys.size === 0) return card;
+  const mode = card.editability?.mode;
+  const markedRows = rows.map((row) =>
+    keys.has(verificationKey(stringValue(row.unit), stringValue(row.symbol))) ? { ...row, verification: UNVERIFIED_MATCH_VERIFICATION } : row,
+  );
+  const status = objectValue(card.match_status);
+  const outsideRows = [...keys].filter((key) => !rowKeys.has(key)).length;
+  const isUnverified = (row: Record<string, unknown>) => row.verification === UNVERIFIED_MATCH_VERIFICATION;
+  const unverifiedCount = markedRows.filter(isUnverified).length + outsideRows;
+  let functionCount: number;
+  let unmatchedCount: number;
+  let matchedCount: number;
+  if (markedRows.length > 0) {
+    const unmatchedRows = markedRows.filter((row) => !countsAsMatched({ fuzzy: numericValue(row.fuzzy, 100), verification: stringValue(row.verification) }));
+    functionCount = Math.max(numericValue(status.function_count, 0), markedRows.length);
+    unmatchedCount = unmatchedRows.length + outsideRows;
+    matchedCount = Math.max(0, markedRows.length - unmatchedRows.length - outsideRows);
+  } else {
+    // Counts only: they came from raw scores, so a complete file's unverified functions move from matched to unmatched.
+    functionCount = numericValue(status.function_count, 0);
+    const recordedUnmatched = numericValue(status.unmatched_function_count, 0);
+    const recordedMatched = numericValue(status.matched_function_count, Math.max(0, functionCount - recordedUnmatched));
+    const added = recordedUnmatched === 0 ? unverifiedCount : 0;
+    unmatchedCount = recordedUnmatched + added;
+    matchedCount = Math.max(0, recordedMatched - added);
+  }
+  const editability = mode === "locked" || mode === "blocked"
+    ? card.editability
+    : sourceFileEditability(functionCount, unmatchedCount, unverifiedCount, card.editability?.reason ?? "No editability fact is available for this file.");
+  const unmatchedFunctions = [
+    ...arrayValue(status.unmatched_functions).map(objectValue).filter((row) => !keys.has(verificationKey(stringValue(row.unit), stringValue(row.symbol)))),
+    ...markedRows.filter(isUnverified),
+  ];
+  return {
+    ...card,
+    editability,
+    match_status: {
+      ...status,
+      function_count: functionCount,
+      unmatched_function_count: unmatchedCount,
+      matched_function_count: matchedCount,
+      unverified_function_count: unverifiedCount,
+      editability,
+      ...(markedRows.length > 0 ? { functions: markedRows, unmatched_functions: unmatchedFunctions } : {}),
+    },
+    functions: markedRows,
+  } as T;
+}
+
+function numericValue(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function storedFileGraphCard(store: KnowledgeGraphStore, sourcePath: string): FileGraphCard {
   const entityId = fileEntityId(sourcePath);
   const matchStatus = factPayload(store, entityId, "file_match_status");
   const functionRows = arrayValue(matchStatus.functions).map(objectValue);

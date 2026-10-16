@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { codeGraphFunctionsIndexPath, gameRoot, gameSharedToolDataRoot } from "../../paths.js";
 import type { GraphEdge, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, readJsonl, shortHash, stableJson, stringValue, truncate } from "../util.js";
-import { functionEntityId } from "./code-graph.js";
+import { functionEntityId, UNVERIFIED_MATCH_VERIFICATION, verificationKey, type UnverifiedFunctionRef } from "./code-graph.js";
 
 export const OPSEQ_SIMILARITY_SOURCE_ID = "opseq_similarity";
 
@@ -16,6 +16,8 @@ export interface BuildOpseqSimilarityGraphRecordsOptions {
   reportPath?: string;
   indexesRoot?: string;
   maxAnalogsPerFunction?: number;
+  /** Steering-gated games' active `unverified_match` functions: never a matched analog, whatever their score. */
+  unverifiedMatches?: readonly UnverifiedFunctionRef[];
 }
 
 interface CurrentFunction {
@@ -64,7 +66,8 @@ export function buildOpseqSimilarityGraphRecords(
   const sourcePaths = [...profilePaths, ...neighborPaths];
   if (sourcePaths.length === 0 || neighborPaths.length === 0) return null;
 
-  const functions = currentFunctionIndex(options.reportPath ? repoRoot : repoRootWithFunctionReport(repoRoot), options.reportPath);
+  const unverified = new Set((options.unverifiedMatches ?? []).map((ref) => verificationKey(ref.unit, ref.symbol)));
+  const functions = currentFunctionIndex(options.reportPath ? repoRoot : repoRootWithFunctionReport(repoRoot), options.reportPath, unverified);
   if (functions.byEntityId.size === 0) return null;
 
   const profileAliases = profileFunctionAliases(profilePaths, functions);
@@ -82,7 +85,10 @@ export function buildOpseqSimilarityGraphRecords(
   if (pairEvidence.size === 0) return null;
 
   const maxAnalogs = Math.max(1, options.maxAnalogsPerFunction ?? DEFAULT_MAX_ANALOGS_PER_FUNCTION);
-  const sourceVersionId = `source-version:${OPSEQ_SIMILARITY_SOURCE_ID}:${shortHash(filesFingerprint(sourcePaths))}`;
+  // The unverified functions this index labels: a change of verification state alone is a new version.
+  const unverifiedApplied = [...functions.byEntityId.values()].filter((fn) => fn.status === UNVERIFIED_MATCH_VERIFICATION).map((fn) => verificationKey(fn.unit, fn.symbol)).sort();
+  const verificationIdentity = unverifiedApplied.length > 0 ? `:verification:${shortHash(stableJson(unverifiedApplied))}` : "";
+  const sourceVersionId = `source-version:${OPSEQ_SIMILARITY_SOURCE_ID}:${shortHash(filesFingerprint(sourcePaths) + verificationIdentity)}`;
   const edges: GraphEdge[] = [];
   const analogsByFunction = new Map<string, AnalogForFunction[]>();
 
@@ -160,7 +166,7 @@ export function buildOpseqSimilarityGraphRecords(
     sourceVersion: {
       id: sourceVersionId,
       sourceId: OPSEQ_SIMILARITY_SOURCE_ID,
-      contentHash: shortHash(stableJson({ opseq: filesFingerprint(sourcePaths) })),
+      contentHash: shortHash(stableJson({ opseq: filesFingerprint(sourcePaths), ...(unverifiedApplied.length > 0 ? { unverified_matches: unverifiedApplied } : {}) })),
       sourcePaths,
     },
     entities: [],
@@ -186,7 +192,13 @@ function repoRootWithFunctionReport(repoRoot: string): string {
   return requested;
 }
 
-function currentFunctionIndex(repoRoot: string, explicitReportPath?: string): FunctionIndex {
+/** `matched` by raw score, except an active `unverified_match`: labeled as such, never matched. */
+function functionStatus(unverified: ReadonlySet<string>, unit: string, symbol: string, fuzzy: number, declared?: string): string {
+  if (unverified.has(verificationKey(unit, symbol))) return UNVERIFIED_MATCH_VERIFICATION;
+  return declared || (fuzzy >= 100 ? "matched" : "unmatched");
+}
+
+function currentFunctionIndex(repoRoot: string, explicitReportPath: string | undefined, unverified: ReadonlySet<string>): FunctionIndex {
   const index = emptyFunctionIndex();
   const reportPath = resolve(repoRoot, explicitReportPath ?? "build/GALE01/report.json");
   if (existsSync(reportPath)) {
@@ -207,7 +219,7 @@ function currentFunctionIndex(repoRoot: string, explicitReportPath?: string): Fu
           sourcePath,
           address: formatAddress(fnMetadata.virtual_address ?? fnMetadata.address ?? fn.address),
           fuzzy: numberValue(fn.fuzzy_match_percent, numberValue(fn.fuzzy, 100)),
-          status: numberValue(fn.fuzzy_match_percent, numberValue(fn.fuzzy, 100)) >= 100 ? "matched" : "unmatched",
+          status: functionStatus(unverified, unitName, symbol, numberValue(fn.fuzzy_match_percent, numberValue(fn.fuzzy, 100))),
           entityId: functionEntityId(unitName, symbol),
         });
       }
@@ -227,7 +239,7 @@ function currentFunctionIndex(repoRoot: string, explicitReportPath?: string): Fu
       sourcePath: stringValue(row.sourcePath, stringValue(row.source_path)),
       address: formatAddress(row.address ?? row.virtual_address),
       fuzzy,
-      status: stringValue(row.status, fuzzy >= 100 ? "matched" : "unmatched"),
+      status: functionStatus(unverified, unit, symbol, fuzzy, stringValue(row.status)),
       entityId: functionEntityId(unit, symbol),
     });
   }
@@ -504,6 +516,7 @@ function functionPayload(fn: CurrentFunction): Record<string, unknown> {
 }
 
 function isMatchedFunction(fn: CurrentFunction): boolean {
+  if (fn.status === UNVERIFIED_MATCH_VERIFICATION) return false;
   return fn.status === "matched" || fn.fuzzy >= 100;
 }
 

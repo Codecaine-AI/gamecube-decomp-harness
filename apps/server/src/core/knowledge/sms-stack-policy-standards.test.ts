@@ -72,3 +72,15 @@ test('SMS workers are told to drop invented helpers and odd-looking code (D1/D2)
   }
   expect(globalStandardsPromptXml(MELEE)).not.toContain('sms-plain-code');
 });
+
+test('SMS workers are told steering is a probe, never the fix', () => {
+  const xml = globalStandardsPromptXml(SMS);
+  expect(xml).toContain('id="sms-no-steering"');
+  expect(xml).toContain('steering_check.py check');
+  expect(xml).toContain('real_code_evidence');
+  const ids = loadStandardExamples(SMS).map((example) => String(example.id));
+  for (const id of ['example:sms-no-steering-temp', 'example:sms-no-steering-inline-hop', 'example:sms-no-steering-real-control-flow']) {
+    expect(ids).toContain(id);
+  }
+  expect(globalStandardsPromptXml(MELEE)).not.toContain('sms-no-steering');
+});

@@ -15,8 +15,13 @@ import type { QaScanFinding } from "@server/core/validation/qa/scan-diff.js";
 import { CHECKPOINT_CONFIRMED_SCHEMA } from "../librarian/context.js";
 import { sha256Hex, type ConfirmationSource, type ConfirmedCheckpoint } from "./confirmed-good.js";
 import { boundedHunks, boundedNote, type CheckpointSources, type SourceDigests } from "./sources.js";
-import type { StackFramePolicy } from "../../game-registry/resolver.js";
-import { filtersStackTactics, hasBannedStackTactic, redactBannedStackTactics } from "../stack-policy-filter.js";
+import {
+  filtersStackTactics,
+  hasBannedStackTactic,
+  knowledgePolicyActive,
+  knowledgePolicyText,
+  type KnowledgePolicy,
+} from "../stack-policy-filter.js";
 
 export const CHECKPOINT_CONFIRMED_PATHWAY = "checkpoint_confirmed" as const;
 
@@ -117,10 +122,12 @@ export interface ExtractionInput {
   hunksTruncated: boolean;
 }
 
-/** Policy knobs for a checkpoint of a game; `stop_at_frame` keeps banned stack tactics out of extraction and facts. */
-export interface CheckpointPolicyOptions {
-  stackFramePolicy?: StackFramePolicy;
-}
+/**
+ * Knowledge policies for a checkpoint of a game: `stop_at_frame` keeps banned
+ * stack tactics out of extraction and facts; a steering gate other than `off`
+ * labels steering recommendations as diagnostic probes.
+ */
+export type CheckpointPolicyOptions = Partial<KnowledgePolicy>;
 
 export function extractionInput(
   checkpoint: ConfirmedCheckpoint,
@@ -129,10 +136,8 @@ export function extractionInput(
 ): ExtractionInput {
   const note = boundedNote(sources.noteText);
   const bounded = boundedHunks(sources.patchText, checkpoint.target.sourcePath);
-  // A stop_at_frame game's extractor never reads a banned stack tactic as evidence of what matched.
-  const redact = filtersStackTactics(options.stackFramePolicy)
-    ? (text: string) => redactBannedStackTactics(text).text
-    : (text: string) => text;
+  // The extractor never reads a banned stack tactic, or a steering rewrite as a fix, as evidence of what matched.
+  const redact = knowledgePolicyText(options);
   const hunks = { ...bounded, hunks: bounded.hunks.map(redact) };
   const refs = advisoryRefs(sources);
   const prior = compactPriorAdjudication(sources.adjudication);
@@ -206,6 +211,7 @@ export function checkpointFacts(
   options: CheckpointPolicyOptions = {},
 ): { facts: CheckpointFact[]; dropped: number } {
   const banned = filtersStackTactics(options.stackFramePolicy);
+  const label = knowledgePolicyText({ steeringGate: options.steeringGate });
   const candidates: Array<Omit<CheckpointFact, "key">> = [
     ...(knowledge.tactics ?? []).map((tactic) => ({
       kind: "tactic" as const,
@@ -252,8 +258,8 @@ export function checkpointFacts(
       existing.evidence = cleanEvidence([...existing.evidence, ...candidate.evidence]);
       continue;
     }
-    const fact: CheckpointFact = { key, kind: candidate.kind, subject: candidate.subject, statement: candidate.statement, evidence: candidate.evidence };
-    if (candidate.applies_when) fact.applies_when = candidate.applies_when;
+    const fact: CheckpointFact = { key, kind: candidate.kind, subject: candidate.subject, statement: label(candidate.statement), evidence: candidate.evidence };
+    if (candidate.applies_when) fact.applies_when = label(candidate.applies_when);
     if (candidate.produced_match !== undefined) fact.produced_match = candidate.produced_match;
     byKey.set(key, fact);
   }
@@ -348,12 +354,17 @@ export interface PayloadInput {
   refs: readonly AdvisoryRef[];
   digests: SourceDigests;
   extraction: { kernelRunId: string | null; requestedModel: string };
-  stackFramePolicy?: StackFramePolicy;
+  stackFramePolicy?: KnowledgePolicy["stackFramePolicy"];
+  steeringGate?: KnowledgePolicy["steeringGate"];
 }
 
 export function checkpointConfirmedPayload(params: PayloadInput): { payload: CheckpointConfirmedPayload; droppedFacts: number } {
   const { checkpoint } = params;
-  const policy = { ...(params.stackFramePolicy ? { stackFramePolicy: params.stackFramePolicy } : {}) };
+  const policy: CheckpointPolicyOptions = {
+    ...(params.stackFramePolicy ? { stackFramePolicy: params.stackFramePolicy } : {}),
+    ...(params.steeringGate ? { steeringGate: params.steeringGate } : {}),
+  };
+  const rewrite = knowledgePolicyText(policy);
   const { facts, dropped } = checkpointFacts(params.knowledge, checkpoint.target, policy);
   const advisories = keptAdvisories(params.knowledge, params.refs);
   return {
@@ -376,11 +387,11 @@ export function checkpointConfirmedPayload(params: PayloadInput): { payload: Che
         function: checkpoint.target.function,
       },
       facts,
-      kept_advisories: filtersStackTactics(params.stackFramePolicy)
+      kept_advisories: knowledgePolicyActive(policy)
         ? advisories.map((advisory) => ({
           ...advisory,
-          justification: advisory.justification === null ? null : redactBannedStackTactics(advisory.justification).text,
-          evidence: advisory.evidence.map((entry) => redactBannedStackTactics(entry).text),
+          justification: advisory.justification === null ? null : rewrite(advisory.justification),
+          evidence: advisory.evidence.map(rewrite),
         }))
         : advisories,
       sources: params.digests,

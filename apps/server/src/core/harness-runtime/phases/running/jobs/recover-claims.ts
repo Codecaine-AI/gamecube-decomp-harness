@@ -17,6 +17,7 @@ import {
 import { infrastructureFailureReason } from "@server/core/harness-runtime/run-state/infrastructure-failure.js";
 import { immediateTransaction, now as currentTime } from "@server/core/orchestrator-state";
 import { processWorkerOutputIntegrationQueue, type WorkerOutputIntegrationApplyResult } from "@server/core/harness-runtime/phases/running/integration/worker-output-queue.js";
+import { editScopePolicyFromGame } from "@server/core/validation/edit-scope/edit-scope.js";
 import { booleanArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import type { RunBlocker } from "@server/core/shared/types";
 
@@ -560,6 +561,8 @@ export async function recoverActiveClaims(params: RecoverActiveClaimsParams): Pr
     const integration = await processWorkerOutputIntegrationQueue({
       dryRun: params.globals.dryRunAgents,
       leaseId: params.leaseId,
+      // The resolved game's ordering policy; without one the queue resolves the run's game.
+      ...(params.globals.game ? { ordering: editScopePolicyFromGame(params.globals.game) } : {}),
       repoRoot: params.repoRoot,
       runId: params.runId,
       stateDir: params.globals.stateDir,

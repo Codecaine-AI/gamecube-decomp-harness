@@ -9,7 +9,9 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initializeDispatchState, requestDispatch } from "@server/core/harness-state";
-import { openState } from "@server/core/orchestrator-state";
+import { latestDashboardArtifactPayload, openState } from "@server/core/orchestrator-state";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 import { sectionMeasuresFromReportJson } from "@server/core/validation/objdiff/section-measures.js";
 import { boundaryDeferredFindings, commitEpochSnapshot, discardBoundaryBuildFixer, epochQaGateSummary, prepareBoundaryBuildFixer, propagateBoundaryBuildFixer, runEpochSettlement, runLinkCompleteUnitsStep, runPreCommitAutofixStep, runReportBuildWithFixer } from "./settlement.js";
 
@@ -694,6 +696,142 @@ printf '%s\\n' '{}' > build/GALE01/report_changes.json
       else process.env.ORCH_REPORT_REUSE = oldReportReuse;
       value.store.db.close();
     }
+  });
+});
+
+describe("runEpochSettlement progress measures", () => {
+  // objdiff serializes byte counts as strings; `a::unverified` is 100% but `unverified_match`.
+  const report = {
+    units: [{
+      name: "a",
+      metadata: { source_path: "src/a.c" },
+      functions: [
+        { name: "exact", size: "16", fuzzy_match_percent: 100 },
+        { name: "unverified", size: "24", fuzzy_match_percent: 100 },
+      ],
+      sections: [],
+    }],
+    measures: { total_code: "40", matched_code: "40", matched_code_percent: 100, fuzzy_match_percent: 100, total_functions: 2, matched_functions: 2, matched_functions_percent: 100 },
+  };
+  // This epoch took both functions from 50% to 100%.
+  const changes = {
+    from: { total_code: "40", matched_code: "0", matched_code_percent: 0 },
+    to: report.measures,
+    units: [{
+      name: "a",
+      metadata: { source_path: "src/a.c" },
+      functions: ["exact", "unverified"].map((name, index) => ({
+        name,
+        from: { fuzzy_match_percent: 50, size: index === 0 ? "16" : "24" },
+        to: { fuzzy_match_percent: 100, size: index === 0 ? "16" : "24" },
+      })),
+      sections: [],
+    }],
+  };
+
+  async function settle(steeringGate: "enforce" | null, hold: "unverified" | "rollback" = "unverified") {
+    const value = setupEpochHarness("epoch-harness-unverified-progress-");
+    if (hold === "rollback") {
+      // The fixture's second function is held by a rollback alone, with no active unverified row.
+      recordSteeringRollback(value.store, {
+        gameId: "test", unit: "a", symbol: "unverified", analyzedRev: git(value.repoRoot, ["rev-parse", "HEAD"]),
+        initialVerdict: "steering", finalVerdict: "needs_reverify", rules: ["steering"], report: {},
+      });
+    } else {
+      recordUnverifiedMatch(value.store, { gameId: "test", unit: "a", symbol: "unverified", analyzedRev: "analyzed", match: { base: 90, candidate: 100, real_only: null }, reasons: ["no steering located"] });
+    }
+    const ninjaPath = join(value.binDir, "ninja");
+    writeFileSync(ninjaPath, `#!/bin/sh
+mkdir -p build/GALE01
+if [ "\${3:-}" = "build/GALE01/report.json" ]; then
+  printf '%s\\n' '${JSON.stringify(report)}' > build/GALE01/report.json
+  exit 0
+fi
+printf '%s\\n' '${JSON.stringify(changes)}' > build/GALE01/report_changes.json
+`);
+    chmodSync(ninjaPath, 0o755);
+    const oldPath = process.env.PATH;
+    const oldReportReuse = process.env.ORCH_REPORT_REUSE;
+    process.env.PATH = `${value.binDir}:${oldPath ?? ""}`;
+    delete process.env.ORCH_REPORT_REUSE;
+    try {
+      const result = await runEpochSettlement(value.store, value.runId, value.repoRoot, value.stateDir, {
+        boundaryBuildFixerEnabled: false,
+        configureCommand: "",
+        epochId: "epoch-test",
+        gameId: "test",
+        label: "epoch-1",
+        leaseId: value.leaseId,
+        linkCompleteUnitsEnabled: false,
+        linkPaths: [],
+        preCommitAutofixEnabled: false,
+        steeringGate,
+        worktreeDir: value.worktreeDir,
+      });
+      const savePoint = value.store.db.query("SELECT matched_code_percent, report_path, payload_json FROM save_points WHERE id = ?")
+        .get(result.savePointId) as { matched_code_percent: number | null; report_path: string; payload_json: string };
+      const board = latestDashboardArtifactPayload(value.store, { runId: value.runId, artifactType: "board_snapshot", artifactKey: "current" });
+      const trusted = latestDashboardArtifactPayload(value.store, { runId: value.runId, artifactType: "trusted_report", artifactKey: "current" });
+      const summary = JSON.parse(readFileSync(join(result.artifactDir, "summary.json"), "utf8")) as Record<string, unknown>;
+      const prReport = readFileSync(join(result.artifactDir, "pr_report.md"), "utf8");
+      return { result, savePoint, payload: JSON.parse(savePoint.payload_json) as Record<string, unknown>, board, trusted, summary, prReport };
+    } finally {
+      if (oldPath === undefined) delete process.env.PATH;
+      else process.env.PATH = oldPath;
+      if (oldReportReuse === undefined) delete process.env.ORCH_REPORT_REUSE;
+      else process.env.ORCH_REPORT_REUSE = oldReportReuse;
+      value.store.db.close();
+    }
+  }
+
+  test("a steering-gated epoch records progress without its unverified 100% function; the archived report stays raw", async () => {
+    const { result, savePoint, payload, board, trusted, summary, prReport } = await settle("enforce");
+    const withheld = { matched_code_percent: 40, matched_functions: 1, fuzzy_match_percent: 40, unverified_functions: 1, unverified_code: 24, unverified_code_percent: 60 };
+    // Stored progress: the save point's score and measures, the dashboard board, the result and summary.json.
+    expect(savePoint.matched_code_percent).toBe(40);
+    expect(payload.measures).toMatchObject(withheld);
+    expect(board.measures).toMatchObject(withheld);
+    expect(result.matchedCodePercent).toBe(40);
+    expect(summary.measures).toMatchObject(withheld);
+    // Completion credit: only `exact` is a new match; the delta counts its 16 bytes, not the unverified 24.
+    expect(result.scoreDelta).toBe(40);
+    expect(payload.summary_delta).toMatchObject({ matchedCodeBytesDelta: 16, matchedCodePercentTo: 40 });
+    expect((trusted.newMatches as Array<{ itemName: string }>).map((row) => row.itemName)).toEqual(["exact"]);
+    expect(trusted.counts).toMatchObject({ newMatches: 1 });
+    // The PR report never lists the unverified function under "new matches".
+    const newMatchesSection = prReport.slice(prReport.indexOf("new matches"), prReport.indexOf("broken matches"));
+    expect(newMatchesSection).toContain("exact");
+    expect(newMatchesSection).not.toContain("unverified");
+    expect(prReport).toContain("**100% unverified**: 1 function(s), 24 bytes");
+    // Raw evidence: the archived report and the report's own measures.
+    expect(payload.report_measures).toMatchObject({ matched_code_percent: 100, matched_functions: 2 });
+    expect(JSON.parse(readFileSync(savePoint.report_path, "utf8")).measures.matched_code_percent).toBe(100);
+  });
+
+  test("a rollback alone withholds an exact function from settled completion and published matches while keeping its verified unit peer", async () => {
+    const { result, savePoint, payload, board, trusted, summary, prReport } = await settle("enforce", "rollback");
+    const progress = { matched_code: 16, matched_code_percent: 40, matched_functions: 1, matched_functions_percent: 50 };
+    expect(savePoint.matched_code_percent).toBe(40);
+    expect(payload.measures).toMatchObject(progress);
+    expect(board.measures).toMatchObject(progress);
+    expect(summary.measures).toMatchObject(progress);
+    expect(result.matchedCodePercent).toBe(40);
+    expect(result.scoreDelta).toBe(40);
+    expect(payload.summary_delta).toMatchObject({ matchedCodeBytesDelta: 16, matchedCodeBytesTo: 16, matchedCodePercentTo: 40 });
+    expect((trusted.newMatches as Array<{ itemName: string }>).map((row) => row.itemName)).toEqual(["exact"]);
+    expect(trusted.counts).toMatchObject({ newMatches: 1 });
+    const newMatchesSection = prReport.slice(prReport.indexOf("new matches"), prReport.indexOf("broken matches"));
+    expect(newMatchesSection).toContain("exact");
+    expect(newMatchesSection).not.toContain("unverified");
+    expect(payload.report_measures).toEqual(report.measures);
+    expect(JSON.parse(readFileSync(savePoint.report_path, "utf8"))).toEqual(report);
+  });
+
+  test("an epoch without an active steering gate (Melee) records the report's own progress", async () => {
+    const { result, savePoint, payload } = await settle(null);
+    expect(savePoint.matched_code_percent).toBe(100);
+    expect(result.scoreDelta).toBe(100);
+    expect(payload.measures).toEqual(report.measures);
   });
 });
 

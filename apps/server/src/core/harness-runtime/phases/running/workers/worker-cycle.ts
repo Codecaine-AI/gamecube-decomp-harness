@@ -1,10 +1,45 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { delimiter, isAbsolute, relative, resolve } from "node:path";
+import { delimiter, dirname, isAbsolute, relative, resolve } from "node:path";
 import { createMeleeKernelSpawnContext } from "@server/infrastructure/kernel/bridge/spawn-context";
 import { recordStackOnlyFunction } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
 import { stopsAtFrame } from "@server/core/validation/stack/stack-check.js";
+import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { gameSteeringGate, steeringGateActive, steeringGateEnforced } from "@server/core/tools/steering-gate.js";
+import { latestSteeringProbe, steeringCoverageFor, type SteeringCoverage } from "@server/core/harness-runtime/run-state/steering.js";
+import { gitIsAncestor, type GitAncestorCheck } from "@server/core/validation/steering/steering-preflight.js";
+import {
+  STEERING_CHECK_TOOLPACK_PATH,
+  steeringRepairInstruction,
+  uploadThroughExec,
+  workspaceSteeringRunner,
+  type SteeringProbe,
+} from "@server/core/validation/steering/steering-check.js";
+import {
+  EDIT_SCOPE_INSTRUCTION,
+  orderingEnforced,
+  workspaceEditScopeRunner,
+} from "@server/core/validation/edit-scope/edit-scope.js";
+import { editScopeUnusedRepairInstruction, sandboxUnusedChecksPath } from "@server/core/agent-catalog/agents/running/worker/edit-scope-validation.js";
+import { CHECKPOINT_UNUSED_CHECKS_KEY, loadBoundUnusedChecks } from "@server/core/validation/edit-scope/unused-evidence.js";
+import { createHeaderReadinessResolver } from "@server/core/harness-runtime/run-state/header-readiness.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
+import {
+  recordWorkerSteeringObservations,
+  steeringCacheDir,
+  steeringLessonPaths,
+  steeringRepairProbe,
+  steeringRulingsPath,
+  steeringSourceSha,
+  UNVERIFIED_MATCH_CERTIFICATION_KEY,
+  unverifiedMatchCertification,
+  unverifiedTargetRejected,
+} from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
+import { activeUnverifiedMatch, type UnverifiedMatchRecord } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { completionHoldRefs, steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { steeringPreviousAttempt, type PreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
+import { packageRoot } from "@server/core/knowledge";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import {
   appendWorkerActivityEvent,
@@ -65,6 +100,7 @@ import {
   relatedFunctions,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
+import type { UnverifiedFunctionRef } from "@server/core/knowledge/graph/builders/code-graph.js";
 import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
 import {
   captureWorkspaceGitDiff,
@@ -81,6 +117,8 @@ import {
   bestCheckpointForWorkerState,
   closeWorkerState,
   enqueueWorkerOutputIntegration,
+  epochTargetNotReadyClasses,
+  latestOutOfScopeRejection,
   getRun,
   openState,
   recordWorkerCheckpoint,
@@ -473,6 +511,110 @@ export function workerAttemptRepairReasons(params: {
   reasons.push(...(params.wideningReasons ?? []));
   reasons.push(...qaLintRepairReasons(effectiveQaLint(params.runnerValidation)));
   return reasons;
+}
+
+const GATE_FAILED_EXACT_REPAIR_INSTRUCTION = `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+
+/**
+ * Claim-time stack-only shortcut (stop_at_frame): the target already differs
+ * from the target object only in the stack frame, so the worker closes
+ * without running the agent. Under an enforced steering gate the claim base
+ * might still carry pre-gate steering, so the unit additionally needs a clean
+ * steering backfill coverage row whose baseline is an ancestor of the claim
+ * base; otherwise the worker runs normally. An `unverified_match` target never
+ * takes the shortcut: only an attempt the gate certifies can retire it.
+ */
+export function claimStackOnlyShortcutAllowed(params: {
+  stopAtFrame: boolean;
+  stackRemainingClass: string | null | undefined;
+  measuredBaselineScore: number | null;
+  steeringGate: SteeringGateMode;
+  coverage: SteeringCoverage | null;
+  baseRev: string | null | undefined;
+  hostRepoRoot: string;
+  isAncestor?: GitAncestorCheck;
+  /**
+   * The target has an active `unverified_match` row: its current code is not
+   * certified, so it is never closed without an agent, whatever the unit's
+   * coverage says.
+   */
+  unverifiedMatch?: boolean;
+}): boolean {
+  if (params.unverifiedMatch) return false;
+  if (!params.stopAtFrame || params.stackRemainingClass !== "stack_only") return false;
+  if (params.measuredBaselineScore !== null && params.measuredBaselineScore >= EXACT_SCORE) return false;
+  if (!steeringGateEnforced(params.steeringGate)) return true;
+  if (!params.coverage?.clean || !params.baseRev) return false;
+  return (params.isAncestor ?? gitIsAncestor)(params.hostRepoRoot, params.coverage.baselineRev, params.baseRev);
+}
+
+/**
+ * `packet.not_ready_classes` for `<not_ready_classes>`: the admitted target's
+ * unmet classes while ordering is active (stored in shadow too, so the prompt
+ * can flag them); nothing for `off` or a ready target.
+ */
+export function workerPacketReadinessFields(
+  store: StateStore,
+  epochTargetId: string,
+  orderingMode: string | null | undefined,
+): { not_ready_classes?: ReturnType<typeof epochTargetNotReadyClasses> } {
+  if (!orderingActive(orderingMode)) return {};
+  const notReadyClasses = epochTargetNotReadyClasses(store, epochTargetId);
+  return notReadyClasses.length > 0 ? { not_ready_classes: notReadyClasses } : {};
+}
+
+/**
+ * The first attempt's repair request for a target whose earlier output the
+ * integration gate rejected as out of scope (`rejected_out_of_scope`): the
+ * re-admitted target starts with the rejection reasons and the fence
+ * instruction. Null when the target has no such rejection in this run.
+ */
+export function outOfScopeReadmissionRepairRequest(store: StateStore, runId: string, targetKey: string): Record<string, unknown> | null {
+  const rejection = latestOutOfScopeRejection(store, runId, targetKey);
+  if (!rejection) return null;
+  const reasons = rejection.failureReasons.length > 0 ? rejection.failureReasons : ["the integration order-and-scope gate rejected the previous output"];
+  return {
+    source: "integration_rejected_out_of_scope",
+    rejected_output_id: rejection.id,
+    rejected_at: rejection.resolvedAt ?? rejection.updatedAt,
+    reasons,
+    instruction: `An earlier output for this target was rejected at integration: ${reasons.join("; ")}. ${EDIT_SCOPE_INSTRUCTION}`,
+  };
+}
+
+/** The worker-facing repair fields an enforced steering rejection adds: the gate's probe. */
+export function workerSteeringRepairFields(runnerValidation: WorkerChangeValidation): { steering_probe?: SteeringProbe } {
+  const probe = steeringRepairProbe(runnerValidation);
+  return probe ? { steering_probe: probe } : {};
+}
+
+/** The standing instruction of a repair request. */
+export function workerRepairInstruction(params: {
+  runnerValidation: WorkerChangeValidation;
+  latestCheckpoint: Pick<WorkerCheckpointRecord, "exactMatch" | "hardGatesPassed"> | null | undefined;
+  repairReasons: string[];
+  scoreText: string;
+  stopAtFrame: boolean;
+}): string {
+  const tail = "Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.";
+  // An `unverified_match` target that matched without the gate certifying it: its reason carries the instruction.
+  if (unverifiedTargetRejected(params.runnerValidation)) {
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected: the steering gate did not certify this unverified target."} ${tail}`;
+  }
+  // An enforced steering rejection is never the "exact but a hard gate failed" case: the
+  // match itself is what failed, so the worker gets the steering probe instruction instead
+  // (or the UNUSED-body instruction when the gate listed a dead UNUSED body).
+  if (params.runnerValidation.status === "steering_located" && steeringGateEnforced(params.runnerValidation.steering?.mode)) {
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected by the steering gate."} ${steeringRepairInstruction(params.runnerValidation.steering)} ${tail}`;
+  }
+  // An enforced scope rejection names the not-ready classes; the worker gets the fence's instruction.
+  if (params.runnerValidation.status === "edit_scope_rejected" && orderingEnforced(params.runnerValidation.editScope?.mode)) {
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected by the order-and-scope fence."} ${editScopeUnusedRepairInstruction(params.runnerValidation) ?? EDIT_SCOPE_INSTRUCTION} ${tail}`;
+  }
+  if (params.latestCheckpoint?.exactMatch && !params.latestCheckpoint.hardGatesPassed) {
+    return GATE_FAILED_EXACT_REPAIR_INSTRUCTION;
+  }
+  return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${params.scoreText}.`} ${params.stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : "Continue toward exact from the current source."} ${tail}`;
 }
 
 export function workerCheckpointHardGatesPassed(params: {
@@ -1469,7 +1611,7 @@ export function recordAcceptedAdvisories(store: StateStore, params: {
 function runnerValidationCompiled(validation: WorkerRunnerValidation): boolean {
   if (validation.status === "build_failed") return false;
   if (validation.status === "passed" || validation.status === "failed") return Boolean(validation.target) || validation.exitCode === 0;
-  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation") return true;
+  if (validation.status === "no_official_score_change" || validation.status === "target_regressed" || validation.status === "same_unit_regression" || validation.status === "stack_only_perturbation" || validation.status === "steering_located" || validation.status === "edit_scope_rejected") return true;
   // snapshot_unavailable after a successful object build still carries the unit
   // diff command; pre-build failures carry no command at all.
   return typeof validation.command === "string" && validation.command.includes("objdiff");
@@ -1779,12 +1921,25 @@ async function executeClaimedWorker(params: {
     let currentEntries = [...claimed.writeSetEntries];
     const wideningIds: string[] = [];
     const game = gameMetadata(globals, { graphDbPath, repoRoot: workerRepoRoot });
-    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath, validation: globals.game?.validation });
+    // Steering-gated games: a function with no completion credit at the claim base (an active
+    // `unverified_match`, or a rollback no certifying rev of which is its ancestor) stays
+    // unmatched in the measures the worker starts from and is never labelled complete.
+    const unverifiedIndex = steeringCompletionHolds(
+      store,
+      { gameId: globals.game?.gameId ?? globals.gameId, steeringGate: globals.game?.matching?.steeringGate },
+      globals.repoRoot,
+    )?.at(baseRev);
+    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, {
+      graphDbPath,
+      validation: globals.game?.validation,
+      ...(unverifiedIndex ? { unverified: unverifiedIndex } : {}),
+    });
     const target = targetPacketTarget(claimed.target);
     const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath, {
       unit: String(target.unit ?? ""),
       symbol: (target.symbol as string | undefined) ?? null,
       gameId: game?.gameId,
+      ...(unverifiedIndex ? { unverifiedMatches: completionHoldRefs(unverifiedIndex) } : {}),
     });
     const initialBoardPath = resolve(globals.stateDir, "runs", runId, "snapshots", "initial_board.json");
     const reportDir = resolve(outputDir, "state");
@@ -1811,6 +1966,27 @@ async function executeClaimedWorker(params: {
     const stackFramePolicy = globals.game?.matching?.stackFramePolicy ?? null;
     const stopAtFrame = stopsAtFrame(stackFramePolicy);
     const stackGameId = run.gameId ?? globals.game?.gameId ?? globals.gameId ?? "";
+    const steeringGate: SteeringGateMode = globals.game?.matching?.steeringGate ?? gameSteeringGate(game);
+    const steeringActive = steeringGateActive(steeringGate);
+    // Order-and-scope fence: null (ordering absent or off) never runs it.
+    const ordering = gameOrdering(globals.game ?? game);
+    const editScopePolicy = ordering && orderingActive(ordering.mode) ? { ...ordering, mode: ordering.mode } : null;
+    // Widening rung 3 never widens a header that defines a not-ready class (enforce);
+    // shadow approves as before and records `wouldDeny` on the decision.
+    const headerReadiness = editScopePolicy
+      ? {
+          mode: editScopePolicy.mode,
+          resolve: createHeaderReadinessResolver({
+            repoRoot: globals.repoRoot,
+            rev: baseRev,
+            policy: editScopePolicy,
+            readHeader: async (path) => {
+              const headerPath = safeRepoRelativePath(workerRepoRoot, path);
+              return headerPath ? await sandboxHandle.readFile(headerPath) : null;
+            },
+          }),
+        }
+      : undefined;
     const workerChangeBaseline: WorkerChangeBaseline = await captureWorkerChangeBaseline({
       repoRoot: workerRepoRoot,
       outputDir: validationDir,
@@ -1831,6 +2007,56 @@ async function executeClaimedWorker(params: {
       updateWorkerStateBaselineScore(store, claimed.workerStateId, measuredBaselineScore, token);
       target.fuzzy_match_percent = measuredBaselineScore;
     }
+    // Steering gate on: hash the target source at the claim base (the sandbox
+    // has no worker edits yet) to key probe reuse, and hand the newest probe
+    // recorded for this target and source to the worker.
+    let claimSourceSha: string | null = null;
+    let claimSteeringProbe: SteeringProbe | null = null;
+    let claimPreviousAttempt: PreviousAttempt | null = null;
+    // Enforce: the target's active `unverified_match` row (its match is not certified).
+    let claimUnverifiedMatch: UnverifiedMatchRecord | null = null;
+    if (steeringActive) {
+      const claimSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
+      if (claimSourcePath) {
+        try {
+          claimSourceSha = steeringSourceSha(await sandboxHandle.readFile(claimSourcePath));
+        } catch {
+          claimSourceSha = null;
+        }
+      }
+      claimSteeringProbe = latestSteeringProbe(store, {
+        gameId: stackGameId,
+        unit: String(target.unit ?? ""),
+        symbol: String(target.symbol ?? ""),
+        functionSourceSha: claimSourceSha,
+      });
+      if (steeringGateEnforced(steeringGate) && stackGameId) {
+        try {
+          claimUnverifiedMatch = activeUnverifiedMatch(store, {
+            gameId: stackGameId,
+            unit: String(target.unit ?? ""),
+            symbol: String(target.symbol ?? ""),
+          });
+        } catch (error) {
+          // Unreadable state fails closed: treated as unverified with no trusted base, so no attempt can retire it.
+          claimUnverifiedMatch = {
+            gameId: stackGameId, unit: String(target.unit ?? ""), symbol: String(target.symbol ?? ""), analyzedRev: "", baseRev: null,
+            sourcePath: null, functionSourceSha: null, match: { base: null, candidate: null, real_only: null },
+            reasons: [`unverified_match state unreadable: ${error instanceof Error ? error.message : String(error)}`],
+            report: {}, recordedAt: "", clearedAt: null, clearedBy: null, clearedRev: null,
+          };
+        }
+      }
+      // A backfill rollback rewrote the source, so this lookup ignores the hash;
+      // it is shown only while the function is not done.
+      claimPreviousAttempt = steeringPreviousAttempt(store, {
+        gameId: stackGameId,
+        unit: String(target.unit ?? ""),
+        symbol: String(target.symbol ?? ""),
+        currentScore: finiteNumber(target.fuzzy_match_percent),
+        rulingsPath: steeringRulingsPath(game, packageRoot()),
+      });
+    }
     const packet = workerPacket({
       run,
       claim: claimed,
@@ -1839,6 +2065,9 @@ async function executeClaimedWorker(params: {
       knowledgeContext,
       firstDiff: workerChangeBaseline.firstDiff,
     });
+    if (claimSteeringProbe) packet.steering_probe = claimSteeringProbe;
+    if (claimPreviousAttempt) packet.previous_attempt = claimPreviousAttempt;
+    Object.assign(packet, workerPacketReadinessFields(store, claimed.epochTargetId, editScopePolicy?.mode));
     const baselineSummaryPath = resolve(validationDir, "pre_worker_baseline.summary.json");
     await writeFile(baselineSummaryPath, JSON.stringify(workerChangeBaseline, null, 2));
     const targetUnit = String(target.unit ?? "");
@@ -2001,9 +2230,17 @@ async function executeClaimedWorker(params: {
       };
     }
     if (
-      stopAtFrame &&
-      workerChangeBaseline.stackRemaining?.class === "stack_only" &&
-      (measuredBaselineScore === null || measuredBaselineScore < EXACT_SCORE)
+      claimStackOnlyShortcutAllowed({
+        stopAtFrame,
+        stackRemainingClass: workerChangeBaseline.stackRemaining?.class,
+        measuredBaselineScore,
+        steeringGate,
+        coverage: steeringGateEnforced(steeringGate) ? steeringCoverageFor(store, stackGameId, targetUnit) : null,
+        baseRev,
+        hostRepoRoot: globals.repoRoot,
+        unverifiedMatch: claimUnverifiedMatch !== null,
+      }) &&
+      workerChangeBaseline.stackRemaining
     ) {
       // Lazy backfill: the function was already done up to the stack frame
       // when claimed. Record it so the board stops re-queueing it, and close
@@ -2096,9 +2333,15 @@ async function executeClaimedWorker(params: {
         sandboxSleep: { enabled: sandboxSleepEnabled, debounceMs: sandboxSleepDebounceMs, ...sandboxSleepStats },
       };
     }
-    let repairRequest: Record<string, unknown> | null = null;
+    // A target re-admitted after an out-of-scope integration rejection starts with that reason.
+    let repairRequest: Record<string, unknown> | null = editScopePolicy
+      ? outOfScopeReadmissionRepairRequest(store, runId, `${targetUnit}::${targetSymbol}`)
+      : null;
     let finalEvaluation: WorkerAttemptEvaluation | null = null;
     let attemptIndex = 0;
+    // The latest steering decision's `unused_checks`: the edit-scope fence's
+    // UNUSED verdicts need them, but steering runs after the fence.
+    let previousUnusedChecks: unknown[] | null = null;
     let transientCycleRetryCount = 0;
     let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
@@ -2169,6 +2412,7 @@ async function executeClaimedWorker(params: {
           authority: token,
           headerDeclaresEvidenceSymbol: (request) =>
             headerDeclaresEvidenceSymbol(workerRepoRoot, request, sandboxHandle),
+          ...(headerReadiness ? { headerReadiness } : {}),
           async onProcessed(widening) {
             currentWriteSet = widening.writeSetAfter;
             currentEntries = widening.entriesAfter;
@@ -2198,6 +2442,9 @@ async function executeClaimedWorker(params: {
             contextBudget,
             targetSourceText,
             advisoryAdjudication: advisoryMode.mode,
+            steeringGate,
+            // The prompt's <order_and_scope> follows the fence: only when it runs.
+            ordering: editScopePolicy?.mode ?? "off",
           }),
           outputDir,
           dryRun: globals.dryRunAgents,
@@ -2215,6 +2462,7 @@ async function executeClaimedWorker(params: {
           toolContext: {
             cwd: workerRepoRoot,
             repoRoot: workerRepoRoot,
+            hostRepoRoot: globals.repoRoot,
             stateDir: globals.stateDir,
             game,
             worktreeId: claimed.claimId,
@@ -2361,6 +2609,9 @@ async function executeClaimedWorker(params: {
             mode: writeSetWideningMode,
             authority: token,
             headerDeclaresEvidenceSymbol: await headerDeclaresEvidenceSymbol(workerRepoRoot, request, sandboxHandle),
+            ...(headerReadiness && request.rung === 3
+              ? { headerReadiness: { mode: headerReadiness.mode, verdicts: await headerReadiness.resolve(request.paths) } }
+              : {}),
           });
           const wideningId = widening.wideningId;
           wideningDecision = widening.decision;
@@ -2612,6 +2863,15 @@ async function executeClaimedWorker(params: {
       }
 
       const shouldRunRunnerValidation = shouldRunRunnerValidationForWorkerSession(result);
+      let unusedChecksPath: string | undefined;
+      if (editScopePolicy && previousUnusedChecks && shouldRunRunnerValidation && !globals.dryRunAgents) {
+        try {
+          await uploadThroughExec(workspaceExec, sandboxUnusedChecksPath(attemptIndex), JSON.stringify(previousUnusedChecks));
+          unusedChecksPath = sandboxUnusedChecksPath(attemptIndex);
+        } catch {
+          // Without prior evidence the fence leaves UNUSED to integration/publication.
+        }
+      }
       const targetChangeValidation = await validateWorkerChange({
         repoRoot: workerRepoRoot,
         hostRepoRoot: globals.repoRoot,
@@ -2633,7 +2893,45 @@ async function executeClaimedWorker(params: {
         retainPreQa: advisoryMode.mode !== "off",
         deferAdvisories: advisoryMode.mode === "enforce",
         stackFramePolicy,
+        steeringGate: steeringActive
+          ? {
+              mode: steeringGate,
+              baseRev,
+              hostRepoRoot: globals.repoRoot,
+              cacheDir: steeringCacheDir(globals.stateDir),
+              runner: workspaceSteeringRunner(
+                workspaceExec,
+                resolve(packageRoot(), "toolpacks/gamecube-decomp", STEERING_CHECK_TOOLPACK_PATH),
+                globals.repoRoot,
+                {
+                  mode: steeringGate,
+                  hostEnv: {
+                    ORCH_GAME_HOST_REPO_ROOT: globals.repoRoot,
+                    ORCH_GAME_STATE_DIR: globals.stateDir,
+                    ...(game?.gameId ? { ORCH_GAME_ID: game.gameId } : {}),
+                    ...(game?.descriptorPath ? { ORCH_GAME_DIR: dirname(game.descriptorPath) } : {}),
+                  },
+                },
+              ),
+              ...steeringLessonPaths(game, packageRoot()),
+              // The trusted base the backfill measured against; the claim base still holds the unexplained code.
+              unverifiedTarget: claimUnverifiedMatch
+                ? { unit: claimUnverifiedMatch.unit, symbol: claimUnverifiedMatch.symbol, baseRev: claimUnverifiedMatch.baseRev }
+                : null,
+            }
+          : null,
+        editScope: editScopePolicy
+          ? {
+              policy: editScopePolicy,
+              baseRev,
+              runner: workspaceEditScopeRunner(workspaceExec, editScopePolicy),
+              ...(unusedChecksPath ? { unusedChecksPath } : {}),
+            }
+          : null,
       });
+      if (targetChangeValidation.steering?.decision?.unused_checks) {
+        previousUnusedChecks = targetChangeValidation.steering.decision.unused_checks;
+      }
       const changeValidation = currentEntries.some((entry) => entry.addedBy === "widening")
         ? await validateWidenedChange({
             validation: targetChangeValidation,
@@ -2711,6 +3009,13 @@ async function executeClaimedWorker(params: {
             patchText: enforcePatchText,
             inlineResult: inlineAdvisories?.adjudication ?? null,
           });
+      // The steering run's UNUSED stub tests, bound to the claim base and the
+      // measured patch: integration re-checks them and writes Evidence trailers.
+      const boundUnusedChecks = await loadBoundUnusedChecks(targetChangeValidation.steering, { baseRev });
+      // Enforce, unverified target: the gate's own-target pass for this attempt (integration clears on it).
+      const unverifiedCertification = claimUnverifiedMatch
+        ? unverifiedMatchCertification({ validation: runnerValidation, gameId: stackGameId, unit: targetUnit, symbol: targetSymbol, baseRev })
+        : null;
       const checkpoint = recordWorkerCheckpoint(store, {
         authority: token,
         workerStateId: claimed.workerStateId,
@@ -2732,7 +3037,18 @@ async function executeClaimedWorker(params: {
         diffPath: postAttemptDiffPath,
         writeSet: currentWriteSet,
         failureReasons: runnerValidation.reasons,
+        ...(unverifiedCertification
+          ? {
+              verificationImprovement: {
+                kind: "unverified_match" as const,
+                unit: targetUnit,
+                symbol: targetSymbol,
+                targetStackOnly: runnerValidation.stackPolicy?.targetStackOnly === true,
+              },
+            }
+          : {}),
         metadata: {
+          ...(unverifiedCertification ? { [UNVERIFIED_MATCH_CERTIFICATION_KEY]: unverifiedCertification } : {}),
           agent_output_path: result.outputPath,
           agent_note: agentNote,
           agent_note_parse_error: parsedAgentNote.error ?? null,
@@ -2754,6 +3070,7 @@ async function executeClaimedWorker(params: {
             categories: outOfWriteSetCategoryCounts(outOfWriteSetChanges),
           },
           ...(llmReviewCandidate ? { llm_review_candidate: llmReviewCandidate } : {}),
+          ...(boundUnusedChecks ? { [CHECKPOINT_UNUSED_CHECKS_KEY]: boundUnusedChecks } : {}),
           // Enforce: the inline verdict, and the QA status after accepted
           // advisories (the qa_status column keeps the raw scan status).
           ...(advisoryMode.mode === "enforce"
@@ -2764,6 +3081,19 @@ async function executeClaimedWorker(params: {
             : {}),
         },
       });
+      // Shadow and enforce: every gated attempt leaves observation rows (probes for the next claim, dashboard history).
+      if (targetChangeValidation.steering && stackGameId) {
+        recordWorkerSteeringObservations(store, {
+          result: targetChangeValidation.steering,
+          gameId: stackGameId,
+          unit: targetUnit,
+          symbol: targetSymbol,
+          runId,
+          attemptRef: checkpoint.id,
+          baseRev,
+          sourceSha: claimSourceSha,
+        });
+      }
       if (inlineAdvisories?.adjudication?.verdict === "pass" && inlineAdvisories.patchText !== null) {
         recordAcceptedAdvisories(store, {
           checkpointId: checkpoint.id,
@@ -2895,10 +3225,13 @@ async function executeClaimedWorker(params: {
         .find((checkpoint) => checkpoint.attemptIndex === attemptIndex);
       const measuredScore = latestCheckpoint?.newScore ?? runnerValidation.target?.after ?? null;
       const scoreText = measuredScore != null && Number.isFinite(measuredScore) ? ` at ${measuredScore}%` : "";
-      const repairInstruction =
-        latestCheckpoint?.exactMatch && !latestCheckpoint.hardGatesPassed
-          ? `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`
-          : `${repairReasons.length > 0 ? `Your last submission was rejected: ${repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${scoreText}.`} ${stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : "Continue toward exact from the current source."} Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+      const repairInstruction = workerRepairInstruction({
+        runnerValidation,
+        latestCheckpoint,
+        repairReasons,
+        scoreText,
+        stopAtFrame,
+      });
       repairRequest = {
         attempt: attemptIndex + 1,
         previous_agent_output_path: result.outputPath,
@@ -2915,6 +3248,7 @@ async function executeClaimedWorker(params: {
         ...(shouldExposeWideningDecisionToWorker(writeSetWideningMode)
           ? { widening_decision: wideningDecision, widening_request: wideningDraftRequest }
           : {}),
+        ...workerSteeringRepairFields(runnerValidation),
         instruction: repairInstruction,
       };
       evaluation.repairFeedbackPath = repairFeedbackPath;
@@ -3179,7 +3513,7 @@ async function executeClaimedWorker(params: {
 export function buildWorkerKnowledgeContext(
   sourcePath: string,
   graphDb = resourceGraphDbPath(),
-  v2?: { unit?: string; symbol?: string | null; gameId?: string },
+  v2?: { unit?: string; symbol?: string | null; gameId?: string; unverifiedMatches?: readonly UnverifiedFunctionRef[] },
 ): Record<string, unknown> {
   const lookupTools = [...defaultWorkerToolProfile];
   const v2Card = v2?.unit
@@ -3213,7 +3547,8 @@ export function buildWorkerKnowledgeContext(
       status: "ready",
       graph_db: graphDb,
       generated_at: new Date().toISOString(),
-      file_card: fileGraphCard(store, sourcePath),
+      // Steering-gated games: active `unverified_match` rows overlay a stale stored card, so it never reads `read_only_complete`.
+      file_card: fileGraphCard(store, sourcePath, { unverifiedMatches: v2?.unverifiedMatches }),
       ...(related ? { related_functions: related } : {}),
       lookup_tools: lookupTools,
       ...(v2Card ? { knowledge_card_v2: v2Card } : {}),

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
-import { loadBoardSnapshot, loadExactTargetKeys } from "./snapshot.js";
+import { loadBoardSnapshot, loadExactTargetKeys, loadStackOnlyTargetKeys } from "./snapshot.js";
 
 function writeJson(path: string, value: unknown): void {
   mkdirSync(resolve(path, ".."), { recursive: true });
@@ -256,6 +256,70 @@ describe("loadExactTargetKeys", () => {
 
       expect(exactKeys.has("melee/data/example.c::.sdata2")).toBe(true);
       expect(exactKeys.has("melee/data/example.c::.bss")).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("unverified_match targets", () => {
+  const report = {
+    units: [{
+      name: "sms/a",
+      metadata: { source_path: "src/a.cpp" },
+      functions: [
+        { name: "open", size: 32, fuzzy_match_percent: 50 },
+        { name: "exact", size: 16, fuzzy_match_percent: 100 },
+        { name: "unverified", size: 24, fuzzy_match_percent: 100 },
+        { name: "frame", size: 20, fuzzy_match_percent: 99.5 },
+      ],
+      sections: [],
+    }],
+    // objdiff serializes byte counts as strings.
+    measures: { total_functions: 4, matched_functions: 2, matched_functions_percent: 50, total_code: "92", matched_code: "40", matched_code_percent: 43.47826, fuzzy_match_percent: 80 },
+  };
+  const options = { reportPath: "build/GMSJ01/report.json" };
+
+  test("a 100% unverified function is a flagged candidate ahead of untouched ones, never exact, never stack-only done", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-unverified-"));
+    try {
+      writeJson(resolve(root, "build/GMSJ01/report.json"), report);
+      const unverified = new Set(["sms/a::unverified", "sms/a::frame"]);
+      const stackOnly = new Map([["sms/a::frame", 99.5]]);
+      const snapshot = loadBoardSnapshot(root, { ...options, unverified, stackOnly });
+      expect(snapshot.candidates.map((c) => [c.symbol, c.verification ?? null])).toEqual([
+        ["unverified", "unverified_match"], ["frame", "unverified_match"], ["open", null],
+      ]);
+      expect(loadExactTargetKeys(root, { ...options, unverified }).has("sms/a::unverified")).toBe(false);
+      expect(loadExactTargetKeys(root, { ...options, unverified }).has("sms/a::exact")).toBe(true);
+      expect(loadStackOnlyTargetKeys(root, { ...options, stackOnly, unverified }).has("sms/a::frame")).toBe(false);
+      // Not done: the exact unverified function leaves the matched counts, and both unverified functions'
+      // fuzzy credit ((24*100 + 20*99.5) / 92) leaves the score; the separate "100% unverified" figure reports it.
+      expect(snapshot.measures).toMatchObject({
+        matched_functions: 1, matched_functions_percent: 25, matched_code: 16, matched_code_percent: 17.3913, fuzzy_match_percent: 32.28261,
+        unverified_functions: 1, unverified_code: 24, unverified_code_percent: 26.08696, unverified_targets: 2,
+      });
+      // Without the index (Melee, or no rows) nothing changes.
+      expect(loadBoardSnapshot(root, options).measures).toEqual(report.measures);
+      expect(loadBoardSnapshot(root, options).candidates.map((c) => c.symbol)).toEqual(["open", "frame"]);
+      expect(loadBoardSnapshot(root, options).candidates.some((c) => "verification" in c)).toBe(false);
+      expect(loadExactTargetKeys(root, options).has("sms/a::unverified")).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("the code graph fallback counts an exact unverified function as unmatched and keeps it a candidate", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-unverified-codegraph-"));
+    try {
+      const functionsIndex = resolve(root, "functions.jsonl");
+      writeFileSync(functionsIndex, [
+        { unit: "sms/a", sourcePath: "src/a.cpp", symbol: "exact", size: 60, fuzzy: 100 },
+        { unit: "sms/a", sourcePath: "src/a.cpp", symbol: "unverified", size: 40, fuzzy: 100 },
+      ].map((row) => JSON.stringify(row)).join("\n"));
+      const snapshot = loadBoardSnapshot(resolve(root, "repo"), { codeGraphFunctionsIndexPath: functionsIndex, unverified: new Set(["sms/a::unverified"]) });
+      expect(snapshot.candidates.map((c) => [c.symbol, c.verification])).toEqual([["unverified", "unverified_match"]]);
+      expect(snapshot.measures).toMatchObject({ matched_functions_percent: 50, matched_code_percent: 60, unmatched_targets: 1, unverified_functions: 1, unverified_code: 40, unverified_code_percent: 40 });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

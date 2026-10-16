@@ -39,11 +39,14 @@ import { status } from "@server/core/harness-runtime/phases/running/service/stat
 import { workerTask } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
 import { regressionCheck } from "@server/core/validation/jobs/regression-check.js";
 import { stackClassify } from "@server/core/validation/jobs/stack-classify.js";
+import { steeringGateJob } from "@server/core/validation/jobs/steering-gate.js";
+import { prScopeCheckJob } from "@server/core/validation/jobs/pr-scope-check.js";
 import { reportRun } from "@server/core/validation/jobs/report-run.js";
 import { validateSandbox } from "./validate-sandbox.js";
 import { boundarySync } from "@server/application/jobs/boundary-sync.js";
 import { advisoryShadowReport } from "@server/application/jobs/advisory-shadow-report.js";
 import { advisoryCalibration } from "@server/application/jobs/advisory-calibration/index.js";
+import { STEERING_BEHAVIOUR_REVIEW_JOB, steeringBehaviourReview } from "@server/application/jobs/steering-behaviour-review/index.js";
 import { checkpointKnowledge } from "@server/core/knowledge-v2/checkpoint-feed/cli.js";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 
@@ -54,10 +57,12 @@ function jobOwnsStorageMigrations(command: string): boolean {
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadLocalEnv();
   loadCodecaineEnv();
-  if (argv[0] === "advisory-calibration") {
-    // Own positional-subcommand grammar; history is read only via --source-root.
+  if (argv[0] === "advisory-calibration" || argv[0] === STEERING_BEHAVIOUR_REVIEW_JOB) {
+    // Own grammars, no game or run state: advisory-calibration reads history only via
+    // --source-root; steering-behaviour-review is offline and shadow-only (writes only --out).
     try {
-      await advisoryCalibration(argv.slice(1));
+      if (argv[0] === STEERING_BEHAVIOUR_REVIEW_JOB) await steeringBehaviourReview(argv.slice(1));
+      else await advisoryCalibration(argv.slice(1));
     } finally {
       try {
         // The node kernel writes through the melee kernel runtime's DB: flush it first.
@@ -107,6 +112,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     else if (command === "save-point") await savePoint(globals, args);
     else if (command === "regression-check") await regressionCheck(globals, args);
     else if (command === "stack-classify") await stackClassify(globals, args);
+    else if (command === "steering-gate") await steeringGateJob(globals, args);
+    else if (command === "pr-scope-check") await prScopeCheckJob(globals, args);
     else if (command === "kg-sources") await kgSources();
     else if (command === "kg-status") await kgStatus(globals, args);
     else if (command === "kg-import-agent-state") await kgImportAgentState(args);

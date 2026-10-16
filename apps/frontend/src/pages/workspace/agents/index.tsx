@@ -9,12 +9,14 @@ import {
 import {
   fetchKernelAgents,
   type KernelAgentsPayload,
+  type KernelPreviousAttemptVariant,
 } from "@/lib/api";
 import type { FormState } from "@/lib/format";
 import { RUN_MODEL_OPTIONS } from "@/components/app/_lib/runSettings";
 import type { AppRoute } from "@/routing";
 
-// The server renders the worker sample for the selected game's stack frame policy.
+// The server renders the worker sample for the selected game's stack frame
+// policy and, with an active steering gate, the chosen previous_attempt variant.
 type AgentsPreviewPayload = KernelAgentsPayload & {
   stackFramePolicy?: "match_frame" | "stop_at_frame";
 };
@@ -22,6 +24,37 @@ type AgentsPreviewPayload = KernelAgentsPayload & {
 const STACK_FRAME_POLICY_LABELS = {
   match_frame: "Stack frame: match exactly",
   stop_at_frame: "Stack frame: match up to frame size",
+} as const;
+
+const PREVIOUS_ATTEMPT_OPTIONS: ReadonlyArray<{ id: KernelPreviousAttemptVariant; label: string; title: string }> = [
+  { id: "rollback", label: "Rollback", title: "Worker sample: previous attempt rolled back by the steering gate" },
+  { id: "unverified_match", label: "100% unverified", title: "Worker sample: function at 100% the steering gate could not verify" },
+];
+
+// The previous_attempt selector styles only with design-system tokens; each
+// falls back to this app's local token until the app loads the design system.
+const PREVIOUS_ATTEMPT_STYLES = {
+  group: [
+    "flex shrink-0 overflow-hidden border",
+    "rounded-[var(--ds-radius-base,var(--radius))]",
+    "border-[var(--ds-color-border-default,var(--color-border))]",
+    "text-[length:var(--ds-font-size-ui-2xs,var(--text-xs))]",
+  ].join(" "),
+  cell: [
+    "border-r last:border-r-0",
+    "border-[var(--ds-color-border-default,var(--color-border))]",
+    "px-[var(--ds-space-2,calc(var(--spacing)*2))]",
+    "py-[var(--ds-space-1,var(--spacing))]",
+  ].join(" "),
+  muted: "text-[var(--ds-color-text-muted,var(--color-muted-foreground))]",
+  idle: [
+    "text-[var(--ds-color-text-muted,var(--color-muted-foreground))]",
+    "hover:text-[var(--ds-color-text-body,var(--color-foreground))]",
+  ].join(" "),
+  active: [
+    "bg-[var(--ds-color-status-warning-soft,var(--color-status-warning-fill))]",
+    "text-[var(--ds-color-status-warning-text,var(--color-status-warning))]",
+  ].join(" "),
 } as const;
 
 function previewTargetFromLocation(): string {
@@ -59,6 +92,7 @@ export function AgentsPage({
   const [error, setError] = useState("");
   const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
   const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
+  const [previousAttempt, setPreviousAttempt] = useState<KernelPreviousAttemptVariant>("rollback");
   const [styleOpen, setStyleOpen] = useState(false);
   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
   const {
@@ -77,10 +111,11 @@ export function AgentsPage({
       setLoading(true);
       setError("");
       try {
-        const nextPayload = await fetchKernelAgents(
-          form,
-          previewTarget ? { target: previewTarget } : undefined,
-        );
+        const nextPayload = await fetchKernelAgents(form, {
+          ...(previewTarget ? { target: previewTarget } : {}),
+          // Default (rollback) keeps the request unchanged for games without a steering gate.
+          ...(previousAttempt !== "rollback" ? { previousAttempt } : {}),
+        });
         if (cancelled) return;
         setPayload(nextPayload);
       } catch (err) {
@@ -100,7 +135,7 @@ export function AgentsPage({
     return () => {
       cancelled = true;
     };
-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget]);
+  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget, previousAttempt]);
 
   function applyPreviewTarget() {
     const target = previewTargetDraft.trim();
@@ -143,6 +178,32 @@ export function AgentsPage({
               >
                 {STACK_FRAME_POLICY_LABELS[payload.stackFramePolicy]}
               </span>
+            ) : null}
+            {payload?.steeringGate && payload.steeringGate !== "off" ? (
+              <div
+                aria-label="Worker previous_attempt sample"
+                className={PREVIOUS_ATTEMPT_STYLES.group}
+                role="radiogroup"
+                title="Which previous_attempt variant the worker sample renders"
+              >
+                <span className={`${PREVIOUS_ATTEMPT_STYLES.cell} ${PREVIOUS_ATTEMPT_STYLES.muted}`}>previous_attempt</span>
+                {PREVIOUS_ATTEMPT_OPTIONS.map((option) => {
+                  const active = (payload.previousAttempt ?? previousAttempt) === option.id;
+                  return (
+                    <button
+                      aria-checked={active}
+                      className={`${PREVIOUS_ATTEMPT_STYLES.cell} ${active ? PREVIOUS_ATTEMPT_STYLES.active : PREVIOUS_ATTEMPT_STYLES.idle}`}
+                      key={option.id}
+                      onClick={() => setPreviousAttempt(option.id)}
+                      role="radio"
+                      title={option.title}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             ) : null}
             {loading ? (
               <span className="shrink-0 rounded-[2px] border border-border px-2 py-1 text-xs text-muted-foreground">

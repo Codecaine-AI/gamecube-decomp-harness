@@ -74,8 +74,40 @@ export interface GameKnowledgeConfig {
 export const STACK_FRAME_POLICIES = ["match_frame", "stop_at_frame"] as const;
 export type StackFramePolicy = (typeof STACK_FRAME_POLICIES)[number];
 
+/**
+ * The steering gate (SMS real-codegen). `off` never runs it; `shadow` runs it
+ * on every eligible attempt and only records; `enforce` rejects attempts whose
+ * match depends on behaviour-identical (steering) edits.
+ */
+export const STEERING_GATE_MODES = ["off", "shadow", "enforce"] as const;
+export type SteeringGateMode = (typeof STEERING_GATE_MODES)[number];
+
 export interface GameMatchingConfig {
   stackFramePolicy?: StackFramePolicy;
+  steeringGate?: SteeringGateMode;
+}
+
+/**
+ * Order and scope (SMS): `off` never consults class readiness; `shadow`
+ * records what would be blocked, deferred or rejected; `enforce` blocks
+ * order-gated functions whose classes are not ready, admits other not-ready
+ * functions after ready ones, and rejects out-of-scope edits.
+ */
+export const ORDERING_MODES = ["off", "shadow", "enforce"] as const;
+export type OrderingMode = (typeof ORDERING_MODES)[number];
+
+export interface GameOrderingScope {
+  /** Soft limit (warnings only): foreign headers touched by one change. */
+  maxForeignHeaders?: number;
+  /** Soft limit (warnings only): changed lines in foreign headers. */
+  maxForeignHeaderLines?: number;
+}
+
+export interface GameOrderingConfig {
+  mode: OrderingMode;
+  /** Globs (fnmatch, `*` crosses `/`) of order-gated source paths such as registries. */
+  gatedPaths: string[];
+  scope?: GameOrderingScope;
 }
 
 export interface GameSandboxResourceClass {
@@ -132,6 +164,8 @@ export interface GameDescriptor {
   pr?: GamePrDefaults;
   knowledge?: GameKnowledgeConfig;
   matching?: GameMatchingConfig;
+  /** Optional; absent stays absent so unconfigured games keep their configuration fingerprint. */
+  ordering?: GameOrderingConfig;
   sandbox?: GameSandboxConfig;
 }
 
@@ -177,6 +211,8 @@ export interface ResolvedGame {
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
   matching: Required<GameMatchingConfig>;
+  /** Present only when game.json configures `ordering`. */
+  ordering?: GameOrderingConfig;
   sandbox: ResolvedSandboxConfig;
   orchestratorRoot: string;
   gamesRoot: string;
@@ -254,6 +290,7 @@ const defaultKnowledge: Required<GameKnowledgeConfig> = {
 
 const defaultMatching: Required<GameMatchingConfig> = {
   stackFramePolicy: "match_frame",
+  steeringGate: "off",
 };
 
 const defaultSandbox: SandboxRuntimeOptions = {
@@ -410,7 +447,56 @@ function matchingFromObject(value: unknown): GameMatchingConfig | undefined {
   if (policy !== undefined && !(STACK_FRAME_POLICIES as readonly string[]).includes(policy)) {
     throw new Error(`Invalid matching.stackFramePolicy: ${policy}`);
   }
-  return policy === undefined ? {} : { stackFramePolicy: policy as StackFramePolicy };
+  if (value.steeringGate !== undefined && (typeof value.steeringGate !== "string" || !(STEERING_GATE_MODES as readonly string[]).includes(value.steeringGate))) {
+    throw new Error(`Invalid matching.steeringGate: ${String(value.steeringGate)}`);
+  }
+  return {
+    ...(policy === undefined ? {} : { stackFramePolicy: policy as StackFramePolicy }),
+    ...(value.steeringGate === undefined ? {} : { steeringGate: value.steeringGate as SteeringGateMode }),
+  };
+}
+
+const ORDERING_KEYS = new Set(["mode", "gatedPaths", "scope"]);
+const ORDERING_SCOPE_KEYS = new Set(["maxForeignHeaders", "maxForeignHeaderLines"]);
+
+/** Strict: unknown keys, bad modes, non-string globs and non-integer limits are errors. */
+function orderingFromObject(value: unknown): GameOrderingConfig | undefined {
+  if (value === undefined) return undefined;
+  if (!isObject(value)) throw new Error("Invalid ordering: expected an object");
+  for (const key of Object.keys(value)) {
+    if (!ORDERING_KEYS.has(key)) throw new Error(`Invalid ordering: unknown key ${key}`);
+  }
+  if (typeof value.mode !== "string" || !(ORDERING_MODES as readonly string[]).includes(value.mode)) {
+    throw new Error(`Invalid ordering.mode: ${String(value.mode)}`);
+  }
+  const gatedPaths = value.gatedPaths ?? [];
+  if (!Array.isArray(gatedPaths) || gatedPaths.some((path) => typeof path !== "string" || !path.trim())) {
+    throw new Error("Invalid ordering.gatedPaths: expected an array of non-empty glob strings");
+  }
+  let scope: GameOrderingScope | undefined;
+  if (value.scope !== undefined) {
+    if (!isObject(value.scope)) throw new Error("Invalid ordering.scope: expected an object");
+    scope = {};
+    for (const [key, limit] of Object.entries(value.scope)) {
+      if (!ORDERING_SCOPE_KEYS.has(key)) throw new Error(`Invalid ordering.scope: unknown key ${key}`);
+      if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0) {
+        throw new Error(`Invalid ordering.scope.${key}: ${String(limit)} (expected a non-negative integer)`);
+      }
+      scope[key as keyof GameOrderingScope] = limit;
+    }
+  }
+  return {
+    mode: value.mode as OrderingMode,
+    gatedPaths: [...(gatedPaths as string[])],
+    ...(scope ? { scope } : {}),
+  };
+}
+
+/** Effective-config constraint: enforced ordering needs the steering run that certifies UNUSED reconstructions. */
+function assertOrderingConstraints(game: Pick<ResolvedGame, "gameId" | "matching" | "ordering">): void {
+  if (game.ordering?.mode === "enforce" && game.matching.steeringGate === "off") {
+    throw new Error(`Invalid configuration for ${game.gameId}: ordering.mode enforce requires matching.steeringGate shadow or enforce`);
+  }
 }
 
 function knowledgeFromObject(value: unknown): GameKnowledgeConfig | undefined {
@@ -493,6 +579,7 @@ function descriptorFromObject(value: Record<string, unknown>, path: string): Gam
     pr: prFromObject(value.pr),
     knowledge: knowledgeFromObject(value.knowledge),
     matching: matchingFromObject(value.matching),
+    ...(value.ordering === undefined ? {} : { ordering: orderingFromObject(value.ordering) }),
     sandbox: sandboxFromObject(value.sandbox),
   };
 }
@@ -781,6 +868,7 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     pr: requiredNested(defaultPr, merged.pr),
     knowledge: requiredNested(defaultKnowledge, merged.knowledge),
     matching: requiredNested(defaultMatching, merged.matching),
+    ...(merged.ordering ? { ordering: merged.ordering } : {}),
     sandbox: requiredSandbox(merged.sandbox),
     orchestratorRoot: root,
     gamesRoot: gamesRoot(root),
@@ -789,6 +877,7 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     localOverridePath: localOverrideRaw ? localOverridePath : undefined,
     warnings: [],
   };
+  assertOrderingConstraints(resolved);
   resolved.warnings = gameWarnings(resolved);
   return resolved;
 }

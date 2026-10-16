@@ -17,6 +17,31 @@ import {
 
 type WidenableCategory = WideningRequest["category"];
 
+/**
+ * Order-and-scope readiness of one header (plan v3 section 3): the worst
+ * `declare` state of the classes it defines. `not_ready` / `unresolved`
+ * headers are never widened at rung 3.
+ */
+export interface HeaderReadinessVerdict {
+  state: "ready" | "not_ready" | "unresolved";
+  classes: Array<{ class: string; owner_unit: string | null; state: string }>;
+}
+
+/** Resolves header readiness for paths; only supplied while the game's ordering is active. */
+export type HeaderReadinessResolver = (headerPaths: string[]) => Promise<Map<string, HeaderReadinessVerdict>>;
+
+/**
+ * Header readiness for one widening request, with the ordering mode:
+ * `enforce` denies a not-ready/unresolved header; `shadow` approves exactly
+ * as before and attaches `wouldDeny` to the decision.
+ */
+export interface HeaderReadinessCheck {
+  mode: "shadow" | "enforce";
+  verdicts: ReadonlyMap<string, HeaderReadinessVerdict>;
+}
+
+const READINESS_DENIAL_PREFIX = "Widening denied: order-and-scope readiness:";
+
 export interface DecideWideningInput {
   request: WideningRequest;
   sourcePath: string;
@@ -118,6 +143,12 @@ export interface ExecuteWriteSetWideningRequestInput {
   authority: WorkerWriteAuthority;
   headerDeclaresEvidenceSymbol?: boolean;
   wideningId?: string;
+  /**
+   * Ordering active only: readiness of the requested headers, resolved by the
+   * caller (see `HeaderReadinessResolver`). Applied to fresh and cached rung-3
+   * approvals; absent keeps today's behaviour.
+   */
+  headerReadiness?: HeaderReadinessCheck;
 }
 
 export interface ExecuteWriteSetWideningRequestResult {
@@ -145,6 +176,8 @@ export interface CreateRequestWriteSetWideningHandlerInput {
   mode: WriteSetWideningMode;
   authority: WorkerWriteAuthority;
   headerDeclaresEvidenceSymbol?: (request: WideningRequest) => boolean | undefined | Promise<boolean | undefined>;
+  /** Ordering active only: readiness of rung-3 header paths (see `ExecuteWriteSetWideningRequestInput.headerReadiness`). */
+  headerReadiness?: { mode: HeaderReadinessCheck["mode"]; resolve: HeaderReadinessResolver };
   onProcessed?: (result: ExecuteWriteSetWideningRequestResult) => void | Promise<void>;
 }
 
@@ -655,6 +688,38 @@ export function shouldApplyWideningDecision(
   return false;
 }
 
+function isReadinessDenial(decision: WideningDecision): boolean {
+  return decision.status === "denied" && decision.reason.startsWith(READINESS_DENIAL_PREFIX);
+}
+
+/**
+ * Rung-3 readiness: an approval whose header defines a class that is
+ * `not_ready` or `unresolved` is denied under `enforce`; under `shadow` the
+ * approval stands and carries `wouldDeny`. Anything else is unchanged.
+ */
+export function applyHeaderReadiness(
+  decision: WideningDecision,
+  readiness: HeaderReadinessCheck | undefined,
+): WideningDecision {
+  if (!readiness || decision.status !== "approved" || decision.validationTier !== 3) return decision;
+  for (const path of decision.approvedPaths) {
+    const verdict = readiness.verdicts.get(normalizedRepoPath(path));
+    if (!verdict || verdict.state === "ready") continue;
+    const blocking = verdict.classes.filter((row) => row.state === "not_ready" || row.state === "unresolved");
+    const named = blocking.length > 0
+      ? blocking.slice(0, 3).map((row) => `${row.class} (owner unit ${row.owner_unit ?? "unknown"}, ${row.state})`).join(", ")
+      : `its classes (${verdict.state})`;
+    const first = blocking[0];
+    const leave = first
+      ? `leave it until ${first.class}'s own unit${first.owner_unit ? ` ${first.owner_unit}` : ""} is decompiled`
+      : "leave it until the owning unit of its classes is decompiled";
+    const reason = `${READINESS_DENIAL_PREFIX} ${path} defines ${named}; ${leave}. Keep the fix in the target source (forward declarations are fine).`;
+    if (readiness.mode === "shadow") return { ...decision, wouldDeny: { classes: blocking, reason } };
+    return denied(decision.wideningId, 3, reason);
+  }
+  return decision;
+}
+
 /**
  * Authoritative widening transaction path shared by final-note requests and
  * the in-session worker tool. Identical requests reuse their audit row and do
@@ -692,7 +757,9 @@ export function executeWriteSetWidening(
     });
   }
 
-  let decision = prior ? recordedDecision(prior) : null;
+  const recorded = prior ? recordedDecision(prior) : null;
+  // A readiness denial depends on the revision, so it is decided again.
+  let decision = recorded && !isReadinessDenial(recorded) ? recorded : null;
   if (!decision) {
     decision = decideWidening({
       request: normalizedRequest,
@@ -701,6 +768,10 @@ export function executeWriteSetWidening(
       allowOwningHeader: input.mode === "shadow" || input.mode === "header",
       headerDeclaresEvidenceSymbol: input.headerDeclaresEvidenceSymbol,
     });
+  }
+  // Cached approvals are re-checked against readiness as well as fresh ones.
+  decision = applyHeaderReadiness(decision, input.headerReadiness);
+  if (!recorded || recorded.status !== decision.status || recorded.reason !== decision.reason) {
     recordWriteSetWideningDecision(input.store, wideningId, decision);
   }
 
@@ -771,6 +842,14 @@ export function createRequestWriteSetWideningHandler(
         mode: context.mode,
         authority: context.authority,
         headerDeclaresEvidenceSymbol: await context.headerDeclaresEvidenceSymbol?.(draft.request),
+        ...(context.headerReadiness && draft.request.rung === 3
+          ? {
+              headerReadiness: {
+                mode: context.headerReadiness.mode,
+                verdicts: await context.headerReadiness.resolve(draft.request.paths.map(normalizedRepoPath)),
+              },
+            }
+          : {}),
       });
       writeSetAfter = result.writeSetAfter;
       applied ||= result.applied;

@@ -4,7 +4,15 @@ import { fileURLToPath } from "node:url";
 import {
   AGENT_COMMENT_TERMS,
   STACK_POLICY_REDACTION,
+  STEERING_PROBE_LABEL,
+  applyKnowledgePolicies,
+  applyKnowledgePolicy,
+  applySteeringPolicy,
   detectBannedStackTactics,
+  detectSteeringTactics,
+  knowledgePolicyText,
+  relabelSteeringTactics,
+  steeringGateForGame,
   hasBannedStackTactic,
   redactBannedStackTactics,
   redactStackTacticsInPayload,
@@ -95,5 +103,86 @@ describe("banned stack tactic detector", () => {
     expect(stackFramePolicyForGame("no-such-game")).toBe("match_frame");
     expect(stackFramePolicyPromptBlock("match_frame")).toBe("");
     expect(stackFramePolicyPromptBlock("stop_at_frame")).toContain("<stack_frame_policy");
+  });
+});
+
+const steeringRulesOf = (text: string) => [...new Set(detectSteeringTactics(text).map((finding) => finding.rule))].sort();
+
+describe("steering tactic relabel", () => {
+  test.each([
+    ["Store the position in a temp to match the register allocation.", "steering_temp"],
+    ["Splitting the expression into a local fixed r31.", "steering_temp"],
+    ["Use a single-use alias for the actor pointer; it matched.", "steering_temp"],
+    ["\tf32 tmp = obj->mPos.x;", "steering_temp"],
+    ["\tfoo(a); // temp needed to match regalloc", "steering_temp"],
+    ["Use the field directly instead of the getter to match.", "steering_accessor"],
+    ["Replace obj->getPos() with obj->mPos to get the right load order.", "steering_accessor"],
+    ["Rewriting the if/else into a ternary matched the branch.", "steering_form"],
+    ["Swapping the operands of the comparison fixed the cmpw order.", "steering_form"],
+    ["Using s32 instead of int got the match.", "steering_form"],
+    ["Reordering the declarations fixed the register allocation.", "steering_form"],
+  ])("labels %p as %p", (text, rule) => {
+    expect(steeringRulesOf(text)).toContain(rule as never);
+  });
+
+  test.each([
+    "Do not add single-use temps to fix the match.",
+    "Removed the temp; the real fix was an inline accessor.",
+    "The temp variable holds the actor pointer.",
+    "Matched calc by restoring the getter.",
+    "Hoist the loop bound into a local.",
+    "\tint i;",
+  ])("leaves %p alone", (text) => {
+    expect(detectSteeringTactics(text)).toEqual([]);
+    expect(relabelSteeringTactics(text).text).toBe(text);
+  });
+
+  test("labels only the offending sentence, keeps the text, and is idempotent", () => {
+    const text = "Matched the loop. Store the position in a temp to match. Register r31 holds it.";
+    const once = relabelSteeringTactics(text);
+    expect(once.text).toBe(`Matched the loop. Store the position in a temp to match. ${STEERING_PROBE_LABEL} Register r31 holds it.`);
+    expect(once.findings.map((finding) => finding.rule)).toEqual(["steering_temp"]);
+    expect(relabelSteeringTactics(once.text).text).toBe(once.text);
+  });
+
+  test("labels added diff lines and ignores removed ones", () => {
+    const diff = ["@@ -1,3 +1,3 @@", " void f() {", "-\tf32 tmp = a;", "+\tf32 tmp = b;", " }"].join("\n");
+    const lines = relabelSteeringTactics(diff).text.split("\n");
+    expect(lines[2]).toBe("-\tf32 tmp = a;");
+    expect(lines[3]).toBe(`+\tf32 tmp = b; ${STEERING_PROBE_LABEL}`);
+  });
+
+  test("payload relabel keeps identity fields and is a no-op with the gate off", () => {
+    const payload = { locator: "pr://doldecomp/sms#212 tmp", summary: "Store the position in a temp to match." };
+    expect(applySteeringPolicy(payload, "off")).toBe(payload);
+    const labelled = applySteeringPolicy(payload, "shadow");
+    expect(labelled.locator).toBe(payload.locator);
+    expect(labelled.summary).toBe(`${payload.summary} ${STEERING_PROBE_LABEL}`);
+  });
+
+  test("composed policy redacts stack tactics first, then labels steering", () => {
+    const text = "Added char trash[0x18] to fix the stack frame. Using s32 instead of int got the match.";
+    expect(knowledgePolicyText({ stackFramePolicy: "stop_at_frame", steeringGate: "shadow" })(text))
+      .toBe(`${STACK_POLICY_REDACTION} Using s32 instead of int got the match. ${STEERING_PROBE_LABEL}`);
+    expect(knowledgePolicyText({ stackFramePolicy: "match_frame", steeringGate: "off" })(text)).toBe(text);
+    const applied = applyKnowledgePolicy({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }, { summary: text });
+    expect(applied.stack_policy_redactions).toBe(1);
+    expect(applied.steering_policy_relabels).toBe(1);
+    expect(applied.steering_policy_note).toContain("diagnostic probe");
+  });
+
+  test("reads the steering gate per game: SMS relabels, Melee is untouched", () => {
+    expect(steeringGateForGame("melee")).toBe("off");
+    expect(steeringGateForGame("no-such-game")).toBe("off");
+    const payload = { summary: "Using s32 instead of int got the match." };
+    expect(applyKnowledgePolicies("melee", payload)).toBe(payload);
+    const sms = applyKnowledgePolicies("sms", payload);
+    expect(sms.stack_policy_note).toContain("banned");
+    if (steeringGateForGame("sms") === "off") {
+      expect(sms.summary).toBe(payload.summary);
+    } else {
+      expect(sms.summary).toBe(`${payload.summary} ${STEERING_PROBE_LABEL}`);
+      expect(sms.steering_policy_note).toBeDefined();
+    }
   });
 });

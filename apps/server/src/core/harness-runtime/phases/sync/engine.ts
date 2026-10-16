@@ -68,6 +68,7 @@ import type {
 
 interface SyncGameContext {
   baseRef?: string;
+  steeringGate?: string | null;
   reportPath?: string;
   reportChangesPath?: string;
   qaTarget?: string;

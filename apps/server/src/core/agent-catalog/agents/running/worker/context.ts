@@ -2,9 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineContext } from "@agent-kernel/kernel/agent-definition";
 import type { LoaderDeclaration } from "@agent-kernel/kernel/context";
-import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
+import type { OrderingMode, StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import { gameStackFramePolicy } from "@server/core/tools/stack-frame-policy.js";
+import { gameSteeringGate, steeringGateActive } from "@server/core/tools/steering-gate.js";
 import type {
   PiPromptBundle,
   RunGameMetadata,
@@ -17,6 +19,8 @@ import {
   openKnowledgeGraph,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
+import { withActiveVerification } from "@server/core/knowledge/graph/file-card.js";
+import type { FileGraphCard } from "@server/core/knowledge/graph/types.js";
 import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
 import { formatSourceView, renderSourceView, sourceViewForText, sourceViewStartLine, SOURCE_VIEW_MAX_BYTES, type SourceName } from "@server/core/knowledge-v2/source-view.js";
 import {
@@ -82,6 +86,10 @@ export interface WorkerPromptOptions {
   advisoryAdjudication?: AdvisoryAdjudicationMode;
   /** The game's `matching.stackFramePolicy`; omitted resolves it from `game`, else `match_frame` (today's text). */
   stackFramePolicy?: StackFramePolicy;
+  /** The game's `matching.steeringGate`; omitted resolves it from `game`, else `off` (today's text). */
+  steeringGate?: SteeringGateMode;
+  /** The game's `ordering.mode`; omitted resolves it from `game`, else `off` (today's text). */
+  ordering?: OrderingMode;
 }
 
 /** The stack frame policy the worker prompt renders for. */
@@ -91,6 +99,20 @@ export function workerStackFramePolicy(
   return options.stackFramePolicy ?? gameStackFramePolicy(options.game);
 }
 
+/** The steering gate mode the worker prompt renders for. */
+export function workerSteeringGate(
+  options: Pick<WorkerPromptOptions, "game" | "steeringGate">,
+): SteeringGateMode {
+  return options.steeringGate ?? gameSteeringGate(options.game);
+}
+
+/** The ordering mode the worker prompt renders for. */
+export function workerOrdering(
+  options: Pick<WorkerPromptOptions, "game" | "ordering">,
+): OrderingMode {
+  return options.ordering ?? gameOrdering(options.game)?.mode ?? "off";
+}
+
 export interface WorkerPromptInputXmlOptions {
   packet: Record<string, unknown>;
   repoRoot: string;
@@ -98,6 +120,8 @@ export interface WorkerPromptInputXmlOptions {
   contextBudget?: WorkerPromptContextBudget;
   targetSourceText?: string | null;
   sourceNames?: readonly SourceName[];
+  /** The game's `matching.steeringGate`; omitted resolves it from `game`, else `off`. */
+  steeringGate?: SteeringGateMode;
 }
 
 export interface WorkerPromptInputXml {
@@ -110,7 +134,7 @@ const WORKER_PACKET_CONTEXT_TEMPLATE = `
 
 {{TARGET_XML}}
 
-{{FIRST_DIFF_XML}}
+{{FIRST_DIFF_XML}}{{STEERING_PROBE_XML}}{{NOT_READY_CLASSES_XML}}
 
 {{TARGET_KNOWLEDGE_XML}}
 
@@ -324,6 +348,222 @@ function targetXml(
 
 // Repair attempts must see why the runner rejected the previous return; the
 // packet carries repair_request but only rendered blocks reach the agent.
+/**
+ * The newest steering probe for this target (`packet.steering_probe`, set at
+ * claim time from a previous attempt's gate result), or "" when absent or the
+ * game's steering gate is off.
+ */
+export function steeringProbeXml(packet: Record<string, unknown>, steeringGate: SteeringGateMode | null | undefined): string {
+  if (!steeringGateActive(steeringGate)) return "";
+  const probe = asRecord(packet.steering_probe);
+  if (Object.keys(probe).length === 0) return "";
+  const fn = optionalString(probe.function);
+  const unit = optionalString(probe.unit);
+  return [
+    `    <steering_probe${fn ? ` function="${xmlAttribute(fn)}"` : ""}${unit ? ` unit="${xmlAttribute(unit)}"` : ""}>`,
+    `        <instruction>${xmlText("A previous attempt on this target matched through steering edits. The probe lists those edits, the match without them, hypotheses for the real cause, and evidence. Find the real construct; do not resubmit the steering edits.")}</instruction>`,
+    jsonBlockXml("probe_json", probe),
+    "    </steering_probe>",
+  ].join("\n");
+}
+
+function percent(value: unknown): string | null {
+  const n = optionalNumber(value);
+  return n === null ? null : `${Number(n.toFixed(2))}%`;
+}
+
+/** The standing instruction, one clause per broken rule; steering's is the default. */
+function previousAttemptInstruction(kinds: string[]): string {
+  const parts = [
+    "Do not repeat these edits or reintroduce the removed code.",
+    ...(kinds.includes("dead_unused_body")
+      ? ["Keep the upstream stub; give the body back only if `steering_check.py unused-test` shows a same-TU caller gets worse when it is emptied."]
+      : []),
+    ...(kinds.includes("out_of_order") ? ["Leave the code that needs undecompiled classes until their units are decompiled."] : []),
+    ...(kinds.includes("steering") || kinds.every((kind) => kind !== "dead_unused_body" && kind !== "out_of_order")
+      ? ["Search for what the original source really had (the real inline, type, call or construct), or leave the function nonmatching."]
+      : []),
+  ];
+  return parts.join(" ");
+}
+
+/** One sentence: how the function got its earlier match and what the backfill did about it. */
+function previousAttemptSummary(attempt: Record<string, unknown>, kinds: string[]): string {
+  const match = asRecord(attempt.match);
+  const withSteering = percent(match.with_steering);
+  const realOnly = percent(match.real_only);
+  const applied = attempt.applied === true;
+  const tricks = [
+    ...(kinds.includes("steering") ? ["behaviour-identical steering edits"] : []),
+    ...(kinds.includes("dead_unused_body") ? ["a body for a map-UNUSED function the original never inlined (dead code)"] : []),
+    ...(kinds.includes("out_of_order") ? ["code that needs classes whose units are not decompiled yet"] : []),
+  ];
+  const how = tricks.length > 0 ? tricks.join(" and ") : "edits the steering gate could not certify";
+  const reached = withSteering ? `reached ${withSteering}` : "matched";
+  const action = applied
+    ? "The steering backfill rolled it back and removed that code"
+    : "The steering backfill rejected it; that code is to be removed";
+  const after = realOnly ? `; the real-only match left is ${realOnly}` : "";
+  return `A previous attempt ${reached} only through ${how}. ${action}${after}.`;
+}
+
+// `UNVERIFIED_MATCH_STATE` / `UNVERIFIED_MATCH_LABEL` (run-state/unverified-matches.ts), kept
+// literal so the prompt module does not load the state store.
+const UNVERIFIED_MATCH_STATE = "unverified_match";
+const UNVERIFIED_MATCH_LABEL = "100% unverified";
+
+/** What happened: the code reaches 100% but the gate could not verify it is real. */
+function unverifiedMatchSummary(attempt: Record<string, unknown>): string {
+  const match = asRecord(attempt.match);
+  const candidate = percent(match.candidate) ?? "100%";
+  const realOnly = percent(match.real_only);
+  const reduced = realOnly ? ` The reduced candidate reaches ${realOnly}.` : "";
+  return `This function's code reaches ${candidate}, but the steering gate could not verify that it is real code: it could neither prove the match real nor attribute it to steering. It is marked "${UNVERIFIED_MATCH_LABEL}": not done and not counted as matched.${reduced}`;
+}
+
+const UNVERIFIED_MATCH_INSTRUCTION = [
+  "Keep the parts that are real code.",
+  "Find what each unexplained edit below stands for: the real inline, type, call or construct the original had, or evidence (`real_code_evidence`) that it is the original's code.",
+  "Produce a version the steering gate certifies: separate real fixes from steering in their own statements and remove every steering edit. Resubmitting the same code leaves it unverified.",
+].join(" ");
+
+/**
+ * The `unverified_match` variant ("100% unverified"): the function's active
+ * `steering_unverified_matches` row, its match, the edits the gate could not
+ * explain and the gate's reasons.
+ */
+function unverifiedMatchXml(attempt: Record<string, unknown>): string {
+  const match = asRecord(attempt.match);
+  const edits = asRecordArray(attempt.unexplained_edits).filter((edit) => optionalString(edit.file));
+  const reasons = Array.isArray(attempt.reasons) ? attempt.reasons.filter((reason): reason is string => typeof reason === "string" && reason !== "") : [];
+  const hints = asRecordArray(attempt.hints).filter((hint) => optionalString(hint.cause));
+  const attrs = [
+    optionalAttribute("variant", UNVERIFIED_MATCH_STATE),
+    optionalAttribute("function", optionalString(attempt.symbol)),
+    optionalAttribute("unit", optionalString(attempt.unit)),
+    optionalAttribute("decision", optionalString(attempt.decision)),
+    optionalAttribute("analyzed_rev", optionalString(attempt.analyzed_rev)?.slice(0, 12)),
+  ].join("");
+  const matchAttrs = [
+    optionalAttribute("base", percent(match.base)),
+    optionalAttribute("candidate", percent(match.candidate)),
+    optionalAttribute("real_only", percent(match.real_only)),
+  ].join("");
+  return [
+    `    <previous_attempt${attrs}>`,
+    `        <what_happened>${xmlText(unverifiedMatchSummary(attempt))}</what_happened>`,
+    `        <instruction>${xmlText(UNVERIFIED_MATCH_INSTRUCTION)}</instruction>`,
+    ...(matchAttrs ? [`        <match${matchAttrs} />`] : []),
+    ...(edits.length > 0
+      ? [
+          "        <unexplained_edits>",
+          ...edits.map((edit) => {
+            const shapes = Array.isArray(edit.shapes) ? edit.shapes.filter((shape) => typeof shape === "string").join(",") : "";
+            const where = `${edit.file}${optionalNumber(edit.line) !== null ? `:${edit.line}` : ""}`;
+            const body = [
+              ...(optionalString(edit.before) ? [`                <base>${xmlText(edit.before)}</base>`] : []),
+              ...(optionalString(edit.after) ? [`                <unexplained>${xmlText(edit.after)}</unexplained>`] : []),
+            ];
+            const open = `            <edit at="${xmlAttribute(where)}"${optionalAttribute("status", optionalString(edit.status))}${optionalAttribute("shapes", shapes)}`;
+            return body.length > 0 ? [`${open}>`, ...body, "            </edit>"].join("\n") : `${open} />`;
+          }),
+          "        </unexplained_edits>",
+        ]
+      : []),
+    ...reasons.map((reason) => `        <gate_reason>${xmlText(reason)}</gate_reason>`),
+    ...hints.map((hint) => `        <hint cause="${xmlAttribute(hint.cause)}"${optionalAttribute("how_to_check", optionalString(hint.how_to_check))}>${xmlText(hint.why ?? "")}</hint>`),
+    "    </previous_attempt>",
+  ].join("\n");
+}
+
+/**
+ * What the steering backfill found for this function in an earlier run
+ * (`packet.previous_attempt`, attached at claim time from its
+ * `steering_backfill` row, or its `unverified_match` row), or "" when absent
+ * or the steering gate is off.
+ */
+export function previousAttemptXml(packet: Record<string, unknown>, steeringGate: SteeringGateMode | null | undefined): string {
+  if (!steeringGateActive(steeringGate)) return "";
+  const attempt = asRecord(packet.previous_attempt);
+  if (Object.keys(attempt).length === 0) return "";
+  if (attempt.variant === UNVERIFIED_MATCH_STATE) return unverifiedMatchXml(attempt);
+  const rules = asRecordArray(attempt.rules);
+  const kinds = rules.map((rule) => String(rule.kind ?? ""));
+  const match = asRecord(attempt.match);
+  const edits = asRecordArray(attempt.removed_edits).filter((edit) => optionalString(edit.file));
+  const reasons = Array.isArray(attempt.reasons) ? attempt.reasons.filter((reason): reason is string => typeof reason === "string" && reason !== "") : [];
+  const hints = asRecordArray(attempt.hints).filter((hint) => optionalString(hint.cause));
+  const attrs = [
+    optionalAttribute("function", optionalString(attempt.symbol)),
+    optionalAttribute("unit", optionalString(attempt.unit)),
+    optionalAttribute("decision", optionalString(attempt.decision)),
+    optionalAttribute("analyzed_rev", optionalString(attempt.analyzed_rev)?.slice(0, 12)),
+  ].join("");
+  const matchAttrs = [
+    optionalAttribute("base", percent(match.base)),
+    optionalAttribute("with_steering", percent(match.with_steering)),
+    optionalAttribute("real_only", percent(match.real_only)),
+  ].join("");
+  return [
+    `    <previous_attempt${attrs}>`,
+    `        <what_happened>${xmlText(previousAttemptSummary(attempt, kinds))}</what_happened>`,
+    `        <instruction>${xmlText(previousAttemptInstruction(kinds))}</instruction>`,
+    ...(matchAttrs ? [`        <match${matchAttrs} />`] : []),
+    ...(edits.length > 0
+      ? [
+          "        <removed_edits>",
+          ...edits.map((edit) => {
+            const shapes = Array.isArray(edit.shapes) ? edit.shapes.filter((shape) => typeof shape === "string").join(",") : "";
+            const where = `${edit.file}${optionalNumber(edit.line) !== null ? `:${edit.line}` : ""}`;
+            const body = [
+              ...(optionalString(edit.before) ? [`                <base>${xmlText(edit.before)}</base>`] : []),
+              ...(optionalString(edit.after) ? [`                <removed>${xmlText(edit.after)}</removed>`] : []),
+            ];
+            const open = `            <edit at="${xmlAttribute(where)}"${optionalAttribute("shapes", shapes)}`;
+            return body.length > 0 ? [`${open}>`, ...body, "            </edit>"].join("\n") : `${open} />`;
+          }),
+          "        </removed_edits>",
+        ]
+      : []),
+    ...reasons.map((reason) => `        <gate_reason>${xmlText(reason)}</gate_reason>`),
+    ...hints.map((hint) => `        <hint cause="${xmlAttribute(hint.cause)}"${optionalAttribute("how_to_check", optionalString(hint.how_to_check))}>${xmlText(hint.why ?? "")}</hint>`),
+    ...rules.map((rule) => {
+      const ruling = asRecord(rule.ruling);
+      const quote = optionalString(ruling.quote);
+      const lines = [
+        `        <rule name="${xmlAttribute(rule.name ?? rule.kind)}">`,
+        `            <summary>${xmlText(rule.summary ?? "")}</summary>`,
+        ...(quote
+          ? [`            <maintainer_quote${optionalAttribute("reviewer", optionalString(ruling.reviewer))}${optionalAttribute("pr", optionalString(ruling.pr))}${optionalAttribute("ruling", optionalString(ruling.id))}>${xmlText(quote)}</maintainer_quote>`]
+          : []),
+        ...(optionalString(ruling.rule) ? [`            <ruling_rule>${xmlText(ruling.rule)}</ruling_rule>`] : []),
+        "        </rule>",
+      ];
+      return lines.join("\n");
+    }),
+    "    </previous_attempt>",
+  ].join("\n");
+}
+
+/**
+ * The classes the target needs whose units are not decompiled
+ * (`packet.not_ready_classes`, else `packet.target.not_ready_classes`: the
+ * readiness entry's `unmet`, attached by the scheduler), or "" when there are
+ * none or ordering is off.
+ */
+export function notReadyClassesXml(packet: Record<string, unknown>, ordering: OrderingMode | null | undefined): string {
+  if (!orderingActive(ordering)) return "";
+  const raw = Array.isArray(packet.not_ready_classes) ? packet.not_ready_classes : asRecord(packet.target).not_ready_classes;
+  const rows = asRecordArray(raw).filter((row) => optionalString(row.class));
+  if (rows.length === 0) return "";
+  return [
+    "    <not_ready_classes>",
+    `        <instruction>${xmlText("Do not construct or declare these; their units are not decompiled.")}</instruction>`,
+    ...rows.map((row) => `        <class name="${xmlAttribute(row.class)}"${optionalAttribute("owner_unit", optionalString(row.owner_unit))}${optionalAttribute("kind", optionalString(row.kind))} />`),
+    "    </not_ready_classes>",
+  ].join("\n");
+}
+
 function repairRequestXml(packet: Record<string, unknown>): string {
   const repair = asRecord(packet.repair_request);
   if (Object.keys(repair).length === 0) return "";
@@ -382,9 +622,44 @@ function fileCardFromGraph(
   }
 }
 
+/**
+ * The worker's own target when it is an active `unverified_match` (the board's
+ * `target.verification`, or the claim's `previous_attempt` variant), else null.
+ */
+function unverifiedOwnTarget(packet: Record<string, unknown>): { unit: string; symbol: string } | null {
+  const target = asRecord(packet.target);
+  const unit = optionalString(target.unit);
+  const symbol = optionalString(target.symbol);
+  if (!unit || !symbol) return null;
+  const attempt = asRecord(packet.previous_attempt);
+  const marked = target.verification === UNVERIFIED_MATCH_STATE
+    || (attempt.variant === UNVERIFIED_MATCH_STATE && (optionalString(attempt.symbol) ?? symbol) === symbol);
+  return marked ? { unit, symbol } : null;
+}
+
+/**
+ * Steering-gated games: the file card with the current verification state
+ * overlaid. The packet's card, or one read from a graph built before the
+ * backfill recorded the row, can call the target's file `read_only_complete`
+ * ("reference evidence only") when every raw score is 100%; an unverified
+ * target is not done, so its file is editable. Functions the graph already
+ * labels unverified stay counted. Gate off (Melee): the card as stored.
+ */
+function verifiedFileCard(
+  card: Record<string, unknown>,
+  packet: Record<string, unknown>,
+  steeringGate: SteeringGateMode,
+): Record<string, unknown> {
+  if (!steeringGateActive(steeringGate) || Object.keys(card).length === 0) return card;
+  const own = unverifiedOwnTarget(packet);
+  if (!own) return card;
+  return withActiveVerification(card as unknown as FileGraphCard, [own], { sameFile: true }) as unknown as Record<string, unknown>;
+}
+
 function targetContextHints(
   packet: Record<string, unknown>,
   game?: RunGameMetadata,
+  steeringGate: SteeringGateMode = gameSteeringGate(game),
 ): TargetContextHints {
   const target = asRecord(packet.target);
   const sourcePath = optionalString(target.source_path) ?? "";
@@ -398,9 +673,13 @@ function targetContextHints(
         analogs: asRecordArray(relatedFunctions.analogs).slice(0, 4),
       }
     : null;
-  const card = fromPacket.present
-    ? fromPacket.card
-    : fileCardFromGraph(sourcePath, game, fromPacket.graphDb);
+  const card = verifiedFileCard(
+    fromPacket.present
+      ? fromPacket.card
+      : fileCardFromGraph(sourcePath, game, fromPacket.graphDb),
+    packet,
+    steeringGate,
+  );
   if (Object.keys(card).length === 0) {
     return { editability: null, sameFileSymbols: [], relatedFunctions: related };
   }
@@ -644,7 +923,7 @@ export function workerPromptInputXml(
   const primarySourceAbs = primarySourcePath
     ? resolve(options.repoRoot, primarySourcePath)
     : "";
-  const contextHints = targetContextHints(options.packet, options.game);
+  const contextHints = targetContextHints(options.packet, options.game, options.steeringGate ?? gameSteeringGate(options.game));
   const source = options.targetSourceText !== undefined ? options.targetSourceText
     : primarySourceAbs && existsSync(primarySourceAbs) ? readFileSync(primarySourceAbs, "utf8") : null;
   let proposedView: string | undefined;
@@ -685,16 +964,23 @@ export function buildWorkerKernelContext(
     contextBudget,
     targetSourceText: options.targetSourceText,
     sourceNames: options.sourceNames,
+    steeringGate: workerSteeringGate(options),
   });
   const targetKnowledgeXml = workerTargetKnowledgeXml(
     options.packet,
     options.game,
     contextBudget,
   );
+  const steeringGate = workerSteeringGate(options);
+  const steeringBlocks = [previousAttemptXml(options.packet, steeringGate), steeringProbeXml(options.packet, steeringGate)].filter(Boolean);
+  const notReadyClasses = notReadyClassesXml(options.packet, workerOrdering(options));
   const values = {
     DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game, options.advisoryAdjudication ?? "off"),
     FIRST_DIFF_XML: inputXml.firstDiffXml,
     REPAIR_REQUEST_XML: repairRequestXml(options.packet),
+    // Joined to the first diff so absent steering blocks leave the context byte-identical.
+    STEERING_PROBE_XML: steeringBlocks.map((block) => `\n\n${block}`).join(""),
+    NOT_READY_CLASSES_XML: notReadyClasses ? `\n\n${notReadyClasses}` : "",
     TARGET_XML: inputXml.targetXml,
     TARGET_KNOWLEDGE_XML: targetKnowledgeXml,
   };

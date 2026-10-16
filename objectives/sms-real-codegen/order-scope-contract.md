@@ -1,0 +1,51 @@
+# Order-and-scope implementation contract
+
+Read `order-scope-plan.md` (v3) first. These interfaces are fixed so slices can be built in parallel. TOOLS = `toolpacks/gamecube-decomp/_impl/gamecube/tools/`.
+
+## Python (TOOLS)
+
+### readiness.py
+- `load(repo: Path, rev: str, *, version=None, policy: dict | None = None, cache_dir=None) -> Readiness` (raises `ReadinessError(kind, detail)` with kind in `missing_objects|missing_map|bad_rev|timeout|malformed`).
+- `Readiness.identity -> {"repo","rev","version","target_stamp","map_sha","policy_hash"}`
+- `Readiness.class_state(qualified) -> {"class","owner_unit"|None,"provenance":"vtable|majority|weak_only|ambiguous|absent","started":bool,"construct":"ready|not_ready|shared|unresolved","declare":"ready|not_ready|shared|unresolved"}`
+- `Readiness.function(unit, symbol) -> {"unmet":[{"class","owner_unit","kind":"construct|vtable|rtti"}],"unresolved":[...same...]}`
+- `Readiness.gated(path) -> bool` (fnmatch on `policy["gatedPaths"]`).
+- CLI: `python3 readiness.py index --repo R --rev REV [--version V] [--policy-json JSON] [--cache-dir D] --json` → `{"identity":{...},"functions":{"unit::symbol":{"state":"ready|deferred|blocked","unmet":[...],"unresolved":[...]}},"classes":{...},"summary":{"blocked":N,"deferred":N,"ready":N,"unresolved_classes":N}}`. `blocked` = gated unit and non-empty unmet; `deferred` = non-gated and non-empty unmet or unresolved. Exit 0 on success, 2 on ReadinessError (stderr JSON `{"error":kind,"detail":...}`).
+- `policy` keys: `gatedPaths` (list of globs).
+
+### edit_scope.py
+- `classify(repo: Path, base_rev: str, files: list[{"path","before":str|None,"after":str|None}], *, target_unit: str|None, readiness: Readiness, unused_checks: list|None = None, policy: dict) -> dict`
+- Output: `{"identity":{"base_rev","patch_sha256","readiness":{...identity}},"verdict":"pass|reject","hunks":[{"file","line","class"|None,"verdict":"own_class|ready|foreign_header|local_helper|not_ready|unresolved|order_gated|dead_unused|unused_unverified|forward_decl|moved","reason"}],"warnings":[...],"limits":{"foreign_headers":N,"foreign_header_lines":N}}`. Reject verdicts: `not_ready`, `unresolved`, `order_gated`, `dead_unused`, `unused_unverified` (UNUSED reconstruction without a bound `inlined` check).
+- CLI: `python3 edit_scope.py check --repo R --base-rev B [--head-rev H | --overlay-dir D | --worktree] [--target-unit U] [--unused-checks FILE] [--policy-json JSON] --json` (same output). `--worktree` = working tree incl. untracked under src/include/libs.
+
+### pr_scope_check (subcommand of edit_scope.py)
+- `python3 edit_scope.py pr --repo R --base B --head H [--policy-json JSON] [--unused-checks FILE] --json` → edit_scope output over `B...H` plus `"pr_size":{"units","files","changed_lines","warnings":[...]}` and `"same_pr_prerequisites":[...]` (warnings). Readiness at `B`.
+
+### steering_check.py
+- The MarNameRefGen order check uses `readiness.construct` (not unit_progress thresholds); violation shape unchanged (`out_of_order`); unknown → `unresolved`.
+
+### Additions (implemented; additive to the interfaces above)
+- `readiness.Readiness.class_state(qualified, path=None)`: with `path`, a class that file already constructs at rev (`new C`, canonical identity) is construct `ready` with provenance `precedent`. `function()` also returns `"precedent":[...]`. `class_state_with_sources(qualified, {path: text})`: the same rules over candidate source texts (PR prerequisites). Extra methods: `unit_for_source`, `source_of`, `unused_symbols`, `is_namespace`, `canonical`, `precedent`, `index`.
+- Preprocessor (`preprocess.py`: `active_text(text, defines, unknown)`, `eval_condition`, `defines_from_flags`) has two modes. Reference mode (`unknown="active"`, default; everything that looks for things to flag: edit_scope class/reference scanning, gate order refs, UNUSED candidate discovery, lints) evaluates no condition: every branch, `#if 0` included, is scanned (only added lines count, so untouched upstream `#if 0` blocks do not flag). Positive-evidence mode (`unknown="inactive"`: readiness definitions, precedent, base definitions that exempt an UNUSED body) first checks the RAW text (`undecidable_file`): any trigraph (`??` + one of `=/'()!<>-`, even in a comment), any digraph (`%:` `<:` `:>` `<%` `%>`), a backslash followed by whitespace before a newline or at end of file, a bare carriage return, or a raw string (`R"(`) makes the whole file undecidable (no evidence from any line). Otherwise it applies the C translation phases (backslash-newline splices joined, then comments and literal contents masked, offsets/newlines kept) and only then recognises directives on the masked logical lines (`# /*c*/ define` and splices inside directives handled; a `#if` in a string is not a directive; an unterminated comment/literal makes everything from there undecidable); it blanks every branch not certainly active (spaces; offsets/lines preserved) and masks comments in its result, using token-level object-like macro expansion and a strictly signed-32-bit C evaluator: any literal suffix, literal >= 2^31, intermediate/final value outside signed 32-bit, function-like macro, cast, sizeof, uncertain macro (`#define`/`#undef` on an undecidable line) or unsupported construct is undecidable (never evidence).
+- Class references (`steering_check.class_references`): `new X`, placement `new (a) X`, `new (X)`, `TX::`, `TX(` over the whole token stream (expressions may span lines); `added_references` maps them to added lines. Added `#include` lines are not references.
+- `edit_scope.py` CLI: policy from `--policy-json`, else `$ORCH_ORDERING_POLICY`; neither → exit 2 (`tool_failure`). Hunks gain `class_line` (the class head); `line` is the first added/changed line of the class's members.
+- `unused_checks` rows (steering_check `mwcc`/`decide`, and `unused-test` rows) carry `unit_inputs` (sorted repo-relative paths: the unit source + every tracked file under src/include/libs the unit object depends on — ninja deps for the object, the PCH's headers when it uses one, unioned with the candidate's resolvable literal `#include`s; changed or not. Ninja deps are authoritative when present; without them the transitive literal-include closure resolved against the unit's `-i` dirs must be complete — a computed include (`#include HEADER`) or an unresolvable one makes the check `inconclusive`) and `unit_flags_sha256` = sha256 of the unit's objdiff.json `scratch.c_flags` (edit_scope compares it with `Readiness.unit_flags(unit)`; mismatch → "stale certificate (compile flags changed); re-certify", unknown → unverified; TS may ignore it) and `unit_inputs_sha256` = hex sha256 over, for each path in sorted(unit_inputs): `path.encode() + b"\0" + str(len(data)).encode() + b"\0" + data` (missing file: data `b""`, length field `-1`), data = the file's bytes at the certified candidate. Implementation `steering_check.unit_inputs_sha256(paths, read)`; TS `unitInputsSha256`; shared vector `apps/server/src/core/validation/steering/__fixtures__/unit-inputs-vector.json`. `edit_scope` binds a row when `body_sha256` matches and, if the row has `unit_inputs_sha256`, the hash recomputed over its `unit_inputs` from the texts being checked equals it (base_rev/edits_hash then need not match); rows without it keep the base_rev(+edits_hash) rule; mismatch → `unused_unverified`, reason "stale certificate (unit inputs changed); re-certify".
+- Exact function identity (shared with the lints): `signatures.py` (stdlib, loadable by path). `TypeIndex.from_git(repo, rev)` / `.from_texts(texts)` / `.with_texts(overlay)`; `source_signatures(text, index, path) -> [SourceSignature]`; `demangled_signature(mangled)`; `matches(sig, mangled) -> True|False|None` (None = undecidable, never evidence; a type name declared nowhere in the index makes its parameter undecidable unless spelled exactly like the mangled type); `canonical_type`. No int/long folding, pointee const kept, typedefs/namespaces/`using` resolved from the repo. Used by readiness (started/construct), steering_check UNUSED identity (`unused_candidates(..., index=)`, undecidable → `inconclusive`), and edit_scope.
+- Link-map coverage: `mwcc.unused_map[unit] = {available, unused, reason}`; when `game_policy.link_map_required()` (`ORCH_LINK_MAP_REQUIRED`, else game.json `matching.linkMap`, else kind `doldecomp-sms` with the steering gate active) a touched unit without coverage makes the attempt `unresolved`.
+
+## TypeScript
+
+### Config (`core/game-registry/resolver.ts`)
+`GameDescriptor.ordering?: { mode: "off"|"shadow"|"enforce"; gatedPaths: string[]; scope?: { maxForeignHeaders?: number; maxForeignHeaderLines?: number } }`; absent stays absent. Effective-config check: `ordering.mode == "enforce"` requires `matching.steeringGate` in {shadow, enforce}. Helper `core/tools/ordering.ts`: `gameOrdering(game)`, `orderingActive(mode)`, `orderingEnforced(mode)`, env `ORCH_ORDERING_MODE`, `ORCH_ORDERING_POLICY` (JSON) forwarded only when active.
+
+### Readiness loader (`core/harness-runtime/phases/running/scheduler/readiness.ts`)
+`loadReadinessForEpoch({ globals, rev, timeoutMs? }): Promise<ReadinessLoad>` where `ReadinessLoad = { ok: true, index: ReadinessIndex } | { ok: false, error: string }`; `ReadinessIndex = { identity, functions: Map<string,{state, unmet, unresolved}>, summary }`; cached per identity.
+
+### Board
+`loadBoardSnapshot(..., { readiness?: ReadinessIndex, readinessMode?: "shadow"|"enforce" })` → `BoardSnapshot` gains `blocked?: BlockedCandidate[]`, `deferred?: string[]` (keys, admitted after ready ones), `wouldBlock?`, `wouldDefer?` (shadow). Admission result gains `{ kind: "readiness_blocked_only", blocked }`.
+
+### Worker
+`validateWorkerChange` gains `editScope?: WorkerEditScopeResult` (status `edit_scope_rejected` added to runner-validation statuses, fails hard gates); repair instruction `EDIT_SCOPE_INSTRUCTION`. Packet placeholder `{{NOT_READY_CLASSES_XML}}` → `<not_ready_classes>`; prompt section `<order_and_scope>` (shadow/enforce wording).
+
+### Integration / publication
+Disposition `rejected_out_of_scope` with status `rejected`; `HarnessDraftPrPublishResult.status` gains `scope_refused`; job `server:job -- pr-scope-check`.

@@ -52,6 +52,28 @@ describe("opseq similarity graph records", () => {
     expect(records?.chunks.some((chunk) => chunk.entityId === functionEntityId("unit/a", "TargetFn"))).toBe(true);
   });
 
+  test("an active unverified_match analog is never offered as a matched reference", () => {
+    const { repoRoot, indexesRoot } = opseqFixture();
+    const plain = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot });
+
+    const records = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot, unverifiedMatches: [{ unit: "unit/b", symbol: "RefFn" }] });
+
+    const targetFact = records?.facts.find((fact) => fact.entityId === functionEntityId("unit/a", "TargetFn"));
+    expect(targetFact?.payload).toMatchObject({ best_matched_score: 0, matched_analog_count: 0, exact_analog_count: 1 });
+    // Its raw score and the opcode similarity stay honest; only the done label is withheld.
+    expect((targetFact?.payload.top_analogs as Array<Record<string, unknown>>)[0]).toMatchObject({
+      symbol: "RefFn",
+      fuzzy: 100,
+      status: "unverified_match",
+      score: 0.97,
+      exact_match: true,
+      matched: false,
+    });
+    // A change of verification state alone is a new source version.
+    expect(records?.sourceVersion.id).not.toBe(plain?.sourceVersion.id);
+    expect(records?.sourceVersion.contentHash).not.toBe(plain?.sourceVersion.contentHash);
+  });
+
   test("returns null when neighbor artifacts are absent", () => {
     const repoRoot = tempDir("opseq-repo-empty-");
     const indexesRoot = tempDir("opseq-index-empty-");

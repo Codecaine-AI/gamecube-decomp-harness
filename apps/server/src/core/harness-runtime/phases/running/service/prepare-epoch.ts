@@ -2,7 +2,7 @@ import { assertSandboxAdmission } from "@server/core/harness-state/sandbox-admis
 import { getHarnessState } from "@server/core/harness-state/state.js";
 import { getRun, openState } from "@server/core/harness-runtime/run-state";
 import { stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { ensureSchedulerEpochFromBoard, schedulerEpochConfigFromArgs } from "../scheduler/tick.js";
+import { ensureSchedulerEpochFromBoard, readinessForAdmission, schedulerEpochConfigFromArgs } from "../scheduler/tick.js";
 
 /** Seed the accepted report's queue while leaving execution paused. Never dispatch workers. */
 export async function prepareEpoch(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
@@ -15,10 +15,13 @@ export async function prepareEpoch(globals: GlobalArgs, args: Map<string, string
     if (!harness || !run || run.gameId !== globals.game.gameId || harness.history.run_id !== runId) throw new Error("Initialize this game's Run record before preparing its epoch");
     if (!["ready", "paused"].includes(run.status) || run.headRevision !== harness.source.head || globals.repoRoot !== harness.source.worktree) throw new Error("Epoch preparation requires the accepted checkout and an idle Run record");
     assertSandboxAdmission(store, { game: globals.game, gameId: globals.game.gameId, profile: globals.sandboxProfile });
+    // Readiness at the accepted head; blocked-only prints the parked result and creates no epoch.
+    const readiness = await readinessForAdmission({ globals, store, runId, rev: harness.source.head });
     const result = ensureSchedulerEpochFromBoard({
       prepareOnly: true, store, runId, globals,
       graphDbPath: globals.game.graphDbPath,
       config: schedulerEpochConfigFromArgs(globals, args, { workerPoolSize: run.desiredWorkers }),
+      ...(readiness ? { readiness } : {}),
     });
     console.log(JSON.stringify({ runId, ...result, execution: getHarnessState(store.db, globals.game.gameId)?.execution }, null, 2));
   } finally { store.db.close(); }

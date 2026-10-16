@@ -171,6 +171,51 @@ export interface DashboardBoundary {
   recent: BoundaryView[];
 }
 
+export interface DashboardReadiness {
+  mode: "shadow" | "enforce" | string;
+  rev: string | null;
+  unavailable: string | null;
+  /** Every remaining target is blocked: no epoch is running until readiness changes. */
+  parked: boolean;
+  generatedAt: string | null;
+}
+
+export interface ReadinessClassRef {
+  class: string;
+  owner_unit: string | null;
+  kind: string;
+}
+
+/** A work-table row for a target held back or reordered by class readiness. */
+/**
+ * Steering-gated games only: the function's code usually reaches 100% but the
+ * steering gate could not verify it ("100% unverified"). Claimable, never done.
+ * Absent on verified rows and on games without an active steering gate.
+ */
+export interface UnverifiedMatchFields {
+  verification?: "unverified_match";
+  verification_label?: string;
+  verification_match?: { base: number | null; candidate: number | null; real_only: number | null };
+  /** The gate's first reasons (at most 3). */
+  verification_reasons?: string[];
+  verification_recorded_at?: string;
+}
+
+export interface ReadinessTargetRow extends UnverifiedMatchFields {
+  key: string;
+  unit: string;
+  symbol: string;
+  sourcePath: string;
+  size: number;
+  fuzzy: number;
+  readinessStatus: "blocked" | "deferred" | "would block" | "would defer";
+  blockedReason: string;
+  unmet: ReadinessClassRef[];
+  unresolved: ReadinessClassRef[];
+  /** e.g. "waiting on: TKoopa (Enemy/Koopa, not decompiled)" */
+  label: string;
+}
+
 export interface Dashboard {
   game: GameSummary | null;
   harnessState?: JsonObject | null;
@@ -190,6 +235,16 @@ export interface Dashboard {
   improvedFiles: JsonObject[];
   activeFiles: JsonObject[];
   epochTargets: JsonObject[];
+  /** Ordering-active games: class readiness the last admission used. */
+  readiness?: DashboardReadiness;
+  /** Enforce: order-gated targets held out of admission until their classes are decompiled. */
+  blockedTargets?: ReadinessTargetRow[];
+  /** Enforce: targets admitted after every ready target. */
+  deferredTargets?: ReadinessTargetRow[];
+  /** Shadow: what enforce would block (still admitted). */
+  wouldBlockTargets?: ReadinessTargetRow[];
+  /** Shadow: what enforce would defer (order unchanged). */
+  wouldDeferTargets?: ReadinessTargetRow[];
   workerStates: JsonObject[];
   progressWorkerStates: JsonObject[];
   touchedFiles: JsonObject[];

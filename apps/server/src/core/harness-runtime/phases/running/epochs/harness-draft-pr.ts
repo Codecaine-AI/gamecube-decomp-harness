@@ -2,6 +2,21 @@ import { getHarnessState } from "@server/core/harness-state/state.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
+import { packageRoot } from "@server/core/knowledge/paths.js";
+import { branchSteeringHolds, type SteeringPrHold } from "@server/core/harness-runtime/phases/pr/checkpoint/steering-holds.js";
+import { gameSteeringGate } from "@server/core/tools/steering-gate.js";
+import {
+  hostEditScopeRunner,
+  hostEditScopeScriptPath,
+  orderingActive,
+  orderingEnforced,
+  prScopeSummary,
+  runPrScopeCheck,
+  type EditScopeOrderingPolicy,
+  type EditScopeRunner,
+  type OrderingMode,
+  type PrScopeSummary,
+} from "@server/core/validation/edit-scope/edit-scope.js";
 
 export const HARNESS_DRAFT_PR_ARTIFACT_TYPE = "harness_draft_pr";
 export const HARNESS_DRAFT_PR_ARTIFACT_KEY = "current";
@@ -28,18 +43,49 @@ export interface HarnessDraftPrPublishInput {
   epochLabel?: string | null;
   matchedCodePercent?: number | null;
   gameId?: string | null;
+  /**
+   * The game's order-and-scope policy. Absent, null or `off` publishes exactly
+   * as before; `shadow` records the PR scope check; `enforce` refuses to push
+   * a rejected range (`scope_refused`).
+   */
+  ordering?: EditScopeOrderingPolicy | null;
   qaGate?: Record<string, unknown> | null;
   regressions?: Record<string, unknown> | null;
   repoRoot: string;
   runId: string;
   savePointId?: string | null;
   stateDir: string;
+  /**
+   * The game's `matching.steeringGate`; omitted, the game's current
+   * configuration. Shadow or enforce: the body lists every function the branch
+   * may not present as a match (steering-holds.ts `branchSteeringHolds`).
+   */
+  steeringGate?: string | null;
   store: StateStore;
   title?: string;
+  /**
+   * `--unused-checks FILE` for the PR scope check: the integrated certificates
+   * on the branch, re-validated at the published head (`preparePrUnusedChecks`).
+   */
+  unusedChecksPath?: string | null;
+  /** Certificates dropped as stale at the published head; recorded as scope warnings. */
+  unusedChecksStale?: string[] | null;
 }
 
 export interface HarnessDraftPrPublishDeps {
   runCommand?: HarnessDraftPrCommandRunner;
+  /** Runs `edit_scope.py pr`; defaults to the host toolpack copy. */
+  editScopeRunner?: EditScopeRunner;
+}
+
+/** The PR scope check bound to the exact SHA it covered (and that was, or would have been, pushed). */
+export interface HarnessDraftPrScopeCheck extends PrScopeSummary {
+  mode: OrderingMode;
+  headSha: string;
+  unusedChecksPath: string | null;
+  baseRef: string;
+  artifactPath: string | null;
+  durationMs: number;
 }
 
 export interface HarnessDraftPrPublishResult {
@@ -63,7 +109,16 @@ export interface HarnessDraftPrPublishResult {
   runId: string;
   savePointId?: string | null;
   harnessId?: string | null;
-  status: "created" | "failed" | "skipped" | "updated";
+  /** Present when the game's ordering is shadow or enforce. */
+  scopeCheck?: HarnessDraftPrScopeCheck | null;
+  /** Steering-gated games: functions at the published head the PR body marks as not verified matches. */
+  steeringHolds?: Array<Pick<SteeringPrHold, "unit" | "symbol" | "reason">> | null;
+  /**
+   * `scope_refused`: enforce mode, the PR scope check rejected the range or
+   * could not run. Nothing was pushed and GitHub was not touched; the range is
+   * unpublished and a later boundary retries it.
+   */
+  status: "created" | "failed" | "scope_refused" | "skipped" | "updated";
   title: string;
   url?: string | null;
 }
@@ -126,6 +181,28 @@ function normalizeBaseBranch(baseRef: string): string {
 
 function draftPrBody(): string {
   return DEFAULT_HARNESS_DRAFT_PR_BODY;
+}
+
+const MAX_LISTED_STEERING_HOLDS = 200;
+
+/**
+ * The body section for functions at 100% that are not verified matches. It is
+ * rebuilt from the current holds on every publish, so a function cleared since
+ * leaves the list and one held since joins it.
+ */
+function steeringHoldsBodySection(holds: readonly SteeringPrHold[]): string {
+  if (holds.length === 0) return "";
+  const listed = holds.slice(0, MAX_LISTED_STEERING_HOLDS).map((hold) =>
+    `- \`${hold.unit}::${hold.symbol}\` (${hold.reason === "unverified_match" ? "100% unverified" : "rolled back by the steering gate, not re-certified"})`);
+  const more = holds.length > listed.length ? [`- ... and ${holds.length - listed.length} more`] : [];
+  return [
+    "## Not verified matches",
+    "",
+    `${holds.length} function(s) on this branch may read as 100% but are not verified matches: the steering gate has not certified them. Do not take them as matches.`,
+    "",
+    ...listed,
+    ...more,
+  ].join("\n");
 }
 
 async function defaultRunCommand(cwd: string, command: string[]): Promise<HarnessDraftPrCommandResult> {
@@ -192,11 +269,15 @@ function recordPublication(input: HarnessDraftPrPublishInput, result: HarnessDra
 
 async function publishHarnessDraftPrInner(
   input: HarnessDraftPrPublishInput,
-  deps: Required<HarnessDraftPrPublishDeps>,
+  deps: HarnessDraftPrPublishDeps & { runCommand: HarnessDraftPrCommandRunner },
 ): Promise<HarnessDraftPrPublishResult> {
   const runCommand = deps.runCommand;
   const baseRef = input.baseRef?.trim() || "origin/master";
   const baseBranch = normalizeBaseBranch(baseRef);
+  // Ordering off keeps the historical publish byte-for-byte (diff and push of
+  // HEAD). Active ordering resolves the head once and checks, diffs and pushes
+  // that exact commit, so a HEAD that moves mid-publish cannot slip through.
+  const ordering = input.ordering && orderingActive(input.ordering.mode) ? input.ordering : null;
 
   const branchResult = await runChecked(runCommand, input.repoRoot, ["git", "rev-parse", "--abbrev-ref", "HEAD"], "read current branch");
   const branch = branchResult.stdout.trim();
@@ -206,9 +287,12 @@ async function publishHarnessDraftPrInner(
   if (!branch || branch === "HEAD") throw new Error("Draft PR publication requires an attached harness branch");
   const harnessId = harness.identity.harness_id;
   const title = input.title?.trim() || `${DEFAULT_HARNESS_DRAFT_PR_TITLE} ${harnessId.slice(0, 8)}`;
-  const headSha = input.commitSha?.trim()
-    || (await runChecked(runCommand, input.repoRoot, ["git", "rev-parse", "HEAD"], "read harness HEAD")).stdout.trim();
-  const diff = await runCommand(input.repoRoot, ["git", "diff", "--quiet", `${baseRef}...HEAD`]);
+  const headSha = ordering
+    ? (await runChecked(runCommand, input.repoRoot, ["git", "rev-parse", "--verify", `${input.commitSha?.trim() || "HEAD"}^{commit}`], "resolve publication head")).stdout.trim()
+    : input.commitSha?.trim()
+      || (await runChecked(runCommand, input.repoRoot, ["git", "rev-parse", "HEAD"], "read harness HEAD")).stdout.trim();
+  if (ordering && !/^[0-9a-f]{40,64}$/.test(headSha)) throw new Error(`publication head did not resolve to a commit SHA: ${headSha || "empty"}`);
+  const diff = await runCommand(input.repoRoot, ["git", "diff", "--quiet", `${baseRef}...${ordering ? headSha : "HEAD"}`]);
   if (diff.exitCode === 0) {
     return recordPublication(input, {
       baseBranch,
@@ -240,9 +324,68 @@ async function publishHarnessDraftPrInner(
   if (!repoSlug) throw new Error(`origin remote is not a GitHub repository URL: ${originUrl}`);
   if (!forkOwner) throw new Error(`fork remote is not a GitHub repository URL: ${forkUrl}`);
 
-  await runChecked(runCommand, input.repoRoot, ["git", "push", "--force-with-lease", "-u", "fork", `HEAD:${branch}`], "push cycle branch");
+  let scopeCheck: HarnessDraftPrScopeCheck | null = null;
+  if (ordering) {
+    // Immediately before the push: the check is bound to `headSha`, and only
+    // `headSha` is pushed.
+    const runner = deps.editScopeRunner ?? hostEditScopeRunner(hostEditScopeScriptPath(packageRoot()), input.repoRoot, ordering);
+    const check = await runPrScopeCheck({
+      runner,
+      repo: input.repoRoot,
+      base: baseRef,
+      head: headSha,
+      policy: ordering,
+      unusedChecksPath: input.unusedChecksPath ?? null,
+      artifactPath: resolve(input.stateDir, "harness_draft_pr", input.runId, `pr_scope_${headSha}.json`),
+    });
+    const summary = prScopeSummary(check);
+    scopeCheck = {
+      mode: ordering.mode, headSha, baseRef, unusedChecksPath: input.unusedChecksPath ?? null,
+      artifactPath: check.artifactPath ?? null, durationMs: check.durationMs,
+      ...summary, warnings: [...summary.warnings, ...(input.unusedChecksStale ?? [])],
+    };
+    if (orderingEnforced(ordering.mode) && scopeCheck.problem) {
+      return recordPublication(input, {
+        baseBranch,
+        baseRef,
+        branch,
+        commitSha: headSha,
+        created: false,
+        epochLabel: input.epochLabel ?? null,
+        forkOwner,
+        matchedCodePercent: input.matchedCodePercent ?? null,
+        gameId: input.gameId ?? null,
+        qaGate: input.qaGate ?? null,
+        reason: scopeCheck.problem,
+        regressions: input.regressions ?? null,
+        repoSlug,
+        runId: input.runId,
+        savePointId: input.savePointId ?? null,
+        harnessId,
+        scopeCheck,
+        status: "scope_refused",
+        title,
+      });
+    }
+  }
+
+  await runChecked(
+    runCommand,
+    input.repoRoot,
+    ordering
+      ? ["git", "push", "--force-with-lease", "fork", `${headSha}:refs/heads/${branch}`]
+      : ["git", "push", "--force-with-lease", "-u", "fork", `HEAD:${branch}`],
+    "push cycle branch",
+  );
   let pull = await findOpenPullRequest(runCommand, input.repoRoot, repoSlug, forkOwner, branch);
-  const bodyPath = await writeDefaultPrBody(input.stateDir, input.runId, input.body ?? draftPrBody());
+  const holds = await branchSteeringHolds(
+    input.store,
+    { gameId: input.gameId, steeringGate: input.steeringGate !== undefined ? input.steeringGate : gameSteeringGate({ gameId: input.gameId }) },
+    async (rev) => (await runCommand(input.repoRoot, ["git", "merge-base", "--is-ancestor", rev, headSha])).exitCode === 0,
+  );
+  const holdsSection = steeringHoldsBodySection(holds);
+  const body = input.body ?? draftPrBody();
+  const bodyPath = await writeDefaultPrBody(input.stateDir, input.runId, holdsSection ? `${body.trimEnd()}\n\n${holdsSection}` : body);
   let created = false;
   if (!pull) {
     const create = await runChecked(
@@ -283,6 +426,8 @@ async function publishHarnessDraftPrInner(
     runId: input.runId,
     savePointId: input.savePointId ?? null,
     harnessId,
+    ...(scopeCheck ? { scopeCheck } : {}),
+    ...(holds.length > 0 ? { steeringHolds: holds.map(({ unit, symbol, reason }) => ({ unit, symbol, reason })) } : {}),
     status: created ? "created" : "updated",
     title,
     url: pull.url,
@@ -293,9 +438,7 @@ export async function publishHarnessDraftPr(
   input: HarnessDraftPrPublishInput,
   deps: HarnessDraftPrPublishDeps = {},
 ): Promise<HarnessDraftPrPublishResult> {
-  const fullDeps: Required<HarnessDraftPrPublishDeps> = {
-    runCommand: deps.runCommand ?? defaultRunCommand,
-  };
+  const fullDeps = { ...deps, runCommand: deps.runCommand ?? defaultRunCommand };
   try {
     return await publishHarnessDraftPrInner(input, fullDeps);
   } catch (error) {

@@ -8,7 +8,10 @@
     "global_standard:avoid-pragmas-register-asm",
     "global_standard:literals-and-data-ownership",
     "global_standard:no-inert-emission",
-    "global_standard:sms-plain-code"
+    "global_standard:sms-plain-code",
+    "global_standard:sms-no-steering",
+    "global_standard:sms-unused-functions",
+    "global_standard:sms-decompile-in-order"
   ],
   "rules": [
     {
@@ -81,7 +84,41 @@
         "src/*.c",
         "include/**"
       ],
-      "message": "Accessor and inline swaps need evidence that the accessor exists in the original."
+      "message": "Accessor and inline swaps need evidence that the accessor exists in the original; otherwise they are steering probes for the steering gate."
+    },
+    {
+      "rule_id": "sms_single_use_temp",
+      "standard_id": "global_standard:sms-no-steering",
+      "severity": "warning",
+      "llm_review": true,
+      "applies_to": [
+        "src/*.cpp",
+        "src/*.c",
+        "include/**"
+      ],
+      "message": "A temp or alias that only re-spells an expression is a steering probe, not a fix."
+    },
+    {
+      "rule_id": "sms_form_rewrite",
+      "standard_id": "global_standard:sms-no-steering",
+      "severity": "warning",
+      "llm_review": true,
+      "applies_to": [
+        "src/*.cpp",
+        "src/*.c",
+        "include/**"
+      ],
+      "message": "A same-behaviour rewrite (if/ternary, order, type spelling, literal form, compound assignment, boolean form) is a steering probe, not a fix."
+    },
+    {
+      "rule_id": "sms_codegen_directive",
+      "standard_id": "global_standard:sms-no-steering",
+      "severity": "error",
+      "applies_to": [
+        "src/**",
+        "include/**"
+      ],
+      "message": "Added volatile, register or #pragma steers codegen and is rejected in SMS."
     },
     {
       "rule_id": "sms_invented_helper",
@@ -104,6 +141,37 @@
         "include/**"
       ],
       "message": "Code a human would not write (repeated tests, double negations, empty branches, dead or repeated stores) is dropped."
+    },
+    {
+      "rule_id": "sms_unused_reconstruction",
+      "standard_id": "global_standard:sms-unused-functions",
+      "severity": "warning",
+      "llm_review": true,
+      "applies_to": [
+        "src/*.cpp",
+        "src/*.c"
+      ],
+      "message": "UNUSED (dead-stripped) functions may only get a body when they were inlined into another function of the same TU; prove it with steering_check.py unused-test or keep the stub."
+    },
+    {
+      "rule_id": "sms_out_of_order_fill",
+      "standard_id": "global_standard:sms-decompile-in-order",
+      "severity": "error",
+      "applies_to": [
+        "src/System/MarNameRefGen*.cpp"
+      ],
+      "message": "MarNameRefGen may only reference classes that are ready to construct (their own unit defines the constructor); leave it until they are."
+    },
+    {
+      "rule_id": "sms_undecompiled_class_decl",
+      "standard_id": "global_standard:sms-decompile-in-order",
+      "severity": "error",
+      "applies_to": [
+        "include/**",
+        "src/*.cpp",
+        "src/*.c"
+      ],
+      "message": "Do not add a class, members or a header for a class whose own unit has not started; leave it until the unit is decompiled."
     }
   ]
 }

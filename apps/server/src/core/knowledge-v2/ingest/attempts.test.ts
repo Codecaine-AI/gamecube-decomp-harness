@@ -3,8 +3,12 @@ import { Database } from "bun:sqlite";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { STEERING_ROLLBACKS_DDL } from "@server/core/orchestrator-state/storage/migrations/014-steering-rollbacks.js";
+import { UNVERIFIED_MATCHES_DDL } from "@server/core/orchestrator-state/storage/migrations/015-unverified-matches.js";
+import { UNVERIFIED_MATCH_CERTIFICATION_KEY } from "@server/core/validation/steering/unverified-certification.js";
+import { buildV2TargetCard } from "../card.js";
 import { formatLocator, parseLocator, type AttemptLocator } from "../locator.js";
-import { insertEntitiesIfMissing, insertTargets } from "../records/index.js";
+import { insertEntitiesIfMissing, insertRunNarrative, insertTargets } from "../records/index.js";
 import { openKnowledgeStore } from "../storage/store.js";
 import { deriveWorkerRunIntegration, importAttempts, type AttemptSourceIntegration } from "./attempts.js";
 
@@ -50,6 +54,110 @@ function seedTargets(store: ReturnType<typeof openKnowledgeStore>): void {
     { id: "target:function:unit:Func", kind: "function", unit: "unit", unitEntityId: "translation_unit:src/unit.c", symbol: "Func", stableKey: "unit:Func", address: "0x80000000", identityStatus: "current", reportRevision: "r1" },
     { id: "target:function:unit:Exact", kind: "function", unit: "unit", unitEntityId: "translation_unit:src/unit.c", symbol: "Exact", stableKey: "unit:Exact", address: "0x80000004", identityStatus: "current", reportRevision: "r1" },
   ]);
+}
+
+interface GatedAttempt {
+  symbol: string;
+  hardGatesPassed: 0 | 1;
+  validationState?: "tentative" | "confirmed" | "regressed";
+  validationStatus: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** A current-schema source: gate columns on checkpoints and the real `steering_unverified_matches` table. */
+function gatedFixture(dir: string, attempts: readonly GatedAttempt[]): string {
+  const path = join(dir, "orchestrator.sqlite");
+  const db = new Database(path);
+  db.run(`CREATE TABLE worker_state (
+    id TEXT PRIMARY KEY, run_id TEXT, epoch_id TEXT, target_claim_id TEXT, worker_id TEXT,
+    target_key TEXT, lifecycle_status TEXT, started_at TEXT, ended_at TEXT, baseline_score REAL,
+    timeout_summary TEXT, error_summary TEXT)`);
+  db.run(`CREATE TABLE worker_checkpoints (
+    id TEXT PRIMARY KEY, worker_state_id TEXT, attempt_index INTEGER, validation_time TEXT,
+    new_score REAL, exact_match INTEGER, hard_gates_passed INTEGER NOT NULL DEFAULT 0,
+    validation_status TEXT, validation_state TEXT NOT NULL DEFAULT 'tentative', metadata_json TEXT)`);
+  db.exec(UNVERIFIED_MATCHES_DDL);
+  attempts.forEach((attempt, index) => {
+    const at = `2026-03-0${index + 1}T00:00:00Z`;
+    db.query("INSERT INTO worker_state VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+      attempt.symbol, `run-${attempt.symbol}`, "epoch", `claim-${attempt.symbol}`, "worker", `unit::${attempt.symbol}`,
+      "exact", at, at, 50, null, null,
+    );
+    db.query("INSERT INTO worker_checkpoints VALUES (?, ?, 1, ?, 100, 1, ?, ?, ?, ?)").run(
+      `cp-${attempt.symbol}`, attempt.symbol, at, attempt.hardGatesPassed, attempt.validationStatus,
+      attempt.validationState ?? "tentative", JSON.stringify(attempt.metadata ?? {}),
+    );
+  });
+  db.close();
+  return path;
+}
+
+function markUnverified(sourcePath: string, symbol: string): void {
+  const db = new Database(sourcePath);
+  db.query(`INSERT INTO steering_unverified_matches (game_id, unit, symbol, analyzed_rev, base_rev, recorded_at)
+    VALUES ('GMSE01', 'unit', ?, 'head', 'trusted-base', '2026-03-10T00:00:00Z')
+    ON CONFLICT (game_id, unit, symbol) DO UPDATE SET cleared_at = NULL, cleared_by = NULL`).run(symbol);
+  db.close();
+}
+
+function clearUnverified(sourcePath: string, symbol: string): void {
+  const db = new Database(sourcePath);
+  db.query("UPDATE steering_unverified_matches SET cleared_at = '2026-03-11T00:00:00Z', cleared_by = 'integration' WHERE symbol = ?").run(symbol);
+  db.close();
+}
+
+/** A steering rollback of `unit::symbol` (migration 014), last moved at `at`, with no active `unverified_match` row. */
+function rollBack(sourcePath: string, symbol: string, at: string): void {
+  const db = new Database(sourcePath);
+  db.exec(STEERING_ROLLBACKS_DDL);
+  db.query(`INSERT INTO steering_rollbacks (game_id, unit, symbol, analyzed_rev, initial_verdict, final_verdict, rules_json, status, recorded_at, updated_at)
+    VALUES ('GMSE01', 'unit', ?, 'steered-head', 'steering_located', 'pass', '["steering"]', 'reverified', ?, ?)`).run(symbol, at, at);
+  db.close();
+}
+
+/** The checkpoint's own enforced gate result: a whole-certificate pass of `unit::symbol`, edited, its unit built and compared. */
+function ownEnforcedPass(symbol: string): Record<string, unknown> {
+  return {
+    runner_validation: {
+      status: "passed",
+      steering: {
+        mode: "enforce", error: null, artifactPath: null, durationMs: 1,
+        decision: {
+          attempt: "pass", reasons: [], removable_noncosmetic: [], probes: [], violations: [], unused_checks: [], order_checks: [],
+          functions: [{
+            unit: "unit", name: symbol, decision: "pass", semantic: "clean", analysis: "complete", audit_label: "clean",
+            match: { base: 90, candidate: 100, real_only: 100 }, groups: ["g1"],
+          }],
+          units: [{ unit: "unit", built: true, compared: true }],
+        },
+      },
+    },
+  };
+}
+
+function trustedBaseCertification(symbol: string): Record<string, unknown> {
+  return {
+    [UNVERIFIED_MATCH_CERTIFICATION_KEY]: {
+      kind: "unverified_match", game_id: "GMSE01", unit: "unit", symbol,
+      mode: "enforce", decision: "pass", base_rev: "trusted-base", artifact_path: null,
+    },
+  };
+}
+
+function seedGatedTargets(store: ReturnType<typeof openKnowledgeStore>, symbols: readonly string[]): void {
+  insertEntitiesIfMissing(store, [
+    { id: "translation_unit:src/unit.c", kind: "translation_unit", locator: "src/unit.c" },
+  ]);
+  insertTargets(store, symbols.map((symbol, index) => ({
+    id: `target:function:unit:${symbol}`, kind: "function" as const, unit: "unit", unitEntityId: "translation_unit:src/unit.c",
+    symbol, stableKey: `unit:${symbol}`, address: `0x8000000${index}`, identityStatus: "current" as const, reportRevision: "r1",
+  })));
+}
+
+function storedOutcomes(store: ReturnType<typeof openKnowledgeStore>): Record<string, string> {
+  return Object.fromEntries(store.db.query<{ worker_state_id: string; final_outcome: string }, []>(
+    "SELECT worker_state_id, final_outcome FROM worker_run",
+  ).all().map((row) => [row.worker_state_id, row.final_outcome]));
 }
 
 function integrationRow(
@@ -263,6 +371,115 @@ describe("importAttempts", () => {
       failure_reasons: [],
       resolved_at: "2026-01-01T00:03:00Z",
     });
+    store.close();
+  });
+
+  test("credits a match only for accepted, unreverted 100s on targets with no active unverified_match row", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-gated-"));
+    dirs.push(dir);
+    const sourcePath = gatedFixture(dir, [
+      // Enforced gate rejected the 100 on an unverified target: the sweep's failing case.
+      { symbol: "Rejected", hardGatesPassed: 0, validationStatus: "steering_located" },
+      // Certified against the trusted base, but integration has not cleared the row yet.
+      { symbol: "Pending", hardGatesPassed: 1, validationStatus: "passed", metadata: trustedBaseCertification("Pending") },
+      // A gated target (its unverified_match row since cleared) whose 100 the confirmation pass reverted.
+      { symbol: "Reverted", hardGatesPassed: 1, validationStatus: "passed", validationState: "regressed" },
+      // Gate off (Melee): an accepted exact with no unverified row is still the match.
+      { symbol: "Clean", hardGatesPassed: 1, validationStatus: "passed" },
+      // Gate off (Melee), no steering state: the legacy rule, the final checkpoint's raw 100, decides.
+      { symbol: "LegacyRejected", hardGatesPassed: 0, validationStatus: "build_failed", validationState: "regressed" },
+    ]);
+    markUnverified(sourcePath, "Rejected");
+    markUnverified(sourcePath, "Pending");
+    markUnverified(sourcePath, "Reverted");
+    clearUnverified(sourcePath, "Reverted");
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["Rejected", "Pending", "Reverted", "Clean", "LegacyRejected"]);
+
+    importAttempts(store, { orchestratorDbPath: sourcePath, now: () => "2026-04-01T00:00:00Z" });
+
+    expect(storedOutcomes(store)).toEqual({
+      Rejected: "improvement",
+      Pending: "improvement",
+      Reverted: "improvement",
+      Clean: "match",
+      LegacyRejected: "match",
+    });
+    // Gate off: an existing run is skipped untouched on re-import, as before the gate.
+    store.db.query("UPDATE worker_run SET final_outcome = 'no_change' WHERE worker_state_id = 'LegacyRejected'").run();
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store).LegacyRejected).toBe("no_change");
+    insertRunNarrative(store, {
+      workerRunId: "run:Rejected",
+      summary: "Reached 100 by steering; the gate located it",
+      notableObservations: [],
+      narrative: {},
+      producedBy: "live",
+    });
+    expect(buildV2TargetCard(store, "unit:Rejected", "full")!.prior_runs[0]).toMatchObject({
+      outcome: "improvement",
+      unresolved_diagnosis: "Reached 100 by steering; the gate located it",
+    });
+    store.close();
+  });
+
+  test("an unresolved steering rollback withdraws an accepted historical 100% until a later checkpoint's own gate certifies the function", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-rollback-"));
+    dirs.push(dir);
+    // Both accepted exacts carry their own enforced pass; only the validation time differs (03-01 and 03-02).
+    const sourcePath = gatedFixture(dir, [
+      { symbol: "Historical", hardGatesPassed: 1, validationStatus: "passed", metadata: ownEnforcedPass("Historical") },
+      { symbol: "Recertified", hardGatesPassed: 1, validationStatus: "passed", metadata: ownEnforcedPass("Recertified") },
+    ]);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["Historical", "Recertified"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ Historical: "match", Recertified: "match" });
+
+    // `steering-gate --apply` rewrote both functions between the two checkpoints; no unverified_match row is recorded.
+    rollBack(sourcePath, "Historical", "2026-03-01T12:00:00Z");
+    rollBack(sourcePath, "Recertified", "2026-03-01T12:00:00Z");
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+
+    // The 100 validated before the rollback is not the code the branch now holds; the one validated after it, certified by its own gate, is.
+    expect(storedOutcomes(store)).toEqual({ Historical: "improvement", Recertified: "match" });
+    store.close();
+  });
+
+  test("re-derives an imported run's outcome when its namespaced target becomes or stops being unverified", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-unverified-lifecycle-"));
+    dirs.push(dir);
+    const sourcePath = gatedFixture(dir, [
+      { symbol: "Namespace::Func", hardGatesPassed: 1, validationStatus: "passed" },
+    ]);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["Namespace::Func"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "match" });
+    insertRunNarrative(store, {
+      workerRunId: "run:Namespace::Func",
+      summary: "Matched without explaining the cast",
+      notableObservations: [],
+      narrative: {},
+      producedBy: "live",
+    });
+    expect(buildV2TargetCard(store, "unit:Namespace::Func", "full")!.prior_runs[0]?.unresolved_diagnosis).toBeUndefined();
+
+    // The backfill later records the function as unverified: the earlier match loses its credit.
+    markUnverified(sourcePath, "Namespace::Func");
+    expect(importAttempts(store, { orchestratorDbPath: sourcePath })).toMatchObject({ runs: 0, submissions: 0 });
+    expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "improvement" });
+    expect(buildV2TargetCard(store, "unit:Namespace::Func", "full")!.prior_runs[0]?.unresolved_diagnosis).toBe("Matched without explaining the cast");
+    expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM submission").get()?.count).toBe(1);
+
+    // A dry run never writes the re-derived outcome.
+    clearUnverified(sourcePath, "Namespace::Func");
+    importAttempts(store, { orchestratorDbPath: sourcePath, dryRun: true });
+    expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "improvement" });
+
+    // Only the row's actual clear restores the accepted exact's match.
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "match" });
     store.close();
   });
 });

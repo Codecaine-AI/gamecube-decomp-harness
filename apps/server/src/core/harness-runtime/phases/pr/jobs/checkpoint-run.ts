@@ -48,6 +48,7 @@ export async function checkpointRun(globals: GlobalArgs, args: Map<string, strin
         minMatchedBytes: globals.game?.pr.improvementMinMatchedBytes,
       },
       reworkSymbols,
+      ...(globals.game ? { gameId: globals.game.gameId, steeringGate: globals.game.matching?.steeringGate ?? "off" } : {}),
       title: stringArg(args, "--title", "Run checkpoint"),
     });
     console.log(

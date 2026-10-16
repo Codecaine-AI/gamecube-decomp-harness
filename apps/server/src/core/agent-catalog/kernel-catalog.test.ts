@@ -611,6 +611,129 @@ describe("meleeKernelAgentCatalog", () => {
     }
   });
 
+  test("renders the steering policy and a sample steering probe for an active steering gate", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const workerText = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      `${worker(payload)?.renderedPrompt?.content ?? ""}\n${worker(payload)?.context?.renderedContext ?? ""}`;
+
+    const melee = loadKernelAgentsPayload(paths);
+    expect(melee.steeringGate).toBe("off");
+    expect(workerText(melee)).not.toContain("<steering_policy>");
+    expect(workerText(melee)).not.toContain("steering_probe");
+    expect(workerText(melee)).not.toContain("previous_attempt");
+    expect(workerText(melee)).not.toContain("unused-test");
+
+    const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
+    for (const sms of [
+      loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }),
+      loadKernelAgentsPayload({ ...paths, game: smsGame }, {
+        loadTargetCard: () => null,
+        loadBackfillPassContext: () => null,
+      }),
+    ]) {
+      expect(sms.steeringGate).not.toBe("off");
+      const text = workerText(sms);
+      expect(text).toContain("<steering_policy>");
+      expect(text).toContain("A steering match is never done.");
+      expect(text).toContain("steering_check.py unused-test --repo . --file &lt;file&gt; --function &lt;Name&gt;");
+      expect(worker(sms)?.context?.renderedContext ?? "").toContain("<steering_probe function=");
+      const context = worker(sms)?.context?.renderedContext ?? "";
+      expect(context).toContain("<previous_attempt function=");
+      expect(context).toContain("The steering backfill rolled it back and removed that code; the real-only match left is 98.1%.");
+      expect(context).toContain('<edit at="src/M3DUtil/MActor.cpp:212" shapes="temp_alias">');
+      expect(context).toContain('<maintainer_quote reviewer="Mrkol" pr="330" ruling="sms-330-fakematch-steering">Totally a fakematch</maintainer_quote>');
+      expect(text).toContain("Read the `previous_attempt` block when present");
+      expect(text).toContain('"steering_edits"');
+      expect(text).toContain("real_code_evidence inlines --type MActor --member mLightData");
+      expect(text).not.toMatch(unresolvedPlaceholderPattern);
+      expect(text).not.toContain("{{");
+      // The viewer's prompt document is the same variant the rendered body came from.
+      expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
+    }
+  });
+
+  test("renders the selected previous_attempt variant for an active steering gate and echoes it", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const context = (payload: ReturnType<typeof loadKernelAgentsPayload>) => worker(payload)?.context?.renderedContext ?? "";
+
+    expect(loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }).previousAttempt).toBe("rollback");
+
+    const unverified = loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "unverified_match" });
+    expect(unverified.previousAttempt).toBe("unverified_match");
+    const text = context(unverified);
+    expect(text).toContain('<previous_attempt variant="unverified_match" function=');
+    expect(text).toContain("code reaches 100%, but the steering gate could not verify that it is real code");
+    expect(text).toContain('It is marked "100% unverified": not done and not counted as matched. The reduced candidate reaches 97.2%.');
+    expect(text).toContain('<match base="96.4%" candidate="100%" real_only="97.2%" />');
+    expect(text).toContain('<edit at="src/M3DUtil/MActor.cpp:212" status="unresolved" shapes="other">');
+    expect(text).toContain("<gate_reason>incomplete groups: src/M3DUtil/MActor.cpp@4.0</gate_reason>");
+    expect(text).toContain("Produce a version the steering gate certifies");
+    // One variant per sample: no rollback text leaks in.
+    expect(text).not.toContain("The steering backfill rolled it back");
+    expect(text).not.toMatch(unresolvedPlaceholderPattern);
+    expect(text).not.toContain("{{");
+    // The system prompt does not depend on the variant.
+    const rollback = loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "rollback" });
+    expect(worker(unverified)?.renderedPrompt?.content).toBe(worker(rollback)?.renderedPrompt?.content);
+
+    // Melee (gate off): the selector changes nothing.
+    const melee = loadKernelAgentsPayload(paths);
+    const meleeSelected = loadKernelAgentsPayload(paths, { previousAttempt: "unverified_match" });
+    expect(context(meleeSelected)).not.toContain("previous_attempt");
+    expect(context(meleeSelected)).toBe(context(melee));
+    expect(worker(meleeSelected)?.renderedPrompt?.content).toBe(worker(melee)?.renderedPrompt?.content);
+  });
+
+  test("renders <order_and_scope> and a sample <not_ready_classes> for an active ordering mode", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const workerText = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      `${worker(payload)?.renderedPrompt?.content ?? ""}\n${worker(payload)?.context?.renderedContext ?? ""}`;
+
+    const melee = loadKernelAgentsPayload(paths);
+    expect(melee.ordering).toBe("off");
+    expect(workerText(melee)).not.toContain("<order_and_scope>");
+    expect(workerText(melee)).not.toContain("not_ready_classes");
+
+    const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" }, ordering: { mode: "shadow", gatedPaths: ["src/System/MarNameRefGen*.cpp"] } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
+    for (const [sms, wording] of [
+      [loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering: "enforce" }), "are rejected"],
+      [loadKernelAgentsPayload({ ...paths, game: smsGame }, { loadTargetCard: () => null, loadBackfillPassContext: () => null }), "are flagged"],
+    ] as const) {
+      expect(sms.ordering).not.toBe("off");
+      const text = workerText(sms);
+      expect(text).toContain("<order_and_scope>");
+      expect(text).toContain(`Edits that break these rules ${wording}.`);
+      const context = worker(sms)?.context?.renderedContext ?? "";
+      expect(context).toContain("<not_ready_classes>");
+      expect(context).toContain('<class name="TKoopa" owner_unit="mario/Enemy/Koopa" kind="construct" />');
+      expect(text).not.toMatch(unresolvedPlaceholderPattern);
+      expect(text).not.toContain("{{");
+      // The viewer's prompt document is the same variant the rendered body came from.
+      expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
+    }
+  });
+
   test("threads the selected target into the real worker preview", () => {
     const selected = { unit: "unit/selected", symbol: "SelectedTarget" };
     const loaded: unknown[] = [];

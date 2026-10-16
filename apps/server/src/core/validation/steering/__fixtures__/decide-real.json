@@ -1,0 +1,219 @@
+{
+ "tool": "steering_check",
+ "version": 1,
+ "edits_hash": "<volatile>",
+ "attempt": "steering_located",
+ "reasons": [
+  "functions depend on behaviour-identical edits: g"
+ ],
+ "attempt_issues": [
+  {
+   "category": "steering_functions",
+   "units": [
+    "u1"
+   ],
+   "groups": [],
+   "files": [],
+   "detail": "g"
+  },
+  {
+   "category": "removable_noncosmetic",
+   "units": [
+    "u1"
+   ],
+   "groups": [
+    "src/a.c@3.0"
+   ],
+   "files": [
+    "src/a.c"
+   ],
+   "detail": ""
+  }
+ ],
+ "functions": [
+  {
+   "unit": "u1",
+   "name": "f",
+   "demangled": "f",
+   "decision": "pass",
+   "semantic": "clean",
+   "analysis": "complete",
+   "audit_label": "real",
+   "match": {
+    "base": 28.5714,
+    "candidate": 100.0,
+    "real_only": 100.0
+   },
+   "status": {
+    "base": "mismatch",
+    "candidate": "exact",
+    "real_only": "exact"
+   },
+   "sstar_vs_candidate": "identical",
+   "stack_only_perturbation": false,
+   "evidence_sstar": true,
+   "steering_sstar": false,
+   "groups": [
+    "src/a.c@2.0"
+   ],
+   "reasons": []
+  },
+  {
+   "unit": "u1",
+   "name": "g",
+   "demangled": "g",
+   "decision": "steering_located",
+   "semantic": "steering",
+   "analysis": "complete",
+   "audit_label": "steering",
+   "match": {
+    "base": 100.0,
+    "candidate": 33.3333,
+    "real_only": 100.0
+   },
+   "status": {
+    "base": "exact",
+    "candidate": "mismatch",
+    "real_only": "exact"
+   },
+   "sstar_vs_candidate": "code",
+   "stack_only_perturbation": false,
+   "evidence_sstar": false,
+   "steering_sstar": false,
+   "groups": [
+    "src/a.c@3.0"
+   ],
+   "reasons": []
+  }
+ ],
+ "removable_noncosmetic": [
+  "src/a.c@3.0"
+ ],
+ "unresolved_groups": [],
+ "evidence_keeps": [
+  "src/a.c@2.0"
+ ],
+ "group_updates": [
+  {
+   "id": "src/a.c@0.0",
+   "status": "real",
+   "was": "unresolved",
+   "reason": "the move brings the data layout closer to the target: .data, .data order",
+   "evidence": {
+    "kind": "data_order_mwcc",
+    "rows": [
+     {
+      "group": "src/a.c@0.0",
+      "unit": "u1",
+      "sections": {
+       ".data": [
+        100.0,
+        50.0
+       ]
+      },
+      "symbol_order": {
+       ".data": [
+        1.0,
+        0.5
+       ]
+      },
+      "effect": "data_order",
+      "functions": [],
+      "improves": [
+       ".data",
+       ".data order"
+      ],
+      "worsens": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "src/a.c@2.0",
+   "status": "real",
+   "was": "removable",
+   "reason": "map call evidence: original calls getX",
+   "evidence": {
+    "kind": "map_call",
+    "callee": "getX",
+    "function": "f",
+    "target_calls": 1,
+    "sstar_calls": 0,
+    "with_calls": 1
+   }
+  }
+ ],
+ "late_approved": [],
+ "stack_only_perturbation": false,
+ "units": [
+  {
+   "unit": "u1",
+   "built": true,
+   "compared": true,
+   "builds": {
+    "base": "ok",
+    "candidate": "ok",
+    "sstar": "ok"
+   }
+  }
+ ],
+ "no_changes": false,
+ "group_statuses": {
+  "src/a.c@0.0": "real",
+  "src/a.c@2.0": "real",
+  "src/a.c@3.0": "removable"
+ },
+ "unused_checks": [],
+ "order_checks": [],
+ "violations": [],
+ "probes": [
+  {
+   "function": "g",
+   "symbol": "g",
+   "unit": "u1",
+   "decision": "steering_located",
+   "match": {
+    "base": 100.0,
+    "candidate": 33.3333,
+    "real_only": 100.0
+   },
+   "steering_edits": [
+    {
+     "file": "src/a.c",
+     "line": 12,
+     "shapes": [
+      "temp_alias"
+     ],
+     "before": "d(1) NEUTRAL;",
+     "after": "int t = 1 NEUTRAL STEER; / d(t) NEUTRAL;",
+     "delta": -66.6667
+    }
+   ],
+   "unresolved": [],
+   "hypotheses": [
+    {
+     "cause": "missing inline function",
+     "why": "a single-use temp moves registers the way an inline's parameter or return value does",
+     "how_to_check": "real_code_evidence map-unit --unit <unit>; real_code_evidence inlines"
+    },
+    {
+     "cause": "wrong type or signedness",
+     "why": "a temp of another type changes conversions and register classes",
+     "how_to_check": "real_code_evidence map-calls --symbol g; type_layout_lookup"
+    }
+   ],
+   "evidence": {
+    "map_callees": [
+     "getX"
+    ],
+    "emitted_inlines": [],
+    "unused": [],
+    "header_inlines": [],
+    "sibling_uses": [],
+    "jsystem_hits": []
+   },
+   "lessons": [],
+   "rulings": []
+  }
+ ]
+}

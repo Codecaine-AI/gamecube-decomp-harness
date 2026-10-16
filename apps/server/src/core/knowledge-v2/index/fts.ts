@@ -7,11 +7,13 @@ import {
   type KnowledgeIndexDb,
 } from "./db.js";
 import { createPastPrsArchive, type PrArchive } from "./pr-archive.js";
-import { redactBannedStackTactics, stackPolicyQuarantined } from "../stack-policy-filter.js";
+import { knowledgePolicyText, stackPolicyQuarantined, steeringGateForGame } from "../stack-policy-filter.js";
 
 export interface BuildFtsOptions {
   allWikiRevisions?: boolean;
   prArchive?: PrArchive;
+  /** Game whose steering gate decides the relabel; defaults to the `games/<id>/knowledge` store path. */
+  gameId?: string;
 }
 
 interface DiscordRow {
@@ -106,13 +108,23 @@ export function buildWikiFts(
   return rows.length;
 }
 
+/** `games/<id>/knowledge/...` store paths name their game. */
+function gameIdFromStorePath(path: string | undefined): string | undefined {
+  return path ? /[\\/]games[\\/]([^\\/]+)[\\/]knowledge[\\/]/.exec(path)?.[1] : undefined;
+}
+
 /**
- * Indexed PR and attempt history for a store the stack-prune job marked
- * (a stop_at_frame game) drops banned stack-frame tactics; others index verbatim.
+ * Indexed PR and attempt history under the game's knowledge policies: a store
+ * the stack-prune job marked (a stop_at_frame game) drops banned stack-frame
+ * tactics, and a game whose steering gate is not off labels steering
+ * recommendations as diagnostic probes. Others index verbatim.
  */
-function historyText(store: KnowledgeStore): (value: string) => string {
-  if (!store.path || !stackPolicyQuarantined(store.path)) return (value) => value;
-  return (value) => redactBannedStackTactics(value).text;
+function historyText(store: KnowledgeStore, options: BuildFtsOptions = {}): (value: string) => string {
+  const gameId = options.gameId ?? gameIdFromStorePath(store.path);
+  return knowledgePolicyText({
+    stackFramePolicy: store.path && stackPolicyQuarantined(store.path) ? "stop_at_frame" : "match_frame",
+    steeringGate: gameId ? steeringGateForGame(gameId) : "off",
+  });
 }
 
 export function buildPrFts(
@@ -128,7 +140,7 @@ export function buildPrFts(
   const insert = indexDb.db.query(
     "INSERT INTO pr_fts (id, title, body, discussion) VALUES (?, ?, ?, ?)",
   );
-  const text = historyText(store);
+  const text = historyText(store, options);
   indexDb.db.transaction(() => {
     for (const row of rows) {
       const entry = archive.getPr(row.pr_ref) ?? archive.getPr(row.id);
@@ -143,7 +155,11 @@ export function buildPrFts(
   return rows.length;
 }
 
-export function buildAttemptFts(store: KnowledgeStore, indexDb: KnowledgeIndexDb): number {
+export function buildAttemptFts(
+  store: KnowledgeStore,
+  indexDb: KnowledgeIndexDb,
+  options: BuildFtsOptions = {},
+): number {
   clearFtsTable(indexDb.db, "attempt");
   const runs = store.db.query<WorkerRunRow, []>("SELECT id FROM worker_run").all();
   const submissions = store.db.query<SubmissionRow, []>(
@@ -172,7 +188,7 @@ export function buildAttemptFts(store: KnowledgeStore, indexDb: KnowledgeIndexDb
   const insert = indexDb.db.query(
     "INSERT INTO attempt_fts (id, hypotheses, transcript) VALUES (?, ?, ?)",
   );
-  const text = historyText(store);
+  const text = historyText(store, options);
   indexDb.db.transaction(() => {
     for (const run of runs) {
       // Transcript indexing is deferred until run-state artifacts are part of knowledge-v2.
@@ -195,7 +211,7 @@ export function buildAllFts(
     discord: buildDiscordFts(store, indexDb),
     wiki: buildWikiFts(store, indexDb, options),
     pr: buildPrFts(store, indexDb, options),
-    attempt: buildAttemptFts(store, indexDb),
+    attempt: buildAttemptFts(store, indexDb, options),
   };
 }
 

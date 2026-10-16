@@ -24,6 +24,8 @@ export type WorkerStateOutcome =
   | "validation_no_official_score_change"
   | "validation_target_regressed"
   | "validation_same_unit_regression"
+  | "validation_steering_located"
+  | "validation_edit_scope_rejected"
   | "validation_failed"
   | "validation_skipped"
   | "cancelled"
@@ -60,6 +62,8 @@ export const reportFilters: Array<{ description: string; id: WorkerStateFilter; 
   { id: "validation_no_official_score_change", label: "No Score Change", description: "Runner validation found no official target score movement." },
   { id: "validation_target_regressed", label: "Target Regressed", description: "Runner validation found the target score regressed." },
   { id: "validation_same_unit_regression", label: "Unit Regression", description: "Runner validation found a same-unit regression." },
+  { id: "validation_steering_located", label: "Steering Located", description: "The steering gate rejected the attempt: its match depends on edits that behave exactly like the code they replace." },
+  { id: "validation_edit_scope_rejected", label: "Out of Scope", description: "The edit-scope fence rejected the attempt: it declared or filled in code for classes whose units are not decompiled yet." },
   { id: "validation_failed", label: "Validation Failed", description: "Runner hard gates failed without a more specific validation status." },
   { id: "validation_skipped", label: "Validation Skipped", description: "Runner validation was skipped." },
   { id: "cancelled", label: "Cancelled", description: "Worker states cancelled by an operator or shutdown path." },
@@ -111,6 +115,15 @@ export function reportScoreDelta(report: JsonObject): number {
   const recorded = attemptNumber(report.scoreDelta, NaN);
   if (Number.isFinite(recorded)) return recorded;
   return positivePercentAttempts(report).reduce((sum, attempt) => sum + Math.max(0, attemptNumber(attempt.delta, 0)), 0);
+}
+
+/**
+ * The read model withholds this report's exact result: its function is an
+ * active `unverified_match`, or the game's steering holds at the revision the
+ * result measured withhold it (`completionHold`). Absent on Melee.
+ */
+function reportCompletionWithheld(report: JsonObject): boolean {
+  return report.verification === "unverified_match" || report.completionHold !== undefined;
 }
 
 function reportHasExactAttempt(report: JsonObject): boolean {
@@ -214,6 +227,8 @@ function reportValidationEndstate(report: JsonObject): WorkerStateOutcome | null
   if (status === "no_official_score_change") return "validation_no_official_score_change";
   if (status === "target_regressed") return "validation_target_regressed";
   if (status === "same_unit_regression") return "validation_same_unit_regression";
+  if (status === "steering_located") return "validation_steering_located";
+  if (status === "edit_scope_rejected") return "validation_edit_scope_rejected";
   if (status === "failed") return "validation_failed";
   if (status === "skipped") return "validation_skipped";
   if (/^runner_validation_/.test(errorKind)) return "validation_failed";
@@ -237,6 +252,13 @@ function reportStopReasonEndstate(report: JsonObject): WorkerStateOutcome | null
 }
 
 export function reportResult(report: JsonObject): WorkerStateResult {
+  const result = recordedReportResult(report);
+  // A withheld exact keeps its score delta but is not a completion.
+  if (result === "exact" && reportCompletionWithheld(report)) return reportScoreDelta(report) > 0 ? "improved" : "no_progress";
+  return result;
+}
+
+function recordedReportResult(report: JsonObject): WorkerStateResult {
   const runnerTarget = reportRunnerTarget(report);
   if (runnerTarget) {
     if (runnerTarget.exact === true) return "exact";
@@ -254,6 +276,7 @@ export function reportResult(report: JsonObject): WorkerStateResult {
 
 export function reportStopReason(report: JsonObject, result = reportResult(report)): StopReason {
   const explicit = text(report.stopReason);
+  if (explicit === "target_complete" && reportCompletionWithheld(report)) return "stalled";
   if (explicit === "target_complete" || explicit === "stalled") return explicit;
   if (explicit === "no_useful_hypothesis") return "stalled";
   if (result === "exact") return "target_complete";
@@ -269,8 +292,9 @@ export function reportOutcome(report: JsonObject): WorkerStateOutcome {
   if (reportSessionFailed(report)) return "worker_session_failed";
   if (reportAgentToolError(report)) return "agent_tool_error";
   const stopReasonEndstate = reportStopReasonEndstate(report);
+  if (stopReasonEndstate === "exact") return reportCompletionWithheld(report) ? "finished" : stopReasonEndstate;
   if (stopReasonEndstate) return stopReasonEndstate;
-  if (lifecycle === "exact") return "exact";
+  if (lifecycle === "exact") return reportCompletionWithheld(report) ? "finished" : "exact";
   if (lifecycle === "cancelled") return "cancelled";
   if (lifecycle === "timeout") return reportHasSelectedCheckpoint(report) ? "timeout_selected_checkpoint" : "timeout_baseline";
   const validationEndstate = reportValidationEndstate(report);
@@ -311,6 +335,8 @@ function emptyReportCounts(): Record<WorkerStateFilter, number> {
     validation_no_official_score_change: 0,
     validation_target_regressed: 0,
     validation_same_unit_regression: 0,
+    validation_steering_located: 0,
+    validation_edit_scope_rejected: 0,
     validation_failed: 0,
     validation_skipped: 0,
     cancelled: 0,
@@ -398,6 +424,8 @@ export function reportFinishLabel(report: JsonObject): string {
   if (outcome === "validation_no_official_score_change") return "no score change";
   if (outcome === "validation_target_regressed") return "target regressed";
   if (outcome === "validation_same_unit_regression") return "unit regression";
+  if (outcome === "validation_steering_located") return "steering located";
+  if (outcome === "validation_edit_scope_rejected") return "out of scope";
   if (outcome === "validation_failed") return "validation failed";
   if (outcome === "validation_skipped") return "validation skipped";
   if (outcome === "cancelled") return "cancelled";
@@ -430,6 +458,8 @@ export function reportOutcomeDescription(report: JsonObject): string {
   if (outcome === "validation_no_official_score_change") return "No Score Change: runner validation found no official target score movement.";
   if (outcome === "validation_target_regressed") return "Target Regressed: runner validation found the target score moved backward.";
   if (outcome === "validation_same_unit_regression") return "Unit Regression: runner validation found a same-unit regression.";
+  if (outcome === "validation_steering_located") return "Steering Located: the steering gate rejected the attempt because its match depends on edits that behave exactly like the code they replace, or the gate could not certify them.";
+  if (outcome === "validation_edit_scope_rejected") return "Out of Scope: the edit-scope fence rejected the attempt: it declared or filled in code for classes whose units are not decompiled yet.";
   if (outcome === "validation_failed") return "Validation Failed: runner hard gates failed without a more specific validation status.";
   if (outcome === "validation_skipped") return "Validation Skipped: runner validation was skipped.";
   if (outcome === "cancelled") return "Cancelled: the worker state was cancelled before completion.";

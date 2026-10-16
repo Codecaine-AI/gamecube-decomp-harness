@@ -675,6 +675,20 @@ function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: 
   const entries = sortedEntries(report);
   const summary = reportSummary(report);
   const promotion = evaluatePrPromotion({ ...changes, ...entries, summary }, policy);
+  return renderRegressionMarkdown({ ...entries, summary, promotion, movedUnits }, title, maxRows);
+}
+
+/**
+ * The PR report markdown of already sorted entries. `buildRegressionReport`
+ * renders through it; a progress view that re-sorts entries (withheld
+ * `unverified_match` functions) renders its own entries the same way.
+ */
+export function renderRegressionMarkdown(
+  report: Pick<RegressionReport, "newMatches" | "brokenMatches" | "improvements" | "fuzzyRegressions" | "renames" | "movedUnits" | "summary" | "promotion">,
+  title: string,
+  maxRows: number,
+): string {
+  const { summary, promotion } = report;
   const lines = [
     `### ${title}`,
     "",
@@ -683,17 +697,17 @@ function generateMarkdown(report: ObjdiffReportChanges, title: string, maxRows: 
     "",
     ...promotionSection(promotion),
     "",
-    ...reportSection("new matches", entries.newMatches, maxRows),
+    ...reportSection("new matches", report.newMatches, maxRows),
     "",
-    ...reportSection("broken matches", entries.brokenMatches, maxRows, entries.brokenMatches.length > 0),
+    ...reportSection("broken matches", report.brokenMatches, maxRows, report.brokenMatches.length > 0),
     "",
-    ...reportSection("improvements in unmatched items", entries.improvements, maxRows),
+    ...reportSection("improvements in unmatched items", report.improvements, maxRows),
     "",
-    ...reportSection("regressions in unmatched items", entries.fuzzyRegressions, maxRows, entries.fuzzyRegressions.length > 0),
+    ...reportSection("regressions in unmatched items", report.fuzzyRegressions, maxRows, report.fuzzyRegressions.length > 0),
     "",
-    ...renameSection(entries.renames, maxRows),
+    ...renameSection(report.renames, maxRows),
     "",
-    ...movedUnitSection(movedUnits, maxRows),
+    ...movedUnitSection(report.movedUnits, maxRows),
     "",
   ];
   return lines.join("\n");

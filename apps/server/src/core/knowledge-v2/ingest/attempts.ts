@@ -1,4 +1,7 @@
 import { Database } from "bun:sqlite";
+import { dirname } from "node:path";
+import { createOrchestratorStateOrm, type StateStore } from "@server/core/orchestrator-state";
+import { checkpointOwnRunnerValidation, steeringPrHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/steering-holds.js";
 import type { KnowledgeStoreHandle } from "../records/index.js";
 import { advanceWatermark, getWatermark, insertWorkerRun, updateWorkerRunIntegration } from "../records/index.js";
 import type { IntegrationDetail } from "../storage/schema.js";
@@ -30,6 +33,29 @@ export interface AttemptSourceCheckpoint {
   new_score: number;
   exact_match: number;
   metadata_json: string | null;
+  /**
+   * 0 = the attempt was rejected (a hard gate, the enforced steering gate, an
+   * uncertified `unverified_match` target, ...). Absent only on source stores
+   * from before the column existed, whose checkpoints were all accepted.
+   */
+  hard_gates_passed?: number | null;
+  /** `regressed` = the epoch confirmation pass reverted this checkpoint's code. */
+  validation_state?: string | null;
+  /** The checkpoint's own runner validation artifact (its steering gate result), when recorded. */
+  artifact_path?: string | null;
+}
+
+/**
+ * The target's active `unverified_match` rows (one per game) at import time:
+ * the function is not done while any is active, and only the row's clear (an
+ * enforced gate pass against its recorded trusted base, applied by
+ * integration) ends that.
+ */
+export interface AttemptUnverifiedMatchRow {
+  game_id: string;
+  unit: string;
+  symbol: string;
+  base_rev: string | null;
 }
 
 export interface AttemptSourceCheckpointItem {
@@ -61,6 +87,10 @@ function hasTable(db: Database, name: string): boolean {
   ).get(name) !== null;
 }
 
+function hasColumn(db: Database, table: string, column: string): boolean {
+  return db.query<{ name: string }, []>(`PRAGMA table_info(${table})`).all().some((row) => row.name === column);
+}
+
 function parseNote(metadata: string | null): string | null {
   if (metadata === null) return null;
   try {
@@ -73,6 +103,98 @@ function parseNote(metadata: string | null): string | null {
     // Invalid historical metadata is ignored; the scored checkpoint is still usable.
   }
   return null;
+}
+
+/**
+ * The target's active `unverified_match` rows in the orchestrator store
+ * (`steering_unverified_matches`, migration 015). A store behind that
+ * migration, or a game that never ran the steering backfill (Melee, gate
+ * off), has none.
+ */
+export function loadActiveUnverifiedMatches(db: Database, targetKey: string): AttemptUnverifiedMatchRow[] {
+  // Only the first separator divides the unit from a possibly namespaced C++ symbol.
+  const separator = targetKey.indexOf("::");
+  if (separator < 0 || !hasTable(db, "steering_unverified_matches")) return [];
+  return db.query<AttemptUnverifiedMatchRow, [string, string]>(`SELECT game_id, unit, symbol, base_rev
+    FROM steering_unverified_matches
+    WHERE unit = ? AND symbol = ? AND cleared_at IS NULL
+    ORDER BY game_id`).all(targetKey.slice(0, separator), targetKey.slice(separator + 2));
+}
+
+/**
+ * Whether one checkpoint's 100 is withheld from the target's completion:
+ * `steeringPrHolds` judged on the checkpoint's own evidence (validation time
+ * and own runner validation). An active `unverified_match` row holds every
+ * checkpoint; a function's latest steering rollback holds every checkpoint
+ * not validated after it whose own enforced gate result does not certify the
+ * function, so a historical 100% from before the rollback is never the match.
+ */
+export type AttemptMatchHold = (checkpoint: AttemptSourceCheckpoint) => boolean;
+
+/**
+ * Distinct games with steering state recorded for (unit, symbol):
+ * `unverified_match` rows, active or cleared (migration 015), or rollbacks
+ * (014). A cleared row keeps the target on the gated rule, so a run withheld
+ * while it was active is re-judged (credited) once it clears.
+ */
+function steeringGamesFor(db: Database, unit: string, symbol: string): string[] {
+  const games = new Set<string>();
+  if (hasTable(db, "steering_unverified_matches")) {
+    for (const row of db.query<{ game_id: string }, [string, string]>(`SELECT DISTINCT game_id FROM steering_unverified_matches
+      WHERE unit = ? AND symbol = ?`).all(unit, symbol)) games.add(row.game_id);
+  }
+  if (hasTable(db, "steering_rollbacks")) {
+    for (const row of db.query<{ game_id: string }, [string, string]>(`SELECT DISTINCT game_id FROM steering_rollbacks
+      WHERE unit = ? AND symbol = ?`).all(unit, symbol)) games.add(row.game_id);
+  }
+  return [...games].sort();
+}
+
+/**
+ * The target's match hold in the orchestrator store `db`, or undefined when
+ * no game recorded steering state for it (Melee, gate off, a store behind
+ * migration 014): then nothing else is read and a checkpoint's own acceptance
+ * decides. Recorded state means that game ran an active gate, whose mode does
+ * not change a hold.
+ */
+export function loadAttemptMatchHold(db: Database, targetKey: string): AttemptMatchHold | undefined {
+  // Only the first separator divides the unit from a possibly namespaced C++ symbol.
+  const separator = targetKey.indexOf("::");
+  if (separator < 0) return undefined;
+  const unit = targetKey.slice(0, separator);
+  const symbol = targetKey.slice(separator + 2);
+  const games = steeringGamesFor(db, unit, symbol);
+  if (games.length === 0) return undefined;
+  const store: StateStore = { db, orm: createOrchestratorStateOrm(db), path: db.filename, stateDir: dirname(db.filename) };
+  const holds = games.map((gameId) => steeringPrHolds(store, { gameId, steeringGate: "enforce" }));
+  return (checkpoint) => {
+    const evidence = {
+      validationTime: checkpoint.validation_time,
+      runnerValidation: checkpointOwnRunnerValidation(checkpoint.artifact_path ?? null, parseObject(checkpoint.metadata_json)),
+    };
+    return holds.some((hold) => hold.holdFor(unit, symbol, evidence) !== null);
+  };
+}
+
+function parseObject(value: string | null): Record<string, unknown> {
+  if (value === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * One checkpoint counts as the match only when it was accepted (hard gates,
+ * including an enforced steering gate, passed) and the confirmation pass did
+ * not revert it. A raw 100 alone is never the match.
+ */
+function isAcceptedMatchEvidence(checkpoint: AttemptSourceCheckpoint): boolean {
+  if (checkpoint.exact_match !== 1 && checkpoint.new_score !== 100) return false;
+  if (checkpoint.hard_gates_passed === 0) return false;
+  return checkpoint.validation_state !== "regressed";
 }
 
 function parseStringArray(value: string | null): string[] {
@@ -157,11 +279,27 @@ export function buildAttemptMechanicalRows(
     closedAt: string;
     integration?: WorkerRunIntegrationDerivation;
     useLegacyIntegrationHeuristic?: boolean;
+    /**
+     * `loadActiveUnverifiedMatches` for the target; omitted = none active.
+     * Any active row withholds the match whatever the checkpoints carry
+     * (a certified attempt still pending integration included): only the
+     * row's actual clear makes the function done.
+     */
+    unverifiedMatches?: readonly AttemptUnverifiedMatchRow[];
+    /** `loadAttemptMatchHold` for the target; omitted = no steering hold. A held checkpoint is never the match. */
+    matchHold?: AttemptMatchHold;
   },
 ) {
   const last = checkpoints.at(-1);
+  const unverified = (options.unverifiedMatches ?? []).length > 0;
+  // Steering state recorded for the target: any accepted, unheld checkpoint is the match.
+  // None (Melee, gate off): the final checkpoint's raw 100 decides, as before the gate.
+  const gated = unverified || options.matchHold !== undefined;
+  const matched = last !== undefined && (gated
+    ? !unverified && checkpoints.some((checkpoint) => isAcceptedMatchEvidence(checkpoint) && !options.matchHold?.(checkpoint))
+    : last.exact_match === 1 || last.new_score === 100);
   const finalOutcome = last === undefined ? "error" as const
-    : last.exact_match === 1 || last.new_score === 100 ? "match" as const
+    : matched ? "match" as const
     : state.baseline_score !== null && last.new_score > state.baseline_score ? "improvement" as const
     : "no_change" as const;
   const errorType = finalOutcome !== "error" ? null
@@ -238,6 +376,15 @@ export function importAttempts(store: KnowledgeStoreHandle, options: AttemptsImp
         ORDER BY started_at, id`).all()
       : [];
     const checkpointsByWorker = hasTable(source, "worker_checkpoints");
+    // Stores from before the gate columns carry only accepted checkpoints (see AttemptSourceCheckpoint).
+    const gateColumns = checkpointsByWorker
+      ? [
+          hasColumn(source, "worker_checkpoints", "hard_gates_passed") ? "hard_gates_passed" : null,
+          hasColumn(source, "worker_checkpoints", "validation_state") ? "validation_state" : null,
+          hasColumn(source, "worker_checkpoints", "artifact_path") ? "artifact_path" : null,
+        ].filter((column): column is string => column !== null)
+      : [];
+    const checkpointColumns = ["id", "attempt_index", "validation_time", "new_score", "exact_match", "metadata_json", ...gateColumns].join(", ");
     const itemsExist = hasTable(source, "checkpoint_items");
     const integrationTable = hasTable(source, "worker_output_integrations")
       ? "worker_output_integrations" as const
@@ -253,12 +400,35 @@ export function importAttempts(store: KnowledgeStoreHandle, options: AttemptsImp
           WHERE worker_state_id = ?
           ORDER BY updated_at DESC, created_at DESC, id DESC`).all(state.id);
       const integration = deriveWorkerRunIntegration(integrationRows);
-      const existing = store.db.query<{ id: string }, [string]>(
-        "SELECT id FROM worker_run WHERE worker_state_id = ?",
+      const loadCheckpoints = () => checkpointsByWorker
+        ? source.query<AttemptSourceCheckpoint, [string]>(`SELECT ${checkpointColumns}
+          FROM worker_checkpoints
+          WHERE worker_state_id = ? AND new_score IS NOT NULL
+          ORDER BY attempt_index, validation_time, id`).all(state.id)
+        : [];
+      // Undefined without recorded steering state (Melee, gate off): an existing run is skipped untouched, as before.
+      const matchHold = loadAttemptMatchHold(source, state.target_key);
+      const existing = store.db.query<{ id: string; target_id: string; final_outcome: string; error_type: string | null }, [string]>(
+        "SELECT id, target_id, final_outcome, error_type FROM worker_run WHERE worker_state_id = ?",
       ).get(state.id);
       if (existing !== null) {
         if (!options.dryRun && integrationTable !== null) {
           updateWorkerRunIntegration(store, existing.id, integration.integration, integration.detail);
+        }
+        // The outcome follows the current gate evidence: a run imported as a match whose
+        // target the backfill has since marked `unverified_match`, or a steering rollback
+        // has since rewritten, loses its completion credit, and regains it only once the
+        // row is actually cleared or a checkpoint's own gate result certifies the rollback.
+        if (matchHold) {
+          const { run } = buildAttemptMechanicalRows(state, loadCheckpoints(), [], {
+            targetId: existing.target_id,
+            closedAt: clock(),
+            matchHold,
+          });
+          if (!options.dryRun && (run.finalOutcome !== existing.final_outcome || run.errorType !== existing.error_type)) {
+            store.db.query("UPDATE worker_run SET final_outcome = ?, error_type = ? WHERE id = ?")
+              .run(run.finalOutcome, run.errorType, existing.id);
+          }
         }
         skippedExisting++;
         continue;
@@ -273,13 +443,7 @@ export function importAttempts(store: KnowledgeStoreHandle, options: AttemptsImp
         continue;
       }
 
-      const checkpoints = checkpointsByWorker
-        ? source.query<AttemptSourceCheckpoint, [string]>(`SELECT id, attempt_index, validation_time, new_score,
-            exact_match, metadata_json
-          FROM worker_checkpoints
-          WHERE worker_state_id = ? AND new_score IS NOT NULL
-          ORDER BY attempt_index, validation_time, id`).all(state.id)
-        : [];
+      const checkpoints = loadCheckpoints();
       if (checkpoints.length === 0 && !hasAttemptErrorSignal(state)) {
         skippedNoSignal++;
         continue;
@@ -300,6 +464,7 @@ export function importAttempts(store: KnowledgeStoreHandle, options: AttemptsImp
         closedAt: clock(),
         integration,
         useLegacyIntegrationHeuristic: integrationTable === null,
+        matchHold,
       });
 
       if (!options.dryRun) {

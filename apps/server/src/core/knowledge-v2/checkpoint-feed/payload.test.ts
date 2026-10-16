@@ -404,3 +404,22 @@ describe("stop_at_frame checkpoints", () => {
     expect(checkpointFacts(extracted, TARGET).facts).toHaveLength(2);
   });
 });
+
+describe("steering-gated checkpoints", () => {
+  const LABEL = "[diagnostic probe: shows what codegen the original needs; not a fix]";
+
+  test("extraction note and fact statements carry the probe label only while the steering gate is on", () => {
+    const note = "Matched the loop. Using s32 instead of int got the match.";
+    const gated = extractionInput(confirmedCheckpoint(), { ...sources(), noteText: note }, { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" }).input;
+    expect(gated.note).toBe(`${note} ${LABEL}`);
+    expect(extractionInput(confirmedCheckpoint(), { ...sources(), noteText: note }, { steeringGate: "off" }).input.note).toBe(note);
+
+    const extracted = knowledge({
+      tactics: [{ name: "Split the load", description: "Splitting the expression into a local fixed r31.", applies_when: "a field is read twice", evidence: ["r31 holds the actor"] }],
+    });
+    const facts = checkpointFacts(extracted, TARGET, { steeringGate: "enforce" }).facts;
+    expect(facts[0]!.subject).toBe("Split the load");
+    expect(facts[0]!.statement).toBe(`Splitting the expression into a local fixed r31. ${LABEL}`);
+    expect(checkpointFacts(extracted, TARGET).facts[0]!.statement).toBe("Splitting the expression into a local fixed r31.");
+  });
+});

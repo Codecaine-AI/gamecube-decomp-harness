@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { QA_SCAN_REQUIRES_GAME_ERROR, REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV, qaScanGlobalStandardsDir, runQaScanDiff } from "./scan-diff.js";
+import { resolveGame } from "@server/core/game-registry/resolver.js";
+import { QA_SCAN_REQUIRES_GAME_ERROR, REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV, orderingQaScanFiles, qaScanGlobalStandardsDir, runQaScanDiff } from "./scan-diff.js";
 
 const orchestratorRoot = resolve(import.meta.dir, "../../../../../..");
 const scanner = resolve(orchestratorRoot, "toolpacks/gamecube-decomp/source_editing/review_lint/api/scan_diff.py");
@@ -139,5 +140,46 @@ describe("runQaScanDiff game resolution", () => {
     expect(invocation.toolError).toBeNull();
     expect(invocation.env?.ORCH_GAME_DIR).toBe(resolve(orchestratorRoot, "games/melee"));
     expect(invocation.env?.[REVIEW_LINT_GLOBAL_STANDARDS_DIR_ENV]).toBe(qaScanGlobalStandardsDir(orchestratorRoot));
+  });
+});
+
+describe("ref-mode scan paths follow the game's ordering", () => {
+  const cleanStdout = JSON.stringify({ tool: "review_lint", operation: "review_lint:scan_diff", status: "passed", repo: "/repo", base: null, findings: [], counts: { errors: 0, warnings: 0 } });
+  async function prGateCommand(gameId: string): Promise<string[]> {
+    const game = resolveGame({ gameId, orchestratorRoot });
+    let seen: string[] = [];
+    await runQaScanDiff({
+      repoRoot: "/repo",
+      orchestratorRoot,
+      game: { gameId, descriptorPath: game.descriptorPath },
+      stateDir: "/state",
+      baseRef: "origin/master",
+      includeWorktree: true,
+      surface: "pr_gate",
+      // The same spread regression-check.ts and settlement.ts use.
+      ...orderingQaScanFiles(game),
+      processRunner: async (_repoRoot, command) => {
+        seen = command;
+        return { exitCode: 0, stdout: cleanStdout, stderr: "" };
+      },
+    });
+    return seen;
+  }
+
+  test("SMS (ordering shadow) scans src, include and libs so header rules see header hunks", async () => {
+    expect(orderingQaScanFiles(resolveGame({ gameId: "sms", orchestratorRoot }))).toEqual({ files: ["src", "include", "libs"] });
+    // Settlement's epoch scan passes run metadata (game id + descriptor path), not a resolved game.
+    expect(orderingQaScanFiles({ gameId: "sms", descriptorPath: resolve(orchestratorRoot, "games/sms/game.json") })).toEqual({ files: ["src", "include", "libs"] });
+    expect(orderingQaScanFiles({ gameId: "melee", descriptorPath: resolve(orchestratorRoot, "games/melee/game.json") })).toEqual({});
+    const command = await prGateCommand("sms");
+    expect(command.slice(command.indexOf("--path"))).toEqual(["--path", "src", "--path", "include", "--path", "libs"]);
+  });
+
+  test("Melee (no ordering) keeps the scanner's src default: no --path at all", async () => {
+    expect(orderingQaScanFiles(resolveGame({ gameId: "melee", orchestratorRoot }))).toEqual({});
+    expect(orderingQaScanFiles(undefined)).toEqual({});
+    const command = await prGateCommand("melee");
+    expect(command).not.toContain("--path");
+    expect(command.slice(2)).toEqual(["--repo", "/repo", "--json", "--gate", "--base", "origin/master", "--include-worktree", "--surface", "pr_gate"]);
   });
 });

@@ -1,17 +1,21 @@
 import { Download, RefreshCw } from "@/icons";
 
-import { Button } from "@/components/primitives";
+import { Button, UNVERIFIED_TONE } from "@/components/primitives";
 import { asArray, asObject, clock, delta, num, shortId, text } from "@/lib/format";
+import { UNVERIFIED_MATCH_LABEL, unverifiedRunTargets } from "@/lib/verification";
 
 import type { RunDetailsControls } from "../_lib/types";
 
 export function RunDetailsPanel({ loadRunDetails, loadingRunDetails, runDetails }: RunDetailsControls) {
   const summary = asObject(runDetails?.summary);
   const timeline = asArray(runDetails?.timeline).map(asObject);
-  const facts: Array<[string, unknown]> = [
+  const unverified = unverifiedRunTargets(summary);
+  const facts: Array<[string, unknown, string?]> = [
     ["worker states", summary.workerStates],
     ["score+", summary.positiveAttempts],
     ["exact%", summary.exactMatches],
+    // Steering-gated games only: run targets at 100% the gate could not verify (not done).
+    ...(unverified === null ? [] : [[UNVERIFIED_MATCH_LABEL, unverified, UNVERIFIED_TONE] as [string, unknown, string]]),
     ["files+", summary.improvedFiles],
     ["sessions", summary.piSessions],
     ["events", summary.events],
@@ -47,9 +51,9 @@ export function RunDetailsPanel({ loadRunDetails, loadingRunDetails, runDetails 
       {runDetails ? (
         <>
           <div className="grid grid-cols-2 gap-1.5">
-            {facts.map(([label, value]) => (
+            {facts.map(([label, value, tone = "text-up"]) => (
               <div className="rounded-none border border-line bg-card px-2 py-1" key={label}>
-                <strong className="block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] text-up">{num(value)}</strong>
+                <strong className={`block overflow-hidden text-ellipsis whitespace-nowrap text-[15px] ${tone}`}>{num(value)}</strong>
                 <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] text-dim">{label}</span>
               </div>
             ))}

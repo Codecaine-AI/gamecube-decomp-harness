@@ -4,6 +4,12 @@ import { Database } from "bun:sqlite";
 import { workerPrompt } from "@server/core/agent-catalog";
 import { workerSystemPromptDocument } from "@server/core/agent-catalog/agents/running/worker/prompt.js";
 import {
+  previousAttemptFromBackfill,
+  previousAttemptFromUnverified,
+  type PreviousAttemptVariant,
+} from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
+import type { ReviewRuling } from "@server/core/knowledge-v2/steering-lessons/seed.js";
+import {
   KERNEL_AGENT_IDS,
   meleeKernelAgent,
   toKernelAgentViewerDefinition,
@@ -11,7 +17,8 @@ import {
   type KernelAgentViewerDefinition,
 } from "@server/core/agent-catalog/kernel-catalog";
 import type { ResolvedGame } from "@server/core/game-registry";
-import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
+import type { OrderingMode, StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import {
   ADVISORY_ADJUDICATION_ENV,
   parseAdvisoryAdjudicationMode,
@@ -57,6 +64,12 @@ export interface KernelAgentsPayload {
   advisoryAdjudication: AdvisoryAdjudicationMode;
   /** The game's stack frame policy the worker sample was rendered for. */
   stackFramePolicy: StackFramePolicy;
+  /** The game's steering gate mode the worker sample was rendered for. */
+  steeringGate: SteeringGateMode;
+  /** The game's ordering mode the worker sample was rendered for. */
+  ordering: OrderingMode;
+  /** The `previous_attempt` variant the worker sample renders (shown only with an active steering gate). */
+  previousAttempt: PreviousAttemptVariant;
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
 }
@@ -69,6 +82,12 @@ export interface KernelPreviewDeps {
   advisoryAdjudication?: AdvisoryAdjudicationMode;
   /** Worker stack frame policy; defaults to the selected game's `matching.stackFramePolicy`, else `match_frame`. */
   stackFramePolicy?: StackFramePolicy;
+  /** Worker steering gate; defaults to the selected game's `matching.steeringGate`, else `off`. */
+  steeringGate?: SteeringGateMode;
+  /** Worker ordering mode; defaults to the selected game's `ordering.mode`, else `off`. */
+  ordering?: OrderingMode;
+  /** Worker `previous_attempt` variant for an active steering gate; defaults to `rollback`. */
+  previousAttempt?: PreviousAttemptVariant;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
   loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
   buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
@@ -80,16 +99,178 @@ export interface KernelPreviewTarget {
   symbol: string;
 }
 
-export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy">;
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering" | "previousAttempt">;
 
 /** Shared by the worker prompt bundle and the viewer's prompt document so both show one variant. */
 interface WorkerPreviewMode {
   advisoryAdjudication: AdvisoryAdjudicationMode;
   stackFramePolicy: StackFramePolicy;
+  steeringGate: SteeringGateMode;
+  ordering: OrderingMode;
+  previousAttempt: PreviousAttemptVariant;
+}
+
+/** The prompt builders' options; the `previous_attempt` variant only picks the sample packet. */
+function promptMode({ previousAttempt: _variant, ...mode }: WorkerPreviewMode): Omit<WorkerPreviewMode, "previousAttempt"> {
+  return mode;
 }
 
 function previewStackFramePolicy(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): StackFramePolicy {
   return deps.stackFramePolicy ?? paths.game?.matching?.stackFramePolicy ?? "match_frame";
+}
+
+function previewSteeringGate(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): SteeringGateMode {
+  return deps.steeringGate ?? paths.game?.matching?.steeringGate ?? "off";
+}
+
+function previewOrdering(paths: KernelAgentCatalogContext, deps: KernelPreviewDeps): OrderingMode {
+  return deps.ordering ?? gameOrdering(paths.game)?.mode ?? "off";
+}
+
+/**
+ * A steering probe in the shape `steering_check.py decide` returns (contract
+ * 2.4), for the previewed target. Only an active steering gate shows it, the
+ * way a claim only carries one when the gate is on.
+ */
+function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<string, unknown> {
+  return {
+    function: target.symbol,
+    unit: target.unit,
+    match: { base: 96.4, candidate: 100, real_only: 98.1 },
+    steering_edits: [{
+      file: "src/M3DUtil/MActor.cpp",
+      line: 212,
+      shapes: ["temp_alias"],
+      before: "mLightData->set(mLightIdx, color);",
+      after: "J3DLightObj* light = mLightData; light->set(mLightIdx, color);",
+      delta: 1.9,
+    }],
+    unresolved: [],
+    hypotheses: [{
+      cause: "missing inline function",
+      why: "A single-use temp only moved the load of mLightData; an inline accessor emits the same load order.",
+      how_to_check: "real_code_evidence inlines --type MActor --member mLightData",
+    }],
+    evidence: {
+      map_callees: ["set__11J3DLightObjFiRC8_GXColor"],
+      emitted_inlines: [],
+      unused: [],
+      header_inlines: ["MActor::getLightData"],
+      sibling_uses: ["calcLight__6MActorFv"],
+      jsystem_hits: [],
+    },
+    lessons: [{ id: "steering-temp-accessor", steering: "single-use temp before a member call", real_cause: "header inline accessor" }],
+  };
+}
+
+/**
+ * A `previous_attempt` block for the previewed target, built by the claim
+ * path's own builders. `rollback`: from a sample `steering_backfill` row, an
+ * earlier attempt matched 100% through the probe's steering edit and the
+ * backfill rolled it back. `unverified_match`: from a sample
+ * `steering_unverified_matches` row, the code reaches 100% but the gate left
+ * it unresolved. Only an active steering gate shows it.
+ */
+function samplePreviousAttempt(target: { unit: string; symbol: string }, variant: PreviousAttemptVariant): Record<string, unknown> | null {
+  if (variant === "unverified_match") return sampleUnverifiedMatch(target) as unknown as Record<string, unknown>;
+  return previousAttemptFromBackfill({
+    gameId: "preview",
+    unit: target.unit,
+    symbol: target.symbol,
+    analyzedRev: "0123456789abcdef0123456789abcdef01234567",
+    functionSourceSha: null,
+    verdict: "pass",
+    applied: true,
+    appliedRev: null,
+    recordedAt: "2026-10-15T00:00:00.000Z",
+    // SteeringBackfillFunctionReport (validation/jobs/steering-gate.ts).
+    report: {
+      base_rev: "fedcba9876543210fedcba9876543210fedcba98",
+      initial: "steering_located",
+      decision: "pass",
+      applied: true,
+      provisional: false,
+      match: { base: 96.4, candidate: 100, real_only: 98.1 },
+      final_match: { base: 96.4, candidate: 98.1, real_only: 98.1 },
+      removed_edit_groups: [{
+        id: "src/M3DUtil/MActor.cpp@4.0",
+        file: "src/M3DUtil/MActor.cpp",
+        line: 212,
+        location: "src/M3DUtil/MActor.cpp:212",
+        shapes: ["temp_alias"],
+        text: "J3DLightObj* light = mLightData; / light->set(mLightIdx, color);",
+        restored: "mLightData->set(mLightIdx, color);",
+      }],
+      reasons: ["S* without the steering-only retained groups loses the match (labelled steering)"],
+      probe: sampleSteeringProbe(target),
+      check: "steering-gate/sms/check.json",
+      recheck: "steering-gate/sms/recheck.json",
+    },
+  }, { rulings: [SAMPLE_REVIEW_RULING] }) as Record<string, unknown> | null;
+}
+
+function sampleUnverifiedMatch(target: { unit: string; symbol: string }) {
+  return previousAttemptFromUnverified({
+    unit: target.unit,
+    symbol: target.symbol,
+    analyzedRev: "0123456789abcdef0123456789abcdef01234567",
+    baseRev: "fedcba9876543210fedcba9876543210fedcba98",
+    sourcePath: "src/M3DUtil/MActor.cpp",
+    recordedAt: "2026-10-15T00:00:00.000Z",
+    match: { base: 96.4, candidate: 100, real_only: 97.2 },
+    reasons: [
+      "incomplete groups: src/M3DUtil/MActor.cpp@4.0",
+      "IR changes but no real shape found (other)",
+    ],
+    // SteeringBackfillFunctionReport (validation/jobs/steering-gate.ts) of an unresolved function.
+    report: {
+      base_rev: "fedcba9876543210fedcba9876543210fedcba98",
+      initial: "unresolved",
+      decision: "unresolved",
+      applied: false,
+      match: { base: 96.4, candidate: 100, real_only: 97.2 },
+      unexplained_edit_groups: [{
+        id: "src/M3DUtil/MActor.cpp@4.0",
+        file: "src/M3DUtil/MActor.cpp",
+        line: 212,
+        location: "src/M3DUtil/MActor.cpp:212",
+        shapes: ["other"],
+        text: "J3DLightObj* light = getLightData(); / light->set(mLightIdx, color);",
+        restored: "mLightData->set(mLightIdx, color);",
+        status: "unresolved",
+      }],
+      reasons: ["IR changes but no real shape found (other)"],
+      probe: sampleSteeringProbe(target),
+    },
+  });
+}
+
+const SAMPLE_REVIEW_RULING: ReviewRuling = {
+  id: "sms-330-fakematch-steering",
+  date: "2026-10-15",
+  pr: "330",
+  reviewer: "Mrkol",
+  quote: "Totally a fakematch",
+  rule: "Steering is a probe, never the fix: a single-use temp, an accessor or inline swap, or any same-behaviour rewrite that only moves codegen (often just the stack frame) is a fakematch. Find the real construct or leave the function nonmatching.",
+  enforced_by: ["sms_single_use_temp", "steering_gate"],
+  examples: [],
+};
+
+/**
+ * The readiness entry's `unmet` classes as the scheduler attaches them to a
+ * deferred target's packet (contract: `packet.not_ready_classes`). Only an
+ * active ordering mode shows them, the way only a deferred claim carries them.
+ */
+const SAMPLE_NOT_READY_CLASSES = [
+  { class: "TKoopa", owner_unit: "mario/Enemy/Koopa", kind: "construct" },
+  { class: "TKillerManager", owner_unit: "mario/Enemy/killer", kind: "vtable" },
+];
+
+function previewSteeringPacket(mode: WorkerPreviewMode, target: { unit: string; symbol: string }): Record<string, unknown> {
+  return {
+    ...(mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target), previous_attempt: samplePreviousAttempt(target, mode.previousAttempt) }),
+    ...(orderingActive(mode.ordering) ? { not_ready_classes: SAMPLE_NOT_READY_CLASSES } : {}),
+  };
 }
 
 // The server knows no run's `--advisory-adjudication` flag, only the env
@@ -214,6 +395,7 @@ function realWorkerPrompt(
       },
       first_diff: (deps.loadFirstDiff ?? previewFirstDiff)(target),
       knowledge_context: knowledgeContext,
+      ...previewSteeringPacket(mode, target),
     },
     repoRoot: paths.repoRoot,
     stateDir: paths.stateDir,
@@ -223,7 +405,7 @@ function realWorkerPrompt(
     targetSourceText: checkoutPath && existsSync(checkoutPath)
       ? readFileSync(checkoutPath, "utf8")
       : `/* preview: source unavailable for ${sourcePath || `${target.unit}:${target.symbol}`} */\n`,
-    ...mode,
+    ...promptMode(mode),
   });
 }
 
@@ -415,6 +597,7 @@ function samplePrompt(
               ],
             },
           },
+          ...previewSteeringPacket(mode, { unit: "GALE01:kernel-viewer", symbol: "ftDemo_KernelViewerSample" }),
         },
         repoRoot: paths.repoRoot,
         stateDir: paths.stateDir,
@@ -433,7 +616,7 @@ function samplePrompt(
           source_path: "src/melee/ft/chara/ftDemo.c", value: "ftDemo_UpdateGuardedState", confidence: 0.72,
           fact_id: "fact-kernel-viewer-name", updated_at: "2026-09-05T00:00:00Z",
         }],
-        ...mode,
+        ...promptMode(mode),
       });
     case "worker-summarizer": {
       const workerRunId = "run:31f060aa-de8d-49cc-adf0-601e8735dd4e";
@@ -644,7 +827,13 @@ export function loadKernelAgentsPayload(
   } catch (error) {
     warnings.push(`Rendering the worker sample as off: ${error instanceof Error ? error.message : String(error)}`);
   }
-  const mode: WorkerPreviewMode = { advisoryAdjudication, stackFramePolicy: previewStackFramePolicy(paths, deps) };
+  const mode: WorkerPreviewMode = {
+    advisoryAdjudication,
+    stackFramePolicy: previewStackFramePolicy(paths, deps),
+    steeringGate: previewSteeringGate(paths, deps),
+    ordering: previewOrdering(paths, deps),
+    previousAttempt: deps.previousAttempt ?? "rollback",
+  };
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
     try {
@@ -652,7 +841,7 @@ export function loadKernelAgentsPayload(
         generatedAt,
         renderedTools: renderedTools(entry, paths),
         ...(agentId === "worker"
-          ? { promptDocument: workerSystemPromptDocument({ packet: { target: { kind: "function" } }, ...mode }) }
+          ? { promptDocument: workerSystemPromptDocument({ packet: { target: { kind: "function" } }, ...promptMode(mode) }) }
           : {}),
       });
     } catch (error) {
@@ -672,6 +861,9 @@ export function loadKernelAgentsPayload(
     source: "sample",
     advisoryAdjudication,
     stackFramePolicy: mode.stackFramePolicy,
+    steeringGate: mode.steeringGate,
+    ordering: mode.ordering,
+    previousAttempt: mode.previousAttempt,
     agents,
     warnings,
   };

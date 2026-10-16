@@ -245,6 +245,138 @@ describe("toolpack runtime resolver", () => {
     expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_GAME_DIR");
   });
 
+  test("exports the game's steering gate mode only to steering-gated games", () => {
+    const root = packageRoot();
+    const mode = (game: { gameId: string; descriptorPath: string }) =>
+      resolveRegisteredTool({ game, toolPlatform: "linux-x86_64" }, "mwcc_debug").env.ORCH_STEERING_GATE;
+    expect(mode({ gameId: "melee", descriptorPath: resolve(root, "games/melee/game.json") })).toBeUndefined();
+    expect(mode({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") })).toBe("enforce");
+    expect(resolveRegisteredTool({}, "mwcc_debug").env.ORCH_STEERING_GATE).toBeUndefined();
+
+    const gameDir = mkdtempSync(join(tmpdir(), "tool-steering-gate-"));
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "gated", matching: { steeringGate: "enforce" } }));
+    expect(mode({ gameId: "gated", descriptorPath: join(gameDir, "game.json") })).toBe("enforce");
+  });
+
+  test("exports the ordering mode and policy only to ordering-active games", () => {
+    const root = packageRoot();
+    const env = (game: { gameId: string; descriptorPath: string }) =>
+      resolveRegisteredTool({ game, toolPlatform: "linux-x86_64" }, "mwcc_debug").env;
+    const melee = env({ gameId: "melee", descriptorPath: resolve(root, "games/melee/game.json") });
+    expect(melee.ORCH_ORDERING_MODE).toBeUndefined();
+    expect(melee.ORCH_ORDERING_POLICY).toBeUndefined();
+    const sms = env({ gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") });
+    expect(sms.ORCH_ORDERING_MODE).toBe("enforce");
+    expect(JSON.parse(sms.ORCH_ORDERING_POLICY!)).toEqual({
+      gatedPaths: ["src/System/MarNameRefGen*.cpp"],
+      scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 },
+    });
+
+    const gameDir = mkdtempSync(join(tmpdir(), "tool-ordering-"));
+    writeFileSync(join(gameDir, "game.json"), JSON.stringify({ id: "off", ordering: { mode: "off", gatedPaths: ["x"] } }));
+    expect(env({ gameId: "off", descriptorPath: join(gameDir, "game.json") }).ORCH_ORDERING_MODE).toBeUndefined();
+  });
+
+  test("passes the ordering env into sandbox tool runs", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(
+      { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: JSON.stringify({ status: "ok" }), stderr: "" },
+    );
+    const root = packageRoot();
+    await runRegisteredToolApi(
+      { ...apiContext(handle), game: { gameId: "sms", repoRoot: "/opt/melee", descriptorPath: resolve(root, "games/sms/game.json") } },
+      "checkdiff",
+      "run.py",
+      ["--json"],
+    );
+    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_ORDERING_MODE: "enforce" });
+    expect(JSON.parse(String((provider.execCalls[1]?.opts.env as Record<string, string>).ORCH_ORDERING_POLICY)).gatedPaths).toEqual(["src/System/MarNameRefGen*.cpp"]);
+  });
+
+  test("Melee's resolved tool env keys are exactly the pre-steering set", async () => {
+    // As at ccbeff1be (before the steering gate). MWCC_WIBO depends on host tool provisioning, so it is left out.
+    const HEAD_KEYS = [
+      "ORCH_GAME_DIR", "ORCH_GAME_ID", "ORCH_GAME_REPORT_PATH", "ORCH_GAME_REPO_ROOT", "ORCH_GAME_STATE_DIR",
+      "ORCH_STACK_FRAME_POLICY", "ORCH_TOOLPACK_ID", "ORCH_TOOLPACK_ROOT", "ORCH_TOOL_API_ROOT", "ORCH_TOOL_BINDING_PATH",
+      "ORCH_TOOL_ID", "ORCH_TOOL_IMPL_ROOT", "ORCH_TOOL_ROOT", "ORCH_TOOL_SHARED_DATA_ROOT", "ORCH_TOOL_WORKTREE_CACHE_ROOT",
+      "ORCH_WORKTREE_ID",
+    ];
+    const root = packageRoot();
+    const game = { gameId: "melee", repoRoot: "/opt/melee", descriptorPath: resolve(root, "games/melee/game.json") };
+    const { handle } = await fakeSandbox();
+    for (const context of [
+      { repoRoot: "/opt/melee", game, toolPlatform: "linux-x86_64" as const, worktreeId: "w" },
+      { repoRoot: "/opt/melee", hostRepoRoot: "/host/melee", game, sandboxHandle: handle, worktreeId: "w" },
+    ]) {
+      for (const tool of ["mwcc_debug", "checkdiff"]) {
+        const keys = Object.keys(resolveRegisteredTool(context, tool).env).filter((key) => key !== "MWCC_WIBO").sort();
+        expect(keys).toEqual(HEAD_KEYS);
+      }
+    }
+  });
+
+  test("Melee sandbox tool runs carry no steering or ordering env", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(
+      { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: JSON.stringify({ status: "ok" }), stderr: "" },
+    );
+    await runRegisteredToolApi({ ...apiContext(handle), hostRepoRoot: "/host/melee" }, "checkdiff", "run.py", ["--json"]);
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_STEERING_GATE");
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_GAME_HOST_REPO_ROOT");
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_ORDERING_MODE");
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_ORDERING_POLICY");
+  });
+
+  test("passes the steering gate mode into sandbox tool runs but not the host repo root", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(
+      { exitCode: 0, stdout: "", stderr: "" },
+      { exitCode: 0, stdout: JSON.stringify({ status: "ok" }), stderr: "" },
+    );
+    const root = packageRoot();
+    await runRegisteredToolApi(
+      {
+        ...apiContext(handle),
+        hostRepoRoot: "/host/sms-checkout",
+        game: { gameId: "sms", repoRoot: "/opt/melee", descriptorPath: resolve(root, "games/sms/game.json") },
+      },
+      "checkdiff",
+      "run.py",
+      ["--json"],
+    );
+    expect(provider.execCalls[1]?.opts.env).toMatchObject({ ORCH_STEERING_GATE: "enforce", ORCH_GAME_REPO_ROOT: "/opt/melee" });
+    expect(provider.execCalls[1]?.opts.env).not.toHaveProperty("ORCH_GAME_HOST_REPO_ROOT");
+  });
+
+  test("exports the host checkout as ORCH_GAME_HOST_REPO_ROOT, separate from the sandbox repo root", async () => {
+    const { handle } = await fakeSandbox();
+    const root = packageRoot();
+    const sandboxed = resolveRegisteredTool({
+      repoRoot: "/workspace/sandbox-repo",
+      hostRepoRoot: "/host/sms-checkout",
+      game: { gameId: "sms", repoRoot: "/workspace/sandbox-repo", descriptorPath: resolve(root, "games/sms/game.json") },
+      sandboxHandle: handle,
+    }, "mwcc_debug");
+    expect(sandboxed.env.ORCH_GAME_REPO_ROOT).toBe("/workspace/sandbox-repo");
+    expect(sandboxed.env.ORCH_GAME_HOST_REPO_ROOT).toBe("/host/sms-checkout");
+    expect(sandboxed.gameHostRepoRoot).toBe("/host/sms-checkout");
+
+    // A sandbox context without an explicit host root falls back to the configured checkout, never the sandbox path.
+    const fallback = resolveRegisteredTool({
+      repoRoot: "/workspace/sandbox-repo",
+      game: { gameId: "sms", repoRoot: "/workspace/sandbox-repo", descriptorPath: resolve(root, "games/sms/game.json") },
+      sandboxHandle: handle,
+    }, "mwcc_debug");
+    expect(fallback.env.ORCH_GAME_HOST_REPO_ROOT).not.toBe("/workspace/sandbox-repo");
+    expect(fallback.env.ORCH_GAME_HOST_REPO_ROOT).toBe(resolve(root, "games/sms/workspace/checkout"));
+
+    // Host-only contexts: the repo root is the host checkout.
+    const host = resolveRegisteredTool({ repoRoot: "/host/local-worktree", game: { gameId: "sms", descriptorPath: resolve(root, "games/sms/game.json") } }, "mwcc_debug");
+    expect(host.env.ORCH_GAME_HOST_REPO_ROOT).toBe("/host/local-worktree");
+  });
+
   test("rejects unknown tools", () => {
     expect(() => resolveRegisteredTool({}, "missing_tool")).toThrow("Unknown tool id missing_tool");
   });

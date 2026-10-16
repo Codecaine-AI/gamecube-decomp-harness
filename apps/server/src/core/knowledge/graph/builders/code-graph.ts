@@ -10,8 +10,11 @@ interface FunctionRecord {
   sourcePath: string;
   symbol: string;
   size: number;
+  /** The report's raw score: honest similarity, never raised or lowered by verification state. */
   fuzzy: number;
   address: string;
+  /** Steering-gated games: an active `unverified_match` row. The function is not done, whatever its score. */
+  verification?: typeof UNVERIFIED_MATCH_VERIFICATION;
 }
 
 interface FileRecord {
@@ -23,14 +26,94 @@ interface FileRecord {
   declaredUnmatchedFunctionCount?: number;
 }
 
-export function buildCodeGraphRecords(repoRoot: string, options: { reportPath?: string } = {}): GraphRecords {
+/** The verification label the graph gives a function with an active `unverified_match` row. */
+export const UNVERIFIED_MATCH_VERIFICATION = "unverified_match";
+
+/** A function with an active `unverified_match` row (run-state/unverified-matches.ts). */
+export interface UnverifiedFunctionRef {
+  unit: string;
+  symbol: string;
+}
+
+export interface CodeGraphOptions {
+  reportPath?: string;
+  /**
+   * Steering-gated games: the game's active `unverified_match` functions,
+   * read from the state store when the graph is rebuilt. Each one counts as
+   * unmatched (not done) in its file, so a file whose report scores are all
+   * 100% stays editable while one of them is unverified. Omitted (Melee, gate
+   * off): the report's scores alone decide.
+   */
+  unverifiedMatches?: readonly UnverifiedFunctionRef[];
+}
+
+/** `unit::symbol`, the same key as `unverifiedMatchKey`. */
+export function verificationKey(unit: string, symbol: string): string {
+  return `${unit}::${symbol}`;
+}
+
+/** Is the function a confirmed match: exact by its raw score and not an active `unverified_match`? */
+export function countsAsMatched(fn: { fuzzy: number; verification?: string }): boolean {
+  return fn.fuzzy >= EXACT_SCORE && fn.verification !== UNVERIFIED_MATCH_VERIFICATION;
+}
+
+/**
+ * A source file's editability from its counts. `unverifiedCount` functions
+ * are already in `unmatchedCount`: an unverified function is not done, so its
+ * file is never `read_only_complete` reference evidence.
+ */
+export function sourceFileEditability(
+  functionCount: number,
+  unmatchedCount: number,
+  unverifiedCount: number,
+  emptyReason: string,
+): { mode: "editable" | "read_only_complete" | "unknown"; reason: string } {
+  if (functionCount === 0 && unverifiedCount === 0) return { mode: "unknown", reason: emptyReason };
+  if (unmatchedCount === 0) return { mode: "read_only_complete", reason: "Every known function in this file is exact 100%; use as reference evidence only." };
+  const unverified = unverifiedCount > 0
+    ? ` (${unverifiedCount} of them 100% unverified: not done, its match not certified by the steering gate)`
+    : "";
+  return { mode: "editable", reason: `${unmatchedCount} unmatched function(s) remain in this source file${unverified}.` };
+}
+
+/** The unit of a `verificationKey` (unit names never contain `::`; C++ symbols may). */
+function verificationKeyUnit(key: string): string {
+  return key.slice(0, key.indexOf("::"));
+}
+
+function unverifiedKeySet(options: CodeGraphOptions): Set<string> {
+  return new Set((options.unverifiedMatches ?? []).map((ref) => verificationKey(ref.unit, ref.symbol)));
+}
+
+/**
+ * The active verification state the records reflect, folded into the source
+ * version so a change of state alone (a backfill `--record`, a certified
+ * clear) is a new code_graph version even when the report is unchanged.
+ * Empty (Melee, gate off, nothing unverified): the version is the report's.
+ */
+function verificationFingerprint(applied: Iterable<string>): string {
+  const keys = [...new Set(applied)].sort();
+  return keys.length > 0 ? `:verification:${shortHash(stableJson(keys))}` : "";
+}
+
+function functionVerification(unverified: Set<string>, unit: string, symbol: string): Pick<FunctionRecord, "verification"> {
+  return unit && unverified.has(verificationKey(unit, symbol)) ? { verification: UNVERIFIED_MATCH_VERIFICATION } : {};
+}
+
+function functionRow(fn: FunctionRecord): Record<string, unknown> {
+  return { symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address, ...(fn.verification ? { verification: fn.verification } : {}) };
+}
+
+export function buildCodeGraphRecords(repoRoot: string, options: CodeGraphOptions = {}): GraphRecords {
   const reportPath = resolve(repoRoot, options.reportPath ?? "build/GALE01/report.json");
   const objdiffPath = resolve(repoRoot, "objdiff.json");
-  if (!existsSync(reportPath) || !existsSync(objdiffPath)) return buildCodeGraphRecordsFromIndexes(reportPath, objdiffPath);
+  const unverified = unverifiedKeySet(options);
+  if (!existsSync(reportPath) || !existsSync(objdiffPath)) return buildCodeGraphRecordsFromIndexes(reportPath, objdiffPath, unverified);
 
   const sourceByUnit = objdiffSourceMap(readJson(objdiffPath));
   const report = readJson(reportPath);
-  const sourceVersionId = `source-version:code_graph:${shortHash(filesFingerprint([reportPath, objdiffPath]))}`;
+  const applied = reportVerificationKeys(report, unverified);
+  const sourceVersionId = `source-version:code_graph:${shortHash(filesFingerprint([reportPath, objdiffPath]) + verificationFingerprint(applied))}`;
   const entities: GraphEntity[] = [];
   const facts: GraphFact[] = [];
   const edges: GraphEdge[] = [];
@@ -64,7 +147,7 @@ export function buildCodeGraphRecords(repoRoot: string, options: { reportPath?: 
       const fuzzy = numberValue(fn.fuzzy_match_percent, 100);
       const fnMetadata = objectValue(fn.metadata);
       const address = formatAddress(fnMetadata.virtual_address);
-      const functionRecord: FunctionRecord = { unit: unitName, sourcePath, symbol, size, fuzzy, address };
+      const functionRecord: FunctionRecord = { unit: unitName, sourcePath, symbol, size, fuzzy, address, ...functionVerification(unverified, unitName, symbol) };
       const functionEntity = functionEntityId(unitName, symbol);
       entities.push({
         id: functionEntity,
@@ -88,20 +171,22 @@ export function buildCodeGraphRecords(repoRoot: string, options: { reportPath?: 
   }
 
   for (const file of files.values()) {
-    const unmatched = file.functions.filter((fn) => fn.fuzzy < EXACT_SCORE);
-    const matched = file.functions.filter((fn) => fn.fuzzy >= EXACT_SCORE);
-    const editability =
-      file.functions.length === 0
-        ? { mode: "unknown", reason: "No functions were found for this source file in the report." }
-        : unmatched.length === 0
-          ? { mode: "read_only_complete", reason: "Every known function in this file is exact 100%; use as reference evidence only." }
-          : { mode: "editable", reason: `${unmatched.length} unmatched function(s) remain in this source file.` };
+    const unmatched = file.functions.filter((fn) => !countsAsMatched(fn));
+    const matched = file.functions.filter(countsAsMatched);
+    const unverifiedCount = file.functions.filter((fn) => fn.verification).length;
+    const editability = sourceFileEditability(
+      file.functions.length,
+      unmatched.length,
+      unverifiedCount,
+      "No functions were found for this source file in the report.",
+    );
     const payload = {
       source_path: file.sourcePath,
       units: [...file.units].sort(),
       function_count: file.functions.length,
       unmatched_function_count: unmatched.length,
       matched_function_count: matched.length,
+      ...(unverifiedCount > 0 ? { unverified_function_count: unverifiedCount } : {}),
       editability,
     };
     entities.push({
@@ -116,8 +201,8 @@ export function buildCodeGraphRecords(repoRoot: string, options: { reportPath?: 
       factType: "file_match_status",
       payload: {
         ...payload,
-        unmatched_functions: unmatched.map((fn) => ({ symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address })),
-        functions: file.functions.map((fn) => ({ symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address })),
+        unmatched_functions: unmatched.map(functionRow),
+        functions: file.functions.map(functionRow),
       },
       confidence: 1,
       trustTier: "canonical",
@@ -150,7 +235,11 @@ export function buildCodeGraphRecords(repoRoot: string, options: { reportPath?: 
     sourceVersion: {
       id: sourceVersionId,
       sourceId: "code_graph",
-      contentHash: shortHash(stableJson({ report: filesFingerprint([reportPath]), objdiff: filesFingerprint([objdiffPath]) })),
+      contentHash: shortHash(stableJson({
+        report: filesFingerprint([reportPath]),
+        objdiff: filesFingerprint([objdiffPath]),
+        ...(applied.length > 0 ? { unverified_matches: [...new Set(applied)].sort() } : {}),
+      })),
       sourcePaths: [reportPath, objdiffPath],
     },
     entities,
@@ -160,7 +249,21 @@ export function buildCodeGraphRecords(repoRoot: string, options: { reportPath?: 
   };
 }
 
-function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: string): GraphRecords {
+function reportVerificationKeys(report: Record<string, unknown>, unverified: Set<string>): string[] {
+  if (unverified.size === 0) return [];
+  const applied: string[] = [];
+  for (const unitValue of arrayValue(report.units)) {
+    const unit = objectValue(unitValue);
+    const unitName = stringValue(unit.name);
+    for (const fnValue of arrayValue(unit.functions)) {
+      const key = verificationKey(unitName, stringValue(objectValue(fnValue).name));
+      if (unitName && unverified.has(key)) applied.push(key);
+    }
+  }
+  return applied;
+}
+
+function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: string, unverified: Set<string>): GraphRecords {
   const filesIndex = resolve(sourceRoot("code_graph"), "indexes/files.jsonl");
   const functionsIndex = resolve(sourceRoot("code_graph"), "indexes/functions.jsonl");
   if (!existsSync(filesIndex) || !existsSync(functionsIndex)) {
@@ -168,7 +271,7 @@ function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: strin
     throw new Error(`Missing code graph inputs: ${missing.join(", ")}`);
   }
 
-  const sourceVersionId = `source-version:code_graph:${shortHash(filesFingerprint([filesIndex, functionsIndex]))}`;
+  const applied: string[] = [];
   const entities: GraphEntity[] = [];
   const facts: GraphFact[] = [];
   const edges: GraphEdge[] = [];
@@ -177,7 +280,21 @@ function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: strin
   const seenUnits = new Set<string>();
   const seenCompileEdges = new Set<string>();
 
-  for (const row of readJsonl(filesIndex)) {
+  const fileRows = readJsonl(filesIndex);
+  const functionRows = readJsonl(functionsIndex);
+  for (const row of functionRows) {
+    const key = verificationKey(stringValue(row.unit), stringValue(row.symbol));
+    if (stringValue(row.unit) && unverified.has(key)) applied.push(key);
+  }
+  // Index rows without function detail: an unverified function of a listed unit still applies to its file.
+  const functionKeys = new Set(functionRows.map((row) => verificationKey(stringValue(row.unit), stringValue(row.symbol))));
+  for (const key of unverified) {
+    const unit = verificationKeyUnit(key);
+    if (!functionKeys.has(key) && fileRows.some((row) => arrayValue(row.units).map(String).includes(unit))) applied.push(key);
+  }
+  const sourceVersionId = `source-version:code_graph:${shortHash(filesFingerprint([filesIndex, functionsIndex]) + verificationFingerprint(applied))}`;
+
+  for (const row of fileRows) {
     const sourcePath = stringValue(row.source_path, stringValue(row.sourcePath));
     if (!sourcePath) continue;
     const file = getFile(files, sourcePath);
@@ -191,7 +308,7 @@ function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: strin
     }
   }
 
-  for (const row of readJsonl(functionsIndex)) {
+  for (const row of functionRows) {
     const unit = stringValue(row.unit);
     const sourcePath = stringValue(row.sourcePath, stringValue(row.source_path));
     const symbol = stringValue(row.symbol);
@@ -203,6 +320,7 @@ function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: strin
       size: numberValue(row.size),
       fuzzy: numberValue(row.fuzzy, 100),
       address: formatAddress(row.address),
+      ...functionVerification(unverified, unit, symbol),
     };
     const file = getFile(files, sourcePath);
     if (unit) {
@@ -233,13 +351,17 @@ function buildCodeGraphRecordsFromIndexes(reportPath: string, objdiffPath: strin
     edges.push(edge(unitEntityId(unit), "CONTAINS", functionEntity, sourceVersionId, `code_graph_index:${unit}:${symbol}`, 1));
   }
 
-  addFileRecords(files, entities, facts, chunks, sourceVersionId, filesIndex);
+  addFileRecords(files, entities, facts, chunks, sourceVersionId, filesIndex, new Set(applied));
 
   return {
     sourceVersion: {
       id: sourceVersionId,
       sourceId: "code_graph",
-      contentHash: shortHash(stableJson({ files: filesFingerprint([filesIndex]), functions: filesFingerprint([functionsIndex]) })),
+      contentHash: shortHash(stableJson({
+        files: filesFingerprint([filesIndex]),
+        functions: filesFingerprint([functionsIndex]),
+        ...(applied.length > 0 ? { unverified_matches: [...new Set(applied)].sort() } : {}),
+      })),
       sourcePaths: [filesIndex, functionsIndex],
     },
     entities,
@@ -301,25 +423,34 @@ function addFileRecords(
   chunks: SearchChunk[],
   sourceVersionId: string,
   evidenceRef: string,
+  unverified: ReadonlySet<string>,
 ): void {
   for (const file of files.values()) {
-    const unmatched = file.functions.filter((fn) => fn.fuzzy < EXACT_SCORE);
-    const matched = file.functions.filter((fn) => fn.fuzzy >= EXACT_SCORE);
+    const unmatched = file.functions.filter((fn) => !countsAsMatched(fn));
+    const matched = file.functions.filter(countsAsMatched);
     const functionCount = file.functions.length || file.declaredFunctionCount || 0;
-    const unmatchedCount = file.functions.length ? unmatched.length : file.declaredUnmatchedFunctionCount || 0;
-    const matchedCount = file.functions.length ? matched.length : file.declaredMatchedFunctionCount || Math.max(0, functionCount - unmatchedCount);
-    const editability =
-      functionCount === 0
-        ? { mode: "unknown", reason: "No functions were found for this source file in the code graph index." }
-        : unmatchedCount === 0
-          ? { mode: "read_only_complete", reason: "Every known function in this file is exact 100%; use as reference evidence only." }
-          : { mode: "editable", reason: `${unmatchedCount} unmatched function(s) remain in this source file.` };
+    // Declared counts come from raw scores: move the file's unverified functions from matched to unmatched.
+    const declaredUnverified = file.functions.length
+      ? 0
+      : [...unverified].filter((key) => file.units.has(verificationKeyUnit(key))).length;
+    const unverifiedCount = file.functions.length ? file.functions.filter((fn) => fn.verification).length : declaredUnverified;
+    const unmatchedCount = file.functions.length ? unmatched.length : (file.declaredUnmatchedFunctionCount || 0) + declaredUnverified;
+    const matchedCount = file.functions.length
+      ? matched.length
+      : Math.max(0, (file.declaredMatchedFunctionCount || Math.max(0, functionCount - (file.declaredUnmatchedFunctionCount || 0))) - declaredUnverified);
+    const editability = sourceFileEditability(
+      functionCount,
+      unmatchedCount,
+      unverifiedCount,
+      "No functions were found for this source file in the code graph index.",
+    );
     const payload = {
       source_path: file.sourcePath,
       units: [...file.units].sort(),
       function_count: functionCount,
       unmatched_function_count: unmatchedCount,
       matched_function_count: matchedCount,
+      ...(unverifiedCount > 0 ? { unverified_function_count: unverifiedCount } : {}),
       editability,
     };
     entities.push({
@@ -334,8 +465,8 @@ function addFileRecords(
       factType: "file_match_status",
       payload: {
         ...payload,
-        unmatched_functions: unmatched.map((fn) => ({ symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address })),
-        functions: file.functions.map((fn) => ({ symbol: fn.symbol, fuzzy: fn.fuzzy, size: fn.size, unit: fn.unit, address: fn.address })),
+        unmatched_functions: unmatched.map(functionRow),
+        functions: file.functions.map(functionRow),
       },
       confidence: 1,
       trustTier: "canonical",

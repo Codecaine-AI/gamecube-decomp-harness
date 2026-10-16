@@ -37,7 +37,7 @@ export async function savePoint(globals: GlobalArgs, args: Map<string, string | 
         reportPath,
         reportChangesPath,
         baseRef: stringArg(args, "--base-ref", globals.game?.baseRef ?? "origin/master"),
-      });
+      }, { steeringGate: globals.game ? globals.game.matching?.steeringGate ?? "off" : undefined });
       console.log(JSON.stringify(result, null, 2));
       return;
     }

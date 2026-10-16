@@ -3,20 +3,27 @@ import { resolve } from "node:path";
 import type { BoardMeasures, BoardSnapshot, TargetCandidate } from "@server/core/shared/types/index.js";
 import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
 import { isRecordedStackOnly } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
-import { candidateFromReportFunction, objdiffSourceMap, type StackOnlyIndex } from "./candidates.js";
+import { candidateFromReportFunction, isUnverifiedTarget, objdiffSourceMap, rankUnverifiedFirst, type StackOnlyIndex, type UnverifiedIndex } from "./candidates.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
+import { applyReadinessFrontier, type BoardReadinessOptions } from "./readiness.js";
+import { withholdUnverifiedMeasures } from "./unverified-measures.js";
+
+/** The central unverified metrics helper; sync publication and settlement import it from here. */
+export { withholdUnverifiedMeasures } from "./unverified-measures.js";
 
 function readJson(path: string): JsonObject {
   return JSON.parse(readFileSync(path, "utf8")) as JsonObject;
 }
 
-export interface LoadBoardSnapshotOptions {
+export interface LoadBoardSnapshotOptions extends BoardReadinessOptions {
   codeGraphFunctionsIndexPath?: string;
   reportPath?: string;
   objdiffPath?: string;
   targetExcludePrefixes?: string[];
   /** stop_at_frame games: functions done up to the stack frame, skipped while still at their recorded score. */
   stackOnly?: StackOnlyIndex;
+  /** Steering-gated games: `unverified_match` functions, claimable even at 100% and never retired as done. */
+  unverified?: UnverifiedIndex;
 }
 
 function excludedSource(sourcePath: string, options: LoadBoardSnapshotOptions): boolean {
@@ -46,6 +53,7 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
         sourcePath,
         fn: asObject(fnValue),
         stackOnly: options.stackOnly,
+        unverified: options.unverified,
       });
       if (candidate) candidates.push(candidate);
     }
@@ -66,16 +74,17 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
     }
   }
 
-  const measures = asObject(report.measures) as BoardMeasures;
+  const measures = withholdUnverifiedMeasures(report, options.unverified);
   return {
     generatedAt: new Date().toISOString(),
     reportPath,
     objdiffPath,
     measures,
-    candidates,
+    ...applyReadinessFrontier(rankUnverifiedFirst(candidates), options),
   };
 }
 
+/** Exact report functions and sections; an `unverified_match` function is never exact (not done). */
 export function loadExactTargetKeys(repoRoot: string, options: LoadBoardSnapshotOptions = {}): Set<string> {
   const reportPath = resolve(repoRoot, options.reportPath ?? "build/GALE01/report.json");
   if (!existsSync(reportPath)) return new Set();
@@ -90,7 +99,7 @@ export function loadExactTargetKeys(repoRoot: string, options: LoadBoardSnapshot
       const fn = asObject(fnValue);
       const symbol = stringValue(fn.name);
       const fuzzy = numberValue(fn.fuzzy_match_percent, 100);
-      if (symbol && fuzzy >= EXACT_SCORE) exactKeys.add(`${unitName}::${symbol}`);
+      if (symbol && fuzzy >= EXACT_SCORE && !isUnverifiedTarget(options.unverified, `${unitName}::${symbol}`)) exactKeys.add(`${unitName}::${symbol}`);
     }
     for (const sectionValue of asArray(unit.sections)) {
       const section = asObject(sectionValue);
@@ -117,7 +126,7 @@ export function loadStackOnlyTargetKeys(repoRoot: string, options: LoadBoardSnap
       const fn = asObject(fnValue);
       const symbol = stringValue(fn.name);
       const key = `${unitName}::${symbol}`;
-      if (symbol && isRecordedStackOnly(options.stackOnly, key, numberValue(fn.fuzzy_match_percent, 100))) keys.add(key);
+      if (symbol && !isUnverifiedTarget(options.unverified, key) && isRecordedStackOnly(options.stackOnly, key, numberValue(fn.fuzzy_match_percent, 100))) keys.add(key);
     }
   }
   return keys;
@@ -140,6 +149,9 @@ function loadBoardSnapshotFromCodeGraphIndex(
   let matchedFunctions = 0;
   let totalBytes = 0;
   let matchedBytes = 0;
+  let unverifiedFunctions = 0;
+  let unverifiedBytes = 0;
+  let unverifiedTargets = 0;
 
   // The code-graph index contains functions only, so this fallback cannot emit section targets.
   for (const row of rows) {
@@ -151,13 +163,22 @@ function loadBoardSnapshotFromCodeGraphIndex(
     if (!unit || !sourcePath || !symbol || size <= 0) continue;
     totalFunctions += 1;
     totalBytes += size;
-    if (fuzzy >= EXACT_SCORE) {
+    const unverified = isUnverifiedTarget(options.unverified, `${unit}::${symbol}`);
+    if (unverified) {
+      unverifiedTargets += 1;
+      if (fuzzy >= EXACT_SCORE) {
+        unverifiedFunctions += 1;
+        unverifiedBytes += size;
+      }
+    }
+    // An exact `unverified_match` function is not done: unmatched, and still a candidate.
+    if (fuzzy >= EXACT_SCORE && !unverified) {
       matchedFunctions += 1;
       matchedBytes += size;
       continue;
     }
     if (excludedSource(sourcePath, options)) continue;
-    if (isRecordedStackOnly(options.stackOnly, `${unit}::${symbol}`, fuzzy)) continue;
+    if (!unverified && isRecordedStackOnly(options.stackOnly, `${unit}::${symbol}`, fuzzy)) continue;
     candidates.push({
       unit,
       sourcePath,
@@ -165,6 +186,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
       size,
       fuzzy,
       kind: "function",
+      ...(unverified ? { verification: "unverified_match" as const } : {}),
     });
   }
 
@@ -173,13 +195,22 @@ function loadBoardSnapshotFromCodeGraphIndex(
     matched_code_percent: percent(matchedBytes, totalBytes),
     complete_code_percent: percent(matchedBytes, totalBytes),
     unmatched_targets: Math.max(0, totalFunctions - matchedFunctions),
+    // The same "100% unverified" figure the report path stamps (see unverified-measures.ts).
+    ...(options.unverified && options.unverified.size > 0
+      ? {
+          unverified_functions: unverifiedFunctions,
+          unverified_code: unverifiedBytes,
+          unverified_code_percent: percent(unverifiedBytes, totalBytes),
+          unverified_targets: unverifiedTargets,
+        }
+      : {}),
   };
   return {
     generatedAt: new Date().toISOString(),
     reportPath: functionsIndex,
     objdiffPath: "",
     measures,
-    candidates,
+    ...applyReadinessFrontier(rankUnverifiedFirst(candidates), options),
   };
 }
 

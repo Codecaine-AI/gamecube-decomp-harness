@@ -1,9 +1,43 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, resolve } from "node:path";
 import { runCommand } from "@server/infrastructure/shell";
+import { resolveGame } from "@server/core/game-registry/resolver.js";
+import { orderingActive, orderingEnforced } from "@server/core/tools/ordering.js";
+import { packageRoot } from "@server/core/knowledge";
+import {
+  EDIT_SCOPE_TOOLPACK_PATH,
+  editScopePolicyFromGame,
+  editScopeProblem,
+  editScopeRejectionReason,
+  hostEditScopeRunner,
+  runEditScope,
+  type EditScopeOrderingPolicy,
+  type EditScopeResult,
+  type EditScopeRunner,
+} from "@server/core/validation/edit-scope/edit-scope.js";
+import {
+  UNUSED_RECERTIFY_INSTRUCTION,
+  checkpointUnusedChecks,
+  evidenceInlinedTrailers,
+  partitionUnusedChecksByContent,
+  type BoundUnusedCheck,
+  type UnusedCheckFreshness,
+} from "@server/core/validation/edit-scope/unused-evidence.js";
+import { REJECTED_OUT_OF_SCOPE_DISPOSITION } from "@server/core/harness-runtime/run-state/worker-output-integration.js";
+import { activeUnverifiedMatch, clearUnverifiedMatchIfCertified, integrationClearedBy } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import {
+  checkpointUnverifiedCertification,
+  gitRevAncestry,
+  sourceFreshBeforeApply,
+  sourceUnchangedSinceClaim,
+  type SourceFreshness,
+  type UnverifiedMatchCertification,
+} from "@server/core/validation/steering/unverified-certification.js";
+import { rejectWorkerOutputIntegrationRecord } from "./reject-output.js";
 import {
   addEvent,
+  getRun,
   getWorkerOutputIntegration,
   updateWorkerOutputIntegration,
   workerOutputIntegrationQueueSummary,
@@ -325,6 +359,183 @@ export function integrationCommitMessage(record: Pick<WorkerOutputIntegrationRec
   return `worker-integration(${record.id.slice(0, 8)}): ${target}${checkpoint}`;
 }
 
+/**
+ * `git commit` message arguments: the subject (unchanged; boundary Sync reads
+ * `%s` only) and, when the checkpoint carries `inlined` UNUSED evidence, a
+ * trailer paragraph (`-m` paragraphs are joined by a blank line).
+ */
+export function integrationCommitMessageArgs(
+  record: Pick<WorkerOutputIntegrationRecord, "id" | "targetKey" | "workerCheckpointId">,
+  unusedChecks?: readonly BoundUnusedCheck[] | null,
+): string[] {
+  const trailers = evidenceInlinedTrailers(unusedChecks);
+  return ["-m", integrationCommitMessage(record), ...(trailers.length > 0 ? ["-m", trailers.join("\n")] : [])];
+}
+
+function checkpointMetadata(store: StateStore, record: WorkerOutputIntegrationRecord): Record<string, unknown> {
+  if (!record.workerCheckpointId) return {};
+  const row = store.db.query("SELECT metadata_json FROM worker_checkpoints WHERE id = ?").get(record.workerCheckpointId) as { metadata_json?: unknown } | undefined;
+  try {
+    const parsed: unknown = typeof row?.metadata_json === "string" ? JSON.parse(row.metadata_json) : row?.metadata_json;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * After a clean apply: the integrated checkpoint carries the enforced gate's
+ * own-target pass for an `unverified_match` target, so that version is now
+ * accepted and the target's row is cleared, provided the pass's trusted base
+ * (`base_rev`) is the row's trusted base as it stands now, or an ancestor of
+ * it (`clearUnverifiedMatchIfCertified`; ancestry from git in the
+ * integration checkout, failing closed). A row re-based or re-recorded since
+ * the checkpoint is judged as it is now. The certified content must also be
+ * what landed: before the apply the row's whole source file on disk
+ * (committed, staged and unstaged) was the claim base's
+ * (`unverifiedFreshnessBeforeApply`), the row cleared is the one that check
+ * read, and the file is unchanged between the claim base and `preApplyRev`
+ * (`sourceUnchangedSinceClaim`). Any change to it since the claim (it may be
+ * a newer implementation the row now describes), or a fact that cannot be
+ * established, leaves the row active although the patch applied. Nothing else clears it here (a validation pass alone, a skipped,
+ * conflicting or rejected output). Never throws: the commit already landed.
+ */
+/** The checkpoint's certification for this integration's own target, else null. */
+function integratedUnverifiedCertification(record: WorkerOutputIntegrationRecord, metadata: Record<string, unknown>): UnverifiedMatchCertification | null {
+  const certification = checkpointUnverifiedCertification(metadata);
+  return certification && record.targetKey === `${certification.unit}::${certification.symbol}` ? certification : null;
+}
+
+/**
+ * Before `git apply`, for a checkpoint that would clear its target's
+ * `unverified_match` row: whether the row's source file on disk is still the
+ * claim base's (`sourceFreshBeforeApply`). Null when there is nothing to
+ * clear. Never throws (a failure is stale).
+ */
+async function unverifiedFreshnessBeforeApply(params: {
+  store: StateStore;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  record: WorkerOutputIntegrationRecord;
+  metadata: Record<string, unknown>;
+}): Promise<SourceFreshness | null> {
+  const certification = integratedUnverifiedCertification(params.record, params.metadata);
+  if (!certification) return null;
+  try {
+    const row = activeUnverifiedMatch(params.store, { gameId: certification.game_id, unit: certification.unit, symbol: certification.symbol });
+    return await sourceFreshBeforeApply({
+      repoRoot: params.repoRoot, claimBaseRev: certification.claim_base_rev, row, run: (cwd, command) => params.commandRunner(cwd, command),
+    });
+  } catch (error) {
+    return { sourcePath: null, recordedAt: null, stale: `content freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+async function clearCertifiedUnverifiedMatch(params: {
+  store: StateStore;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  record: WorkerOutputIntegrationRecord;
+  metadata: Record<string, unknown>;
+  /** HEAD the patch was applied on (`commitAppliedPatch`). */
+  preApplyRev: string;
+  /** The integration commit: the certified version's revision (`cleared_rev`). */
+  integratedRev: string;
+  /** `unverifiedFreshnessBeforeApply`'s result for this integration. */
+  beforeApply: SourceFreshness | null;
+}): Promise<Record<string, unknown> | null> {
+  const { record } = params;
+  const certification = integratedUnverifiedCertification(record, params.metadata);
+  if (!certification) return null;
+  const facts = {
+    game_id: certification.game_id, unit: certification.unit, symbol: certification.symbol, base_rev: certification.base_rev,
+    claim_base_rev: certification.claim_base_rev ?? null, pre_apply_rev: params.preApplyRev || null, checkpoint_id: record.workerCheckpointId,
+  };
+  const git = (cwd: string, command: string[]) => params.commandRunner(cwd, command);
+  try {
+    const result = await clearUnverifiedMatchIfCertified(params.store, {
+      gameId: certification.game_id,
+      unit: certification.unit,
+      symbol: certification.symbol,
+      clearedBy: integrationClearedBy(record.id),
+      clearedRev: params.integratedRev || null,
+      certifiedBaseRev: certification.base_rev,
+      isAncestor: gitRevAncestry(params.repoRoot, git),
+      fresh: sourceUnchangedSinceClaim({
+        repoRoot: params.repoRoot, claimBaseRev: certification.claim_base_rev, preApplyRev: params.preApplyRev, beforeApply: params.beforeApply, run: git,
+      }),
+    });
+    return { ...facts, cleared: result.cleared, row_base_rev: result.rowBaseRev, ...(result.refused ? { refused: result.refused } : {}) };
+  } catch (error) {
+    return { ...facts, cleared: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+interface IntegrationContentBeforeApply {
+  target_key: string | null;
+  source_path: string | null;
+  claim_base_rev: string | null;
+  reason?: string;
+}
+
+/** Whole-file evidence for every landing, including rollback-only targets without an unverified certification. */
+async function integrationContentBeforeApply(params: {
+  store: StateStore;
+  record: WorkerOutputIntegrationRecord;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+}): Promise<IntegrationContentBeforeApply> {
+  const bound: IntegrationContentBeforeApply = { target_key: params.record.targetKey, source_path: null, claim_base_rev: null };
+  try {
+    const source = targetSnapshot(params.store, params.record).source_path;
+    bound.source_path = typeof source === "string" && source ? source : null;
+    const claim = params.store.db.query("SELECT base_rev FROM target_claims WHERE id = ?").get(params.record.targetClaimId) as { base_rev: unknown } | undefined;
+    bound.claim_base_rev = typeof claim?.base_rev === "string" && claim.base_rev ? claim.base_rev : null;
+    if (!bound.target_key) return { ...bound, reason: "the integration has no target key" };
+    if (!bound.source_path) return { ...bound, reason: "the epoch target has no source path" };
+    if (!bound.claim_base_rev || bound.claim_base_rev.startsWith("-")) return { ...bound, reason: "the target claim has no usable base revision" };
+    const tracked = await params.commandRunner(params.repoRoot, ["git", "cat-file", "-e", `${bound.claim_base_rev}:${bound.source_path}`]);
+    if (tracked.exitCode !== 0) return { ...bound, reason: `${bound.source_path} is not in the claim base ${bound.claim_base_rev}` };
+    const diff = await params.commandRunner(params.repoRoot, ["git", "diff", "--quiet", "--no-ext-diff", bound.claim_base_rev, "--", bound.source_path]);
+    if (diff.exitCode !== 0) return {
+      ...bound,
+      reason: diff.exitCode === 1
+        ? `${bound.source_path} differs from the claim base before the apply`
+        : `could not compare ${bound.source_path} with the claim base before the apply`,
+    };
+    return bound;
+  } catch (error) {
+    return { ...bound, reason: `content freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+/** A failed proof is metadata only: the patch already landed and must remain accepted. */
+async function integratedContentFreshness(params: {
+  beforeApply: IntegrationContentBeforeApply;
+  preApplyRev: string;
+  integratedRev: string;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+}): Promise<Record<string, unknown>> {
+  const bound = { ...params.beforeApply, pre_apply_rev: params.preApplyRev, integrated_rev: params.integratedRev };
+  if (bound.reason) return { fresh: false, ...bound };
+  if (!bound.claim_base_rev || !bound.source_path || !params.preApplyRev || params.preApplyRev.startsWith("-") || !params.integratedRev) {
+    return { fresh: false, ...bound, reason: "the landing has incomplete content freshness evidence" };
+  }
+  try {
+    const diff = await params.commandRunner(params.repoRoot, ["git", "diff", "--quiet", "--no-ext-diff", bound.claim_base_rev, params.preApplyRev, "--", bound.source_path]);
+    if (diff.exitCode === 0) return { fresh: true, ...bound };
+    return {
+      fresh: false, ...bound,
+      reason: diff.exitCode === 1
+        ? `${bound.source_path} changed between the claim base and the pre-apply revision`
+        : `could not compare ${bound.source_path} between the claim base and the pre-apply revision`,
+    };
+  } catch (error) {
+    return { fresh: false, ...bound, reason: `landed content freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
 async function commitAppliedPatch(params: {
   commandRunner: CommandRunner;
   leaseId: string;
@@ -333,6 +544,7 @@ async function commitAppliedPatch(params: {
   patchPath: string;
   paths?: string[];
   store: StateStore;
+  unusedChecks?: readonly BoundUnusedCheck[] | null;
 }): Promise<{ preApplyRev: string; integratedRev: string }> {
   let paths = uniqueStrings(params.paths ?? params.record.writeSet);
   if (paths.length === 0) paths = await patchPaths(params.commandRunner, params.repoRoot, params.patchPath);
@@ -356,8 +568,7 @@ async function commitAppliedPatch(params: {
     "git",
     "commit",
     "--no-verify",
-    "-m",
-    integrationCommitMessage(params.record),
+    ...integrationCommitMessageArgs(params.record, params.unusedChecks),
     "--",
     ...paths,
   ]);
@@ -428,6 +639,343 @@ async function handleApplyConflict(params: {
   return result;
 }
 
+/** Integration-gate inputs for the order-and-scope fence (plan v3 section 5). */
+export interface WorkerOutputIntegrationScopeOptions {
+  /** The game's ordering policy; null (or mode off) never runs the checker. */
+  ordering: EditScopeOrderingPolicy | null;
+  /**
+   * Set when no policy was passed and the run's game descriptor did not
+   * resolve: the policy is unknown. Recorded on every output; rejects when
+   * the run's stored configuration says ordering is enforced.
+   */
+  unresolved?: string | null;
+  /** `ordering.mode` from the run's stored configuration snapshot, when it records one. */
+  storedMode?: string | null;
+  /** Defaults to the toolpack `edit_scope.py` run on the host against the repo. */
+  editScopeRunner?: EditScopeRunner;
+}
+
+/** Host path of the toolpack checker, resolved like the steering gate's script. */
+export function integrationEditScopeScript(): string {
+  return resolve(packageRoot(), "toolpacks/gamecube-decomp", EDIT_SCOPE_TOOLPACK_PATH);
+}
+
+function storedOrderingMode(snapshot: Record<string, unknown> | null | undefined): string | null {
+  const ordering = snapshot?.ordering;
+  if (ordering && typeof ordering === "object" && !Array.isArray(ordering)) {
+    const mode = (ordering as Record<string, unknown>).mode;
+    if (typeof mode === "string") return mode;
+  }
+  return typeof snapshot?.ordering_mode === "string" ? snapshot.ordering_mode : null;
+}
+
+export interface RunOrderingResolution {
+  policy: EditScopeOrderingPolicy | null;
+  /** Why the policy is unknown (`ordering_unresolved: ...`), else null. */
+  unresolved: string | null;
+  storedMode: string | null;
+}
+
+/**
+ * The ordering policy of the run's game, for callers that do not pass one.
+ * A game that resolves without an active `ordering` block is off; a game id
+ * whose descriptor does not resolve is `unresolved` (never silently off).
+ */
+export function runOrderingPolicy(store: StateStore, runId: string): RunOrderingResolution {
+  const run = getRun(store, runId);
+  const storedMode = storedOrderingMode(run?.inputs?.configuration_snapshot);
+  const gameId = run?.game?.gameId ?? run?.gameId ?? null;
+  if (!gameId) return { policy: null, unresolved: null, storedMode };
+  try {
+    const descriptorPath = run?.game?.descriptorPath;
+    const gameDir = descriptorPath ? dirname(descriptorPath) : undefined;
+    const orchestratorRoot = gameDir && basename(dirname(gameDir)) === "games" ? dirname(dirname(gameDir)) : undefined;
+    return { policy: editScopePolicyFromGame(resolveGame({ gameId, orchestratorRoot })), unresolved: null, storedMode };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { policy: null, unresolved: `ordering_unresolved: the ordering policy of game ${gameId} is unknown (${detail})`, storedMode };
+  }
+}
+
+interface IntegrationScopeCheck {
+  result: EditScopeResult;
+  headRev: string | null;
+  targetUnit: string | null;
+  overlayDir: string | null;
+  changedPaths: string[];
+  deletedPaths: string[];
+  /** Certificates whose unit inputs changed since certification (not passed to the checker). */
+  staleUnusedChecks: UnusedCheckFreshness["stale"];
+  /** Stale certificates for a body in a file the patch rewrites: enforce rejects them (re-certify). */
+  staleReconstructed: UnusedCheckFreshness["stale"];
+}
+
+function failedScopeResult(mode: EditScopeOrderingPolicy["mode"], error: string, started: number): EditScopeResult {
+  return { mode, report: null, error, durationMs: Date.now() - started };
+}
+
+/**
+ * Post-apply texts of the patch's changed files over the current HEAD,
+ * mirrored by repo-relative path under `<dir>/overlay` (the layout
+ * `read_overlay` reads). The patch is applied to a throwaway index
+ * (`GIT_INDEX_FILE`, `git apply --cached`), so the repo's index and working
+ * tree are never touched. Deleted files cannot be expressed in an overlay and
+ * are listed separately.
+ */
+async function buildIntegrationOverlay(params: {
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  patchPath: string;
+  dir: string;
+}): Promise<{ headRev: string; overlayDir: string; changedPaths: string[]; deletedPaths: string[] }> {
+  await rm(params.dir, { recursive: true, force: true });
+  const overlayDir = resolve(params.dir, "overlay");
+  await mkdir(overlayDir, { recursive: true });
+  const env = { GIT_INDEX_FILE: resolve(params.dir, "index") };
+  const run = async (command: string[], label: string) => {
+    const result = await params.commandRunner(params.repoRoot, command, { env });
+    if (result.exitCode !== 0) throw new Error(`${label} exited ${result.exitCode}: ${outputTail(result.stderr || result.stdout, 600)}`);
+    return result.stdout;
+  };
+  const headRev = (await run(["git", "rev-parse", "HEAD"], "git rev-parse HEAD")).trim();
+  if (!headRev) throw new Error("git rev-parse HEAD returned no revision");
+  await run(["git", "read-tree", headRev], "git read-tree");
+  await run(["git", "apply", "--cached", params.patchPath], "git apply --cached");
+  const status = await run(["git", "diff", "--cached", "--name-status", "--no-renames", headRev], "git diff --cached");
+  const changedPaths: string[] = [];
+  const deletedPaths: string[] = [];
+  for (const line of status.split("\n")) {
+    const [code, path] = line.split("\t");
+    if (!code || !path) continue;
+    if (path.startsWith("/") || path.split("/").includes("..")) throw new Error(`patch path escapes the repo: ${path}`);
+    changedPaths.push(path);
+    if (code.startsWith("D")) {
+      deletedPaths.push(path);
+      continue;
+    }
+    const text = await run(["git", "show", `:${path}`], `git show :${path}`);
+    const target = resolve(overlayDir, path);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, text);
+  }
+  return { headRev, overlayDir, changedPaths, deletedPaths };
+}
+
+/**
+ * Classifies the actual patch over the current HEAD (`edit_scope.py check
+ * --overlay-dir`), with the checkpoint's bound UNUSED evidence. Runs under the
+ * queue's serial claim, so HEAD cannot move underneath it. Never throws:
+ * overlay or checker failures come back as `error`.
+ */
+async function runIntegrationScopeGate(params: {
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  record: WorkerOutputIntegrationRecord;
+  patchPath: string;
+  store: StateStore;
+  artifacts: ApplyArtifacts;
+  ordering: EditScopeOrderingPolicy;
+  runner?: EditScopeRunner;
+  unusedChecks: readonly BoundUnusedCheck[] | null;
+}): Promise<IntegrationScopeCheck> {
+  const started = Date.now();
+  const dir = resolve(params.artifacts.artifactDir, "edit_scope");
+  const unit = targetSnapshot(params.store, params.record).unit;
+  const targetUnit = typeof unit === "string" && unit ? unit : null;
+  let overlay: Awaited<ReturnType<typeof buildIntegrationOverlay>>;
+  try {
+    overlay = await buildIntegrationOverlay({ commandRunner: params.commandRunner, repoRoot: params.repoRoot, patchPath: params.patchPath, dir });
+  } catch (error) {
+    return {
+      result: failedScopeResult(params.ordering.mode, `integration overlay failed: ${error instanceof Error ? error.message : String(error)}`, started),
+      headRev: null, targetUnit, overlayDir: null, changedPaths: [], deletedPaths: [], staleUnusedChecks: [], staleReconstructed: [],
+    };
+  }
+  // Certificates bind to unit content, not to the claim base: a check stays
+  // valid while its unit inputs are byte-identical in the texts being checked
+  // (the patch's post-apply texts over HEAD), whatever HEAD moved by.
+  const deleted = new Set(overlay.deletedPaths);
+  const patched = new Set(overlay.changedPaths);
+  const readText = async (path: string): Promise<string | null> => {
+    if (deleted.has(path)) return null;
+    if (patched.has(path)) {
+      try {
+        return await readFile(resolve(overlay.overlayDir, path), "utf8");
+      } catch {
+        return null;
+      }
+    }
+    const shown = await params.commandRunner(params.repoRoot, ["git", "show", `${overlay.headRev}:${path}`]);
+    return shown.exitCode === 0 ? shown.stdout : null;
+  };
+  const freshness: UnusedCheckFreshness = params.unusedChecks
+    ? await partitionUnusedChecksByContent(params.unusedChecks, readText)
+    : { fresh: [], stale: [] };
+  const staleReconstructed = freshness.stale.filter((entry) => patched.has(entry.check.file) && !deleted.has(entry.check.file));
+  const args = ["check", "--repo", params.repoRoot, "--base-rev", overlay.headRev, "--overlay-dir", overlay.overlayDir];
+  if (targetUnit) args.push("--target-unit", targetUnit);
+  if (params.unusedChecks) {
+    const unusedPath = resolve(dir, "unused_checks.json");
+    await writeFile(unusedPath, `${JSON.stringify(freshness.fresh, null, 2)}\n`);
+    args.push("--unused-checks", unusedPath);
+  }
+  const result = await runEditScope({
+    runner: params.runner ?? hostEditScopeRunner(integrationEditScopeScript(), params.repoRoot, params.ordering),
+    where: "host",
+    args,
+    policy: params.ordering,
+    artifactPath: resolve(dir, "report.json"),
+  });
+  return {
+    result,
+    headRev: overlay.headRev,
+    targetUnit,
+    overlayDir: overlay.overlayDir,
+    changedPaths: overlay.changedPaths,
+    deletedPaths: overlay.deletedPaths,
+    staleUnusedChecks: freshness.stale,
+    staleReconstructed,
+  };
+}
+
+const UNUSED_REJECT_VERDICTS = new Set(["unused_unverified", "dead_unused"]);
+
+/**
+ * Stale-certificate reasons that make the check fail: the checker rejected an
+ * UNUSED body (with the stale certificate withheld), or a stale certificate
+ * covers a body in a file the patch rewrites. Empty when no certificate went
+ * stale or the stale ones are irrelevant to this patch.
+ */
+function staleUnusedFailures(check: IntegrationScopeCheck): string[] {
+  if (check.staleUnusedChecks.length === 0) return [];
+  const unusedRejected = (check.result.report?.hunks ?? []).some((hunk) => UNUSED_REJECT_VERDICTS.has(hunk.verdict));
+  const relevant = unusedRejected ? check.staleUnusedChecks : check.staleReconstructed;
+  return relevant.map((entry) => entry.reason);
+}
+
+/** Why the integration scope check fails, or null: the checker's problem plus any stale-certificate failure. */
+function integrationScopeProblem(check: IntegrationScopeCheck): string | null {
+  const stale = staleUnusedFailures(check);
+  const problem = editScopeProblem(check.result);
+  if (stale.length === 0) return problem;
+  return [problem, `edit_scope: ${stale.join("; ")}`].filter(Boolean).join("; ");
+}
+
+/** What the outcome and checkpoint record about one integration scope check. */
+function integrationScopeRecord(check: IntegrationScopeCheck): Record<string, unknown> {
+  return {
+    mode: check.result.mode,
+    verdict: check.result.report?.verdict ?? null,
+    problem: integrationScopeProblem(check),
+    error: check.result.error,
+    head_rev: check.headRev,
+    target_unit: check.targetUnit,
+    changed_paths: check.changedPaths,
+    deleted_paths: check.deletedPaths,
+    artifact_path: check.result.artifactPath ?? null,
+    duration_ms: check.result.durationMs,
+    report: check.result.report,
+    unused_stale: check.staleUnusedChecks.map((entry) => ({
+      unit: entry.check.unit,
+      file: entry.check.file,
+      function: entry.check.function,
+      reason: entry.reason,
+    })),
+  };
+}
+
+/**
+ * Enforce: terminal `rejected` / `rejected_out_of_scope`, atomically with the
+ * checkpoint deselection, before anything touches the index or working tree.
+ * Not a blocking conflict: the target is re-admitted next epoch with the
+ * reason in its failure reasons (the attempt history the next claim reads).
+ */
+async function rejectOutOfScope(params: {
+  store: StateStore;
+  record: WorkerOutputIntegrationRecord;
+  artifacts: ApplyArtifacts;
+  /** The checker run; null when the policy itself is unknown (`ordering_unresolved`). */
+  check: IntegrationScopeCheck | null;
+  problem: string;
+}): Promise<WorkerOutputIntegrationApplyResult> {
+  const stale = params.check ? staleUnusedFailures(params.check) : [];
+  const reason = stale.length > 0
+    ? `${params.problem}. ${UNUSED_RECERTIFY_INSTRUCTION}`
+    : (params.check ? editScopeRejectionReason(params.check.result) : null) ?? params.problem;
+  const scope = params.check ? integrationScopeRecord(params.check) : { mode: "enforce", verdict: null, problem: params.problem, ordering_unresolved: params.problem };
+  const { updated } = rejectWorkerOutputIntegrationRecord(params.store, {
+    outcome: params.record,
+    disposition: REJECTED_OUT_OF_SCOPE_DISPOSITION,
+    actor: "worker-output-integration",
+    reason,
+    metadata: {
+      rejected_by: "edit_scope",
+      reason: params.problem,
+      previous_status: params.record.status,
+      edit_scope: scope,
+      ...(params.check ? {} : { ordering_unresolved: params.problem }),
+    },
+    update: {
+      summaryPath: params.artifacts.summaryPath,
+      itemPath: null,
+      checkStdoutPath: params.artifacts.checkStdoutPath,
+      checkStderrPath: params.artifacts.checkStderrPath,
+      applyStdoutPath: null,
+      applyStderrPath: null,
+      failureReasons: [reason],
+      conflictPaths: [],
+    },
+    checkpointMetadata: {
+      integration_rejection: { disposition: REJECTED_OUT_OF_SCOPE_DISPOSITION, outcome_id: params.record.id, reason, edit_scope: scope },
+    },
+    eventPayload: {
+      outcome_id: params.record.id,
+      target_key: params.record.targetKey,
+      checkpoint_id: params.record.workerCheckpointId,
+      disposition: REJECTED_OUT_OF_SCOPE_DISPOSITION,
+      reason: params.problem,
+      head_rev: params.check?.headRev ?? null,
+    },
+  });
+  const result: WorkerOutputIntegrationApplyResult = {
+    id: updated.id,
+    status: updated.status,
+    disposition: updated.disposition,
+    patchPath: updated.patchPath,
+    itemPath: updated.itemPath,
+    summaryPath: updated.summaryPath,
+    failureReasons: updated.failureReasons,
+    conflictPaths: updated.conflictPaths,
+    integratedRev: null,
+  };
+  await writeSummary(params.artifacts.summaryPath, result, {
+    queue_record: {
+      worker_state_id: updated.workerStateId,
+      worker_checkpoint_id: updated.workerCheckpointId,
+      target_claim_id: updated.targetClaimId,
+      epoch_target_id: updated.epochTargetId,
+      write_set: updated.writeSet,
+    },
+    edit_scope: scope,
+  });
+  return result;
+}
+
+/** A re-claimed job whose output a gate already rejected: report it, never apply it. */
+function alreadyRejectedResult(record: WorkerOutputIntegrationRecord): WorkerOutputIntegrationApplyResult {
+  return {
+    id: record.id,
+    status: record.status,
+    disposition: record.disposition,
+    patchPath: record.patchPath,
+    itemPath: record.itemPath,
+    summaryPath: record.summaryPath,
+    failureReasons: record.failureReasons,
+    conflictPaths: record.conflictPaths,
+    integratedRev: null,
+  };
+}
+
 async function applyClaimedWorkerOutput(params: {
   commandRunner: CommandRunner;
   dryRun: boolean;
@@ -436,7 +984,12 @@ async function applyClaimedWorkerOutput(params: {
   stateDir: string;
   store: StateStore;
   record: WorkerOutputIntegrationRecord;
+  scope: () => WorkerOutputIntegrationScopeOptions;
 }): Promise<WorkerOutputIntegrationApplyResult> {
+  // A crash between the rejection transaction and completeJob re-claims the
+  // job; the terminal rejection stands and nothing is applied.
+  if (params.record.status === "rejected") return alreadyRejectedResult(params.record);
+
   const artifacts = integrationArtifacts(params.stateDir, params.record.runId, params.record.id);
   await mkdir(artifacts.artifactDir, { recursive: true });
 
@@ -520,6 +1073,42 @@ async function applyClaimedWorkerOutput(params: {
     });
   }
 
+  // Order-and-scope fence: classify the patch over the current HEAD before it
+  // touches the index or working tree. Enforce rejects on a reject verdict or
+  // any checker failure (fail closed); shadow records and applies.
+  const integratedCheckpointMetadata = checkpointMetadata(params.store, params.record);
+  const unusedChecks = checkpointUnusedChecks(integratedCheckpointMetadata);
+  const { ordering, editScopeRunner, unresolved, storedMode } = params.scope();
+  let scopeRecord: Record<string, unknown> | null = null;
+  if (!ordering && unresolved) {
+    // Unknown policy: fail closed only where the run recorded enforce.
+    if (orderingEnforced(storedMode)) {
+      return rejectOutOfScope({ store: params.store, record: params.record, artifacts, check: null, problem: unresolved });
+    }
+  } else if (ordering && orderingActive(ordering.mode)) {
+    const check = await runIntegrationScopeGate({
+      commandRunner: params.commandRunner,
+      repoRoot: params.repoRoot,
+      record: params.record,
+      patchPath: params.record.patchPath,
+      store: params.store,
+      artifacts,
+      ordering,
+      runner: editScopeRunner,
+      unusedChecks,
+    });
+    const problem = integrationScopeProblem(check);
+    if (problem && orderingEnforced(ordering.mode)) {
+      return rejectOutOfScope({ store: params.store, record: params.record, artifacts, check, problem });
+    }
+    scopeRecord = integrationScopeRecord(check);
+  }
+
+  // Before anything touches the tree: is the target's source still the certified claim-base content?
+  const unverifiedBeforeApply = await unverifiedFreshnessBeforeApply({
+    store: params.store, commandRunner: params.commandRunner, repoRoot: params.repoRoot, record: params.record, metadata: integratedCheckpointMetadata,
+  });
+  const contentBeforeApply = await integrationContentBeforeApply(params);
   const applyCommand = ["git", "apply", params.record.patchPath];
   revalidateIntegrationLease(params.store, params.leaseId);
   const apply = await params.commandRunner(params.repoRoot, applyCommand);
@@ -553,6 +1142,20 @@ async function applyClaimedWorkerOutput(params: {
     record: params.record,
     patchPath: params.record.patchPath,
     store: params.store,
+    unusedChecks,
+  });
+  const contentFreshness = await integratedContentFreshness({
+    beforeApply: contentBeforeApply, ...revisions, commandRunner: params.commandRunner, repoRoot: params.repoRoot,
+  });
+  const unverifiedCleared = await clearCertifiedUnverifiedMatch({
+    store: params.store,
+    commandRunner: params.commandRunner,
+    repoRoot: params.repoRoot,
+    record: params.record,
+    metadata: integratedCheckpointMetadata,
+    preApplyRev: revisions.preApplyRev,
+    integratedRev: revisions.integratedRev,
+    beforeApply: unverifiedBeforeApply,
   });
   const result = await updateAndSummarize(params.store, params.record, {
     status: "applied",
@@ -566,6 +1169,10 @@ async function applyClaimedWorkerOutput(params: {
       validation_state: "tentative",
       pre_apply_rev: revisions.preApplyRev,
       integrated_rev: revisions.integratedRev,
+      steering_content_freshness: contentFreshness,
+      ...(scopeRecord ? { edit_scope: scopeRecord } : {}),
+      ...(!ordering && unresolved ? { ordering_unresolved: unresolved } : {}),
+      ...(unverifiedCleared ? { unverified_match: unverifiedCleared } : {}),
     },
     integratedRev: revisions.integratedRev,
   });
@@ -585,6 +1192,17 @@ export async function processWorkerOutputIntegrationQueue(params: {
    * landed earlier in a drain that later throws is already the checkout head.
    */
   onIntegrated?: (integratedRev: string) => void;
+  /**
+   * The game's ordering policy for the integration scope gate. Undefined:
+   * resolved from the run's game descriptor on the first claimed job (a
+   * descriptor that does not resolve records `ordering_unresolved`, and
+   * rejects when the run's stored configuration says enforce); null:
+   * ordering off (the checker never runs). Pass `orderingPolicy` from the
+   * run context wherever the resolved game is at hand.
+   */
+  ordering?: EditScopeOrderingPolicy | null;
+  /** Injectable checker runner (tests); defaults to the host toolpack script. */
+  editScopeRunner?: EditScopeRunner;
   repoRoot: string;
   runId: string;
   stateDir: string;
@@ -594,6 +1212,19 @@ export async function processWorkerOutputIntegrationQueue(params: {
   const limit = Math.max(1, Math.trunc(params.limit ?? 64));
   const commandRunner = params.commandRunner ?? runCommand;
   let headRev: string | null = null;
+  let scopeOptions: WorkerOutputIntegrationScopeOptions | null = null;
+  const scope = (): WorkerOutputIntegrationScopeOptions => {
+    if (!scopeOptions) {
+      const resolution = params.ordering !== undefined ? null : runOrderingPolicy(params.store, params.runId);
+      scopeOptions = {
+        ordering: resolution ? resolution.policy : params.ordering ?? null,
+        unresolved: resolution?.unresolved ?? null,
+        storedMode: resolution?.storedMode ?? null,
+        ...(params.editScopeRunner ? { editScopeRunner: params.editScopeRunner } : {}),
+      };
+    }
+    return scopeOptions;
+  };
 
   while (processed.length < limit) {
     revalidateIntegrationLease(params.store, params.leaseId);
@@ -618,6 +1249,7 @@ export async function processWorkerOutputIntegrationQueue(params: {
           stateDir: params.stateDir,
           store: params.store,
           record,
+          scope,
       });
       if (result.integratedRev) params.onIntegrated?.(result.integratedRev);
       completeJob(params.store, claimed.token, { resultRef: result.id });

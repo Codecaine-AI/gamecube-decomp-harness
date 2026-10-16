@@ -29,6 +29,7 @@ export type EventType =
   | "epoch_boundary_retry_scheduled"
   | "epoch_boundary_retry_exhausted"
   | "epoch_admitted"
+  | "epoch_admission_parked"
   | "epoch_boundary_waiting_for_recovery"
   | "epoch_checkpoint_progress"
   | "epoch_full_refresh_started"

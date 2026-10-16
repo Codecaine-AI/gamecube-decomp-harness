@@ -9,6 +9,11 @@ import { initializeDispatchState, requestDispatch, getDispatchState, releaseDisp
 import { addEvent, createRun, openState, updateRunStatus, type StateStore } from "@server/core/harness-runtime/run-state";
 import { openKnowledgeGraph } from "@server/core/knowledge/graph";
 import { writeReportProvenance } from "@server/core/knowledge/graph/storage/metadata.js";
+import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
+import { claimNextEpochTarget } from "@server/core/harness-runtime/run-state/worker-state.js";
+import { recordStackOnlyFunction } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 import { ensureSchedulerEpochFromBoard, reconcileOrphanedEpochTargets, runSchedulerTick } from "./tick.js";
 
 const tempDirs: string[] = [];
@@ -227,6 +232,107 @@ describe("runSchedulerTick", () => {
         ),
       );
       expect(result.admission?.admitted).toBe(epochTargetCap ?? 4);
+      value.store.db.close();
+    }
+  });
+
+  test("steering-gated game: a stored 100% unverified target is admitted and claimed before untouched ones and never retired as exact or stack-only", () => {
+    const value = admissionFixture();
+    const unit = "sms/MapObj.o";
+    // One unit: untouched (90), exact (100), unverified (100), unverified stack-only (99.5), plain stack-only (98).
+    writeFileSync(value.reportPath, JSON.stringify({
+      measures: { matched_code_percent: 90 },
+      units: [{
+        name: unit,
+        metadata: { source_path: "src/MapObj.cpp" },
+        functions: [
+          { name: "untouched", size: 32, fuzzy_match_percent: 90 },
+          { name: "exact", size: 32, fuzzy_match_percent: 100 },
+          { name: "unverified", size: 32, fuzzy_match_percent: 100 },
+          { name: "unverified_frame", size: 32, fuzzy_match_percent: 99.5 },
+          { name: "frame", size: 32, fuzzy_match_percent: 98 },
+        ],
+      }],
+    }));
+    writeProvenance(value.graphDbPath, value.reportPath);
+    for (const symbol of ["unverified", "unverified_frame"]) {
+      recordUnverifiedMatch(value.store, { gameId: "test", unit, symbol, analyzedRev: "rev-1", match: { base: 40, candidate: 100, real_only: null }, reasons: ["no steering located"] });
+    }
+    recordStackOnlyFunction(value.store, { gameId: "test", unit, symbol: "unverified_frame", fuzzy: 99.5, source: "backfill" });
+    recordStackOnlyFunction(value.store, { gameId: "test", unit, symbol: "frame", fuzzy: 98, source: "backfill" });
+    // The game id makes admission consult the harness: ready and running.
+    const harness = getHarnessState(value.store.db, "test")!;
+    transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: harness.identity.revision, commandId: "ready-unverified", patch: {
+      readiness: { build: "ready", evidence: "ready", sources: "ready", sandbox: "ready" },
+      execution: { desired: "run", workflow: "none", status: "idle" },
+    } });
+    const game = {
+      gameId: "test",
+      matching: { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" },
+      validation: { reportPath: "build/GALE01/report.json" },
+    } as unknown as GlobalArgs["game"];
+
+    try {
+      const result = ensureSchedulerEpochFromBoard({
+        config: { workerPoolSize: 1 },
+        globals: { ...globalsFor(value.dir), game },
+        graphDbPath: value.graphDbPath,
+        runId: value.run.id,
+        store: value.store,
+      });
+      const targets = value.store.db
+        .query("SELECT target_key, status FROM epoch_targets WHERE epoch_id = ? ORDER BY admission_index")
+        .all(result.epoch.id) as Array<{ target_key: string; status: string }>;
+
+      // Unverified first, both still admitted after the same pass's availability refresh; exact and plain stack-only stay out.
+      expect(targets).toEqual([
+        { target_key: `${unit}::unverified`, status: "admitted" },
+        { target_key: `${unit}::unverified_frame`, status: "admitted" },
+        { target_key: `${unit}::untouched`, status: "admitted" },
+      ]);
+      expect(result.availabilityRefresh?.retiredExact).toBe(0);
+      const claim = claimNextEpochTarget({ store: value.store, runId: value.run.id, workerId: "worker-0", baseRev: "base-test", ttlSeconds: 60 });
+      expect(value.store.db.query("SELECT target_key FROM epoch_targets WHERE id = ?").get(claim!.epochTargetId)).toEqual({ target_key: `${unit}::unverified` });
+    } finally {
+      value.store.db.close();
+    }
+  });
+
+  test("steering-gated game: a rollback whose rebuild failed keeps its admitted target and queued job despite the old 100% report", () => {
+    const value = admissionFixture();
+    const unit = "unit-0.o";
+    writeProvenance(value.graphDbPath, value.reportPath);
+    const harness = getHarnessState(value.store.db, "test")!;
+    transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: harness.identity.revision, commandId: "ready-rollback", patch: {
+      readiness: { build: "ready", evidence: "ready", sources: "ready", sandbox: "ready" },
+      execution: { desired: "run", workflow: "none", status: "idle" },
+    } });
+    const globals = { ...globalsFor(value.dir), game: {
+      gameId: "test",
+      matching: { steeringGate: "enforce" },
+      validation: { reportPath: "build/GALE01/report.json" },
+    } as unknown as GlobalArgs["game"] };
+    const ensure = () => ensureSchedulerEpochFromBoard({ config: { workerPoolSize: 1 }, globals, graphDbPath: value.graphDbPath, runId: value.run.id, store: value.store });
+
+    try {
+      const admitted = ensure();
+      expect(admitted.admission).toMatchObject({ admitted: 1 });
+      // The rollback rewrote the function but its rebuild failed: the report on disk still carries the pre-rollback 100%.
+      recordSteeringRollback(value.store, {
+        gameId: "test", unit, symbol: "function_0", analyzedRev: "rev-1", baseRev: "rev-1",
+        initialVerdict: "steering_located", finalVerdict: "steering_located", rules: ["steering"], report: {}, status: "rebuild_failed",
+      });
+      writeFileSync(value.reportPath, JSON.stringify({
+        measures: { matched_code_percent: 100 },
+        units: [{ name: unit, metadata: { source_path: "src/unit-0.c" }, functions: [{ name: "function_0", size: 32, fuzzy_match_percent: 100 }] }],
+      }));
+
+      const refreshed = ensure();
+      expect(refreshed.availabilityRefresh.retiredExact).toBe(0);
+      expect(value.store.db.query("SELECT target_key, status FROM epoch_targets WHERE epoch_id = ?").all(admitted.epoch.id))
+        .toEqual([{ target_key: `${unit}::function_0`, status: "admitted" }]);
+      expect(value.store.db.query("SELECT status FROM jobs WHERE kind = 'worker'").all()).toEqual([{ status: "queued" }]);
+    } finally {
       value.store.db.close();
     }
   });

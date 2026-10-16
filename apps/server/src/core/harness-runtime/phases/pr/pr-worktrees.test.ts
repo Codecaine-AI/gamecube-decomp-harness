@@ -4,8 +4,8 @@ import { beforeAll as beforeBuildTests, afterAll as afterBuildTests } from "bun:
 let previousBuildMode: string | undefined;
 beforeBuildTests(() => { previousBuildMode = process.env.ORCH_BUILD_EXECUTION; process.env.ORCH_BUILD_EXECUTION = "local"; });
 afterBuildTests(() => { if (previousBuildMode === undefined) delete process.env.ORCH_BUILD_EXECUTION; else process.env.ORCH_BUILD_EXECUTION = previousBuildMode; });
-import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -16,8 +16,12 @@ import {
   type PrWorktreeServiceDeps,
 } from "@server/core/harness-runtime/phases/pr/pr-worktrees.js";
 import type { RegressionReport } from "@server/core/validation/objdiff/report.js";
+import { openState } from "@server/core/orchestrator-state";
+import { listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 
 const cleanupPaths: string[] = [];
+const ungatedPaths: PrWorktreeGameContext = { game: null, repoRoot: "/repo", stateDir: "/unused-pr-state" };
 
 function tempDir(prefix: string): string {
   const path = mkdtempSync(join(tmpdir(), prefix));
@@ -78,6 +82,225 @@ async function git(repoRoot: string, args: string[]): Promise<CliResult> {
 afterEach(() => {
   for (const path of cleanupPaths.reverse()) rmSync(path, { force: true, recursive: true });
   cleanupPaths.length = 0;
+});
+
+describe("PR verification steering holds", () => {
+  const MIXED = "src/JSystem/mixed.cpp";
+  const CLEAN = "src/JSystem/clean.cpp";
+  type HeldEdit = "none" | "newly_exact" | "improved" | "unscored" | "unscored_unnamed";
+
+  /**
+   * A real branch whose whole-file patch carries a verified edit and a held
+   * edit in mixed.cpp, plus a verified edit alone in clean.cpp. The report
+   * reflects exactly what the applied patch left in the baseline worktree.
+   */
+  async function fixture(heldEdit: HeldEdit) {
+    const repoRoot = tempDir("pr-held-repo-");
+    const stateDir = tempDir("pr-held-state-");
+    const baselineWorktree = tempDir("pr-held-baseline-");
+    mkdirSync(join(repoRoot, "src/JSystem"), { recursive: true });
+    writeFileSync(join(repoRoot, MIXED), "int verified(void) { return 0; }\nint pad0;\nint pad1;\nint pad2;\nint held(void) { return 0; }\n");
+    writeFileSync(join(repoRoot, CLEAN), "int clean(void) { return 0; }\n");
+    await git(repoRoot, ["init", "-q", "-b", "master"]);
+    await git(repoRoot, ["config", "user.email", "test@example.com"]);
+    await git(repoRoot, ["config", "user.name", "Test"]);
+    await git(repoRoot, ["add", "."]);
+    await git(repoRoot, ["commit", "-q", "-m", "base"]);
+    const baseSha = (await git(repoRoot, ["rev-parse", "HEAD"])).stdout.trim();
+    await git(repoRoot, ["switch", "-q", "-c", "pr/sms"]);
+    writeFileSync(join(repoRoot, MIXED), "int verified(void) { return 1; }\nint pad0;\nint pad1;\nint pad2;\nint held(void) { return 1; }\n");
+    writeFileSync(join(repoRoot, CLEAN), "int clean(void) { return 1; }\n");
+    await git(repoRoot, ["commit", "-q", "-am", "branch"]);
+    await git(repoRoot, ["worktree", "add", "-q", "--detach", baselineWorktree, baseSha]);
+
+    const store = openState(stateDir);
+    try {
+      if (heldEdit === "newly_exact") {
+        recordUnverifiedMatch(store, {
+          gameId: "sms", unit: "JSystem/mixed", symbol: "held", analyzedRev: "pr/sms", baseRev: baseSha,
+          sourcePath: MIXED, match: { base: 0, candidate: 100, real_only: null }, reasons: ["unsupported construct"],
+        });
+      } else if (heldEdit !== "none") {
+        recordSteeringRollback(store, {
+          gameId: "sms", unit: "JSystem/mixed", symbol: "held", analyzedRev: "pr/sms", baseRev: baseSha,
+          initialVerdict: "steering", finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+        });
+      }
+    } finally {
+      store.db.close();
+    }
+
+    const sourcePath = (file: string) => heldEdit === "unscored_unnamed" ? "" : file;
+    const entry = (unitName: string, itemName: string, file: string, fromPercent: number, toPercent: number) => ({
+      unitName, itemName, sourcePath: sourcePath(file), size: 64, fromPercent, toPercent, bytesDelta: 64,
+    });
+    const service = createService({
+      runCli: async (command, cwd) => command[0] === "git" ? git(cwd ?? repoRoot, command.slice(1)) : successResult(),
+      runGit: async (root, args) => git(root, args),
+      readRegressionReport: async () => {
+        const mixed = readFileSync(join(baselineWorktree, MIXED), "utf8").includes("return 1");
+        const clean = readFileSync(join(baselineWorktree, CLEAN), "utf8").includes("return 1");
+        const newMatches = [
+          ...(mixed ? [entry("JSystem/mixed", "verified", MIXED, 0, 100)] : []),
+          ...(mixed && (heldEdit === "newly_exact" || heldEdit === "none") ? [entry("JSystem/mixed", "held", MIXED, 0, 100)] : []),
+          ...(clean ? [entry("JSystem/clean", "clean", CLEAN, 0, 100)] : []),
+        ];
+        const improvements = mixed && heldEdit === "improved" ? [entry("JSystem/mixed", "held", MIXED, 40, 90)] : [];
+        return {
+          ...cleanReport(), newMatches, improvements,
+          summary: { matchedCodeBytesDelta: newMatches.length * 64 },
+        } as unknown as RegressionReport;
+      },
+    });
+    const paths: PrWorktreeGameContext = {
+      game: { gameId: "sms", kind: "doldecomp-sms", matching: { steeringGate: "enforce" } }, repoRoot, stateDir,
+    };
+    return { service, paths, baseSha, baselineWorktree, repoRoot };
+  }
+
+  const heldCases: Array<{ label: string; heldEdit: Exclude<HeldEdit, "none">; rawNewMatches: number; heldMatches: number }> = [
+    { label: "a newly exact unverified match", heldEdit: "newly_exact", rawNewMatches: 3, heldMatches: 1 },
+    { label: "a rolled-back function that only improved", heldEdit: "improved", rawNewMatches: 2, heldMatches: 0 },
+    { label: "a rolled-back function edited without a score change", heldEdit: "unscored", rawNewMatches: 2, heldMatches: 0 },
+    { label: "an unscored held edit whose report rows name no source path", heldEdit: "unscored_unnamed", rawNewMatches: 2, heldMatches: 0 },
+  ];
+
+  test.each(heldCases)("verifyShipSet drops a mixed file carrying $label and ships only the clean file", async ({ heldEdit }) => {
+    const { service, paths, baseSha, baselineWorktree } = await fixture(heldEdit);
+
+    const status = await service.verifyShipSet(paths, { baseSha, worktreeDir: baselineWorktree }, [MIXED, CLEAN], { sourceRef: "pr/sms" });
+
+    expect(status).toMatchObject({
+      status: "pr_ready", shippedFiles: [CLEAN], newMatches: 1, rawNewMatches: 1, heldMatches: 0, matchedCodeBytesDelta: 64,
+    });
+    expect(Object.keys(status.droppedFiles as object)).toEqual([MIXED]);
+    expect((status.droppedFiles as Record<string, string[]>)[MIXED]).toEqual([expect.stringContaining("steering hold JSystem/mixed::held")]);
+    const patch = readFileSync(String(status.patchPath), "utf8");
+    expect(patch).toContain(CLEAN);
+    expect(patch).not.toContain(MIXED);
+    expect((await git(baselineWorktree, ["status", "--porcelain"])).stdout).toBe("");
+    const observer = openState(paths.stateDir, { migrate: false });
+    try {
+      // Verification only reads holds; it never clears the evidence behind them.
+      expect(listUnverifiedMatches(observer, "sms")).toHaveLength(heldEdit === "newly_exact" ? 1 : 0);
+    } finally {
+      observer.db.close();
+    }
+  });
+
+  test.each(heldCases)("verifyPrSliceInBaseline rejects a mixed file patch carrying $label", async ({ heldEdit, rawNewMatches, heldMatches }) => {
+    const { service, paths, baseSha, baselineWorktree, repoRoot } = await fixture(heldEdit);
+    const patchPath = join(paths.stateDir, "slice.patch");
+    writeFileSync(patchPath, (await git(repoRoot, ["diff", "--binary", `${baseSha}..pr/sms`, "--", MIXED, CLEAN])).stdout);
+
+    const result = await service.verifyPrSliceInBaseline({
+      paths, sourceRef: "pr/sms", baseSha, baselineWorktree, files: [MIXED, CLEAN], patchPath,
+    });
+
+    expect(result.validation).toMatchObject({ status: "failed", rawNewMatches, heldMatches, newMatches: rawNewMatches - heldMatches });
+    expect(Object.keys(result.validation.steeringHeldFiles as object)).toEqual([MIXED]);
+    expect(() => service.assertSliceVerificationClean("pr/sms", result.validation)).toThrow(`ships held steering edits in ${MIXED}`);
+    expect((await git(baselineWorktree, ["status", "--porcelain"])).stdout).toBe("");
+  });
+
+  test("the same gated patch ships whole when no function in it is held", async () => {
+    const { service, paths, baseSha, baselineWorktree, repoRoot } = await fixture("none");
+
+    const status = await service.verifyShipSet(paths, { baseSha, worktreeDir: baselineWorktree }, [MIXED, CLEAN], { sourceRef: "pr/sms" });
+    expect(status).toMatchObject({ status: "pr_ready", shippedFiles: [MIXED, CLEAN], newMatches: 3, heldMatches: 0, droppedFiles: {} });
+
+    const patchPath = join(paths.stateDir, "slice.patch");
+    writeFileSync(patchPath, (await git(repoRoot, ["diff", "--binary", `${baseSha}..pr/sms`, "--", MIXED, CLEAN])).stdout);
+    const result = await service.verifyPrSliceInBaseline({
+      paths, sourceRef: "pr/sms", baseSha, baselineWorktree, files: [MIXED, CLEAN], patchPath,
+    });
+    expect(result.validation).toMatchObject({ status: "passed", newMatches: 3, steeringHeldFiles: {} });
+    expect(() => service.assertSliceVerificationClean("pr/sms", result.validation)).not.toThrow();
+  });
+
+  test("gated verification fails closed without creating a missing state database", async () => {
+    const stateDir = tempDir("pr-credit-missing-state-");
+    const baselineWorktree = tempDir("pr-credit-missing-baseline-");
+    const paths: PrWorktreeGameContext = {
+      game: { gameId: "sms", matching: { steeringGate: "enforce" } }, repoRoot: baselineWorktree, stateDir,
+    };
+    const service = createService();
+    await expect(service.verifyShipSet(paths, {
+      baseSha: "trusted-base", worktreeDir: baselineWorktree,
+    }, ["src/mixed.cpp"])).rejects.toThrow();
+    await expect(service.verifyPrSliceInBaseline({
+      paths, baseSha: "trusted-base", baselineWorktree, files: ["src/mixed.cpp"], patchPath: join(stateDir, "slice.patch"),
+    })).rejects.toThrow();
+    expect(existsSync(join(stateDir, "orchestrator.sqlite"))).toBe(false);
+  });
+});
+
+describe("Melee PR verification output without a steering gate", () => {
+  const meleeReport = (regressed: boolean): RegressionReport => ({
+    ...cleanReport(),
+    newMatches: [{ unitName: "main/melee/gm/gmtest", itemName: "gm_80000000", sourcePath: "src/melee/gm/gmtest.c", size: 64, fromPercent: 0, toPercent: 100, bytesDelta: 64 }],
+    summary: { matchedCodeBytesDelta: 64 },
+    regressions: regressed ? [{ name: null, key: "matched_data_percent", from: 100, to: 90 }] : [],
+  } as unknown as RegressionReport);
+
+  function meleeFixture() {
+    const stateDir = tempDir("pr-melee-state-");
+    const paths: PrWorktreeGameContext = { game: { gameId: "melee", kind: "doldecomp-melee", baseRef: "origin/master" }, repoRoot: "/repo", stateDir };
+    return { stateDir, paths, baselineWorktree: tempDir("pr-melee-baseline-") };
+  }
+
+  function captureUiLog(): { lines: string[]; restore: () => void } {
+    const lines: string[] = [];
+    const spy = spyOn(process.stderr, "write").mockImplementation(((chunk: string | Uint8Array) => {
+      lines.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write);
+    return { lines, restore: () => spy.mockRestore() };
+  }
+
+  test("ship-set status and log keep the legacy fields, order and text", async () => {
+    const { stateDir, paths, baselineWorktree } = meleeFixture();
+    const log = captureUiLog();
+    let ready: Record<string, unknown>;
+    let blocked: Record<string, unknown>;
+    try {
+      ready = await createService({ readRegressionReport: async () => meleeReport(false) })
+        .verifyShipSet(paths, { baseSha: "base-sha", worktreeDir: baselineWorktree }, ["src/melee/gm/gmtest.c"]);
+      blocked = await createService({ readRegressionReport: async () => meleeReport(true) })
+        .verifyShipSet(paths, { baseSha: "base-sha", worktreeDir: baselineWorktree }, ["src/melee/gm/gmtest.c"]);
+    } finally {
+      log.restore();
+    }
+
+    expect(Object.keys(ready)).toEqual([
+      "status", "baseSha", "files", "rounds", "newMatches", "brokenMatches", "fuzzyRegressions", "metricRegressions",
+      "matchedCodeBytesDelta", "issuesCheck", "droppedFiles", "shippedFiles", "patchPath", "checkedAt",
+    ]);
+    expect(ready).toMatchObject({ status: "pr_ready", newMatches: 1, matchedCodeBytesDelta: 64 });
+    expect(Object.keys(blocked)).toEqual([
+      "status", "baseSha", "files", "rounds", "newMatches", "brokenMatches", "fuzzyRegressions", "metricRegressions",
+      "droppedFiles", "unattributed", "patchPath", "checkedAt",
+    ]);
+    expect(log.lines).toContain("[ui] ship-set verification: pr_ready (1 confirmed matches, 0 file(s) dropped for rework)\n");
+    expect(JSON.parse(readFileSync(join(stateDir, "pr_handoff/ship_status.json"), "utf8"))).toEqual(blocked);
+    expect(existsSync(join(stateDir, "orchestrator.sqlite"))).toBe(false);
+  });
+
+  test("slice validation keeps the legacy fields and order", async () => {
+    const { stateDir, paths, baselineWorktree } = meleeFixture();
+    const service = createService({ readRegressionReport: async () => meleeReport(false) });
+
+    const result = await service.verifyPrSliceInBaseline({
+      paths, baseSha: "base-sha", baselineWorktree, files: ["src/melee/gm/gmtest.c"], patchPath: join(stateDir, "slice.patch"),
+    });
+
+    expect(Object.keys(result.validation)).toEqual([
+      "status", "checkedAt", "newMatches", "regressions", "brokenMatches", "fuzzyRegressions", "metricRegressions",
+      "matchedCodeBytesDelta", "issuesCheck", "issuesFiles", "issuesOutput",
+    ]);
+    expect(result.validation).toMatchObject({ status: "passed", newMatches: 1, matchedCodeBytesDelta: 64 });
+    expect(existsSync(join(stateDir, "orchestrator.sqlite"))).toBe(false);
+  });
 });
 
 describe("production baseline tracing", () => {
@@ -311,6 +534,7 @@ describe("PR support-file worktrees", () => {
     });
 
     await service.verifyPrSliceInBaseline({
+      paths: ungatedPaths,
       baseSha: "base-sha",
       baselineWorktree: "/baseline",
       files: ["src/melee/gm/gmtest.c"],
@@ -335,6 +559,7 @@ describe("PR support-file worktrees", () => {
     const service = createService({ codeIssuesChecker: async () => checks.shift()! });
 
     const result = await service.verifyPrSliceInBaseline({
+      paths: ungatedPaths,
       baseSha: "0123456789abcdef",
       baselineWorktree: "/baseline",
       files: ["src/melee/gm/gmtest.c"],
@@ -357,6 +582,7 @@ describe("PR support-file worktrees", () => {
     const service = createService({ codeIssuesChecker: async () => checks.shift()! });
 
     const result = await service.verifyPrSliceInBaseline({
+      paths: ungatedPaths,
       baseSha: "base-sha",
       baselineWorktree: "/baseline",
       files: ["src/melee/gm/gmtest.c"],
@@ -380,6 +606,7 @@ describe("PR support-file worktrees", () => {
     const service = createService({ codeIssuesChecker: async () => checks.shift()! });
 
     const result = await service.verifyPrSliceInBaseline({
+      paths: ungatedPaths,
       baseSha: "base-sha",
       baselineWorktree: "/baseline",
       files: ["src/melee/gm/gmtest.c"],
@@ -396,6 +623,7 @@ describe("PR support-file worktrees", () => {
     });
     await expect(
       unparsable.verifyPrSliceInBaseline({
+        paths: ungatedPaths,
         baseSha: "base-sha",
         baselineWorktree: "/baseline",
         files: ["src/melee/gm/gmtest.c"],
@@ -411,6 +639,7 @@ describe("PR support-file worktrees", () => {
     });
     await expect(
       cleanupFailure.verifyPrSliceInBaseline({
+        paths: ungatedPaths,
         baseSha: "base-sha",
         baselineWorktree: "/baseline",
         files: ["src/melee/gm/gmtest.c"],

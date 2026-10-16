@@ -3,7 +3,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
 import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
-import { buildCodeGraphRecords } from "./code-graph.js";
+import { buildCodeGraphRecords, type UnverifiedFunctionRef } from "./code-graph.js";
 import { buildDecompStandardsGraphRecords } from "./decomp-standards.js";
 import { buildDocumentSourceGraphRecords } from "./document-sources.js";
 import { buildGhidraXrefGraphRecords } from "./ghidra-xrefs.js";
@@ -38,6 +38,13 @@ export interface RebuildKnowledgeGraphOptions {
   reportPath?: string;
   ghidraIndexesRoot?: string;
   opseqIndexesRoot?: string;
+  /**
+   * Steering-gated games: the active `unverified_match` functions at rebuild
+   * time. code_graph counts them unmatched (their files stay editable) and
+   * opseq_similarity never offers them as matched analogs; their raw scores
+   * are unchanged. Omitted for Melee and gate-off games.
+   */
+  unverifiedMatches?: readonly UnverifiedFunctionRef[];
 }
 
 export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Record<string, unknown> {
@@ -65,7 +72,7 @@ function rebuildSelectedKnowledgeGraph(options: RebuildKnowledgeGraphOptions): R
     for (const tool of readToolRegistry()) upsertToolDescriptor(store, tool);
 
     if (selected.has("code_graph")) {
-      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot, { reportPath: options.reportPath }));
+      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot, { reportPath: options.reportPath, unverifiedMatches: options.unverifiedMatches }));
       indexedSources.push("code_graph");
     }
     if (selected.has("past_prs")) {
@@ -112,7 +119,11 @@ function rebuildSelectedKnowledgeGraph(options: RebuildKnowledgeGraphOptions): R
       }
     }
     if (selected.has("opseq_similarity")) {
-      const records = buildOpseqSimilarityGraphRecords(options.repoRoot, { reportPath: options.reportPath, indexesRoot: options.opseqIndexesRoot });
+      const records = buildOpseqSimilarityGraphRecords(options.repoRoot, {
+        reportPath: options.reportPath,
+        indexesRoot: options.opseqIndexesRoot,
+        unverifiedMatches: options.unverifiedMatches,
+      });
       if (records) {
         insertGraphRecords(store, records);
         indexedSources.push("opseq_similarity");

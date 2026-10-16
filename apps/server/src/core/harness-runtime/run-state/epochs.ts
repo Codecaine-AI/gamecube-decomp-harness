@@ -1,6 +1,6 @@
 import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
 import { randomUUID } from "node:crypto";
-import type { TargetCandidate } from "@server/core/shared/types/index.js";
+import type { ReadinessClassRef, TargetCandidate, TargetReadiness } from "@server/core/shared/types/index.js";
 import { immediateTransaction, now, type StateStore } from "@server/core/orchestrator-state";
 import {
   recordEpochCompletedInTransaction,
@@ -371,6 +371,55 @@ export function closeSchedulerEpochWithEvidence(
   throw new Error("Epoch evidence requires an initialized harness");
 }
 
+/**
+ * `epoch_targets.reason` for an admitted target with not-ready classes:
+ * `{"readiness":{"state","unmet","unresolved"}}`. Null (unchanged) otherwise.
+ */
+export function epochTargetReadinessReason(readiness: TargetReadiness | undefined): string | null {
+  if (!readiness || (readiness.unmet.length === 0 && readiness.unresolved.length === 0)) return null;
+  return JSON.stringify({ readiness: { state: readiness.state, unmet: readiness.unmet, unresolved: readiness.unresolved } });
+}
+
+function classRefs(value: unknown): ReadinessClassRef[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && typeof (row as Record<string, unknown>).class === "string")
+    .map((row) => ({
+      class: String(row.class),
+      owner_unit: typeof row.owner_unit === "string" ? row.owner_unit : null,
+      kind: typeof row.kind === "string" ? row.kind : "construct",
+    }));
+}
+
+/** Reads the readiness recorded in `epoch_targets.reason`; null for targets admitted without not-ready classes. */
+export function parseEpochTargetReadiness(reason: unknown): TargetReadiness | null {
+  if (typeof reason !== "string" || !reason.trim()) return null;
+  try {
+    const parsed = JSON.parse(reason) as { readiness?: Record<string, unknown> };
+    const readiness = parsed?.readiness;
+    if (!readiness || typeof readiness !== "object") return null;
+    const state = readiness.state === "blocked" || readiness.state === "deferred" ? readiness.state : "ready";
+    return { state, unmet: classRefs(readiness.unmet), unresolved: classRefs(readiness.unresolved) };
+  } catch {
+    return null;
+  }
+}
+
+/** The admitted target's readiness at its epoch-start revision (worker packet). */
+export function loadEpochTargetReadiness(store: StateStore, epochTargetId: string): TargetReadiness | null {
+  const row = store.db.query("SELECT reason FROM epoch_targets WHERE id = ?").get(epochTargetId) as { reason?: unknown } | undefined;
+  return parseEpochTargetReadiness(row?.reason);
+}
+
+/**
+ * `packet.not_ready_classes` for `<not_ready_classes>`: classes the target's
+ * code constructs whose owner units are not decompiled. Empty for ready
+ * targets and for games without ordering.
+ */
+export function epochTargetNotReadyClasses(store: StateStore, epochTargetId: string): ReadinessClassRef[] {
+  return loadEpochTargetReadiness(store, epochTargetId)?.unmet ?? [];
+}
+
 export function admitEpochTargets(
   store: StateStore,
   params: {
@@ -421,7 +470,7 @@ export function admitEpochTargets(
         candidate.size,
         candidate.fuzzy,
         0,
-        null,
+        epochTargetReadinessReason(candidate.readiness),
         startIndex + index,
         admittedAt,
       );

@@ -4,11 +4,19 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { getHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
+import { withholdUnverifiedMeasures } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
+import { gameSteeringGate } from "@server/core/tools/steering-gate.js";
+import { steeringCompletionIndex } from "../checkpoint/completion-index.js";
 import { addSavePoint, type SavePointTrigger } from "../state";
 
 export interface HarnessSavePointInput {
   gameId: string; commandId: string; triggerKind: SavePointTrigger; label: string | null;
   reportPath: string; reportChangesPath: string; baseRef: string;
+}
+/** Outside the replay identity: the game's current configuration, not part of the command. */
+export interface HarnessSavePointOptions {
+  /** The game's `matching.steeringGate`; omitted, the game's current configuration (`off` when unresolvable). */
+  steeringGate?: string | null;
 }
 function hash(text: string | Buffer): string { return createHash("sha256").update(text).digest("hex"); }
 function identity(input: Pick<HarnessSavePointInput, "gameId" | "commandId">): string { return `save-point-${hash(`${input.gameId}:${input.commandId}`)}`; }
@@ -34,7 +42,7 @@ export function recordHarnessSavePointFailure(store: StateStore, input: { gameId
   });
 }
 /** Capture existing evidence only. Never builds, stages, commits, or changes accepted source. */
-export async function captureHarnessSavePoint(store: StateStore, input: HarnessSavePointInput) {
+export async function captureHarnessSavePoint(store: StateStore, input: HarnessSavePointInput, options: HarnessSavePointOptions = {}) {
   const state = getHarnessState(store.db, input.gameId);
   if (!state) throw new Error(`No harness for ${input.gameId}`);
   if (!input.commandId.trim()) throw new Error("Save-point command id is required");
@@ -78,7 +86,12 @@ export async function captureHarnessSavePoint(store: StateStore, input: HarnessS
       try {
         const report = JSON.parse(reportBytes.toString("utf8"));
         if (!report.measures || typeof report.measures !== "object" || Array.isArray(report.measures)) throw new Error("missing measures");
-        measures = report.measures;
+        // Active unverified matches and unresolved rollbacks receive no
+        // completion credit at this checkout's HEAD. The archived report
+        // stays byte-identical.
+        const steeringGate = options.steeringGate !== undefined ? options.steeringGate : gameSteeringGate({ gameId: input.gameId });
+        const completionIndex = await steeringCompletionIndex(store, { gameId: input.gameId, steeringGate }, repoRoot);
+        measures = { ...withholdUnverifiedMeasures(report, completionIndex) };
         const score = measures.matched_code_percent;
         if (typeof score !== "number" || !Number.isFinite(score)) throw new Error("invalid score");
         matchedCodePercent = score;

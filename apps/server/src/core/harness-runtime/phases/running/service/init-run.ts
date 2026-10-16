@@ -1,15 +1,21 @@
 import { assertSandboxAdmission } from "@server/core/harness-state/sandbox-admission.js";
+import { assertSteeringGatePreflight } from "@server/core/validation/steering/steering-preflight.js";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
 import { createRun, openState } from "@server/core/harness-runtime/run-state";
+import { steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { numberArg, gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { gameOrdering } from "@server/core/tools/ordering.js";
+import { boardReadinessOptions } from "../scheduler/readiness.js";
+import { readinessForAdmission } from "../scheduler/tick.js";
 
 export async function initRun(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const store = openState(globals.stateDir);
   try {
     if (!globals.dryRunAgents) assertSandboxAdmission(store, { game: globals.game, gameId: globals.gameId, profile: globals.sandboxProfile });
+    assertSteeringGatePreflight(store, { game: globals.game, gameId: globals.gameId, repoRoot: globals.repoRoot, command: "init-run" });
     const goalKind = stringArg(args, "--goal-kind", "matched_code_percent");
     const goalValue = numberArg(args, "--goal-value", globals.game?.dashboard.goalValue ?? 70);
     const desiredWorkers = numberArg(args, "--desired-workers", 12);
@@ -31,13 +37,32 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       sandbox_profile: globals.sandboxProfile ?? globals.game?.sandbox?.default_profile ?? "",
       thinking_level: globals.thinkingLevel,
       worker_configure_command: stringArg(args, "--worker-configure-command", "").trim(),
+      // The integration gate fails closed on an unresolvable descriptor only for runs started in enforce.
+      // Games without an ordering block (Melee) keep today's snapshot and policy revision.
+      ...runOrderingSnapshot(globals),
     };
     const run = createRun(store, goalKind, goalValue, desiredWorkers, game, {
       commandId: stringArg(args, "--command-id", "") || undefined,
       configurationSnapshot,
       requireReady: true,
     });
-    const snapshot = loadKnowledgeBoardSnapshot(run.game?.repoRoot ?? globals.repoRoot, { graphDbPath, validation: globals.game?.validation });
+    // Same class readiness as the first admission, so the initial board's counts agree with it.
+    const readiness = boardReadinessOptions(await readinessForAdmission({ globals, store, runId: run.id, rev: run.headRevision ?? undefined }));
+    const repoRoot = run.game?.repoRoot ?? globals.repoRoot;
+    // Steering-gated games: the baseline withholds every hold at the revision it measures (active rows plus
+    // rollbacks not certified there), and records that revision so readers never judge it at a later head.
+    // A state read failure throws here: init fails closed rather than writing raw credit.
+    const holds = steeringCompletionHolds(store, { gameId: globals.game?.gameId ?? globals.gameId, steeringGate: globals.game?.matching?.steeringGate }, repoRoot);
+    const measuredRevision = holds ? checkoutHead(repoRoot) : null;
+    const unverified = holds?.at(measuredRevision);
+    const board = loadKnowledgeBoardSnapshot(repoRoot, {
+      graphDbPath,
+      validation: globals.game?.validation,
+      ...(unverified && unverified.size > 0 ? { unverified } : {}),
+      ...(readiness ? { readiness } : {}),
+    });
+    // Games without an active gate (Melee) keep today's snapshot shape.
+    const snapshot = holds ? { ...board, measuredRevision } : board;
     const schedulableSources = new Set(snapshot.candidates.map((candidate) => candidate.sourcePath).filter(Boolean)).size;
 
     await mkdir(resolve(globals.stateDir, "runs", run.id, "snapshots"), { recursive: true });
@@ -70,4 +95,21 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
   } finally {
     store.db.close();
   }
+}
+
+/** The checkout's full HEAD sha, or null when git cannot tell (then no rollback hold is cleared for the board). */
+function checkoutHead(repoRoot: string): string | null {
+  try {
+    const result = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", "HEAD^{commit}"], { stdout: "pipe", stderr: "ignore" });
+    const head = result.exitCode === 0 ? result.stdout.toString().trim() : "";
+    return /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(head) ? head : null;
+  } catch {
+    return null;
+  }
+}
+
+/** `configuration_snapshot.ordering_mode` for games with an ordering block; nothing otherwise. */
+export function runOrderingSnapshot(globals: Pick<GlobalArgs, "game">): { ordering_mode?: string } {
+  const ordering = gameOrdering(globals.game);
+  return ordering ? { ordering_mode: ordering.mode } : {};
 }

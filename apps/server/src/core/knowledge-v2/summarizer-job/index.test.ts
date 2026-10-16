@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { clearUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { insertEntitiesIfMissing, insertTargets, insertWorkerRun } from "../records/index.js";
 import { openKnowledgeStore, type KnowledgeStore } from "../storage/store.js";
 import {
@@ -95,6 +97,106 @@ afterEach(() => {
 });
 
 describe("worker summary handler", () => {
+  // `steering`: the target's recorded steering state. A cleared row still puts it on the gated rule; none is Melee's legacy rule.
+  test.each([
+    { label: "rejected", hardGates: 0, state: "tentative", steering: "cleared", expected: "improvement" },
+    { label: "active unverified", hardGates: 1, state: "confirmed", steering: "active", expected: "improvement" },
+    { label: "reverted", hardGates: 1, state: "regressed", steering: "cleared", expected: "improvement" },
+    { label: "accepted", hardGates: 1, state: "confirmed", steering: "none", expected: "match" },
+    { label: "gate-off rejected", hardGates: 0, state: "regressed", steering: "none", expected: "match" },
+  ])("live summary gives $label 100% checkpoints their current completion outcome", async (scenario) => {
+    const f = fixture();
+    f.globals.gameId = "sms";
+    f.state.db.query("UPDATE runs SET game_id = 'sms'").run();
+    seedWorker(f.state);
+    seedCheckpoint(f.state, "worker-1", 1, 100);
+    seedTarget(f.knowledgeRoot);
+    f.state.db.query("UPDATE worker_checkpoints SET hard_gates_passed = ?, validation_state = ?")
+      .run(scenario.hardGates, scenario.state);
+    if (scenario.steering !== "none") recordUnverifiedMatch(f.state, {
+      gameId: "sms", unit: "unit", symbol: "Func", analyzedRev: "head", baseRev: "base",
+      match: { base: 10, candidate: 100, real_only: null }, reasons: ["unresolved"],
+    });
+    if (scenario.steering === "cleared") clearUnverifiedMatch(f.state, { gameId: "sms", unit: "unit", symbol: "Func", clearedBy: "test", clearedRev: "head" });
+    const job = enqueueWorkerSummaryForWorker(f.state, "worker-1");
+    const deps = {
+      globals: f.globals,
+      openKnowledgeStore: injectedStore(f.knowledgeRoot),
+      runPiAgent: () => modelResult({ run: { summary: "attempt" }, submissions: [
+        { submission_id: "run:worker-1:sub:1", approach: "repair", outcome_reasoning: "measured" },
+      ], notable_observations: [] }),
+    };
+    await handleWorkerSummaryJob(f.state, job, deps);
+    const knowledge = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    try {
+      expect(knowledge.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: scenario.expected });
+      if (scenario.label === "gate-off rejected") {
+        // Gate off: an existing run is skipped untouched, as before the gate.
+        knowledge.db.query("UPDATE worker_run SET final_outcome = 'no_change'").run();
+        await handleWorkerSummaryJob(f.state, job, deps);
+        expect(knowledge.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: "no_change" });
+      } else if (scenario.expected === "match") {
+        // A later backfill also invalidates an already summarized match without duplicating submissions.
+        recordUnverifiedMatch(f.state, { gameId: "sms", unit: "unit", symbol: "Func", analyzedRev: "head", baseRev: "base",
+          match: { base: 10, candidate: 100, real_only: null }, reasons: ["unresolved"] });
+        await handleWorkerSummaryJob(f.state, job, deps);
+        expect(knowledge.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: "improvement" });
+        expect(knowledge.db.query("SELECT COUNT(*) AS count FROM submission").get()).toEqual({ count: 1 });
+      }
+    } finally { knowledge.close(); }
+  });
+
+  test.each([
+    // The checkpoint (validated 00:01) predates the rollback: its 100 is not the code the branch now holds.
+    { label: "historical", rollbackAt: "2026-08-20T00:05:00.000Z", expected: "improvement" },
+    // Validated after the rollback, and only its own artifact (not its metadata) certifies the function.
+    { label: "recertified", rollbackAt: "2026-08-20T00:00:30.000Z", expected: "match" },
+  ])("live summary withholds a $label accepted 100% under an unresolved steering rollback unless its own gate certifies it", async (scenario) => {
+    const f = fixture();
+    f.globals.gameId = "sms";
+    f.state.db.query("UPDATE runs SET game_id = 'sms'").run();
+    seedWorker(f.state);
+    seedCheckpoint(f.state, "worker-1", 1, 100);
+    seedTarget(f.knowledgeRoot);
+    const artifactPath = join(f.root, "runner-validation.json");
+    writeFileSync(artifactPath, JSON.stringify({
+      status: "passed",
+      steering: {
+        mode: "enforce", error: null, artifactPath: null, durationMs: 1,
+        decision: {
+          attempt: "pass", reasons: [], removable_noncosmetic: [], probes: [], violations: [], unused_checks: [], order_checks: [],
+          functions: [{
+            unit: "unit", name: "Func", decision: "pass", semantic: "clean", analysis: "complete", audit_label: "clean",
+            match: { base: 10, candidate: 100, real_only: 100 }, groups: ["g1"],
+          }],
+          units: [{ unit: "unit", built: true, compared: true }],
+        },
+      },
+    }));
+    f.state.db.query("UPDATE worker_checkpoints SET hard_gates_passed = 1, validation_state = 'confirmed', artifact_path = ?").run(artifactPath);
+    // `steering-gate --apply` rewrote the function; no unverified_match row is recorded.
+    const rollbackId = recordSteeringRollback(f.state, {
+      gameId: "sms", unit: "unit", symbol: "Func", analyzedRev: "steered-head", initialVerdict: "steering_located",
+      finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+    });
+    f.state.db.query("UPDATE steering_rollbacks SET recorded_at = ?, updated_at = ? WHERE id = ?")
+      .run(scenario.rollbackAt, scenario.rollbackAt, rollbackId);
+    const job = enqueueWorkerSummaryForWorker(f.state, "worker-1");
+
+    await handleWorkerSummaryJob(f.state, job, {
+      globals: f.globals,
+      openKnowledgeStore: injectedStore(f.knowledgeRoot),
+      runPiAgent: () => modelResult({ run: { summary: "attempt" }, submissions: [
+        { submission_id: "run:worker-1:sub:1", approach: "repair", outcome_reasoning: "measured" },
+      ], notable_observations: [] }),
+    });
+
+    const knowledge = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    try {
+      expect(knowledge.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: scenario.expected });
+    } finally { knowledge.close(); }
+  });
+
   test("refuses the default knowledge root under a test runner", async () => {
     const f = fixture();
     seedWorker(f.state);

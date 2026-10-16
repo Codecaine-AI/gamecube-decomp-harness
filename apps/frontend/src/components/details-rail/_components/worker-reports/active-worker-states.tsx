@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "@/icons";
 
+import { UnverifiedBadge } from "@/components/primitives";
 import { fetchWorkerStateTrace } from "@/lib/api";
 import { asObject, ago, num, pct, shortId, text, type JsonObject } from "@/lib/format";
 import type { FormState } from "@/lib/api-types";
@@ -131,6 +132,7 @@ export function ActiveWorkerStates({ activeReports, form, runId }: { activeRepor
                 </span>
                 <span className="grid justify-items-end gap-1 text-[11px] text-dim">
                   <span className="border border-line2 bg-inset px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-soft" title={outcomeTitle}>{outcomeLabel}</span>
+                  <UnverifiedBadge row={claim.verification ? claim : asObject(claim.activeClaim)} />
                   <span className="text-soft">{runtime.primary}</span>
                   <span>{pct(claim.fuzzy ?? target.fuzzy)}</span>
                 </span>

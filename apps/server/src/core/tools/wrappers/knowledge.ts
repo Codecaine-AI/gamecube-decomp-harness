@@ -3,9 +3,10 @@ import { graphFileCard, graphRelatedFunctions, graphSearch } from "../runtime/ex
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
 import {
-  applyStackFramePolicy,
-  filtersStackTactics,
-  stackFramePolicyForGame,
+  applyKnowledgePolicies,
+  applyKnowledgePolicy,
+  knowledgePolicyActive,
+  knowledgePolicyForGame,
 } from "@server/core/knowledge-v2/stack-policy-filter.js";
 
 const sourceContextToolRoles = [
@@ -60,24 +61,24 @@ interface SourceSearchDefinition {
 const LIVE_CODE_GRAPH_SOURCES = new Set(["code_graph", "ghidra_xrefs", "opseq_similarity"]);
 
 /**
- * Graph search for a stop_at_frame game (SMS): past PR lessons, curated worker
- * lessons, mismatch patterns, and shared agent state lose banned stack-frame
- * tactics; live-code chunks stay verbatim. Other games are unchanged.
+ * Graph search under the game's knowledge policies (SMS): past PR lessons,
+ * curated worker lessons, mismatch patterns, and shared agent state lose
+ * banned stack-frame tactics and have steering recommendations labelled as
+ * diagnostic probes; live-code chunks stay verbatim. Other games are unchanged.
  */
 export function graphSearchForPolicy(context: Pick<AgentToolRuntimeContext, "game">, payload: Record<string, unknown>): Record<string, unknown> {
-  const gameId = context.game?.gameId;
-  if (!filtersStackTactics(stackFramePolicyForGame(gameId)) || !Array.isArray(payload.results)) {
-    return applyStackFramePolicy(gameId, payload);
+  const policy = knowledgePolicyForGame(context.game?.gameId);
+  if (!knowledgePolicyActive(policy) || !Array.isArray(payload.results)) {
+    return applyKnowledgePolicy(policy, payload);
   }
   const results = payload.results as unknown[];
   const isLive = (row: unknown) => typeof row === "object" && row !== null
     && LIVE_CODE_GRAPH_SOURCES.has(String((row as Record<string, unknown>).source_id ?? (row as Record<string, unknown>).sourceId ?? ""));
-  const history = applyStackFramePolicy(gameId, { results: results.map((row) => (isLive(row) ? null : row)) }) as { results: unknown[]; stack_policy_note?: string; stack_policy_redactions?: number };
+  const { results: history, ...notes } = applyKnowledgePolicy(policy, { results: results.map((row) => (isLive(row) ? null : row)) });
   return {
     ...payload,
-    results: results.map((row, index) => (isLive(row) ? row : history.results[index])),
-    stack_policy_note: history.stack_policy_note,
-    stack_policy_redactions: history.stack_policy_redactions,
+    results: results.map((row, index) => (isLive(row) ? row : history[index])),
+    ...notes,
   };
 }
 
@@ -129,7 +130,7 @@ export const codeGraphFileCardToolRegistration: AgentToolRegistration = {
       executionMode: "parallel",
       async execute(_toolCallId, params) {
         const sourcePath = String(params.source_path ?? "").trim();
-        return jsonToolResult("code_graph_file_card", applyStackFramePolicy(context.game?.gameId, graphFileCard(context, sourcePath)));
+        return jsonToolResult("code_graph_file_card", applyKnowledgePolicies(context.game?.gameId, graphFileCard(context, sourcePath)));
       },
     };
   },
