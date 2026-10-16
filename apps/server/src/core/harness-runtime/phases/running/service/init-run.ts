@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
 import { createRun, openState } from "@server/core/harness-runtime/run-state";
+import { steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { numberArg, gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameOrdering } from "@server/core/tools/ordering.js";
@@ -47,11 +48,21 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     });
     // Same class readiness as the first admission, so the initial board's counts agree with it.
     const readiness = boardReadinessOptions(await readinessForAdmission({ globals, store, runId: run.id, rev: run.headRevision ?? undefined }));
-    const snapshot = loadKnowledgeBoardSnapshot(run.game?.repoRoot ?? globals.repoRoot, {
+    const repoRoot = run.game?.repoRoot ?? globals.repoRoot;
+    // Steering-gated games: the baseline withholds every hold at the revision it measures (active rows plus
+    // rollbacks not certified there), and records that revision so readers never judge it at a later head.
+    // A state read failure throws here: init fails closed rather than writing raw credit.
+    const holds = steeringCompletionHolds(store, { gameId: globals.game?.gameId ?? globals.gameId, steeringGate: globals.game?.matching?.steeringGate }, repoRoot);
+    const measuredRevision = holds ? checkoutHead(repoRoot) : null;
+    const unverified = holds?.at(measuredRevision);
+    const board = loadKnowledgeBoardSnapshot(repoRoot, {
       graphDbPath,
       validation: globals.game?.validation,
+      ...(unverified && unverified.size > 0 ? { unverified } : {}),
       ...(readiness ? { readiness } : {}),
     });
+    // Games without an active gate (Melee) keep today's snapshot shape.
+    const snapshot = holds ? { ...board, measuredRevision } : board;
     const schedulableSources = new Set(snapshot.candidates.map((candidate) => candidate.sourcePath).filter(Boolean)).size;
 
     await mkdir(resolve(globals.stateDir, "runs", run.id, "snapshots"), { recursive: true });
@@ -83,6 +94,17 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
     );
   } finally {
     store.db.close();
+  }
+}
+
+/** The checkout's full HEAD sha, or null when git cannot tell (then no rollback hold is cleared for the board). */
+function checkoutHead(repoRoot: string): string | null {
+  try {
+    const result = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", "HEAD^{commit}"], { stdout: "pipe", stderr: "ignore" });
+    const head = result.exitCode === 0 ? result.stdout.toString().trim() : "";
+    return /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(head) ? head : null;
+  } catch {
+    return null;
   }
 }
 

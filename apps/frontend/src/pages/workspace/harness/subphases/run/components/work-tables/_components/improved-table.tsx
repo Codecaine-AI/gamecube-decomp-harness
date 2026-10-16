@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "@/components/primitives";
+import { Button, UNVERIFIED_TONE } from "@/components/primitives";
 import { ArrowRight } from "@/icons";
 import { PlaceholderRows } from "./placeholder-rows";
 import { TabButton } from "./tab-button";
@@ -34,6 +34,7 @@ import {
   type Dashboard,
   type JsonObject,
 } from "@/lib/format";
+import { doneWithUnverifiedLabel, unverifiedRunTargets } from "@/lib/verification";
 
 interface ImprovedTableProps {
   dashboard: Dashboard | null;
@@ -140,6 +141,8 @@ export function ImprovedTable({ dashboard, mode, onSelectAgent }: ImprovedTableP
   const scoreColumnWidth = mode === "confirmed" ? "w-[50%]" : "w-1/3";
   const stateColumnWidth = mode === "confirmed" ? "w-[23%]" : "w-1/3";
   const columns = tentativeMode ? 2 : 3;
+  // Steering-gated games: run targets at 100% the gate could not verify sit next to this run's done count.
+  const unverifiedCount = tentativeMode ? unverifiedRunTargets(dashboard?.runSummary) : null;
 
   function selectResultMode(nextMode: ImprovedResultMode) {
     setResultMode(nextMode);
@@ -149,9 +152,19 @@ export function ImprovedTable({ dashboard, mode, onSelectAgent }: ImprovedTableP
   return (
     <section className="h-full border-b border-line p-3 min-[1180px]:border-r min-[1180px]:border-b-0">
       <div className="mb-2 grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <h2 className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.08em] text-soft">
-          {title} ({num(totalCount)})
-        </h2>
+        <div className="flex min-w-0 items-center gap-[var(--ds-space-2,calc(var(--spacing)*2))]">
+          <h2 className="min-w-0 truncate text-[13px] font-semibold uppercase tracking-[0.08em] text-soft">
+            {title} ({num(totalCount)})
+          </h2>
+          {unverifiedCount ? (
+            <span
+              className={`min-w-0 shrink truncate text-[length:var(--ds-font-size-ui-2xs,var(--text-xs))] ${UNVERIFIED_TONE}`}
+              title="Done: this run's exact matches. 100% unverified: run targets whose code reaches 100% but the steering gate could not verify; claimable, not counted as done."
+            >
+              {doneWithUnverifiedLabel(matchCount, unverifiedCount)}
+            </span>
+          ) : null}
+        </div>
         <div className="flex min-h-7 items-center justify-end gap-2">
           <Button className="min-w-12 px-2 py-0.5" disabled={safePage === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} type="button">
             Prev

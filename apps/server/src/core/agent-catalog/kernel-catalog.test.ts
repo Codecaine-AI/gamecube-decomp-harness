@@ -659,6 +659,45 @@ describe("meleeKernelAgentCatalog", () => {
     }
   });
 
+  test("renders the selected previous_attempt variant for an active steering gate and echoes it", () => {
+    const paths = {
+      game: null,
+      repoRoot: sampleRepoRoot,
+      stateDir: sampleStateDir,
+      graphDbPath: resolve(sampleStateDir, "knowledge.sqlite"),
+    };
+    const worker = (payload: ReturnType<typeof loadKernelAgentsPayload>) =>
+      payload.agents.find((agent) => agent.name === "worker");
+    const context = (payload: ReturnType<typeof loadKernelAgentsPayload>) => worker(payload)?.context?.renderedContext ?? "";
+
+    expect(loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }).previousAttempt).toBe("rollback");
+
+    const unverified = loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "unverified_match" });
+    expect(unverified.previousAttempt).toBe("unverified_match");
+    const text = context(unverified);
+    expect(text).toContain('<previous_attempt variant="unverified_match" function=');
+    expect(text).toContain("code reaches 100%, but the steering gate could not verify that it is real code");
+    expect(text).toContain('It is marked "100% unverified": not done and not counted as matched. The reduced candidate reaches 97.2%.');
+    expect(text).toContain('<match base="96.4%" candidate="100%" real_only="97.2%" />');
+    expect(text).toContain('<edit at="src/M3DUtil/MActor.cpp:212" status="unresolved" shapes="other">');
+    expect(text).toContain("<gate_reason>incomplete groups: src/M3DUtil/MActor.cpp@4.0</gate_reason>");
+    expect(text).toContain("Produce a version the steering gate certifies");
+    // One variant per sample: no rollback text leaks in.
+    expect(text).not.toContain("The steering backfill rolled it back");
+    expect(text).not.toMatch(unresolvedPlaceholderPattern);
+    expect(text).not.toContain("{{");
+    // The system prompt does not depend on the variant.
+    const rollback = loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "rollback" });
+    expect(worker(unverified)?.renderedPrompt?.content).toBe(worker(rollback)?.renderedPrompt?.content);
+
+    // Melee (gate off): the selector changes nothing.
+    const melee = loadKernelAgentsPayload(paths);
+    const meleeSelected = loadKernelAgentsPayload(paths, { previousAttempt: "unverified_match" });
+    expect(context(meleeSelected)).not.toContain("previous_attempt");
+    expect(context(meleeSelected)).toBe(context(melee));
+    expect(worker(meleeSelected)?.renderedPrompt?.content).toBe(worker(melee)?.renderedPrompt?.content);
+  });
+
   test("renders <order_and_scope> and a sample <not_ready_classes> for an active ordering mode", () => {
     const paths = {
       game: null,

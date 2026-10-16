@@ -1,7 +1,7 @@
-import { initializeHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
+import { getHarnessState, initializeHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
 import { afterAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
@@ -19,8 +19,11 @@ import {
   updateRunStatus,
   type StateStore,
 } from "@server/core/harness-runtime/run-state";
+import { addSavePoint, ensureCampaign } from "@server/core/harness-runtime/phases/pr/state";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { recordReadinessArtifact } from "@server/core/harness-runtime/phases/running/scheduler/readiness.js";
+import { clearUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { recordSteeringBackfill, recordSteeringCoverage, recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 import { initializeDispatchState, releaseDispatch, requestDispatch } from "@server/core/harness-state";
 import { appendGameEvent, type JsonObject as GameEventJsonObject } from "@server/core/harness-state/events";
 import {
@@ -108,6 +111,16 @@ describe("dashboard read model", () => {
       expect(view.timeline[0]?.evidence?.freshness).toBe("missing");
       expect(view.available_actions.some((action) => action.action_id.startsWith("cycle."))).toBe(false);
       expect(store.db.query("SELECT COUNT(*) AS n FROM harness_commands").get()).toEqual(before);
+    } finally { store.db.close(); }
+  });
+  test("gate off (Melee): a current board with no numeric score falls back to the baseline score, as before the gate", () => {
+    const { store } = tempState();
+    try {
+      seedHarnessState(store, "melee");
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "melee" }, { baseRevision: "base-sha" });
+      recordDashboardArtifact(store, { runId: run.id, artifactType: "board_snapshot", artifactKey: "initial", payload: { measures: { matched_code_percent: 72.5 } } });
+      recordDashboardArtifact(store, { runId: run.id, artifactType: "board_snapshot", artifactKey: "current", payload: { measures: { complete_units: 3 } } });
+      expect(getHarnessStateView(store, "melee").run?.progress).toMatchObject({ baseline_score: 72.5, confirmed_score: 72.5 });
     } finally { store.db.close(); }
   });
   test("canonical HarnessStateView excludes retired cycle controls", () => {
@@ -1452,6 +1465,670 @@ describe("dashboard read model", () => {
     const { runDetails } = createDashboardReadModel({ buildPrRecordsView: () => ({}), campaignStatus: () => ({}), processStatus: () => ({}) });
     const details = runDetails(dir, runId);
     for (const key of ["readiness", "blockedTargets", "deferredTargets", "wouldBlockTargets", "wouldDeferTargets"]) expect(details).not.toHaveProperty(key);
+  });
+
+  function seedUnverifiedRun(gameId: string): { dir: string; runId: string } {
+    const { dir, store } = tempState();
+    try {
+      seedHarnessState(store, gameId, { head: `base-${gameId}` });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId }, { baseRevision: `base-${gameId}` });
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 2 });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [
+          { kind: "function", unit: "main/Map/MapObj", symbol: "update", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 100 },
+          { kind: "function", unit: "main/Map/MapObj", symbol: "draw", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 40 },
+        ],
+        workerPoolSize: 2,
+      });
+      // A historical exact attempt on `update` (40 -> 100), before the backfill recorded it unverified.
+      const claims = [0, 1].map((index) => claimNextEpochTarget({ store, runId: run.id, workerId: `worker-${index}`, baseRev: `base-${gameId}` })!);
+      const claim = claims.find((row) => (store.db.query("SELECT symbol FROM epoch_targets WHERE id = ?").get(row.epochTargetId) as { symbol: string }).symbol === "update")!;
+      const artifactPath = join(dir, "update.summary.json");
+      writeFileSync(artifactPath, JSON.stringify({
+        status: "passed",
+        reasons: [],
+        target: { unit: "main/Map/MapObj", symbol: "update", before: 40, after: 100, improved: true, exact: true },
+      }));
+      recordWorkerCheckpoint(store, {
+        authority: { host: "dashboard-read-model-test" },
+        workerStateId: claim.workerStateId,
+        runId: run.id,
+        epochId: claim.epochId,
+        epochTargetId: claim.epochTargetId,
+        targetClaimId: claim.claimId,
+        attemptIndex: 0,
+        oldScore: 40,
+        newScore: 100,
+        exactMatch: true,
+        hardGatesPassed: true,
+        buildStatus: "compiled",
+        qaStatus: "clean",
+        objdiffStatus: "available",
+        validationStatus: "passed",
+        artifactPath,
+        patchPath: null,
+        diffPath: null,
+        writeSet: [],
+        failureReasons: [],
+        metadata: {},
+      });
+      closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "exact", summary: {} });
+      for (const symbol of ["update", "outsideRun"]) {
+        recordUnverifiedMatch(store, {
+          gameId, unit: "main/Map/MapObj", symbol, analyzedRev: "rev-1",
+          match: { base: 40, candidate: 100, real_only: null },
+          reasons: ["no steering located", "real-only build regressed", "patch touches inline asm", "fourth reason"],
+        });
+      }
+      return { dir, runId: run.id };
+    } finally {
+      store.db.close();
+    }
+  }
+
+  const readModelDeps = { buildPrRecordsView: () => ({}), campaignStatus: () => ({}), processStatus: () => ({}) };
+
+  test("unverified match: steering-gated games annotate target rows and report counts next to done", async () => {
+    const { dir, runId } = seedUnverifiedRun("sms");
+    const game = { gameId: "sms", baseRef: "origin/master", matching: { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" } };
+    const { runDashboard, runDetails } = createDashboardReadModel(readModelDeps);
+
+    const details = runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+    const targets = details.epochTargets as JsonObject[];
+    expect(targets.find((row) => row.symbol === "update")).toMatchObject({
+      verification: "unverified_match",
+      verification_label: "100% unverified",
+      verification_match: { base: 40, candidate: 100, real_only: null },
+      verification_reasons: ["no steering located", "real-only build regressed", "patch touches inline asm"],
+    });
+    expect(targets.find((row) => row.symbol === "draw")).not.toHaveProperty("verification");
+    // The historical exact attempt is not done while `update` is unverified; its score delta still shows.
+    expect(details.summary).toMatchObject({ exactMatches: 0, unverified_matches: 2, unverified_run_targets: 1 });
+    expect((details.improvements as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ exactMatches: 0, newScore: 100, verification: "unverified_match" });
+    expect((details.timeline as JsonObject[]).find((row) => row.kind === "worker_state" && row.title === "update")).toMatchObject({ exactMatches: 0 });
+
+    const dashboard = await runDashboard({ game, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+    expect((dashboard.epochTargets as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ verification: "unverified_match" });
+    expect(dashboard.runSummary).toMatchObject({ targetExactMatches: 0, unverified_matches: 2, unverified_run_targets: 1 });
+    expect(dashboard.current).toMatchObject({ unverified_matches: 2 });
+  });
+
+  test("unverified progress: dashboard re-derives every stored view under the current active rows", async () => {
+    const { dir, runId } = seedUnverifiedRun("sms");
+    const unit = "main/Map/MapObj";
+    const game = { gameId: "sms", baseRef: "origin/master", matching: { steeringGate: "enforce" } };
+    const baselinePath = join(dir, "baseline.report.json");
+    const currentPath = join(dir, "current.report.json");
+    const measures = {
+      total_code: 64, matched_code: 64, matched_code_percent: 100, fuzzy_match_percent: 100,
+      total_functions: 2, matched_functions: 2, matched_functions_percent: 100,
+      complete_code: 64, complete_code_percent: 100, total_data: 0, complete_data: 0,
+      total_units: 1, complete_units: 1, unmatched_targets: 0,
+    };
+    const report = (updateScore: number) => {
+      const rawMeasures = updateScore === 100 ? measures : {
+        ...measures, matched_code: 48, matched_code_percent: 75, fuzzy_match_percent: 85,
+        matched_functions: 1, matched_functions_percent: 50,
+      };
+      return { measures: rawMeasures,
+        units: [{ name: unit, measures: rawMeasures, metadata: { source_path: "src/Map/MapObj.cpp", complete: true }, functions: [
+          { name: "update", size: 16, fuzzy_match_percent: updateScore },
+          { name: "draw", size: 48, fuzzy_match_percent: 100 },
+        ] }],
+      };
+    };
+    writeFileSync(baselinePath, JSON.stringify(report(40)));
+    writeFileSync(currentPath, JSON.stringify(report(100)));
+    // Persisted figures already withheld update. Reading them must re-derive
+    // from raw evidence, including when a different row becomes active later.
+    const stored = { ...measures, matched_code: 48, matched_code_percent: 75, fuzzy_match_percent: 75,
+      matched_functions: 1, matched_functions_percent: 50, complete_units: 0,
+      complete_code: 0, complete_code_percent: 0, unmatched_targets: 1,
+      unverified_functions: 1, unverified_code: 16 };
+    let campaign: JsonObject = {};
+    const store = openState(dir);
+    try {
+      const campaignId = ensureCampaign(store, { gameId: "sms", baseRef: "origin/master" }).id;
+      const base = addSavePoint(store, { campaignId, runId, triggerKind: "init", commitSha: "base-sms",
+        matchedCodePercent: 75, reportPath: baselinePath, payload: { measures: stored } });
+      const point = addSavePoint(store, { campaignId, runId, triggerKind: "epoch_finish", commitSha: "head-sms",
+        matchedCodePercent: 75, reportPath: currentPath, payload: { measures: stored } });
+      const runCreatedAt = (store.db.query("SELECT created_at FROM runs WHERE id = ?").get(runId) as { created_at: string }).created_at;
+      const at = (offset: number) => new Date(Date.parse(runCreatedAt) + offset).toISOString();
+      store.db.query("UPDATE save_points SET created_at = ? WHERE id = ?").run(at(-1000), base.id);
+      store.db.query("UPDATE save_points SET created_at = ? WHERE id = ?").run(at(2000), point.id);
+      for (const saved of [base, point]) {
+        const state = getHarnessState(store.db, "sms")!;
+        transitionHarnessState(store.db, { gameId: "sms", expectedRevision: state.identity.revision,
+          commandId: `point-${saved.id}`, patch: { source: { head: saved.commitSha! }, history: { save_point_id: saved.id }, readiness: { build: "ready", evidence: "ready" } },
+          boundary: { eventId: `event-${saved.id}`, kind: "save_point", outcome: "accepted", evidence: { save_point_id: saved.id } } });
+      }
+      writeRunEvent(store, runId, "epoch_checkpoint_progress", at(1000), { phase: "integration_drain", status: "started" });
+      for (const key of ["initial", "current"]) recordDashboardArtifact(store, {
+        runId, artifactType: "board_snapshot", artifactKey: key,
+        payload: { measures: stored, reportPath: key === "initial" ? baselinePath : currentPath,
+          measuredRevision: key === "initial" ? "base-sms" : "head-sms", candidates: [{ unit, symbol: "update" }] },
+      });
+      recordDashboardArtifact(store, { runId, artifactType: "trusted_report", artifactKey: "current", payload: {
+        status: "ready", generatedAt: at(2000),
+        counts: { newMatches: 1, brokenMatches: 0, improvements: 0, fuzzyRegressions: 0, metricRegressions: 0, metricProgressions: 1 },
+        newMatches: [{ unitName: unit, itemName: "update", sourcePath: "src/Map/MapObj.cpp", size: 16, fromPercent: 40, toPercent: 100, bytesDelta: 9.6 }],
+        brokenMatches: [], improvements: [], fuzzyRegressions: [], metricRegressions: [], metricProgressions: [{ unitName: unit }],
+        measures: { matchedCodePercentTo: 100 }, promotion: { ready: true },
+      } });
+      campaign = { head: { sha: "head-sms", dirty: false }, savePoint: point, savePoints: [base, point] };
+    } finally {
+      store.db.close();
+    }
+    const { runDashboard, runDetails } = createDashboardReadModel({ ...readModelDeps, campaignStatus: () => campaign });
+    const read = () => runDashboard({ game, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+    const initial = await read();
+    expect(initial.initial).toMatchObject({ measures: { matched_code_percent: 75, fuzzy_match_percent: 75, complete_units: 0 } });
+    expect(initial.current).toMatchObject({ measures: { matched_code_percent: 75, fuzzy_match_percent: 75, complete_units: 0, unverified_code: 16 },
+      units: [{ name: unit, measures: { matched_code_percent: 75, complete_units: 0 } }] });
+    expect(initial.scoreTiers).toMatchObject({ baseline: { score: 75 }, confirmed: { score: 75, matches: [] },
+      timeline: [{ score: 75 }, { score: 75 }] });
+    expect(initial.epochs).toMatchObject([{ matchedCodePercent: 75, measures: { matched_code_percent: 75, unverified_code: 16 } }]);
+    expect(initial.campaign).toMatchObject({ savePoint: { matchedCodePercent: 75, payload: { measures: { matched_code_percent: 75 } } },
+      savePoints: [{ matchedCodePercent: 75 }, { matchedCodePercent: 75 }] });
+    expect(initial.harnessState).toMatchObject({ run: { progress: { baseline_score: 75, confirmed_score: 75 } } });
+    expect(initial.trustedReport).toMatchObject({ newMatches: [], counts: { newMatches: 0 }, measures: null, promotion: null,
+      improvements: [{ itemName: "update", verification: "unverified_match", fromPercent: 40, toPercent: 100 }],
+      rawEvidence: { newMatches: [{ itemName: "update" }], counts: { newMatches: 1 } } });
+    expect(initial.runSummary).toMatchObject({ targetExactMatches: 0, reportNewMatches: 0, totalPositiveDelta: 60, matchedCodeDelta: 0,
+      workerStateOutcomeCounts: { exact: 0 } });
+    expect(initial.boundary).toMatchObject({ current: { matchedCodePercent: 75 } });
+    expect(runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]).boundary).toMatchObject({ current: { matchedCodePercent: 75 } });
+
+    const currentEvidence = readFileSync(currentPath, "utf8");
+    rmSync(currentPath);
+    try {
+      expect((await read()).harnessState).toMatchObject({ run: { progress: { baseline_score: 75, confirmed_score: null } } });
+    } finally {
+      writeFileSync(currentPath, currentEvidence);
+    }
+
+    const changed = openState(dir);
+    try {
+      clearUnverifiedMatch(changed, { gameId: "sms", unit, symbol: "update", clearedBy: "attempt:certified", clearedRev: "head-sms" });
+      recordUnverifiedMatch(changed, { gameId: "sms", unit, symbol: "draw", analyzedRev: "head-sms", match: { base: 40, candidate: 100, real_only: null }, reasons: ["not certified"] });
+    } finally {
+      changed.db.close();
+    }
+    const next = await read();
+    expect(next.current).toMatchObject({ measures: { matched_code_percent: 25, fuzzy_match_percent: 25, unverified_code: 48 },
+      units: [{ name: unit, measures: { matched_code_percent: 25 } }] });
+    // The baseline predates update's certifying revision (head-sms): it stays held there, fuzzy share included.
+    expect(next.initial).toMatchObject({ measures: { matched_code_percent: 0, fuzzy_match_percent: 0 } });
+    expect(next.scoreTiers).toMatchObject({ baseline: { score: 0 }, confirmed: { score: 25 }, timeline: [{ score: 0 }, { score: 25 }] });
+    expect(next.epochs).toMatchObject([{ matchedCodePercent: 25 }]);
+    expect(next.campaign).toMatchObject({ savePoint: { matchedCodePercent: 25 }, savePoints: [{ matchedCodePercent: 0 }, { matchedCodePercent: 25 }] });
+    // The historical attempt measured at base-sms predates the certification at head-sms: not credited.
+    expect(next.runSummary).toMatchObject({ targetExactMatches: 0, reportNewMatches: 1, matchedCodeDelta: 25 });
+
+    // Exercise both fallback paths through the API, not a projection helper.
+    const fallback = openState(dir);
+    try {
+      fallback.db.query("DELETE FROM dashboard_artifacts WHERE run_id = ? AND artifact_type = 'board_snapshot' AND artifact_key = 'current'").run(runId);
+    } finally {
+      fallback.db.close();
+    }
+    expect((await read()).current).toMatchObject({ source: "initial_board", measures: { matched_code_percent: 0 } });
+    const noBoard = openState(dir);
+    try {
+      noBoard.db.query("DELETE FROM dashboard_artifacts WHERE run_id = ? AND artifact_type = 'board_snapshot'").run(runId);
+    } finally {
+      noBoard.db.close();
+    }
+    const saved = await read();
+    expect(saved.current).toMatchObject({ source: "save_point", measures: { matched_code_percent: 25 } });
+    expect(saved.initial).toMatchObject({ source: "save_point", measures: { matched_code_percent: 25 } });
+    // The campaign dependency can cache raw evidence; dashboard reads leave it intact.
+    expect(campaign).toMatchObject({ savePoint: { matchedCodePercent: 75, payload: { measures: { unverified_code: 16 } } } });
+    rmSync(currentPath);
+    const unavailable = await read();
+    expect(unavailable.current).toMatchObject({ measures: { unverified_unbounded: true } });
+    expect(unavailable.scoreTiers).toMatchObject({ confirmed: { score: null }, timeline: [{ score: 0 }, { score: null }] });
+    expect(unavailable.epochs).toMatchObject([{ matchedCodePercent: null, measures: { unverified_unbounded: true } }]);
+    expect(unavailable.campaign).toMatchObject({ savePoint: { matchedCodePercent: null } });
+  });
+
+  function gitIn(root: string, args: string[]): string {
+    const result = Bun.spawnSync(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe" });
+    if (result.exitCode !== 0) throw new Error(`git ${args.join(" ")}: ${result.stderr.toString()}`);
+    return result.stdout.toString().trim();
+  }
+
+  /** A save point the harness accepted: the canonical head moves to it and the score timeline anchors it. */
+  function addAcceptedSavePoint(store: StateStore, input: {
+    campaignId: string; runId: string; triggerKind: Parameters<typeof addSavePoint>[1]["triggerKind"];
+    commitSha: string; matchedCodePercent: number; reportPath: string; measures: JsonObject; createdAt: string;
+  }) {
+    const point = addSavePoint(store, { campaignId: input.campaignId, runId: input.runId, triggerKind: input.triggerKind,
+      commitSha: input.commitSha, matchedCodePercent: input.matchedCodePercent, reportPath: input.reportPath, payload: { measures: input.measures } });
+    store.db.query("UPDATE save_points SET created_at = ? WHERE id = ?").run(input.createdAt, point.id);
+    const state = getHarnessState(store.db, "sms")!;
+    transitionHarnessState(store.db, { gameId: "sms", expectedRevision: state.identity.revision,
+      commandId: `point-${point.id}`, patch: { source: { head: input.commitSha }, history: { save_point_id: point.id }, readiness: { build: "ready", evidence: "ready" } },
+      boundary: { eventId: `event-${point.id}`, kind: "save_point", outcome: "accepted", evidence: { save_point_id: point.id } } });
+    return point;
+  }
+
+  /**
+   * An enforce-gate SMS run over one unit whose raw report has two exact
+   * functions: `verified` (48 bytes, never held) and `held` (16 bytes, a
+   * steering rollback and no active `unverified_match` row). A real git repo
+   * holds the baseline B, the saved revision S (child of B) and a later C
+   * (child of S). Save points at B (init) and S (epoch finish) plus the
+   * initial (B) and current (S) boards are stored as the writers left them:
+   * `held` already withheld from S's figures.
+   */
+  function seedRollbackHeldRun(onlyHeld = false) {
+    const repo = mkdtempSync(join(tmpdir(), "dashboard-rollback-repo-"));
+    tempDirs.push(repo);
+    gitIn(repo, ["init", "-q"]);
+    gitIn(repo, ["config", "user.email", "fixture@example.com"]);
+    gitIn(repo, ["config", "user.name", "Fixture"]);
+    gitIn(repo, ["config", "commit.gpgsign", "false"]);
+    const commit = (label: string) => {
+      writeFileSync(join(repo, "MapObj.cpp"), `// ${label}\n`);
+      gitIn(repo, ["add", "."]);
+      gitIn(repo, ["commit", "-qm", label]);
+      return gitIn(repo, ["rev-parse", "HEAD"]);
+    };
+    const shas = { base: commit("baseline"), saved: commit("saved"), later: commit("later") };
+
+    const unit = "main/Map/MapObj";
+    const exact: JsonObject = {
+      total_code: 64, matched_code: 64, matched_code_percent: 100, fuzzy_match_percent: 100,
+      total_functions: 2, matched_functions: 2, matched_functions_percent: 100,
+      complete_code: 64, complete_code_percent: 100, total_data: 0, complete_data: 0,
+      total_units: 1, complete_units: 1, unmatched_targets: 0,
+    };
+    const partial: JsonObject = { ...exact, matched_code: 0, matched_code_percent: 0, fuzzy_match_percent: 50,
+      matched_functions: 0, matched_functions_percent: 0, complete_code: 0, complete_code_percent: 0,
+      complete_units: 0, unmatched_targets: 2 };
+    // Figures a writer stores with `held` withheld; reads must re-derive from the raw report instead.
+    const stored: JsonObject = { ...exact, matched_code: 48, matched_code_percent: 75, fuzzy_match_percent: 75,
+      matched_functions: 1, matched_functions_percent: 50, complete_units: 0, complete_code: 0, complete_code_percent: 0,
+      unmatched_targets: 1, unverified_functions: 1, unverified_code: 16 };
+    const report = (measures: JsonObject, score: number) => ({ measures, units: [{ name: unit, measures,
+      metadata: { source_path: "src/Map/MapObj.cpp", complete: score === 100 }, functions: [
+        { name: "verified", size: 48, fuzzy_match_percent: score },
+        { name: "held", size: 16, fuzzy_match_percent: score },
+      ] }] });
+    const { dir, store } = tempState();
+    const baselinePath = join(dir, "baseline.report.json");
+    const currentPath = join(dir, "current.report.json");
+    writeFileSync(baselinePath, JSON.stringify(report(partial, 50)));
+    writeFileSync(currentPath, JSON.stringify(report(exact, 100)));
+    try {
+      seedHarnessState(store, "sms", { head: shas.base });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: shas.base });
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 2 });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: [{ symbol: "verified", size: 48 }, { symbol: "held", size: 16 }]
+          .filter(({ symbol }) => !onlyHeld || symbol === "held")
+          .map(({ symbol, size }) => ({ kind: "function" as const, unit, symbol, sourcePath: "src/Map/MapObj.cpp", size, fuzzy: 50 })),
+        workerPoolSize: 2,
+      });
+      // A steering-gate --apply rewrote `held` on S; it re-checked pass, but no certificate was recorded after it.
+      const rollbackId = recordSteeringRollback(store, {
+        gameId: "sms", unit, symbol: "held", analyzedRev: shas.saved, baseRev: shas.base,
+        initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+      });
+      store.db.query("UPDATE steering_rollbacks SET recorded_at = ?, updated_at = ? WHERE id = ?")
+        .run("2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z", rollbackId);
+      const campaignId = ensureCampaign(store, { gameId: "sms", baseRef: "origin/master" }).id;
+      const runCreatedAt = (store.db.query("SELECT created_at FROM runs WHERE id = ?").get(run.id) as { created_at: string }).created_at;
+      const at = (offset: number) => new Date(Date.parse(runCreatedAt) + offset).toISOString();
+      const base = addAcceptedSavePoint(store, { campaignId, runId: run.id, triggerKind: "init", commitSha: shas.base,
+        matchedCodePercent: 0, reportPath: baselinePath, measures: partial, createdAt: at(-1000) });
+      const saved = addAcceptedSavePoint(store, { campaignId, runId: run.id, triggerKind: "epoch_finish", commitSha: shas.saved,
+        matchedCodePercent: 75, reportPath: currentPath, measures: stored, createdAt: at(2000) });
+      writeRunEvent(store, run.id, "epoch_checkpoint_progress", at(1000), { phase: "integration_drain", status: "started" });
+      recordDashboardArtifact(store, { runId: run.id, artifactType: "board_snapshot", artifactKey: "initial", createdAt: at(2000),
+        payload: { measures: partial, reportPath: baselinePath, savePointSha: shas.base, candidates: [] } });
+      recordDashboardArtifact(store, { runId: run.id, artifactType: "board_snapshot", artifactKey: "current", createdAt: at(2000),
+        payload: { measures: stored, reportPath: currentPath, savePointSha: shas.saved, candidates: [] } });
+      return {
+        dir, repo, runId: run.id, campaignId, unit, shas, at, base, saved, stored, currentPath,
+        game: { gameId: "sms", baseRef: "origin/master", repoRoot: repo, matching: { steeringGate: "enforce" } },
+        campaign: { head: { sha: shas.saved, dirty: false }, savePoint: saved, savePoints: [base, saved] } as JsonObject,
+      };
+    } finally {
+      store.db.close();
+    }
+  }
+
+  test("rollback holds: every saved view withholds an uncertified rollback at its own revision, and a later certificate credits only its descendants", async () => {
+    const seeded = seedRollbackHeldRun();
+    const { dir, repo, runId, campaignId, unit, shas, at, base, saved, game } = seeded;
+    let campaign = seeded.campaign;
+    const { runDashboard, runDetails } = createDashboardReadModel({ ...readModelDeps, campaignStatus: () => campaign });
+    const read = () => runDashboard({ game, repoRoot: repo, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+    const details = () => runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+    const symbols = (rows: unknown) => (rows as JsonObject[]).map((row) => row.symbol).sort();
+    const epochAt = (view: JsonObject, sha: string) => (view.epochs as JsonObject[]).find((epoch) => epoch.commitSha === sha);
+
+    // Every figure stored at S withholds `held` (16 of 64 bytes): only `verified` is credited, never the raw 100.
+    const expectSavedRevisionWithheld = (view: JsonObject) => {
+      expect(view.current).toMatchObject({ savePointSha: shas.saved, unverified_matches: 0,
+        measures: { matched_code_percent: 75, fuzzy_match_percent: 75, matched_functions_percent: 50, complete_units: 0, unverified_code: 16 },
+        units: [{ name: unit, measures: { matched_code_percent: 75, complete_units: 0 } }] });
+      // The baseline board at B withholds `held`'s 50% fuzzy share too (raw 50).
+      expect(view.initial).toMatchObject({ measures: { matched_code_percent: 0, fuzzy_match_percent: 37.5 } });
+      const tiers = view.scoreTiers as unknown as { confirmed: { matches: JsonObject[]; improvements: JsonObject[] } };
+      expect(view.scoreTiers).toMatchObject({ baseline: { score: 0, savePointId: base.id },
+        confirmed: { score: 75, savePointId: saved.id, delta: 75 },
+        timeline: [{ commitSha: shas.base, score: 0 }, { commitSha: shas.saved, score: 75 }] });
+      expect(symbols(tiers.confirmed.matches)).toEqual(["verified"]);
+      // A rollback hold is withheld, not labelled: no active row backs a "100% unverified" flag.
+      const heldImprovement = tiers.confirmed.improvements.find((row) => row.symbol === "held");
+      expect(heldImprovement).toBeDefined();
+      expect(heldImprovement).not.toHaveProperty("verification");
+      expect(view.epochs).toHaveLength(1);
+      expect(epochAt(view, shas.saved)).toMatchObject({ matchedCodePercent: 75, measures: { matched_code_percent: 75, unverified_code: 16 } });
+      expect(view.campaign).toMatchObject({
+        savePoint: { commitSha: shas.saved, matchedCodePercent: 75, payload: { measures: { matched_code_percent: 75, unverified_code: 16 } } },
+        savePoints: [{ commitSha: shas.base, matchedCodePercent: 0 }, { commitSha: shas.saved, matchedCodePercent: 75 }],
+      });
+      expect(view.harnessState).toMatchObject({ run: { progress: { baseline_score: 0, confirmed_score: 75 } } });
+      expect(view.runSummary).toMatchObject({ unverified_matches: 0 });
+      expect(view.boundary).toMatchObject({ current: { savePointId: saved.id, matchedCodePercent: 75 } });
+      expect(details().boundary).toMatchObject({ current: { savePointId: saved.id, matchedCodePercent: 75 } });
+    };
+
+    expectSavedRevisionWithheld(await read());
+
+    // A certified backfill pass with clean unit coverage, recorded after the rollback, at the later revision C.
+    const certified = openState(dir);
+    try {
+      recordSteeringBackfill(certified, { gameId: "sms", unit, symbol: "held", analyzedRev: shas.later, verdict: "pass" });
+      recordSteeringCoverage(certified, { gameId: "sms", unit, analyzedRev: shas.later, baselineRev: shas.later, clean: true });
+    } finally {
+      certified.db.close();
+    }
+    // C is not an ancestor of S: the certificate does not retroactively credit the source saved at S.
+    expectSavedRevisionWithheld(await read());
+
+    // A newer save point at C (its stored figures still withheld) is re-derived under C's holds: `held` is credited.
+    const later = (() => {
+      const advanced = openState(dir);
+      try {
+        const point = addAcceptedSavePoint(advanced, { campaignId, runId, triggerKind: "epoch_finish", commitSha: shas.later,
+          matchedCodePercent: 75, reportPath: seeded.currentPath, measures: seeded.stored, createdAt: at(3000) });
+        recordDashboardArtifact(advanced, { runId, artifactType: "board_snapshot", artifactKey: "current", createdAt: at(3000),
+          payload: { measures: seeded.stored, reportPath: seeded.currentPath, savePointSha: shas.later, candidates: [] } });
+        return point;
+      } finally {
+        advanced.db.close();
+      }
+    })();
+    campaign = { head: { sha: shas.later, dirty: false }, savePoint: later, savePoints: [base, saved, later] };
+    const next = await read();
+    expect(next.current).toMatchObject({ savePointSha: shas.later, unverified_matches: 0,
+      measures: { matched_code_percent: 100, fuzzy_match_percent: 100, matched_functions_percent: 100, complete_units: 1 },
+      units: [{ name: unit, measures: { matched_code_percent: 100, complete_units: 1 } }] });
+    expect(next.initial).toMatchObject({ measures: { matched_code_percent: 0, fuzzy_match_percent: 37.5 } });
+    expect(next.scoreTiers).toMatchObject({ baseline: { score: 0 }, confirmed: { score: 100, savePointId: later.id, delta: 100 },
+      timeline: [{ commitSha: shas.base, score: 0 }, { commitSha: shas.saved, score: 75 }, { commitSha: shas.later, score: 100 }] });
+    expect(symbols((next.scoreTiers as unknown as { confirmed: { matches: JsonObject[] } }).confirmed.matches)).toEqual(["held", "verified"]);
+    expect(next.epochs).toHaveLength(2);
+    expect(epochAt(next, shas.saved)).toMatchObject({ matchedCodePercent: 75, measures: { matched_code_percent: 75, unverified_code: 16 } });
+    expect(epochAt(next, shas.later)).toMatchObject({ matchedCodePercent: 100, measures: { matched_code_percent: 100 } });
+    expect(next.campaign).toMatchObject({
+      savePoint: { commitSha: shas.later, matchedCodePercent: 100, payload: { measures: { matched_code_percent: 100 } } },
+      savePoints: [{ matchedCodePercent: 0 }, { commitSha: shas.saved, matchedCodePercent: 75 }, { commitSha: shas.later, matchedCodePercent: 100 }],
+    });
+    expect(next.harnessState).toMatchObject({ run: { progress: { baseline_score: 0, confirmed_score: 100 } } });
+    expect(next.boundary).toMatchObject({ current: { savePointId: later.id, matchedCodePercent: 100 } });
+    expect(details().boundary).toMatchObject({ current: { savePointId: later.id, matchedCodePercent: 100 } });
+  });
+
+  test("rollback holds: a steering state read failure publishes unknown completion, never the raw credit", async () => {
+    const { dir, repo, game, campaign } = seedRollbackHeldRun();
+    // The rollback table loses its columns: the holds SELECT throws after the table-existence guard.
+    const broken = openState(dir);
+    try {
+      broken.db.run("DROP TABLE steering_rollbacks");
+      broken.db.run("CREATE TABLE steering_rollbacks (id INTEGER PRIMARY KEY AUTOINCREMENT)");
+    } finally {
+      broken.db.close();
+    }
+    const { runDashboard } = createDashboardReadModel({ ...readModelDeps, campaignStatus: () => campaign });
+    const view = JSON.parse(JSON.stringify(await runDashboard({ game, repoRoot: repo, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]))) as JsonObject;
+    expect(view.current).toMatchObject({ unverified_matches: null,
+      measures: { unverified_unbounded: true, matched_code_percent: null, fuzzy_match_percent: null, complete_units: null } });
+    expect(view.initial).toMatchObject({ measures: { unverified_unbounded: true, matched_code_percent: null } });
+    expect(view.scoreTiers).toMatchObject({ baseline: { score: null }, confirmed: { score: null, matches: [] },
+      timeline: [{ score: null }, { score: null }] });
+    expect(view.epochs).toMatchObject([{ matchedCodePercent: null, measures: { unverified_unbounded: true } }]);
+    expect(view.campaign).toMatchObject({ savePoint: { matchedCodePercent: null }, savePoints: [{ matchedCodePercent: null }, { matchedCodePercent: null }] });
+    expect(view.harnessState).toMatchObject({ run: { progress: { baseline_score: null, confirmed_score: null } } });
+    expect(view.runSummary).toMatchObject({ unverified_matches: null });
+    expect(view.boundary).toMatchObject({ current: { matchedCodePercent: null } });
+  });
+
+  test("rollback holds: a worker's exact result is withheld at the revision it measured, and clears only on its own later landing", async () => {
+    const seeded = seedRollbackHeldRun(true);
+    const { dir, repo, runId, unit, shas, game, campaign } = seeded;
+    // A worker took `held` 50 -> 100 from the baseline claim B: before any certificate of the rollback.
+    const store = openState(dir);
+    let claim!: NonNullable<ReturnType<typeof claimNextEpochTarget>>;
+    try {
+      claim = claimNextEpochTarget({ store, runId, workerId: "worker-held", baseRev: shas.base })!;
+      expect(claim).not.toBeNull();
+      const artifactPath = join(dir, "held.summary.json");
+      writeFileSync(artifactPath, JSON.stringify({ status: "passed", reasons: [],
+        target: { unit, symbol: "held", before: 50, after: 100, improved: true, exact: true } }));
+      recordWorkerCheckpoint(store, {
+        authority: { host: "dashboard-read-model-test" }, workerStateId: claim.workerStateId, runId, epochId: claim.epochId,
+        epochTargetId: claim.epochTargetId, targetClaimId: claim.claimId, attemptIndex: 0, oldScore: 50, newScore: 100,
+        exactMatch: true, hardGatesPassed: true, buildStatus: "compiled", qaStatus: "clean", objdiffStatus: "available",
+        validationStatus: "passed", artifactPath, patchPath: null, diffPath: null, writeSet: [], failureReasons: [], metadata: {},
+      });
+      closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "exact", summary: {} });
+    } finally {
+      store.db.close();
+    }
+    const { runDashboard, runDetails } = createDashboardReadModel({ ...readModelDeps, campaignStatus: () => campaign });
+    const counts = async () => {
+      const details = runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+      const dashboard = await runDashboard({ game, repoRoot: repo, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+      return {
+        exactMatches: (details.summary as JsonObject).exactMatches,
+        exactOutcomes: ((details.summary as JsonObject).workerStateOutcomeCounts as JsonObject).exact,
+        timelineExact: (details.timeline as JsonObject[]).find((row) => row.kind === "worker_state" && row.title === "held")?.exactMatches,
+        improvementExact: (details.improvements as JsonObject[]).find((row) => row.symbol === "held")?.exactMatches,
+        targetExactMatches: (dashboard.runSummary as JsonObject).targetExactMatches,
+        dashboardOutcomes: ((dashboard.runSummary as JsonObject).workerStateOutcomeCounts as JsonObject).exact,
+      };
+    };
+    const withheld = { exactMatches: 0, exactOutcomes: 0, timelineExact: 0, improvementExact: 0, targetExactMatches: 0, dashboardOutcomes: 0 };
+
+    // No active row backs the hold: the rollback alone, uncertified at the claim base B, withholds the result.
+    expect(await counts()).toEqual(withheld);
+
+    // A certificate at the later C does not credit the historical result measured at B.
+    const certified = openState(dir);
+    try {
+      recordSteeringBackfill(certified, { gameId: "sms", unit, symbol: "held", analyzedRev: shas.later, verdict: "pass" });
+      recordSteeringCoverage(certified, { gameId: "sms", unit, analyzedRev: shas.later, baselineRev: shas.later, clean: true });
+    } finally {
+      certified.db.close();
+    }
+    expect(await counts()).toEqual(withheld);
+
+    // The result's own durable integration landed at C: measured there, its 100% is done.
+    const landed = openState(dir);
+    try {
+      const now = new Date().toISOString();
+      landed.db.query(`INSERT INTO integration_outcomes (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_state_id,
+          worker_checkpoint_id, status, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'applied', ?, ?, ?)`)
+        .run("integration-held", runId, claim.epochId, claim.epochTargetId, claim.claimId, claim.workerStateId,
+          (landed.db.query("SELECT id FROM worker_checkpoints WHERE worker_state_id = ?").get(claim.workerStateId) as { id: string }).id,
+          JSON.stringify({ integrated_rev: shas.later }), now, now);
+    } finally {
+      landed.db.close();
+    }
+    expect(await counts()).toEqual({ exactMatches: 1, exactOutcomes: 1, timelineExact: 1, improvementExact: 1, targetExactMatches: 1, dashboardOutcomes: 1 });
+  });
+
+  test("rollback holds: the initial board is judged at the revision it measured, never the run's advancing head", async () => {
+    const seeded = seedRollbackHeldRun();
+    const { dir, repo, runId, unit, shas, game, campaign, at } = seeded;
+    const baselinePath = join(dir, "baseline.report.json");
+    const store = openState(dir);
+    try {
+      recordSteeringBackfill(store, { gameId: "sms", unit, symbol: "held", analyzedRev: shas.later, verdict: "pass" });
+      recordSteeringCoverage(store, { gameId: "sms", unit, analyzedRev: shas.later, baselineRev: shas.later, clean: true });
+      // The run's head moves on to C, where the rollback is certified.
+      store.db.query("UPDATE runs SET head_revision = ? WHERE id = ?").run(shas.later, runId);
+    } finally {
+      store.db.close();
+    }
+    const { runDashboard } = createDashboardReadModel({ ...readModelDeps, campaignStatus: () => campaign });
+    const initialWith = async (extra: JsonObject, offset: number) => {
+      const writer = openState(dir);
+      try {
+        recordDashboardArtifact(writer, { runId, artifactType: "board_snapshot", artifactKey: "initial", createdAt: at(offset),
+          payload: { measures: { matched_code_percent: 0, fuzzy_match_percent: 50 }, reportPath: baselinePath, candidates: [], ...extra } });
+      } finally {
+        writer.db.close();
+      }
+      const view = await runDashboard({ game, repoRoot: repo, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+      return (view.initial as JsonObject).measures;
+    };
+    // Raw 50; `held` withheld from B's figures is 37.5. C's certificate never reaches back to B through the run head.
+    expect(await initialWith({ measuredRevision: shas.base }, 4000)).toMatchObject({ fuzzy_match_percent: 37.5 });
+    // No pinned revision: unknown clears no rollback.
+    expect(await initialWith({}, 5000)).toMatchObject({ fuzzy_match_percent: 37.5 });
+    // A board measured at C is credited at C.
+    expect(await initialWith({ measuredRevision: shas.later }, 6000)).toMatchObject({ fuzzy_match_percent: 50 });
+  });
+
+  test("unverified match: a certified 100% -> 100% attempt is done once the state clears, never while it is active", () => {
+    const { dir, store } = tempState();
+    let runId = "";
+    const unit = "main/Map/MapObj";
+    // An enforced gate run that passes `symbol` with an edit group touching it (and its unit built and compared).
+    const passingGate = (symbol: string, artifactPath: string) => ({
+      mode: "enforce",
+      error: null,
+      artifactPath,
+      durationMs: 1,
+      decision: {
+        attempt: "pass",
+        reasons: [],
+        functions: [{
+          unit, name: symbol, decision: "pass", semantic: "clean", analysis: "complete", audit_label: "real",
+          match: { base: 100, candidate: 100, real_only: 100 }, groups: ["g1"],
+        }],
+        removable_noncosmetic: [],
+        probes: [],
+        units: [{ unit, built: true, compared: true }],
+        violations: [],
+        unused_checks: [],
+        order_checks: [],
+      },
+    });
+    // certified: both runs pass. uncertified: the claim-base run passes but the trusted-base run was skipped;
+    // the stale `certified: true` flag must not stand in for the trusted-base result.
+    const evidenceFor = (symbol: string) => symbol === "certified"
+      ? { steering: passingGate(symbol, "claim-base.json"), unverifiedTarget: { unit, symbol, trustedBaseRev: "trusted-rev", baseline: passingGate(symbol, "trusted-base.json") } }
+      : { steering: passingGate(symbol, "claim-base.json"), unverifiedTarget: { unit, symbol, certified: true, trustedBaseRev: "trusted-rev", baseline: null, skipped: "the steering gate budget was spent by the claim-base run" } };
+    try {
+      seedHarnessState(store, "sms", { head: "base-sms" });
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sms" });
+      runId = run.id;
+      const epoch = startSchedulerEpoch(store, run.id, { workerPoolSize: 2 });
+      admitEpochTargets(store, {
+        epochId: epoch.id,
+        runId: run.id,
+        candidates: ["certified", "uncertified"].map((symbol) => ({ kind: "function" as const, unit, symbol, sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 100 })),
+        workerPoolSize: 2,
+      });
+      for (const index of [0, 1]) {
+        const claim = claimNextEpochTarget({ store, runId: run.id, workerId: `worker-${index}`, baseRev: "base-sms" })!;
+        const symbol = (store.db.query("SELECT symbol FROM epoch_targets WHERE id = ?").get(claim.epochTargetId) as { symbol: string }).symbol;
+        const artifactPath = join(dir, `${symbol}.summary.json`);
+        writeFileSync(artifactPath, JSON.stringify({
+          status: "passed",
+          reasons: [],
+          target: { unit, symbol, before: 100, after: 100, improved: false, exact: true },
+          ...evidenceFor(symbol),
+        }));
+        recordWorkerCheckpoint(store, {
+          authority: { host: "dashboard-read-model-test" },
+          workerStateId: claim.workerStateId,
+          runId: run.id,
+          epochId: claim.epochId,
+          epochTargetId: claim.epochTargetId,
+          targetClaimId: claim.claimId,
+          attemptIndex: 0,
+          oldScore: 100,
+          newScore: 100,
+          exactMatch: true,
+          hardGatesPassed: true,
+          buildStatus: "compiled",
+          qaStatus: "clean",
+          objdiffStatus: "available",
+          validationStatus: "passed",
+          artifactPath,
+          patchPath: null,
+          diffPath: null,
+          writeSet: [],
+          failureReasons: [],
+          metadata: {},
+        });
+        closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "exact", summary: {} });
+      }
+      recordUnverifiedMatch(store, { gameId: "sms", unit, symbol: "certified", analyzedRev: "rev-1", match: { base: 40, candidate: 100, real_only: null }, reasons: ["no steering located"] });
+    } finally {
+      store.db.close();
+    }
+    const game = { gameId: "sms", baseRef: "origin/master", matching: { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" } };
+    const { runDetails } = createDashboardReadModel(readModelDeps);
+    const read = () => runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+
+    // Active row (not yet integrated/cleared): withheld.
+    expect(read().summary).toMatchObject({ exactMatches: 0, totalPositiveDelta: 0 });
+
+    const reopened = openState(dir);
+    try {
+      // Certified at the revision the attempt's result measured.
+      expect(clearUnverifiedMatch(reopened, { gameId: "sms", unit, symbol: "certified", clearedBy: "attempt:test", clearedRev: "base-sms" })).toBe(true);
+    } finally {
+      reopened.db.close();
+    }
+    const cleared = read();
+    // Only the certified completion counts; the uncertified 100% -> 100% never does. No score delta is invented.
+    expect(cleared.summary).toMatchObject({ exactMatches: 1, totalPositiveDelta: 0 });
+    expect((cleared.improvements as JsonObject[]).find((row) => row.symbol === "certified")).toMatchObject({ exactMatches: 1, totalDelta: 0, verifiedCompletion: true });
+  });
+
+  test("unverified match: games without an active steering gate are unchanged", async () => {
+    const { dir, runId } = seedUnverifiedRun("melee");
+    const game = { gameId: "melee", baseRef: "origin/master", matching: { stackFramePolicy: "match_frame", steeringGate: "off" } };
+    const { runDashboard, runDetails } = createDashboardReadModel(readModelDeps);
+
+    const details = runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+    for (const row of details.epochTargets as JsonObject[]) expect(Object.keys(row).some((key) => key.startsWith("verification"))).toBe(false);
+    expect(details.summary).not.toHaveProperty("unverified_matches");
+    expect(details.summary).not.toHaveProperty("unverified_run_targets");
+    // Control: without an active gate the same exact attempt counts.
+    expect(details.summary).toMatchObject({ exactMatches: 1 });
+
+    const dashboard = await runDashboard({ game, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+    for (const row of dashboard.epochTargets as JsonObject[]) expect(Object.keys(row).some((key) => key.startsWith("verification"))).toBe(false);
+    expect(dashboard.runSummary).not.toHaveProperty("unverified_matches");
+    expect(dashboard.runSummary).toMatchObject({ targetExactMatches: 1 });
+    expect(dashboard.current).not.toHaveProperty("unverified_matches");
   });
 
   test("scopes active claim activity to the current recycled claim window", async () => {

@@ -1,11 +1,25 @@
 export interface BoardMeasures {
-  fuzzy_match_percent?: number;
-  matched_code_percent?: number;
-  complete_code_percent?: number;
-  matched_functions_percent?: number;
+  /** Completion figures are null when steering evidence cannot bound them. */
+  fuzzy_match_percent?: number | null;
+  matched_code_percent?: number | null;
+  complete_code_percent?: number | null;
+  matched_functions_percent?: number | null;
   total_units?: number;
-  complete_units?: number;
-  unmatched_targets?: number;
+  complete_units?: number | null;
+  unmatched_targets?: number | null;
+  /**
+   * Steering-gated games with active `unverified_match` rows: the separate
+   * "100% unverified" figure, withheld from every count above. Presence marks
+   * the measures as adjusted (see board/unverified-measures.ts). A figure that
+   * cannot be bounded without a denominator is null in the JSON (unknown).
+   */
+  unverified_functions?: number | null;
+  unverified_code?: number | null;
+  unverified_code_percent?: number | null;
+  unverified_targets?: number | null;
+  unverified_fuzzy_percent?: number | null;
+  unverified_complete_units?: number | null;
+  unverified_unbounded?: boolean;
 }
 
 /** A class a function's target code constructs (or uses the vtable/RTTI of) whose owner unit is not decompiled. */
@@ -33,6 +47,11 @@ export interface TargetCandidate {
   kind: "function" | "section";
   /** Set only when ordering is active and the target has not-ready or unresolved classes. */
   readiness?: TargetReadiness;
+  /**
+   * `unverified_match`: the steering backfill could not certify the function's
+   * code (often already 100%). Claimable, never done; admitted ahead of untouched targets.
+   */
+  verification?: "unverified_match";
 }
 
 /** Why a candidate is held out: its classes are not ready, readiness could not be loaded, or the loaded index does not list it. */

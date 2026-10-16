@@ -54,6 +54,20 @@ export interface WorkerRunnerValidation {
   stackPolicy?: WorkerStackPolicyResult;
   /** Steering gate shadow/enforce: the gate's result for this attempt (shadow never changes `status`). */
   steering?: WorkerSteeringResult;
+  /**
+   * Enforce, claimed target `unverified_match`: the trusted base and the
+   * target-only gate run against it (steering-validation.ts
+   * `UnverifiedTargetEvidence`). Certification is re-derived from it and
+   * `steering`; only a certified attempt can be selected without raising the
+   * score, and only its integration clears the target's unverified state.
+   */
+  unverifiedTarget?: {
+    unit: string;
+    symbol: string;
+    trustedBaseRev: string | null;
+    baseline: WorkerSteeringResult | null;
+    skipped?: string;
+  };
   /** Ordering shadow/enforce: the order-and-scope fence's result for this attempt (shadow never changes `status`). */
   editScope?: EditScopeResult;
   /** `unused_unverified` hunks the pre-steering check deferred to the post-steering UNUSED re-check. */

@@ -187,7 +187,21 @@ export interface ReadinessClassRef {
 }
 
 /** A work-table row for a target held back or reordered by class readiness. */
-export interface ReadinessTargetRow {
+/**
+ * Steering-gated games only: the function's code usually reaches 100% but the
+ * steering gate could not verify it ("100% unverified"). Claimable, never done.
+ * Absent on verified rows and on games without an active steering gate.
+ */
+export interface UnverifiedMatchFields {
+  verification?: "unverified_match";
+  verification_label?: string;
+  verification_match?: { base: number | null; candidate: number | null; real_only: number | null };
+  /** The gate's first reasons (at most 3). */
+  verification_reasons?: string[];
+  verification_recorded_at?: string;
+}
+
+export interface ReadinessTargetRow extends UnverifiedMatchFields {
   key: string;
   unit: string;
   symbol: string;

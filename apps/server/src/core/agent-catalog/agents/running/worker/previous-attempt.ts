@@ -6,6 +6,12 @@ import {
   type SteeringBackfillRecord,
   type SteeringRollbackRecord,
 } from "@server/core/harness-runtime/run-state/steering.js";
+import {
+  activeUnverifiedMatch,
+  UNVERIFIED_MATCH_LABEL,
+  UNVERIFIED_MATCH_STATE,
+  type UnverifiedMatchRecord,
+} from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { readReviewRulings, type ReviewRuling } from "@server/core/knowledge-v2/steering-lessons/seed.js";
 
 /**
@@ -26,6 +32,12 @@ import { readReviewRulings, type ReviewRuling } from "@server/core/knowledge-v2/
  * field is read as optional, and what the row lacks (older rows, or a rule
  * violation whose re-check no longer names it) comes from the first check
  * report it points to (`report.check`).
+ *
+ * A second variant, `unverified_match` ("100% unverified", migration 015),
+ * comes from the function's active `steering_unverified_matches` row: its code
+ * usually reaches 100% but the gate left it `unresolved`, neither proven real
+ * nor attributed to steering. It wins over a rollback and is shown whatever
+ * the current score, since a 100% the gate could not verify is not done.
  */
 export type PreviousAttemptRuleKind = "steering" | "dead_unused_body" | "out_of_order";
 
@@ -58,22 +70,55 @@ export interface PreviousAttemptHint {
   how_to_check?: string;
 }
 
-export interface PreviousAttempt {
+/** The fields every variant carries, so callers can read them without narrowing. */
+interface PreviousAttemptCommon {
   unit: string;
   symbol: string;
   analyzed_rev: string;
   recorded_at: string;
-  /** The gate's verdict on the earlier source (`steering_located`, `rule_violation`, ...). */
+  /** The gate's verdict on the earlier source (`steering_located`, `rule_violation`, `unresolved`, ...). */
   decision: string;
   /** The verdict after the backfill (the row's `verdict`). */
   verdict_after: string;
   /** The backfill rewrote the source (S* or the upstream stub). */
   applied: boolean;
-  match: { base: number | null; with_steering: number | null; real_only: number | null };
   removed_edits: PreviousAttemptEdit[];
   reasons: string[];
   hints: PreviousAttemptHint[];
   rules: PreviousAttemptRule[];
+}
+
+/** The rollback variant: an earlier match the backfill rolled back. It carries no `variant` key. */
+export interface RollbackPreviousAttempt extends PreviousAttemptCommon {
+  variant?: "rollback";
+  match: { base: number | null; with_steering: number | null; real_only: number | null };
+}
+
+/** An edit of an unverified match the gate could not explain (`unexplained_edit_groups`). */
+export interface UnverifiedMatchEdit extends PreviousAttemptEdit {
+  /** `held` (removable, kept for the unresolved function), `unresolved` or `incomplete`. */
+  status?: string;
+}
+
+/** The `unverified_match` variant ("100% unverified"): the gate could not verify the function's code. */
+export interface UnverifiedMatchPreviousAttempt extends PreviousAttemptCommon {
+  variant: typeof UNVERIFIED_MATCH_STATE;
+  label: string;
+  base_rev: string | null;
+  source_path: string | null;
+  /** `candidate` is the match the code reaches; `real_only` the reduced candidate's measured match (not a certified subset). */
+  match: { base: number | null; candidate: number | null; real_only: number | null };
+  unexplained_edits: UnverifiedMatchEdit[];
+}
+
+export type PreviousAttempt = RollbackPreviousAttempt | UnverifiedMatchPreviousAttempt;
+
+/** Which variant a `previous_attempt` block shows; the dashboard preview selects one. */
+export type PreviousAttemptVariant = "rollback" | typeof UNVERIFIED_MATCH_STATE;
+export const PREVIOUS_ATTEMPT_VARIANTS: readonly PreviousAttemptVariant[] = ["rollback", UNVERIFIED_MATCH_STATE];
+
+export function isPreviousAttemptVariant(value: unknown): value is PreviousAttemptVariant {
+  return typeof value === "string" && (PREVIOUS_ATTEMPT_VARIANTS as readonly string[]).includes(value);
 }
 
 /** decide's violation kind -> the rule it breaks and the `enforced_by` id its maintainer ruling carries. */
@@ -230,7 +275,7 @@ function rulingFor(kind: string, rulings: readonly ReviewRuling[], probeRulings:
 export function previousAttemptFromBackfill(
   record: SteeringBackfillRecord,
   options: { rulings?: readonly ReviewRuling[]; check?: CheckFunctionFacts | null } = {},
-): PreviousAttempt | null {
+): RollbackPreviousAttempt | null {
   const report = record.report;
   const probe = asObject(report.probe);
   const check = options.check ?? null;
@@ -302,6 +347,50 @@ export function previousAttemptFromBackfill(
   };
 }
 
+/** What `previousAttemptFromUnverified` reads: an `UnverifiedMatchRecord`, or the same fields from a sample. */
+export type UnverifiedMatchSource = Pick<UnverifiedMatchRecord, "unit" | "symbol" | "analyzedRev" | "match" | "reasons" | "recordedAt">
+  & Partial<Pick<UnverifiedMatchRecord, "baseRev" | "sourcePath" | "report">>;
+
+/**
+ * The packet block for a function recorded as `unverified_match`. The record's
+ * own `match` and `reasons` come first; its report (a
+ * `SteeringBackfillFunctionReport`) adds the edits the gate could not explain
+ * and the probe's hypotheses, and fills a match or reasons the record lacks.
+ */
+export function previousAttemptFromUnverified(record: UnverifiedMatchSource): UnverifiedMatchPreviousAttempt {
+  const report = asObject(record.report);
+  const reportMatch = asObject(report.match);
+  const decision = str(report.decision) ?? "unresolved";
+  const unexplained = asObjects(report.unexplained_edit_groups).flatMap((row) => {
+    const edit = editRow(row);
+    const status = str(row.status);
+    return edit ? [{ ...edit, ...(status ? { status } : {}) }] : [];
+  }).slice(0, MAX_EDITS);
+  return {
+    variant: UNVERIFIED_MATCH_STATE,
+    label: UNVERIFIED_MATCH_LABEL,
+    unit: record.unit,
+    symbol: record.symbol,
+    analyzed_rev: record.analyzedRev,
+    base_rev: record.baseRev ?? str(report.base_rev),
+    source_path: record.sourcePath ?? null,
+    recorded_at: record.recordedAt,
+    decision,
+    verdict_after: decision,
+    applied: false,
+    match: {
+      base: record.match.base ?? num(reportMatch.base),
+      candidate: record.match.candidate ?? num(reportMatch.candidate),
+      real_only: record.match.real_only ?? num(reportMatch.real_only),
+    },
+    unexplained_edits: unexplained,
+    removed_edits: [],
+    reasons: firstNonEmpty(reasonList(record.reasons), reasonList(report.reasons)),
+    hints: firstNonEmpty(hintList(report.hints), hintList(asObject(report.probe).hypotheses)),
+    rules: [],
+  };
+}
+
 /** A rollback event in the backfill-row shape `previousAttemptFromBackfill` reads: the rewrite is the rollback. */
 function rollbackAsRecord(rollback: SteeringRollbackRecord): SteeringBackfillRecord {
   return {
@@ -348,14 +437,22 @@ function readRulings(path: string | null | undefined): ReviewRuling[] {
 }
 
 /**
- * Claim-time lookup: the `previous_attempt` block for a target, or null when
- * the target is already done (score 100), has no backfill row, or its row
- * shows no trick. Never throws: the block is a hint.
+ * Claim-time lookup: the `previous_attempt` block for a target. An active
+ * `unverified_match` row comes first, whatever the score (its code usually
+ * reaches 100%). Otherwise null when the target is already done (score 100),
+ * has no backfill row, or its row shows no trick. Never throws: the block is
+ * a hint.
  */
 export function steeringPreviousAttempt(
   store: StateStore,
   params: { gameId: string; unit: string; symbol: string; currentScore?: number | null; rulingsPath?: string | null },
 ): PreviousAttempt | null {
+  try {
+    const unverified = activeUnverifiedMatch(store, params);
+    if (unverified) return previousAttemptFromUnverified(unverified);
+  } catch {
+    // A store without the table (or a malformed row) falls through to the rollback lookup.
+  }
   if (params.currentScore != null && params.currentScore >= 100) return null;
   try {
     const rollback = latestSteeringRollback(store, params);

@@ -1,4 +1,8 @@
 import type { KernelPreviewOptions } from "@server/core/agent-catalog/kernel-preview.js";
+import {
+  isPreviousAttemptVariant,
+  PREVIOUS_ATTEMPT_VARIANTS,
+} from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import { parseAdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 
 type JsonResponder = (data: unknown, init?: ResponseInit) => Response;
@@ -29,6 +33,14 @@ export async function handleAgentsApiRoute(url: URL, deps: AgentsApiRouteDeps): 
     } catch (error) {
       return deps.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
     }
+  }
+  // Which `previous_attempt` variant the worker sample renders (active steering gate only).
+  const rawPreviousAttempt = url.searchParams.get("previous_attempt");
+  if (rawPreviousAttempt !== null) {
+    if (!isPreviousAttemptVariant(rawPreviousAttempt)) {
+      return deps.json({ error: `previous_attempt must be one of: ${PREVIOUS_ATTEMPT_VARIANTS.join(", ")}` }, { status: 400 });
+    }
+    options = { ...options, previousAttempt: rawPreviousAttempt };
   }
   const paths = deps.requestPaths(url, { useDefaultGame: true });
   return deps.json(deps.loadKernelAgentsPayload(paths, options));

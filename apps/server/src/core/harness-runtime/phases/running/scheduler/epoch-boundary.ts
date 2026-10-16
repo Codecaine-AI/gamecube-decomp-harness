@@ -20,6 +20,8 @@ import {
   type CiParityResult,
 } from "@server/core/validation/ci-parity/index.js";
 import { sectionMeasuresFromReport } from "@server/core/validation/objdiff/section-measures.js";
+import { withholdUnverifiedMeasures } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
+import { steeringCompletionIndex } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { addSavePoint, ensureCampaign, latestSavePointByTrigger, mergeSavePointPayload } from "@server/core/harness-runtime/phases/pr/state";
 import { mergedPullRequestNumbers } from "@server/core/harness-runtime/phases/sync/upstream.js";
 import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/harness-runtime/phases/running/epochs/boundary-sync.js";
@@ -183,9 +185,14 @@ export interface EpochBoundaryOutcome {
   terminal?: boolean;
 }
 
-function measuresAt(repoRoot: string, reportRelPath: string): Record<string, unknown> {
+/**
+ * The report's measures as Sync publishes them: steering-gated games withhold
+ * active `unverified_match` and uncertified rollback functions from the done counts. The save point's
+ * copied report keeps the raw measures as evidence.
+ */
+async function completionMeasuresAt(store: StateStore, game: GlobalArgs["game"], gameId: string, repoRoot: string, reportRelPath: string): Promise<Record<string, unknown>> {
   const parsed = JSON.parse(readFileSync(resolve(repoRoot, reportRelPath), "utf8")) as Record<string, unknown>;
-  return parsed.measures && typeof parsed.measures === "object" ? parsed.measures as Record<string, unknown> : {};
+  return withholdUnverifiedMeasures(parsed, await steeringCompletionIndex(store, { gameId, steeringGate: game?.matching?.steeringGate }, repoRoot)) as Record<string, unknown>;
 }
 
 async function boundaryGitOutput(repoRoot: string, args: string[]): Promise<string> {
@@ -492,7 +499,7 @@ async function productionBoundarySync(
       },
       recomputeReport: async () => {
         await forceReportRun(params.globals.repoRoot, { ...reportRunOptionsForGame(params.globals.game), resetBaseline: false });
-        const measures = measuresAt(params.globals.repoRoot, reportRelPath);
+        const measures = await completionMeasuresAt(params.store, params.globals.game, gameId, params.globals.repoRoot, reportRelPath);
         const score = Number(measures.matched_code_percent);
         const dataScore = Number(measures.matched_data_percent);
         const sectionMeasures = sectionMeasuresFromReport(resolve(params.globals.repoRoot, reportRelPath));
@@ -973,6 +980,7 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
           leaseId,
           linkPaths: config.epochLinkPaths,
           gameId: globals.game?.gameId ?? globals.gameId ?? null,
+          steeringGate: globals.game?.matching?.steeringGate ?? null,
           preCommitAutofixEnabled: config.preCommitAutofixEnabled,
           linkCompleteUnitsEnabled: config.linkCompleteUnitsEnabled !== false,
           runPreCommitAutofix: params.dependencies?.runPreCommitAutofix,

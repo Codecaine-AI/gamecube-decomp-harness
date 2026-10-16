@@ -600,6 +600,14 @@ int f(struct S* s, int n)
     assert (repo / "src/a.c").read_text() == cand
 
 
+def steer_group(gid: str, edit_ids: list[str]) -> dict:
+    return {"id": gid, "status": "removable", "cosmetic": False, "edit_ids": edit_ids, "functions": ["f"], "units": ["u1"]}
+
+
+def steer_row(name: str, groups: list[str]) -> dict:
+    return {"unit": "u1", "name": name, "decision": "steering_located", "groups": groups}
+
+
 def test_apply_writes_line_preserving_sstar(tmp_path: Path) -> None:
     base = "int f(int* p)\n{\n    return p[0] * p[0] + 1;\n}\n"
     cand = "int f(int* p)\n{\n    int t = p[0];\n    t *= t;\n    return t + 2;\n}\n"
@@ -608,7 +616,8 @@ def test_apply_writes_line_preserving_sstar(tmp_path: Path) -> None:
     edits = sc.build_edits(repo, "HEAD", unit_resolver=fake_units)
     es = se.enumerate_edits("src/a.c", base, cand)
     temp_ids = [e.id for e in es if any("int t" in x or "t *= t" in x for x in e.added)]
-    report = {"edits": sc.omit_texts(edits), "reduce": {"groups": []}, "mwcc": {"revert_edits": temp_ids}}
+    report = {"edits": sc.omit_texts(edits), "reduce": {"groups": [steer_group("g", temp_ids)]},
+              "mwcc": {"revert_edits": temp_ids}, "decision": {"functions": [steer_row("f", ["g"])]}}
     dry = sc.run_apply(report, dry_run=True)
     assert dry["files"][0]["path"] == "src/a.c" and (repo / "src/a.c").read_text() == cand
     sc.run_apply(report, dry_run=False)
@@ -628,7 +637,8 @@ def test_apply_only_paths_writes_just_those_files(tmp_path: Path) -> None:
     edits = sc.build_edits(repo, "HEAD", unit_resolver=fake_units)
     ids = [e.id for path in ("src/a.c", "include/h.h") for e in se.enumerate_edits(path, base, cand)
            if any("int t" in x or "t *= t" in x for x in e.added)]
-    report = {"edits": sc.omit_texts(edits), "reduce": {"groups": []}, "mwcc": {"revert_edits": ids}}
+    report = {"edits": sc.omit_texts(edits), "reduce": {"groups": [steer_group("g", ids)]},
+              "mwcc": {"revert_edits": ids}, "decision": {"functions": [steer_row("f", ["g"])]}}
     out = sc.run_apply(report, dry_run=False, only_paths=["src/a.c"])
     assert [f["path"] for f in out["files"]] == ["src/a.c"] and out["only_paths"] == ["src/a.c"]
     assert (repo / "src/a.c").read_text() != cand
@@ -636,6 +646,117 @@ def test_apply_only_paths_writes_just_those_files(tmp_path: Path) -> None:
     # The hash check still covers the unwritten file: a second report over the same paths now refuses.
     with pytest.raises(sc.ToolFailure, match="changed since the check"):
         sc.run_apply(report, dry_run=True, only_paths=["include/h.h"])
+
+
+HELD_BASE = "void T::f()\n{\n    a = 1;\n}\n\nvoid T::g()\n{\n    b = 1;\n}\n"
+HELD_CAND = "void T::f()\n{\n    int t = 1;\n    a = t;\n}\n\nvoid T::g()\n{\n    int u = 1;\n    b = u;\n}\n"
+
+
+def held_report(tmp_path: Path, groups: list[dict], rows: list[dict]) -> tuple[Path, dict]:
+    """A one-file repo where f's hunk is edits #0.* and g's hunk is edits #1.*."""
+    repo = git_repo(tmp_path, {"src/a.c": HELD_BASE})
+    (repo / "src/a.c").write_text(HELD_CAND)
+    edits = sc.build_edits(repo, "HEAD", unit_resolver=fake_units)
+    ids = sorted(i for g in groups if g["status"] == "removable" for i in g["edit_ids"])
+    report = {"edits": sc.omit_texts(edits), "reduce": {"groups": groups}, "mwcc": {"revert_edits": ids},
+              "decision": {"functions": rows, "violations": []}}
+    return repo, report
+
+
+def held_group(gid: str, edit_ids: list[str], functions: list[str], units=("u1",)) -> dict:
+    return {"id": gid, "status": "removable", "cosmetic": False, "edit_ids": edit_ids,
+            "functions": functions, "units": list(units)}
+
+
+def fn_row(name: str, demangled: str, decision: str, groups=()) -> dict:
+    return {"unit": "u1", "name": name, "demangled": demangled, "decision": decision, "groups": list(groups)}
+
+
+F_EDITS, G_EDITS = ["src/a.c#0.0", "src/a.c#0.1"], ["src/a.c#1.0", "src/a.c#1.1"]
+
+
+def test_apply_holds_groups_of_unresolved_functions(tmp_path: Path) -> None:
+    groups = [held_group("g1", F_EDITS, ["T::f"]), held_group("g2", G_EDITS, ["T::g"])]
+    rows = [fn_row("f__1TFv", "T::f(void)", "steering_located", ["g1"]),
+            fn_row("g__1TFv", "T::g(void)", "unresolved", ["g2"])]
+    repo, report = held_report(tmp_path, groups, rows)
+    out = sc.run_apply(report, dry_run=False)
+    assert out["held_groups"] == ["g2"]
+    assert out["files"] == [{"path": "src/a.c", "reverted": F_EDITS, "deleted": False, "held": ["g2"]}]
+    text = (repo / "src/a.c").read_text()
+    assert "int t" not in text and "a = 1;" in text
+    assert "    int u = 1;\n    b = u;\n" in text  # the unresolved function keeps the candidate
+
+
+def test_held_by_line_location_matches_mangled_and_demangled_names(tmp_path: Path) -> None:
+    groups = [held_group("g1", F_EDITS, ["T::f"]), held_group("g2", G_EDITS, ["T::g"])]
+    rows = [fn_row("f__1TFv", "T::f(void)", "steering_located", ["g1"]),
+            fn_row("g__1TFv", "T::g(void)", "unresolved")]
+    assert sc.held_group_ids({"reduce": {"groups": groups}, "decision": {"functions": rows}}) == ["g2"]
+    # another unit's group does not match by name; a group without units does
+    other = [held_group("g2", G_EDITS, ["T::g"], units=("u2",))]
+    assert sc.held_group_ids({"reduce": {"groups": other}, "decision": {"functions": rows}}) == []
+    unitless = [held_group("g2", G_EDITS, ["T::g"], units=())]
+    assert sc.held_group_ids({"reduce": {"groups": unitless}, "decision": {"functions": rows}}) == ["g2"]
+    repo, report = held_report(tmp_path, groups, rows)
+    out = sc.run_apply(report, dry_run=False)
+    assert out["held_groups"] == ["g2"] and out["files"][0]["reverted"] == F_EDITS
+    assert "    int u = 1;\n    b = u;\n" in (repo / "src/a.c").read_text()
+
+
+def test_group_touching_steering_and_unresolved_functions_is_held(tmp_path: Path) -> None:
+    groups = [held_group("g1", F_EDITS + G_EDITS, ["T::f", "T::g"])]
+    rows = [fn_row("f__1TFv", "T::f(void)", "steering_located", ["g1"]),
+            fn_row("g__1TFv", "T::g(void)", "unresolved")]
+    repo, report = held_report(tmp_path, groups, rows)
+    out = sc.run_apply(report, dry_run=False)
+    # nothing else to revert in the file: it is not written
+    assert out["held_groups"] == ["g1"] and out["files"] == []
+    assert (repo / "src/a.c").read_text() == HELD_CAND
+
+
+def test_apply_reverts_only_groups_a_steering_function_claims(tmp_path: Path) -> None:
+    # g1: steering f's group. g2: removable but only a passing function lists it. g3: removable, no function claims it.
+    groups = [held_group("g1", F_EDITS[:1], ["T::f"]), held_group("g2", G_EDITS[:1], ["T::g"]),
+              held_group("g3", F_EDITS[1:] + G_EDITS[1:], [])]
+    rows = [fn_row("f__1TFv", "T::f(void)", "steering_located", ["g1"]), fn_row("g__1TFv", "T::g(void)", "pass", ["g2"])]
+    repo, report = held_report(tmp_path, groups, rows)
+    assert sc.steering_group_ids(report) == ["g1"]
+    # Check the no-steering case against the unchanged tree the report measured.
+    report["decision"]["functions"] = [fn_row("g__1TFv", "T::g(void)", "pass", ["g2"])]
+    assert sc.steering_group_ids(report) == [] and sc.run_apply(report, dry_run=True)["files"] == []
+    report["decision"]["functions"] = rows
+    out = sc.run_apply(report, dry_run=False)
+    assert out["steering_groups"] == ["g1"] and out["held_groups"] == []
+    assert out["files"] == [{"path": "src/a.c", "reverted": F_EDITS[:1], "deleted": False}]
+    text = (repo / "src/a.c").read_text()
+    assert text.split("void T::g")[0] != HELD_CAND.split("void T::g")[0]  # f's steering edit is reverted
+    assert "    int u = 1;\n    b = u;\n" in text  # g's code (g2, g3) is left as written
+
+
+def test_apply_follows_decide_final_status_and_the_measured_sstar(tmp_path: Path) -> None:
+    groups = [held_group("g1", F_EDITS, ["T::f"]), held_group("g2", G_EDITS, ["T::g"])]
+    rows = [fn_row("f__1TFv", "T::f(void)", "steering_located", ["g1", "g2"])]
+    repo, report = held_report(tmp_path, groups, rows)
+    # decide promoted g2 to real (map-call evidence): never reverted.
+    report["decision"]["group_statuses"] = {"g1": "removable", "g2": "real"}
+    assert sc.steering_group_ids(report) == ["g1"]
+    # Only edits the measured S* reverted are written.
+    report["mwcc"]["revert_edits"] = F_EDITS[:1]
+    assert sc.run_apply(report, dry_run=True)["files"][0]["reverted"] == F_EDITS[:1]
+
+
+def test_apply_dry_run_reports_held_groups_and_writes_nothing(tmp_path: Path) -> None:
+    groups = [held_group("g1", F_EDITS, ["T::f"]), held_group("g2", G_EDITS, ["T::g"]),
+              dict(held_group("g3", [], ["T::g"]), cosmetic=True)]
+    rows = [fn_row("f__1TFv", "T::f(void)", "steering_located", ["g1"]),
+            fn_row("g__1TFv", "T::g(void)", "unresolved", ["g2", "g3"])]
+    repo, report = held_report(tmp_path, groups, rows)
+    dry = sc.run_apply(report, dry_run=True)
+    assert dry["held_groups"] == ["g2"] and dry["files"][0]["held"] == ["g2"]
+    assert dry["files"][0]["reverted"] == F_EDITS
+    assert (repo / "src/a.c").read_text() == HELD_CAND
+    assert sc.run_apply(report, dry_run=False)["held_groups"] == dry["held_groups"]
 
 
 def test_shadow_include_failure_classifies_tool_errors() -> None:

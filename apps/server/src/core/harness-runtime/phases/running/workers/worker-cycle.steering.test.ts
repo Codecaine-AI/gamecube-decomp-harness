@@ -16,6 +16,7 @@ import {
 import { initializeHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
 import { STEERING_LOCATED_INSTRUCTION, UNUSED_BODY_INSTRUCTION, type WorkerSteeringResult } from "@server/core/validation/steering/steering-check.js";
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { UNVERIFIED_MATCH_INSTRUCTION } from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
 import {
   claimStackOnlyShortcutAllowed,
   workerCheckpointHardGatesPassed,
@@ -63,6 +64,31 @@ function steeringRejected(mode: SteeringGateMode = "enforce"): WorkerChangeValid
     qaLint: null,
     steering: steering(mode),
   };
+}
+
+/** A fresh store with one claimed SMS target whose worker baseline is `fuzzy`. */
+function withClaim(fuzzy: number, run: (store: ReturnType<typeof openState>, claim: NonNullable<ReturnType<typeof claimNextEpochTarget>>, runId: string) => void): void {
+  const dir = mkdtempSync(join(tmpdir(), "steering-checkpoint-"));
+  dirs.push(dir);
+  const store = openState(dir);
+  try {
+    initializeHarnessState(store.db, { gameId: "sms", worktree: dir, configurationRevision: "test", commandId: "init" });
+    transitionHarnessState(store.db, {
+      gameId: "sms", expectedRevision: 0, commandId: "seed",
+      patch: { readiness: { build: "ready", sources: "ready", sandbox: "ready", evidence: "ready" }, source: { head: "base" } },
+    });
+    const created = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base" });
+    const epoch = startSchedulerEpoch(store, created.id, { workerPoolSize: 1 });
+    admitEpochTargets(store, {
+      epochId: epoch.id,
+      runId: created.id,
+      candidates: [{ kind: "function", unit: UNIT, symbol: SYMBOL, sourcePath: "src/M3DUtil/MActor.cpp", size: 64, fuzzy }],
+      workerPoolSize: 1,
+    });
+    run(store, claimNextEpochTarget({ store, runId: created.id, workerId: "worker-1", baseRev: "base", ttlSeconds: 1800 })!, created.id);
+  } finally {
+    store.db.close();
+  }
 }
 
 describe("steering repair request", () => {
@@ -221,5 +247,96 @@ describe("claimStackOnlyShortcutAllowed", () => {
       ["/host/sms", "baseline-other-branch", "claim-base"],
       ["/host/sms", "baseline-good", "claim-base"],
     ]);
+  });
+});
+
+describe("unverified_match targets", () => {
+  test("a 100 -> 100 checkpoint is selectable only with the gate's certification for this worker state's own target", () => {
+    withClaim(100, (store, claim, runId) => {
+      let attemptIndex = 0;
+      const checkpoint = (extra: Partial<Parameters<typeof recordWorkerCheckpoint>[1]> = {}) => recordWorkerCheckpoint(store, {
+        authority: { host: "worker-cycle-steering-test" },
+        workerStateId: claim.workerStateId,
+        runId,
+        epochId: claim.epochId,
+        epochTargetId: claim.epochTargetId,
+        targetClaimId: claim.claimId,
+        attemptIndex: attemptIndex++,
+        oldScore: 100,
+        newScore: 100,
+        exactMatch: true,
+        hardGatesPassed: true,
+        validationStatus: "passed",
+        writeSet: ["src/M3DUtil/MActor.cpp"],
+        ...extra,
+      });
+      const own = { kind: "unverified_match" as const, unit: UNIT, symbol: SYMBOL };
+      // An ordinary no-op exact attempt, and certifications that do not hold for this checkpoint.
+      const rejected = [
+        checkpoint(),
+        checkpoint({ verificationImprovement: { ...own, symbol: "calcLight__6MActorFv" } }),
+        checkpoint({ verificationImprovement: own, hardGatesPassed: false }),
+        checkpoint({ verificationImprovement: own, exactMatch: false }),
+      ];
+      expect(rejected.map((row) => row.selectable)).toEqual([false, false, false, false]);
+      expect(bestCheckpointForWorkerState(store, claim.workerStateId)).toBeNull();
+      expect(workerContinuationDecision({ attemptIndex: attemptIndex - 1, checkpoints: workerCheckpointsForWorkerState(store, claim.workerStateId), repairReasons: [], dryRun: false }).stopReason).not.toBe("accepted_exact");
+
+      const certified = checkpoint({ verificationImprovement: own });
+      expect(certified.selectable).toBe(true);
+      expect(bestCheckpointForWorkerState(store, claim.workerStateId)?.id).toBe(certified.id);
+      expect(workerContinuationDecision({ attemptIndex: certified.attemptIndex, checkpoints: workerCheckpointsForWorkerState(store, claim.workerStateId), repairReasons: [], dryRun: false }).stopReason).toBe("accepted_exact");
+    });
+  });
+
+  test("a certified stack-only checkpoint that keeps the baseline is selectable; losing score never is", () => {
+    withClaim(99.5, (store, claim, runId) => {
+      const base = {
+        authority: { host: "worker-cycle-steering-test" },
+        workerStateId: claim.workerStateId,
+        runId,
+        epochId: claim.epochId,
+        epochTargetId: claim.epochTargetId,
+        targetClaimId: claim.claimId,
+        oldScore: 99.5,
+        exactMatch: false,
+        hardGatesPassed: true,
+        validationStatus: "passed",
+        verificationImprovement: { kind: "unverified_match" as const, unit: UNIT, symbol: SYMBOL, targetStackOnly: true },
+      };
+      expect(recordWorkerCheckpoint(store, { ...base, attemptIndex: 0, newScore: 99.4 }).selectable).toBe(false);
+      expect(recordWorkerCheckpoint(store, { ...base, attemptIndex: 1, newScore: 99.5 }).selectable).toBe(true);
+    });
+  });
+
+  test("an uncertified unverified target is told to produce a gate-certified version, not to undo steering", () => {
+    const reason = `unverified_match: ${SYMBOL} matches but is not certified (the steering gate against the trusted base did not pass this function). ${UNVERIFIED_MATCH_INSTRUCTION}`;
+    const validation: WorkerChangeValidation = {
+      status: "steering_located",
+      reasons: [reason],
+      target: { unit: UNIT, symbol: SYMBOL, before: 100, after: 100, improved: false, exact: true },
+      qaLint: null,
+      steering: steering("enforce", "pass"),
+      unverifiedTarget: { unit: UNIT, symbol: SYMBOL, trustedBaseRev: "trusted-base", baseline: steering("enforce", "steering_located") },
+    };
+    const instruction = workerRepairInstruction({ runnerValidation: validation, latestCheckpoint: { exactMatch: true, hardGatesPassed: false }, repairReasons: [reason], scoreText: " at 100%", stopAtFrame: true });
+    expect(instruction).toContain(UNVERIFIED_MATCH_INSTRUCTION);
+    expect(instruction).not.toContain(STEERING_LOCATED_INSTRUCTION);
+    expect(instruction).not.toContain("hard gates failed");
+  });
+
+  test("the claim-time stack-only shortcut never closes an unverified target, even with clean coverage", () => {
+    const params = {
+      stopAtFrame: true,
+      stackRemainingClass: "stack_only",
+      measuredBaselineScore: 99.5,
+      steeringGate: "enforce" as const,
+      coverage: { baselineRev: "baseline-good", clean: true, analyzedRev: "x" },
+      baseRev: "claim-base",
+      hostRepoRoot: "/host/sms",
+      isAncestor: () => true,
+    };
+    expect(claimStackOnlyShortcutAllowed(params)).toBe(true);
+    expect(claimStackOnlyShortcutAllowed({ ...params, unverifiedMatch: true })).toBe(false);
   });
 });

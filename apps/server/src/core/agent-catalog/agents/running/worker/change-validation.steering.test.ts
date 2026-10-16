@@ -9,7 +9,13 @@ import type { StackCheckRunner } from "@server/core/validation/stack/stack-check
 import { STEERING_LOCATED_INSTRUCTION, UNUSED_BODY_INSTRUCTION, type SteeringRunner } from "@server/core/validation/steering/steering-check.js";
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import { validateWorkerChange, type WorkerChangeBaseline, type WorkerUnitScoreSnapshot } from "./change-validation.js";
-import { recordWorkerSteeringObservations, steeringRepairProbe } from "./steering-validation.js";
+import {
+  recordWorkerSteeringObservations,
+  steeringRepairProbe,
+  UNVERIFIED_BASELINE_DIR,
+  UNVERIFIED_MATCH_INSTRUCTION,
+  unverifiedMatchCertification,
+} from "./steering-validation.js";
 
 const UNIT = "mario/M3DUtil/MActor";
 const SYMBOL = "setLightData__6MActorFv";
@@ -61,7 +67,7 @@ function sandbox(after: Record<string, number>): WorkspaceExec {
   } as WorkspaceExec;
 }
 
-type FnRow = { name: string; decision: string; semantic?: string; analysis?: string; unit?: string };
+type FnRow = { name: string; decision: string; semantic?: string; analysis?: string; unit?: string; groups?: unknown };
 
 function decision(attempt: string, functions: FnRow[], extra: Record<string, unknown> = {}) {
   return {
@@ -75,6 +81,7 @@ function decision(attempt: string, functions: FnRow[], extra: Record<string, unk
       analysis: fn.analysis ?? "complete",
       audit_label: fn.decision === "pass" ? "real" : "steering",
       match: { base: 90, candidate: 100, real_only: 96.5 },
+      ...(fn.groups !== undefined ? { groups: fn.groups } : {}),
     })),
     removable_noncosmetic: attempt === "pass" ? [] : ["g1"],
     units: [{ unit: UNIT, built: true, compared: true }],
@@ -88,6 +95,8 @@ function decision(attempt: string, functions: FnRow[], extra: Record<string, unk
 /** Fake steering_check.py: sandbox steps answer on stdout, host steps write `--out`. */
 function steeringRunner(answers: {
   decide?: unknown;
+  /** `decide` per `--base-ref` of the run's `edits` step (the trusted-base run of an unverified target). */
+  decideByBase?: Record<string, unknown>;
   mwccFunctions?: Array<Record<string, unknown>>;
   fail?: "edits" | "reduce" | "mwcc" | "decide";
   hang?: boolean;
@@ -103,9 +112,13 @@ function steeringRunner(answers: {
     mwcc: { edits_hash: "h1", functions: answers.mwccFunctions ?? [{ unit: UNIT, name: SYMBOL, sstar_vs_candidate: "code" }], errors: [] },
     decide: answers.decide ?? decision("pass", [{ name: SYMBOL, decision: "pass" }]),
   };
+  let base = "";
   const runner: SteeringRunner = async (args, where) => {
     const step = args[0]!;
     calls.push({ step, where, args });
+    if (step === "edits") base = args[args.indexOf("--base-ref") + 1] ?? "";
+    if (step === "decide" && answers.decideByBase?.[base] !== undefined) outputs.decide = answers.decideByBase[base];
+    else if (step === "decide") outputs.decide = answers.decide ?? decision("pass", [{ name: SYMBOL, decision: "pass" }]);
     if (answers.hang && step === "reduce") return new Promise<CommandResult>(() => undefined);
     if (answers.fail === step) return { exitCode: 2, stdout: "", stderr: `${step} exploded` };
     const out = args.indexOf("--out");
@@ -141,6 +154,7 @@ async function attempt(params: {
   perturbation?: Array<{ name: string; class: string }>;
   baseRev?: string | null;
   budgetMs?: number;
+  unverifiedTarget?: { unit: string; symbol: string; baseRev: string | null };
 }) {
   const outputDir = tempDir("steering-attempt-");
   const baseline: WorkerChangeBaseline = {
@@ -176,6 +190,7 @@ async function attempt(params: {
           cacheDir: join(outputDir, "cache"),
           runner: params.runner.runner,
           ...(params.budgetMs ? { budgetMs: params.budgetMs } : {}),
+          ...(params.unverifiedTarget ? { unverifiedTarget: params.unverifiedTarget } : {}),
         }
       : null,
   });
@@ -369,5 +384,123 @@ describe("validateWorkerChange steering gate", () => {
     } finally {
       store.db.close();
     }
+  });
+});
+
+describe("validateWorkerChange on an unverified_match target (enforce)", () => {
+  // The backfill's trusted base; the claim base (`base-abc`) still holds the unexplained code.
+  const TRUSTED = "trusted-81248bda";
+  const unverifiedTarget: { unit: string; symbol: string; baseRev: string | null } = { unit: UNIT, symbol: SYMBOL, baseRev: TRUSTED };
+  const exactAgain = { before: { [SYMBOL]: 100 }, after: { [SYMBOL]: 100 } };
+  const ownPass = decision("pass", [{ name: SYMBOL, decision: "pass", groups: ["g1"] }]);
+
+  function certification(validation: Parameters<typeof unverifiedMatchCertification>[0]["validation"]) {
+    return unverifiedMatchCertification({ validation, gameId: "sms", unit: UNIT, symbol: SYMBOL, baseRev: "base-abc" });
+  }
+
+  function editsBases(runner: ReturnType<typeof steeringRunner>): string[] {
+    return runner.calls.filter((call) => call.step === "edits").map((call) => call.args[call.args.indexOf("--base-ref") + 1]!);
+  }
+
+  test("a rewrite the claim-base gate and the target-only trusted-base gate both pass is certified", async () => {
+    const runner = steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: decision("pass", [{ name: SYMBOL, decision: "pass", groups: ["g1", "g2"] }]) } });
+    const { validation, outputDir } = await attempt({ mode: "enforce", runner, unverifiedTarget, ...exactAgain });
+    expect(validation.status).toBe("passed");
+    expect(editsBases(runner)).toEqual(["base-abc", TRUSTED]);
+    // The trusted-base run is target-only and writes beside, not over, the claim-base run's artifacts.
+    const trustedMwcc = runner.calls.filter((call) => call.step === "mwcc")[1]!.args;
+    expect(trustedMwcc[trustedMwcc.indexOf("--base-ref") + 1]).toBe(TRUSTED);
+    expect(trustedMwcc[trustedMwcc.indexOf("--functions") + 1]).toBe(SYMBOL);
+    const trustedDecide = runner.calls.filter((call) => call.step === "decide")[1]!.args;
+    expect(trustedDecide[trustedDecide.indexOf("--out") + 1]).toStartWith(join(outputDir, UNVERIFIED_BASELINE_DIR));
+    expect(validation.unverifiedTarget?.baseline?.decision?.functions[0]?.groups).toEqual(["g1", "g2"]);
+    expect(certification(validation)).toMatchObject({
+      kind: "unverified_match", game_id: "sms", unit: UNIT, symbol: SYMBOL, mode: "enforce", decision: "pass",
+      base_rev: TRUSTED, claim_base_rev: "base-abc", artifact_path: validation.unverifiedTarget?.baseline?.artifactPath,
+    });
+  });
+
+  test("a claim-base pass whose complete target version the trusted-base gate does not certify never retires it", async () => {
+    const cases: Array<{ name: string; trusted: unknown }> = [
+      // The new edit is real, but the old unexplained edits are still in the target.
+      { name: "target unresolved against the trusted base", trusted: decision("unresolved", [{ name: SYMBOL, decision: "unresolved", groups: ["g1", "g2"] }]) },
+      { name: "steering against the trusted base", trusted: decision("steering_located", [{ name: SYMBOL, decision: "steering_located", groups: ["g1", "g2"] }]) },
+      // A pass row is not enough when the run as a whole is not certified.
+      { name: "attempt-level failure", trusted: decision("unresolved", [{ name: SYMBOL, decision: "pass", groups: ["g1"] }], { reasons: ["link map unavailable"] }) },
+      { name: "unit not compared", trusted: decision("pass", [{ name: SYMBOL, decision: "pass", groups: ["g1"] }], { units: [{ unit: UNIT, built: true, compared: false }] }) },
+      { name: "incomplete analysis", trusted: decision("pass", [{ name: SYMBOL, decision: "pass", groups: ["g1"], analysis: "incomplete" }]) },
+      { name: "a residual in another function of the unit", trusted: decision("unresolved", [{ name: SYMBOL, decision: "pass", groups: ["g1"] }, { name: NEIGHBOUR, decision: "unresolved", groups: ["g3"] }]) },
+      { name: "wrong unit", trusted: decision("pass", [{ name: SYMBOL, decision: "pass", groups: ["g1"], unit: "mario/Other/Unit" }]) },
+    ];
+    const outcomes = [];
+    for (const { name, trusted } of cases) {
+      const runner = steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: trusted } });
+      const { validation } = await attempt({ mode: "enforce", runner, unverifiedTarget, ...exactAgain });
+      outcomes.push({
+        name,
+        bases: editsBases(runner),
+        status: validation.status,
+        instructed: validation.reasons.some((reason) => reason.includes(UNVERIFIED_MATCH_INSTRUCTION)),
+        certification: certification(validation),
+      });
+    }
+    expect(outcomes).toEqual(cases.map(({ name }) => ({ name, bases: ["base-abc", TRUSTED], status: "steering_located", instructed: true, certification: null })));
+  });
+
+  test("without a trusted base, or when the attempt does not edit the target, the trusted-base gate never runs and nothing is certified", async () => {
+    const trustedPass = { [TRUSTED]: ownPass };
+    const cases: Array<{ name: string; target: typeof unverifiedTarget; functions: FnRow[] }> = [
+      { name: "missing trusted base", target: { ...unverifiedTarget, baseRev: null }, functions: [{ name: SYMBOL, decision: "pass", groups: ["g1"] }] },
+      // decide's row carries no edit group touching the target: the attempt only changed a neighbour.
+      { name: "unrelated-only diff", target: unverifiedTarget, functions: [{ name: SYMBOL, decision: "pass", groups: [] }, { name: NEIGHBOUR, decision: "pass", groups: ["g1"] }] },
+      { name: "row without groups", target: unverifiedTarget, functions: [{ name: SYMBOL, decision: "pass" }] },
+      { name: "malformed groups", target: unverifiedTarget, functions: [{ name: SYMBOL, decision: "pass", groups: [7] }] },
+      // Same symbol, another unit: never a stand-in for the target's own row.
+      { name: "wrong unit", target: unverifiedTarget, functions: [{ name: SYMBOL, decision: "pass", groups: ["g1"], unit: "mario/Other/Unit" }] },
+    ];
+    const outcomes = [];
+    for (const { name, target, functions } of cases) {
+      const runner = steeringRunner({ decide: decision("pass", functions), decideByBase: trustedPass });
+      const { validation } = await attempt({ mode: "enforce", runner, unverifiedTarget: target, ...exactAgain });
+      outcomes.push({
+        name,
+        bases: editsBases(runner),
+        status: validation.status,
+        instructed: validation.reasons.some((reason) => reason.includes(UNVERIFIED_MATCH_INSTRUCTION)),
+        certification: certification(validation),
+      });
+    }
+    expect(outcomes).toEqual(cases.map(({ name }) => ({ name, bases: ["base-abc"], status: "steering_located", instructed: true, certification: null })));
+  });
+
+  test("an unchanged target never reaches the gate and is not banked", async () => {
+    const runner = steeringRunner();
+    const { validation } = await attempt({ mode: "enforce", runner, unverifiedTarget, diff: "", ...exactAgain });
+    expect(runner.calls).toEqual([]);
+    expect(validation.status).toBe("steering_located");
+    expect(validation.reasons.join("\n")).toContain(UNVERIFIED_MATCH_INSTRUCTION);
+    expect(certification(validation)).toBeNull();
+  });
+
+  test("a numerical improvement below 100 keeps its status; only the trusted-base pass adds the certification", async () => {
+    const improved = { before: { [SYMBOL]: 90 }, after: { [SYMBOL]: 95 } };
+    const certified = await attempt({ mode: "enforce", runner: steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: ownPass } }), unverifiedTarget, ...improved });
+    expect(certified.validation.status).toBe("passed");
+    expect(certified.validation.target).toMatchObject({ improved: true, exact: false });
+    expect(certification(certified.validation)?.base_rev).toBe(TRUSTED);
+
+    const unresolved = decision("unresolved", [{ name: SYMBOL, decision: "unresolved", groups: ["g1", "g2"] }]);
+    const uncertified = await attempt({ mode: "enforce", runner: steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: unresolved } }), unverifiedTarget, ...improved });
+    expect(uncertified.validation.status).toBe("passed");
+    expect(certification(uncertified.validation)).toBeNull();
+  });
+
+  test("shadow never runs the trusted-base gate, certifies or rejects for the unverified state", async () => {
+    const runner = steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: ownPass } });
+    const { validation } = await attempt({ mode: "shadow", runner, unverifiedTarget, ...exactAgain });
+    expect(validation.status).toBe("passed");
+    expect(editsBases(runner)).toEqual(["base-abc"]);
+    expect(validation.unverifiedTarget).toBeUndefined();
+    expect(certification(validation)).toBeNull();
   });
 });

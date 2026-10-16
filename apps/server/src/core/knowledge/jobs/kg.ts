@@ -1,3 +1,4 @@
+import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
@@ -28,7 +29,10 @@ import {
 import { resolveRegisteredTool, type ToolRuntimeContext } from "@server/core/tools/resolver";
 import { STATE_MIGRATION_MODE_ENV } from "@server/core/orchestrator-state/storage/store.js";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import type { StateStore } from "@server/core/orchestrator-state";
+import { createOrchestratorStateOrm, type StateStore } from "@server/core/orchestrator-state";
+import { completionHoldRefs, steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
+import type { UnverifiedFunctionRef } from "@server/core/knowledge/graph/builders/code-graph.js";
 import { booleanArg, numberArg, stringArg } from "@server/core/game-registry/runtime-options.js";
 
 export interface SpawnSummary {
@@ -249,6 +253,7 @@ export async function kgRebuildGraph(globals: GlobalArgs, args: Map<string, stri
   const payload = rebuildKnowledgeGraph({
     repoRoot,
     ...gameGraphInputs(globals),
+    ...graphVerificationInputs(globals),
     dbPath,
     sources,
     agentStateEnrichmentPath: enrichmentPath,
@@ -271,6 +276,7 @@ export async function runKnowledgeGraphRebuild(
     return (options.rebuildGraph ?? rebuildKnowledgeGraph)({
       repoRoot,
       ...gameGraphInputs(globals),
+      ...graphVerificationInputs(globals, options.stateStore),
       dbPath,
       sources,
       agentStateEnrichmentPath,
@@ -295,7 +301,8 @@ export async function runKnowledgeGraphRebuild(
     "--rebuild-in-process",
   ];
   const gameId = globals.game?.gameId ?? globals.gameId;
-  if (gameId) command.splice(3, 0, "--game", gameId);
+  // The child reads the active verification state from this run's state dir, not the game's default one.
+  if (gameId) command.splice(3, 0, "--game", gameId, "--state-dir", globals.stateDir);
   const proc = (options.rebuildSpawn ?? Bun.spawn)(command, {
     cwd: packageRoot(),
     env: {
@@ -566,7 +573,7 @@ export async function kgFileCard(globals: GlobalArgs, args: Map<string, string |
   if (!sourcePath) throw new Error("kg-file-card requires --source <source_path>");
   const store = openKnowledgeGraph(dbPath);
   try {
-    console.log(JSON.stringify(fileGraphCard(store, sourcePath), null, 2));
+    console.log(JSON.stringify(fileGraphCard(store, sourcePath, graphVerificationInputs(globals)), null, 2));
   } finally {
     store.db.close();
   }
@@ -580,6 +587,7 @@ async function ensureGraphReady(globals: GlobalArgs, args: Map<string, string | 
   if (shouldRebuild) {
     rebuildKnowledgeGraph({
       repoRoot: knowledgeRepoRoot(globals),
+      ...graphVerificationInputs(globals),
       dbPath,
       sources: defaultGraphSources(),
       agentStateEnrichmentPath: enrichmentPath,
@@ -702,6 +710,46 @@ async function toolStatus(tool: { id: string; commands?: Record<string, string> 
   } catch {
     return { id: tool.id, available: false, status: "unparseable", stdout };
   }
+}
+
+/**
+ * Steering-gated games: the functions with no completion credit in the
+ * report the graph is built from, so the rebuilt graph never labels one done
+ * or offers its file as complete reference evidence. That is every active
+ * `unverified_match` and every latest rollback none of whose certifying revs
+ * is an ancestor of the checkout's HEAD (the source and report revision,
+ * `steeringCompletionHolds`); an unreadable HEAD clears no rollback.
+ * Read from `stateStore` when the caller holds it, else from the run's state
+ * dir opened read-only (never created, migrated or written); a state dir with
+ * no database has recorded nothing. Melee and gate-off games: their state is
+ * never read and the graph is built from the report alone. An unreadable
+ * database throws: a graph that might call an unverified file complete is not
+ * published.
+ */
+export function graphVerificationInputs(globals: GlobalArgs, stateStore?: StateStore): { unverifiedMatches?: UnverifiedFunctionRef[] } {
+  const game = globals.game;
+  const steeringGate = game?.matching?.steeringGate;
+  if (!game || !steeringGateActive(steeringGate)) return {};
+  const repoRoot = knowledgeRepoRoot(globals);
+  const refs = (store: StateStore) => {
+    const holds = steeringCompletionHolds(store, { gameId: game.gameId, steeringGate }, repoRoot);
+    return completionHoldRefs(holds?.at(sourceRevision(repoRoot)));
+  };
+  if (stateStore) return { unverifiedMatches: refs(stateStore) };
+  const dbPath = resolve(globals.stateDir, "orchestrator.sqlite");
+  if (!existsSync(dbPath)) return { unverifiedMatches: [] };
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    return { unverifiedMatches: refs({ db, orm: createOrchestratorStateOrm(db), path: dbPath, stateDir: globals.stateDir }) };
+  } finally {
+    db.close();
+  }
+}
+
+/** The checkout's HEAD commit, or null when git cannot read it. */
+function sourceRevision(repoRoot: string): string | null {
+  const result = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "--verify", "HEAD"], { stdout: "pipe", stderr: "ignore" });
+  return result.exitCode === 0 ? result.stdout.toString().trim() || null : null;
 }
 
 function gameGraphInputs(globals: GlobalArgs) {

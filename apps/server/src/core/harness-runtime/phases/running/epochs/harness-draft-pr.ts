@@ -3,6 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { recordDashboardArtifact, type StateStore } from "@server/core/orchestrator-state";
 import { packageRoot } from "@server/core/knowledge/paths.js";
+import { branchSteeringHolds, type SteeringPrHold } from "@server/core/harness-runtime/phases/pr/checkpoint/steering-holds.js";
+import { gameSteeringGate } from "@server/core/tools/steering-gate.js";
 import {
   hostEditScopeRunner,
   hostEditScopeScriptPath,
@@ -53,6 +55,12 @@ export interface HarnessDraftPrPublishInput {
   runId: string;
   savePointId?: string | null;
   stateDir: string;
+  /**
+   * The game's `matching.steeringGate`; omitted, the game's current
+   * configuration. Shadow or enforce: the body lists every function the branch
+   * may not present as a match (steering-holds.ts `branchSteeringHolds`).
+   */
+  steeringGate?: string | null;
   store: StateStore;
   title?: string;
   /**
@@ -103,6 +111,8 @@ export interface HarnessDraftPrPublishResult {
   harnessId?: string | null;
   /** Present when the game's ordering is shadow or enforce. */
   scopeCheck?: HarnessDraftPrScopeCheck | null;
+  /** Steering-gated games: functions at the published head the PR body marks as not verified matches. */
+  steeringHolds?: Array<Pick<SteeringPrHold, "unit" | "symbol" | "reason">> | null;
   /**
    * `scope_refused`: enforce mode, the PR scope check rejected the range or
    * could not run. Nothing was pushed and GitHub was not touched; the range is
@@ -171,6 +181,28 @@ function normalizeBaseBranch(baseRef: string): string {
 
 function draftPrBody(): string {
   return DEFAULT_HARNESS_DRAFT_PR_BODY;
+}
+
+const MAX_LISTED_STEERING_HOLDS = 200;
+
+/**
+ * The body section for functions at 100% that are not verified matches. It is
+ * rebuilt from the current holds on every publish, so a function cleared since
+ * leaves the list and one held since joins it.
+ */
+function steeringHoldsBodySection(holds: readonly SteeringPrHold[]): string {
+  if (holds.length === 0) return "";
+  const listed = holds.slice(0, MAX_LISTED_STEERING_HOLDS).map((hold) =>
+    `- \`${hold.unit}::${hold.symbol}\` (${hold.reason === "unverified_match" ? "100% unverified" : "rolled back by the steering gate, not re-certified"})`);
+  const more = holds.length > listed.length ? [`- ... and ${holds.length - listed.length} more`] : [];
+  return [
+    "## Not verified matches",
+    "",
+    `${holds.length} function(s) on this branch may read as 100% but are not verified matches: the steering gate has not certified them. Do not take them as matches.`,
+    "",
+    ...listed,
+    ...more,
+  ].join("\n");
 }
 
 async function defaultRunCommand(cwd: string, command: string[]): Promise<HarnessDraftPrCommandResult> {
@@ -346,7 +378,14 @@ async function publishHarnessDraftPrInner(
     "push cycle branch",
   );
   let pull = await findOpenPullRequest(runCommand, input.repoRoot, repoSlug, forkOwner, branch);
-  const bodyPath = await writeDefaultPrBody(input.stateDir, input.runId, input.body ?? draftPrBody());
+  const holds = await branchSteeringHolds(
+    input.store,
+    { gameId: input.gameId, steeringGate: input.steeringGate !== undefined ? input.steeringGate : gameSteeringGate({ gameId: input.gameId }) },
+    async (rev) => (await runCommand(input.repoRoot, ["git", "merge-base", "--is-ancestor", rev, headSha])).exitCode === 0,
+  );
+  const holdsSection = steeringHoldsBodySection(holds);
+  const body = input.body ?? draftPrBody();
+  const bodyPath = await writeDefaultPrBody(input.stateDir, input.runId, holdsSection ? `${body.trimEnd()}\n\n${holdsSection}` : body);
   let created = false;
   if (!pull) {
     const create = await runChecked(
@@ -388,6 +427,7 @@ async function publishHarnessDraftPrInner(
     savePointId: input.savePointId ?? null,
     harnessId,
     ...(scopeCheck ? { scopeCheck } : {}),
+    ...(holds.length > 0 ? { steeringHolds: holds.map(({ unit, symbol, reason }) => ({ unit, symbol, reason })) } : {}),
     status: created ? "created" : "updated",
     title,
     url: pull.url,

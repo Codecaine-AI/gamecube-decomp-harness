@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { StackFramePolicy, SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { recordSteeringObservation, type SteeringObservationInput } from "@server/core/harness-runtime/run-state/steering.js";
@@ -10,13 +10,17 @@ import { steeringGateActive, steeringGateEnforced } from "@server/core/tools/ste
 import { stackOnlyPerturbationReason, stopsAtFrame } from "@server/core/validation/stack/stack-check.js";
 import {
   runWorkerSteeringGate,
+  STEERING_GATE_BUDGET_MS,
   steeringRejectionReason,
   type SteeringProbe,
   type SteeringRunner,
   type WorkerSteeringResult,
 } from "@server/core/validation/steering/steering-check.js";
 import { changedSourcePathsFromDiff } from "@server/core/validation/format/clang-format.js";
+import type { UnverifiedMatchCertification } from "@server/core/validation/steering/unverified-certification.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
+
+export { UNVERIFIED_MATCH_CERTIFICATION_KEY, type UnverifiedMatchCertification } from "@server/core/validation/steering/unverified-certification.js";
 
 /**
  * Worker side of the SMS steering gate (plan 3.3/3.4). The gate runs after
@@ -39,6 +43,203 @@ export interface WorkerSteeringGateOptions {
   approvalsPath?: string;
   lessonsPath?: string;
   budgetMs?: number;
+  /**
+   * The claimed target is `unverified_match` (its match is not certified).
+   * Enforce: an attempt that edits the target and passes the claim-base gate
+   * also gets a target-only gate run against `baseRev`, the trusted base the
+   * backfill recorded with the row (the claim base still holds the
+   * unexplained code). Only that run's pass for the target's own row
+   * certifies it; a missing trusted base never does. An attempt that would
+   * retire the target without it is never banked.
+   */
+  unverifiedTarget?: { unit: string; symbol: string; baseRev: string | null } | null;
+}
+
+/** Where the trusted-base run writes its step artifacts: apart from the claim-base run's. */
+export const UNVERIFIED_BASELINE_DIR = "unverified-baseline";
+
+/** The repair instruction for an `unverified_match` target whose attempt the gate did not certify. */
+export const UNVERIFIED_MATCH_INSTRUCTION =
+  "This target is \"100% but unverified\": its current match is not certified, because the steering gate could not verify it is the real code. "
+  + "Keep the real parts, replace what the gate could not explain with what the original source really had, and submit a version the gate certifies (pass) for this function; "
+  + "the unchanged code, or an attempt that does not change this function, never counts.";
+
+type UnverifiedTargetRef = { unit: string; symbol: string };
+
+function ownRows(result: WorkerSteeringResult, target: UnverifiedTargetRef) {
+  return result.decision?.functions.filter((fn) => fn.unit === target.unit && fn.name === target.symbol) ?? [];
+}
+
+/**
+ * The claim-base gate passed the attempt and this attempt edited the target:
+ * an enforce run with a decision nothing rejects whose target row (exact
+ * unit and symbol) is `pass` with at least one of the attempt's edit groups
+ * touching it. A same-symbol row from another unit never stands in, and an
+ * untouched target (unchanged, unrelated-only diff) is no candidate.
+ */
+export function attemptEditsUnverifiedTarget(result: WorkerSteeringResult | null | undefined, target: UnverifiedTargetRef): boolean {
+  if (!result || result.mode !== "enforce" || result.error || !result.decision) return false;
+  if (steeringRejectionReason(result) !== null) return false;
+  const own = ownRows(result, target);
+  // `groups`: this attempt's edit groups touching the row; none (or absent) means the attempt left it alone.
+  return own.length > 0 && own.every((fn) => fn.decision === "pass" && (fn.groups?.length ?? 0) > 0);
+}
+
+/**
+ * The trusted-base run certifies the complete target version: an enforce run
+ * whose certificate passes as a whole (`steeringRejectionReason` null: no tool,
+ * budget, link-map or coverage failure, complete reduction, no unresolved
+ * group, no rule violation, every considered function `pass`), with the
+ * target's own rows (exact unit and symbol) `pass`, complete, and touched by an
+ * edit group (the version differs from the trusted base), and the target's
+ * unit built and compared. Fails closed: a residual in another function of
+ * the unit since the trusted base also keeps the target uncertified.
+ */
+export function trustedBaselineCertifiesTarget(result: WorkerSteeringResult | null | undefined, target: UnverifiedTargetRef): boolean {
+  if (!result || result.mode !== "enforce" || result.error || !result.decision) return false;
+  if (steeringRejectionReason(result) !== null) return false;
+  const own = ownRows(result, target);
+  if (own.length === 0 || !own.every((fn) => fn.decision === "pass" && fn.analysis === "complete" && (fn.groups?.length ?? 0) > 0)) return false;
+  const unit = result.decision.units?.find((row) => row.unit === target.unit);
+  return Boolean(unit?.built && unit.compared && unit.exempt === undefined);
+}
+
+/**
+ * Typed evidence for an `unverified_match` target (`validation.unverifiedTarget`):
+ * the trusted base (null fails closed) and the target-only run against it
+ * (null when it did not run; `skipped` says why). Certification is re-derived
+ * from these results, never read from a stored flag.
+ */
+export type UnverifiedTargetEvidence = NonNullable<WorkerRunnerValidation["unverifiedTarget"]>;
+
+/** Both runs certify: the claim-base run passed an attempt that edited the target, and the trusted-base run passed the target. */
+export function unverifiedTargetCertified(
+  claimBase: WorkerSteeringResult | null | undefined,
+  evidence: UnverifiedTargetEvidence | null | undefined,
+  target: UnverifiedTargetRef,
+): boolean {
+  if (!evidence || evidence.unit !== target.unit || evidence.symbol !== target.symbol || !evidence.trustedBaseRev) return false;
+  return attemptEditsUnverifiedTarget(claimBase, target) && trustedBaselineCertifiesTarget(evidence.baseline, target);
+}
+
+/**
+ * Enforce, `unverified_match` target: the trusted-base run. Runs only for an
+ * attempt the claim-base gate passed that edited the target, target-only,
+ * within what is left of the gate budget, writing to its own directory.
+ */
+async function unverifiedBaselineEvidence(params: {
+  options: WorkerSteeringGateOptions;
+  target: { unit: string; symbol: string; baseRev: string | null };
+  validation: WorkerRunnerValidation;
+  claimBase: WorkerSteeringResult | null;
+  outputDir: string;
+  attemptIndex: number;
+}): Promise<UnverifiedTargetEvidence> {
+  const { options, target } = params;
+  const evidence = { unit: target.unit, symbol: target.symbol, trustedBaseRev: target.baseRev || null };
+  if (!evidence.trustedBaseRev) return { ...evidence, baseline: null, skipped: "no trusted base revision recorded for the unverified target" };
+  if (params.validation.status !== "passed") return { ...evidence, baseline: null, skipped: "the attempt did not pass the claim-base gates" };
+  if (!attemptEditsUnverifiedTarget(params.claimBase, target)) {
+    return { ...evidence, baseline: null, skipped: "the claim-base steering gate did not pass an edit of this function" };
+  }
+  const budgetMs = (options.budgetMs ?? STEERING_GATE_BUDGET_MS) - (params.claimBase?.durationMs ?? 0);
+  if (budgetMs <= 0) return { ...evidence, baseline: null, skipped: "the steering gate budget was spent by the claim-base run" };
+  const baseline = await runWorkerSteeringGate({
+    baseRev: evidence.trustedBaseRev,
+    functions: [target.symbol],
+    hostRepoRoot: options.hostRepoRoot,
+    cacheDir: options.cacheDir,
+    outputDir: join(params.outputDir, UNVERIFIED_BASELINE_DIR),
+    attemptIndex: params.attemptIndex,
+    mode: options.mode,
+    runner: options.runner,
+    budgetMs,
+    approvalsPath: options.approvalsPath,
+    lessonsPath: options.lessonsPath,
+  });
+  return { ...evidence, baseline };
+}
+
+/**
+ * Enforce, `unverified_match` target: records the typed evidence
+ * (`validation.unverifiedTarget`), and turns an attempt that would retire the
+ * target (exact, or done up to the stack frame) without certification into
+ * `steering_located`.
+ */
+export function requireCertifiedUnverifiedTarget<T extends WorkerRunnerValidation>(
+  validation: T,
+  options: WorkerSteeringGateOptions | null | undefined,
+  claimBase: WorkerSteeringResult | null,
+  evidence: UnverifiedTargetEvidence | null,
+): T {
+  const target = options?.unverifiedTarget;
+  if (!target || !steeringGateEnforced(options.mode)) return validation;
+  const recorded = {
+    ...validation,
+    unverifiedTarget: evidence ?? { unit: target.unit, symbol: target.symbol, trustedBaseRev: target.baseRev || null, baseline: null, skipped: "the attempt did not change source the steering gate could certify" },
+  };
+  // Exact, or done up to the stack frame (stop_at_frame): either would retire the target.
+  if (validation.status !== "passed" || !(validation.target?.exact || validation.stackPolicy?.targetStackOnly === true)) return recorded;
+  if (unverifiedTargetCertified(claimBase, recorded.unverifiedTarget, target)) return recorded;
+  const why = recorded.unverifiedTarget?.skipped
+    ?? (recorded.unverifiedTarget?.baseline?.error
+      ? `the steering gate against the trusted base failed: ${recorded.unverifiedTarget.baseline.error}`
+      : "the steering gate against the trusted base did not pass this function");
+  return {
+    ...recorded,
+    status: "steering_located",
+    reasons: [...validation.reasons, `${UNVERIFIED_MATCH_REASON_PREFIX} ${target.symbol} matches but is not certified (${why}). ${UNVERIFIED_MATCH_INSTRUCTION}`],
+  };
+}
+
+/** Leads the rejection reason `requireCertifiedUnverifiedTarget` adds. */
+export const UNVERIFIED_MATCH_REASON_PREFIX = "unverified_match:";
+
+/**
+ * The attempt was rejected only because its `unverified_match` target is not
+ * certified (the gate itself rejected nothing): the reason carries
+ * UNVERIFIED_MATCH_INSTRUCTION.
+ */
+export function unverifiedTargetRejected(validation: Pick<WorkerRunnerValidation, "status" | "reasons" | "steering" | "unverifiedTarget">): boolean {
+  if (validation.status !== "steering_located" || !validation.unverifiedTarget || !validation.reasons.some((reason) => reason.startsWith(UNVERIFIED_MATCH_REASON_PREFIX))) return false;
+  return !unverifiedTargetCertified(validation.steering, validation.unverifiedTarget, validation.unverifiedTarget);
+}
+
+/**
+ * The checkpoint proof that the trusted-base gate passed this target's own
+ * (unit, symbol) row for an attempt the claim-base gate passed. Integration
+ * clears the target's `unverified_match` row only when it applies a
+ * checkpoint carrying it (whatever the score: exact, a numerical improvement,
+ * or stack-only) and its `base_rev` still certifies the row's trusted base at
+ * that moment (`unverifiedBaseCertified`), and a zero-delta exact or
+ * stack-only checkpoint needs it to be selectable. A claim-base pass alone
+ * never certifies: the claim base already holds the unexplained code.
+ * Re-derived from the recorded results.
+ */
+export function unverifiedMatchCertification(params: {
+  validation: Pick<WorkerRunnerValidation, "status" | "steering" | "unverifiedTarget">;
+  gameId: string;
+  unit: string;
+  symbol: string;
+  baseRev: string | null | undefined;
+}): UnverifiedMatchCertification | null {
+  const { validation } = params;
+  const evidence = validation.unverifiedTarget;
+  const target = { unit: params.unit, symbol: params.symbol };
+  if (!params.gameId || validation.status !== "passed") return null;
+  if (!unverifiedTargetCertified(validation.steering, evidence, target) || !evidence?.trustedBaseRev) return null;
+  return {
+    kind: "unverified_match",
+    game_id: params.gameId,
+    unit: params.unit,
+    symbol: params.symbol,
+    mode: "enforce",
+    decision: "pass",
+    base_rev: evidence.trustedBaseRev,
+    artifact_path: evidence.baseline?.artifactPath ?? null,
+    claim_base_rev: params.baseRev ?? null,
+    claim_artifact_path: validation.steering?.artifactPath ?? null,
+  };
 }
 
 const STEERING_LESSONS_DIR = "knowledge/sources/injectable/steering_lessons";
@@ -175,7 +376,7 @@ export async function evaluateWorkerSteeringGate<T extends WorkerRunnerValidatio
 }): Promise<T> {
   const options = params.options;
   if (!options || !steeringGateApplies({ mode: options.mode, validation: params.validation, postAttemptDiffText: params.postAttemptDiffText })) {
-    return params.validation;
+    return requireCertifiedUnverifiedTarget(params.validation, options, null, null);
   }
   const functions = workerSteeringFunctions(params.symbol, params.validation);
   const result: WorkerSteeringResult = options.baseRev
@@ -193,11 +394,16 @@ export async function evaluateWorkerSteeringGate<T extends WorkerRunnerValidatio
         lessonsPath: options.lessonsPath,
       })
     : { mode: options.mode, decision: null, error: "no claim base revision", artifactPath: null, durationMs: 0 };
-  return applySteeringToValidation(params.validation, result, {
+  const applied = await applySteeringToValidation(params.validation, result, {
     outputDir: params.outputDir,
     attemptIndex: params.attemptIndex,
     stackFramePolicy: params.stackFramePolicy,
   });
+  const target = options.unverifiedTarget;
+  const evidence = target && steeringGateEnforced(options.mode)
+    ? await unverifiedBaselineEvidence({ options, target, validation: applied, claimBase: result, outputDir: params.outputDir, attemptIndex: params.attemptIndex })
+    : null;
+  return requireCertifiedUnverifiedTarget(applied, options, result, evidence);
 }
 
 /** sha256 of the target source at the claim base: the probe-reuse key (a file-level stand-in for the function source hash). */

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { openState } from "@server/core/orchestrator-state";
 import { resolveGame } from "@server/core/game-registry/resolver.js";
 import { recordSteeringBackfillRun } from "@server/core/harness-runtime/run-state/steering.js";
+import { activeUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { createRun } from "@server/core/harness-runtime/run-state";
 import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
 import { activateRun } from "@server/core/harness-runtime/phases/running/run-control.js";
@@ -93,7 +94,7 @@ describe("steering gate enforce preflight", () => {
     }
   });
 
-  test("SMS as shipped is enforce: refused without a clean backfill run, accepted with one on an ancestor of HEAD", () => {
+  test("SMS enforce requires a clean ancestral backfill while retaining unverified functions", () => {
     const { repo, c1 } = repoWithHistory();
     const store = openState(tempDir());
     try {
@@ -101,10 +102,16 @@ describe("steering gate enforce preflight", () => {
       expect(sms.matching.steeringGate).toBe("enforce");
       expect(() => assertSteeringGatePreflight(store, { game: sms, repoRoot: repo, command: "run-loop" }))
         .toThrow(/Steering gate is enforce for sms; refusing to run run-loop: no clean steering backfill run/);
+      const target = { gameId: "sms", unit: "mario/Enemy/a", symbol: "f" };
+      recordUnverifiedMatch(store, {
+        ...target, analyzedRev: c1, functionSourceSha: "source-sha",
+        match: { base: 0, candidate: 100, real_only: null }, reasons: ["unit oracle failed"],
+      });
       recordSteeringBackfillRun(store, { gameId: "sms", baselineRev: c1, clean: false });
       expect(() => assertSteeringGatePreflight(store, { game: sms, repoRoot: repo, command: "run-loop" })).toThrow(/no clean steering backfill run/);
       recordSteeringBackfillRun(store, { gameId: "sms", baselineRev: c1, clean: true });
       expect(() => assertSteeringGatePreflight(store, { game: sms, repoRoot: repo, command: "run-loop" })).not.toThrow();
+      expect(activeUnverifiedMatch(store, target)?.match.candidate).toBe(100);
     } finally {
       store.db.close();
     }

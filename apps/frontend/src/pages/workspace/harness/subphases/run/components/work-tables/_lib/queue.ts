@@ -10,6 +10,14 @@ export function readinessQueueRow(row: ReadinessTargetRow): JsonObject {
     fuzzy: row.fuzzy,
     readinessStatus: row.readinessStatus,
     reason: row.label,
+    ...(row.verification
+      ? {
+          verification: row.verification,
+          verification_label: row.verification_label,
+          verification_match: row.verification_match,
+          verification_reasons: row.verification_reasons,
+        }
+      : {}),
   };
 }
 

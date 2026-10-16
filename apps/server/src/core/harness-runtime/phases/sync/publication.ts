@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import type { Database } from "bun:sqlite";
 import { casRunEnvelope, immediateTransaction, now as currentTime } from "@server/core/orchestrator-state";
@@ -8,6 +8,8 @@ import { getHarnessState, transitionHarnessState } from "@server/core/harness-st
 import { releaseDispatch, requireLease } from "@server/core/harness-state/lease.js";
 import { fetchUpstreamAndFindMergedPrs } from "@server/core/harness-runtime/phases/sync/upstream.js";
 import { ensureCampaign } from "@server/core/harness-runtime/phases/pr/state/save-points.js";
+import { steeringCompletionIndex } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { withholdUnverifiedMeasures } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
 import {
   assertRecursiveWorktreeClean,
   captureRecursiveWorktreeState,
@@ -123,15 +125,49 @@ function operationTime(context: SyncPublicationContext): string {
   return context.now?.() ?? currentTime();
 }
 
-function publicationReport(context: SyncPublicationContext): {
-  matchedCodePercent: number;
+/**
+ * The sync save point's report figures. `held` (the steering completion
+ * index) is set only for a game with an active gate: then the raw report is
+ * archived under the save point and its measures withhold the held targets.
+ * Without it (Melee) the save point references the live report and records
+ * only its raw matched-code figure, exactly as before the gate.
+ */
+function publicationReport(context: SyncPublicationContext, savePointId: string, held?: ReadonlySet<string>): {
+  matchedCodePercent: number | null;
   reportPath: string;
+  measures?: JsonObject;
 } | null {
   const configuredPath = context.game?.reportPath;
   if (!configuredPath) return null;
-  const reportPath = isAbsolute(configuredPath)
+  const liveReportPath = isAbsolute(configuredPath)
     ? configuredPath
     : resolve(context.harnessWorktreePath, configuredPath);
+  if (!held) return legacyPublicationReport(liveReportPath);
+  // A retry keeps the first archived raw evidence, even if a later build has
+  // replaced the live report. History must never follow that mutable path.
+  const artifactDir = resolve(context.stateDir, "save-points", savePointId);
+  const reportPath = resolve(artifactDir, "report.json");
+  const sourcePath = existsSync(reportPath) ? reportPath : liveReportPath;
+  if (!existsSync(sourcePath)) return null;
+  let raw: string;
+  let report: Record<string, unknown>;
+  try {
+    raw = readFileSync(sourcePath, "utf8");
+    report = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (sourcePath !== reportPath) {
+    mkdirSync(artifactDir, { recursive: true });
+    writeFileSync(reportPath, raw, { flag: "wx" });
+  }
+  const measures = withholdUnverifiedMeasures(report, held);
+  const score = measures.matched_code_percent;
+  const matchedCodePercent = typeof score === "number" && Number.isFinite(score) ? score : null;
+  return { matchedCodePercent, reportPath, measures: { ...measures } as JsonObject };
+}
+
+function legacyPublicationReport(reportPath: string): { matchedCodePercent: number; reportPath: string } | null {
   if (!existsSync(reportPath)) return null;
   try {
     const report = JSON.parse(readFileSync(reportPath, "utf8")) as {
@@ -798,6 +834,7 @@ function anchorPublishedRemoteApplication(
   sync: SyncState,
   commandId: string,
   actor: EventActor,
+  held?: ReadonlySet<string>,
 ): void {
   const publication = sync.publication;
   const remoteApplicationId = publication?.remote_application_id;
@@ -823,7 +860,7 @@ function anchorPublishedRemoteApplication(
     baseRef: context.game?.baseRef ?? "origin/master",
   });
   const at = operationTime(context);
-  const report = publicationReport(context);
+  const report = publicationReport(context, savePointId, held);
   const payload: JsonObject = {
     remote_application_id: remoteApplicationId,
     sync_id: sync.sync_id,
@@ -832,6 +869,7 @@ function anchorPublishedRemoteApplication(
     ...(report ? {
       matched_code_percent: report.matchedCodePercent,
       report_path: report.reportPath,
+      ...(report.measures ? { measures: report.measures } : {}),
     } : {}),
   };
   context.store.db.query(
@@ -865,13 +903,16 @@ function anchorPublishedRemoteApplication(
   });
 }
 
-function finalizePublication(
+async function finalizePublication(
   context: SyncPublicationContext,
   sync: SyncState,
   commandId: string,
   actor: EventActor,
   causationId?: string,
-): SyncState {
+): Promise<SyncState> {
+  const held = await steeringCompletionIndex(context.store, {
+    gameId: sync.game_id, steeringGate: context.game?.steeringGate,
+  }, context.harnessWorktreePath);
   return immediateTransaction(context.store.db, () => {
     const current = requireCurrentSync(context, sync.sync_id);
     if (current.status !== "publishing" || !current.publication) {
@@ -891,7 +932,7 @@ function finalizePublication(
     if (lease.requested_handoff) {
       throw new Error(`Sync lease ${lease.lease_id} cannot auto-handoff after publication`);
     }
-    anchorPublishedRemoteApplication(context, current, commandId, actor);
+    anchorPublishedRemoteApplication(context, current, commandId, actor, held);
     const prReconciliation: SyncPrReconciliation[] = current.pr_reconciliation.map((entry) => ({ ...entry, pushed: true }));
     const published = transitionSync(context.store, current.sync_id, {
       actor,

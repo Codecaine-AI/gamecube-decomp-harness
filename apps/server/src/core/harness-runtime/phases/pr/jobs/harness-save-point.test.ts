@@ -4,18 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getHarnessState, getHarnessTimeline, initializeHarnessState, transitionHarnessState } from "@server/core/harness-state";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { recordSteeringBackfill, recordSteeringCoverage, recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { addSavePoint, ensureCampaign } from "../state";
 import { captureHarnessSavePoint, recordHarnessSavePointFailure, type HarnessSavePointInput } from "./harness-save-point.js";
 const cleanup: string[] = [];
 const stores: StateStore[] = [];
 afterEach(() => { for (const store of stores.splice(0)) store.db.close(); for (const root of cleanup.splice(0)) rmSync(root, { recursive: true, force: true }); });
 function git(root: string, args: string[]) { const result = Bun.spawnSync(["git", "-C", root, ...args], { stdout: "pipe", stderr: "pipe" }); if (result.exitCode !== 0) throw new Error(result.stderr.toString()); return result.stdout.toString().trim(); }
-function fixture() {
+function fixture(reportJson: Record<string, unknown> = { measures: { matched_code_percent: 67.5 } }) {
   const root = mkdtempSync(join(tmpdir(), "harness-save-point-")); cleanup.push(root);
   const repo = join(root, "checkout"); mkdirSync(repo); git(repo, ["init", "-q"]); git(repo, ["config", "user.email", "fixture@example.com"]); git(repo, ["config", "user.name", "Fixture"]);
   writeFileSync(join(repo, ".gitignore"), "generated/\n"); writeFileSync(join(repo, "source.c"), "int value = 1;\n"); git(repo, ["add", "."]); git(repo, ["commit", "-qm", "baseline"]);
   const head = git(repo, ["rev-parse", "HEAD"]); mkdirSync(join(repo, "generated"));
-  const report = JSON.stringify({ measures: { matched_code_percent: 67.5 } }); writeFileSync(join(repo, "generated", "score.json"), report);
+  const report = JSON.stringify(reportJson); writeFileSync(join(repo, "generated", "score.json"), report);
   const store = openState(join(root, "state")); stores.push(store);
   initializeHarnessState(store.db, { gameId: "example", worktree: repo, configurationRevision: "config", commandId: "initialize" });
   const campaign = ensureCampaign(store, { gameId: "example", baseRef: "HEAD" });
@@ -91,4 +93,64 @@ for (const unrelated of [false, true]) test(`successful retry restores only its 
   expect(current.readiness.evidence).toBe(unrelated ? "blocked" : "ready");
   expect(current.execution.blockers.some(item => item.code === "save_point_capture_failed")).toBe(false);
   expect(current.readiness.sources).toBe("blocked");
+});
+
+test("a steering-gated save point withholds an active unverified_match from its done measures; an inactive gate keeps the report's", async () => {
+  // 1000 of 2000 code bytes matched; 400 of them are `unverified_fn`, exact in the report but unverified.
+  const report = {
+    measures: { matched_code: 1000, total_code: 2000, matched_code_percent: 50, matched_functions: 2, total_functions: 4, matched_functions_percent: 50, unmatched_targets: 2 },
+    units: [{ name: "unit_a", functions: [
+      { name: "unverified_fn", size: 400, fuzzy_match_percent: 100 },
+      { name: "verified_fn", size: 600, fuzzy_match_percent: 100 },
+    ] }],
+  };
+  const f = fixture(report);
+  recordUnverifiedMatch(f.store, { gameId: "example", unit: "unit_a", symbol: "unverified_fn", analyzedRev: f.head, match: { base: 90, candidate: 100, real_only: 90 }, reasons: [] });
+
+  const gated = await captureHarnessSavePoint(f.store, f.input, { steeringGate: "enforce" });
+  expect(gated.freshness).toBe("valid");
+  expect(gated.savePoint.matchedCodePercent).toBe(30);
+  expect(gated.savePoint.payload.measures).toMatchObject({ matched_code: 600, matched_functions: 1, unmatched_targets: 3 });
+  expect(JSON.parse(readFileSync(gated.savePoint.reportPath, "utf8")).measures.matched_code).toBe(1000);
+
+  const melee = await captureHarnessSavePoint(f.store, { ...f.input, commandId: "melee-capture" }, { steeringGate: "off" });
+  expect(melee.savePoint.matchedCodePercent).toBe(50);
+  expect(melee.savePoint.payload.measures).toMatchObject({ matched_code: 1000, matched_functions: 2 });
+});
+
+test("capture withholds rollback-held exact credit until later backfill evidence certifies the harness checkout", async () => {
+  const report = {
+    measures: { matched_code: 1000, total_code: 1000, matched_code_percent: 100, matched_functions: 2, total_functions: 2, matched_functions_percent: 100, unmatched_targets: 0 },
+    units: [{ name: "unit_a", functions: [
+      { name: "rollback_fn", size: 400, fuzzy_match_percent: 100 },
+      { name: "verified_fn", size: 600, fuzzy_match_percent: 100 },
+    ] }],
+  };
+  const f = fixture(report);
+  const rawReport = readFileSync(join(f.repo, f.input.reportPath));
+  // No active unverified row: even a reverified status needs a later, landed certificate.
+  const rollbackId = recordSteeringRollback(f.store, {
+    gameId: "example", unit: "unit_a", symbol: "rollback_fn", analyzedRev: f.head, baseRev: f.head,
+    initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+  });
+  f.store.db.query("UPDATE steering_rollbacks SET recorded_at = ?, updated_at = ? WHERE id = ?")
+    .run("2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z", rollbackId);
+
+  const held = await captureHarnessSavePoint(f.store, f.input, { steeringGate: "enforce" });
+  expect(held.freshness).toBe("valid");
+  expect(held.savePoint.matchedCodePercent).toBe(60);
+  expect(held.savePoint.payload.measures).toMatchObject({ matched_code: 600, matched_functions: 1, unmatched_targets: 1, unverified_code: 400 });
+  expect(readFileSync(held.savePoint.reportPath)).toEqual(rawReport);
+
+  const melee = await captureHarnessSavePoint(f.store, { ...f.input, commandId: "rollback-gate-off" }, { steeringGate: "off" });
+  expect(melee.savePoint.matchedCodePercent).toBe(100);
+  expect(melee.savePoint.payload.measures).toEqual(report.measures);
+
+  recordSteeringBackfill(f.store, { gameId: "example", unit: "unit_a", symbol: "rollback_fn", analyzedRev: f.head, verdict: "pass" });
+  recordSteeringCoverage(f.store, { gameId: "example", unit: "unit_a", analyzedRev: f.head, baselineRev: f.head, clean: true });
+  const certified = await captureHarnessSavePoint(f.store, { ...f.input, commandId: "rollback-certified" }, { steeringGate: "enforce" });
+  expect(certified.freshness).toBe("valid");
+  expect(certified.savePoint.matchedCodePercent).toBe(100);
+  expect(certified.savePoint.payload.measures).toEqual(report.measures);
+  expect(readFileSync(certified.savePoint.reportPath)).toEqual(rawReport);
 });

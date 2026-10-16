@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { openState } from "@server/core/orchestrator-state";
 import { recordSteeringBackfill, recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { clearUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { packageRoot } from "@server/core/knowledge";
 import { previousAttemptXml } from "./context.js";
 import { steeringPreviousAttempt } from "./previous-attempt.js";
@@ -215,5 +216,104 @@ describe("previous_attempt from the steering backfill", () => {
     const both = renderContext({ previous_attempt: attempt, steering_probe: PROBE }, "shadow");
     expect(both.indexOf("<previous_attempt")).toBeGreaterThan(-1);
     expect(both.indexOf("<previous_attempt")).toBeLessThan(both.indexOf("<steering_probe"));
+  });
+});
+
+describe("previous_attempt for a 100% unverified match", () => {
+  const UNVERIFIED = {
+    ...target,
+    analyzedRev: "feedface0123456789",
+    baseRev: "81248bda",
+    sourcePath: "src/M3DUtil/MActor.cpp",
+    match: { base: 96.4, candidate: 100, real_only: 97.2 },
+    reasons: ["incomplete groups: src/M3DUtil/MActor.cpp@4.0"],
+    // SteeringBackfillFunctionReport of an unresolved function (validation/jobs/steering-gate.ts).
+    report: {
+      initial: "unresolved",
+      decision: "unresolved",
+      applied: false,
+      unexplained_edit_groups: [{
+        id: "src/M3DUtil/MActor.cpp@4.0",
+        file: "src/M3DUtil/MActor.cpp",
+        line: 212,
+        location: "src/M3DUtil/MActor.cpp:212",
+        shapes: ["other"],
+        text: "J3DLightObj* l = getLightData(); / l->set(i, c);",
+        restored: "mLightData->set(i, c);",
+        status: "unresolved",
+      }],
+      reasons: ["IR changes but no real shape found (other)"],
+      probe: PROBE,
+    },
+  };
+
+  test("an active row reaches the worker at 100% and renders the unverified block byte for byte", () => {
+    withStore((store) => {
+      recordUnverifiedMatch(store, UNVERIFIED);
+      // Shown at a score of 100: the old rollback guard would have hidden it.
+      const attempt = steeringPreviousAttempt(store, { ...target, currentScore: 100, rulingsPath: RULINGS });
+      expect(attempt).toMatchObject({
+        variant: "unverified_match",
+        label: "100% unverified",
+        decision: "unresolved",
+        applied: false,
+        match: { base: 96.4, candidate: 100, real_only: 97.2 },
+        reasons: ["incomplete groups: src/M3DUtil/MActor.cpp@4.0"],
+        removed_edits: [],
+        rules: [],
+      });
+
+      expect(previousAttemptXml({ previous_attempt: attempt }, "enforce")).toBe([
+        `    <previous_attempt variant="unverified_match" function="${SYMBOL}" unit="${UNIT}" decision="unresolved" analyzed_rev="feedface0123">`,
+        `        <what_happened>This function's code reaches 100%, but the steering gate could not verify that it is real code: it could neither prove the match real nor attribute it to steering. It is marked "100% unverified": not done and not counted as matched. The reduced candidate reaches 97.2%.</what_happened>`,
+        "        <instruction>Keep the parts that are real code. Find what each unexplained edit below stands for: the real inline, type, call or construct the original had, or evidence (`real_code_evidence`) that it is the original's code. Produce a version the steering gate certifies: separate real fixes from steering in their own statements and remove every steering edit. Resubmitting the same code leaves it unverified.</instruction>",
+        '        <match base="96.4%" candidate="100%" real_only="97.2%" />',
+        "        <unexplained_edits>",
+        '            <edit at="src/M3DUtil/MActor.cpp:212" status="unresolved" shapes="other">',
+        "                <base>mLightData-&gt;set(i, c);</base>",
+        "                <unexplained>J3DLightObj* l = getLightData(); / l-&gt;set(i, c);</unexplained>",
+        "            </edit>",
+        "        </unexplained_edits>",
+        "        <gate_reason>incomplete groups: src/M3DUtil/MActor.cpp@4.0</gate_reason>",
+        '        <hint cause="missing inline function" how_to_check="real_code_evidence inlines --type MActor --member mLightData">a single-use temp moves registers the way an inline does</hint>',
+        "    </previous_attempt>",
+      ].join("\n"));
+      expect(renderContext({ previous_attempt: attempt }, "shadow")).not.toContain("{{");
+    });
+  });
+
+  test("the unverified row wins over a rollback; once cleared the rollback lookup and its done guard apply", () => {
+    withStore((store) => {
+      recordSteeringRollback(store, {
+        ...target, analyzedRev: "steered0", baseRev: "81248bda", initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"],
+        report: { initial: "steering_located", decision: "pass", applied: true, rules: ["steering"], reasons: ["labelled steering"], removed_edit_groups: [{ id: "g", file: "src/M3DUtil/MActor.cpp", line: 212, text: "J3DLightObj* l = mLightData;", restored: "mLightData->set(i, c);" }] },
+      });
+      recordUnverifiedMatch(store, UNVERIFIED);
+      expect(steeringPreviousAttempt(store, { ...target, currentScore: 98.1 })?.variant).toBe("unverified_match");
+
+      expect(clearUnverifiedMatch(store, { ...target, clearedBy: "test" })).toBeTrue();
+      const rollback = steeringPreviousAttempt(store, { ...target, currentScore: 98.1 });
+      expect(rollback?.variant).toBeUndefined();
+      expect(rollback).toMatchObject({ decision: "steering_located", analyzed_rev: "steered0" });
+      expect(steeringPreviousAttempt(store, { ...target, currentScore: 100 })).toBeNull();
+    });
+  });
+
+  test("a store behind migration 015 falls back to the rollback lookup", () => {
+    withStore((store) => {
+      store.db.run("DROP TABLE steering_unverified_matches");
+      recordSteeringBackfill(store, { ...target, analyzedRev: "r1", verdict: "steering_located", report: { initial: "steering_located", probe: PROBE } });
+      expect(steeringPreviousAttempt(store, { ...target, currentScore: 98.1 })).toMatchObject({ decision: "steering_located" });
+      expect(steeringPreviousAttempt(store, { ...target, currentScore: 100 })).toBeNull();
+    });
+  });
+
+  test("an inactive steering gate renders no unverified block, so Melee stays byte-identical", () => {
+    withStore((store) => {
+      recordUnverifiedMatch(store, UNVERIFIED);
+      const attempt = steeringPreviousAttempt(store, target);
+      expect(previousAttemptXml({ previous_attempt: attempt }, "off")).toBe("");
+      expect(renderContext({ previous_attempt: attempt }, "off")).toBe(renderContext({}, "off"));
+    });
   });
 });

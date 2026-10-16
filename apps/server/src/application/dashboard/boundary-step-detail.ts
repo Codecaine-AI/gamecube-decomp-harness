@@ -1,7 +1,8 @@
 import { closeSync, lstatSync, openSync, readdirSync, readSync, realpathSync } from "node:fs";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { Database } from "bun:sqlite";
-import { BOUNDARY_STEP_KEYS, boundaryDashboardForRun, projectBoundaryDashboard, type BoundaryEpochRow, type BoundaryEventRow, type BoundaryGameEventRow, type BoundarySavePointRow, type BoundaryView } from "./boundary-view";
+import type { CompletionIndexSource } from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
+import { BOUNDARY_STEP_KEYS, boundaryDashboardForRun, projectBoundaryDashboard, withholdUnverifiedSavePointScores, type BoundaryEpochRow, type BoundaryEventRow, type BoundaryGameEventRow, type BoundarySavePointRow, type BoundaryView } from "./boundary-view";
 
 export interface BoundaryStepDetail {
   runId: string;
@@ -251,11 +252,12 @@ export function boundaryStepDetailForRun(
   runId: string,
   query: BoundaryStepDetailQuery,
   now: string | number | Date = new Date(),
+  unverified?: CompletionIndexSource,
 ): BoundaryStepDetail | BoundaryStepDetailNotFound | { error: string } {
   if (!runId || !query.epochId || !Number.isInteger(query.attempt) || query.attempt < 1 || !BOUNDARY_STEP_KEYS.includes(query.step as typeof BOUNDARY_STEP_KEYS[number])) {
     return { error: "Invalid boundary step detail query" };
   }
-  const dashboard = boundaryDashboardForRun(db, runId, now);
+  const dashboard = boundaryDashboardForRun(db, runId, now, unverified);
   let view = dashboard.current?.epochId === query.epochId ? dashboard.current : dashboard.recent.find((candidate) => candidate.epochId === query.epochId) ?? null;
   const epochRow = db.query(`SELECT id, ordinal, status, admitted_count, finished_count, boundary_status, boundary_attempt_count, boundary_next_attempt_at, created_at, closed_at FROM epochs WHERE run_id = ? AND id = ?`).get(runId, query.epochId) as BoundaryEpochRow | null;
   if (!epochRow) return { error: "Boundary epoch not found", notFound: "epoch" };
@@ -263,8 +265,11 @@ export function boundaryStepDetailForRun(
   const eventRows = db.query(`SELECT id, event_type, payload_json, created_at FROM events WHERE run_id = ? AND created_at >= ? AND (? IS NULL OR created_at < ?) ORDER BY created_at ASC`)
     .all(runId, epochRow.created_at, nextEpoch?.created_at ?? null, nextEpoch?.created_at ?? null) as BoundaryEventRow[];
   if (!view) {
-    const savePoints = db.query(`SELECT id, trigger_kind, matched_code_percent, payload_json, created_at FROM save_points WHERE run_id = ? AND created_at >= ? AND (? IS NULL OR created_at < ?) ORDER BY created_at ASC`)
-      .all(runId, epochRow.created_at, nextEpoch?.created_at ?? null, nextEpoch?.created_at ?? null) as BoundarySavePointRow[];
+    const savePoints = withholdUnverifiedSavePointScores(
+      db.query(`SELECT id, trigger_kind, commit_sha, matched_code_percent, report_path, payload_json, created_at FROM save_points WHERE run_id = ? AND created_at >= ? AND (? IS NULL OR created_at < ?) ORDER BY created_at ASC`)
+        .all(runId, epochRow.created_at, nextEpoch?.created_at ?? null, nextEpoch?.created_at ?? null) as BoundarySavePointRow[],
+      unverified,
+    );
     const gameEvents = db.query(`SELECT event_type, payload_json, occurred_at FROM game_events WHERE subject_kind = 'run' AND subject_id = ? AND event_type = 'run.epoch_integrated' ORDER BY occurred_at ASC`)
       .all(runId) as BoundaryGameEventRow[];
     const projected = projectBoundaryDashboard({ epochs: [epochRow], events: eventRows, savePoints, gameEvents, now });

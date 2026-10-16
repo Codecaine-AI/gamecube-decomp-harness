@@ -19,6 +19,8 @@ import {
   openKnowledgeGraph,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
+import { withActiveVerification } from "@server/core/knowledge/graph/file-card.js";
+import type { FileGraphCard } from "@server/core/knowledge/graph/types.js";
 import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
 import { formatSourceView, renderSourceView, sourceViewForText, sourceViewStartLine, SOURCE_VIEW_MAX_BYTES, type SourceName } from "@server/core/knowledge-v2/source-view.js";
 import {
@@ -118,6 +120,8 @@ export interface WorkerPromptInputXmlOptions {
   contextBudget?: WorkerPromptContextBudget;
   targetSourceText?: string | null;
   sourceNames?: readonly SourceName[];
+  /** The game's `matching.steeringGate`; omitted resolves it from `game`, else `off`. */
+  steeringGate?: SteeringGateMode;
 }
 
 export interface WorkerPromptInputXml {
@@ -403,15 +407,86 @@ function previousAttemptSummary(attempt: Record<string, unknown>, kinds: string[
   return `A previous attempt ${reached} only through ${how}. ${action}${after}.`;
 }
 
+// `UNVERIFIED_MATCH_STATE` / `UNVERIFIED_MATCH_LABEL` (run-state/unverified-matches.ts), kept
+// literal so the prompt module does not load the state store.
+const UNVERIFIED_MATCH_STATE = "unverified_match";
+const UNVERIFIED_MATCH_LABEL = "100% unverified";
+
+/** What happened: the code reaches 100% but the gate could not verify it is real. */
+function unverifiedMatchSummary(attempt: Record<string, unknown>): string {
+  const match = asRecord(attempt.match);
+  const candidate = percent(match.candidate) ?? "100%";
+  const realOnly = percent(match.real_only);
+  const reduced = realOnly ? ` The reduced candidate reaches ${realOnly}.` : "";
+  return `This function's code reaches ${candidate}, but the steering gate could not verify that it is real code: it could neither prove the match real nor attribute it to steering. It is marked "${UNVERIFIED_MATCH_LABEL}": not done and not counted as matched.${reduced}`;
+}
+
+const UNVERIFIED_MATCH_INSTRUCTION = [
+  "Keep the parts that are real code.",
+  "Find what each unexplained edit below stands for: the real inline, type, call or construct the original had, or evidence (`real_code_evidence`) that it is the original's code.",
+  "Produce a version the steering gate certifies: separate real fixes from steering in their own statements and remove every steering edit. Resubmitting the same code leaves it unverified.",
+].join(" ");
+
+/**
+ * The `unverified_match` variant ("100% unverified"): the function's active
+ * `steering_unverified_matches` row, its match, the edits the gate could not
+ * explain and the gate's reasons.
+ */
+function unverifiedMatchXml(attempt: Record<string, unknown>): string {
+  const match = asRecord(attempt.match);
+  const edits = asRecordArray(attempt.unexplained_edits).filter((edit) => optionalString(edit.file));
+  const reasons = Array.isArray(attempt.reasons) ? attempt.reasons.filter((reason): reason is string => typeof reason === "string" && reason !== "") : [];
+  const hints = asRecordArray(attempt.hints).filter((hint) => optionalString(hint.cause));
+  const attrs = [
+    optionalAttribute("variant", UNVERIFIED_MATCH_STATE),
+    optionalAttribute("function", optionalString(attempt.symbol)),
+    optionalAttribute("unit", optionalString(attempt.unit)),
+    optionalAttribute("decision", optionalString(attempt.decision)),
+    optionalAttribute("analyzed_rev", optionalString(attempt.analyzed_rev)?.slice(0, 12)),
+  ].join("");
+  const matchAttrs = [
+    optionalAttribute("base", percent(match.base)),
+    optionalAttribute("candidate", percent(match.candidate)),
+    optionalAttribute("real_only", percent(match.real_only)),
+  ].join("");
+  return [
+    `    <previous_attempt${attrs}>`,
+    `        <what_happened>${xmlText(unverifiedMatchSummary(attempt))}</what_happened>`,
+    `        <instruction>${xmlText(UNVERIFIED_MATCH_INSTRUCTION)}</instruction>`,
+    ...(matchAttrs ? [`        <match${matchAttrs} />`] : []),
+    ...(edits.length > 0
+      ? [
+          "        <unexplained_edits>",
+          ...edits.map((edit) => {
+            const shapes = Array.isArray(edit.shapes) ? edit.shapes.filter((shape) => typeof shape === "string").join(",") : "";
+            const where = `${edit.file}${optionalNumber(edit.line) !== null ? `:${edit.line}` : ""}`;
+            const body = [
+              ...(optionalString(edit.before) ? [`                <base>${xmlText(edit.before)}</base>`] : []),
+              ...(optionalString(edit.after) ? [`                <unexplained>${xmlText(edit.after)}</unexplained>`] : []),
+            ];
+            const open = `            <edit at="${xmlAttribute(where)}"${optionalAttribute("status", optionalString(edit.status))}${optionalAttribute("shapes", shapes)}`;
+            return body.length > 0 ? [`${open}>`, ...body, "            </edit>"].join("\n") : `${open} />`;
+          }),
+          "        </unexplained_edits>",
+        ]
+      : []),
+    ...reasons.map((reason) => `        <gate_reason>${xmlText(reason)}</gate_reason>`),
+    ...hints.map((hint) => `        <hint cause="${xmlAttribute(hint.cause)}"${optionalAttribute("how_to_check", optionalString(hint.how_to_check))}>${xmlText(hint.why ?? "")}</hint>`),
+    "    </previous_attempt>",
+  ].join("\n");
+}
+
 /**
  * What the steering backfill found for this function in an earlier run
  * (`packet.previous_attempt`, attached at claim time from its
- * `steering_backfill` row), or "" when absent or the steering gate is off.
+ * `steering_backfill` row, or its `unverified_match` row), or "" when absent
+ * or the steering gate is off.
  */
 export function previousAttemptXml(packet: Record<string, unknown>, steeringGate: SteeringGateMode | null | undefined): string {
   if (!steeringGateActive(steeringGate)) return "";
   const attempt = asRecord(packet.previous_attempt);
   if (Object.keys(attempt).length === 0) return "";
+  if (attempt.variant === UNVERIFIED_MATCH_STATE) return unverifiedMatchXml(attempt);
   const rules = asRecordArray(attempt.rules);
   const kinds = rules.map((rule) => String(rule.kind ?? ""));
   const match = asRecord(attempt.match);
@@ -547,9 +622,44 @@ function fileCardFromGraph(
   }
 }
 
+/**
+ * The worker's own target when it is an active `unverified_match` (the board's
+ * `target.verification`, or the claim's `previous_attempt` variant), else null.
+ */
+function unverifiedOwnTarget(packet: Record<string, unknown>): { unit: string; symbol: string } | null {
+  const target = asRecord(packet.target);
+  const unit = optionalString(target.unit);
+  const symbol = optionalString(target.symbol);
+  if (!unit || !symbol) return null;
+  const attempt = asRecord(packet.previous_attempt);
+  const marked = target.verification === UNVERIFIED_MATCH_STATE
+    || (attempt.variant === UNVERIFIED_MATCH_STATE && (optionalString(attempt.symbol) ?? symbol) === symbol);
+  return marked ? { unit, symbol } : null;
+}
+
+/**
+ * Steering-gated games: the file card with the current verification state
+ * overlaid. The packet's card, or one read from a graph built before the
+ * backfill recorded the row, can call the target's file `read_only_complete`
+ * ("reference evidence only") when every raw score is 100%; an unverified
+ * target is not done, so its file is editable. Functions the graph already
+ * labels unverified stay counted. Gate off (Melee): the card as stored.
+ */
+function verifiedFileCard(
+  card: Record<string, unknown>,
+  packet: Record<string, unknown>,
+  steeringGate: SteeringGateMode,
+): Record<string, unknown> {
+  if (!steeringGateActive(steeringGate) || Object.keys(card).length === 0) return card;
+  const own = unverifiedOwnTarget(packet);
+  if (!own) return card;
+  return withActiveVerification(card as unknown as FileGraphCard, [own], { sameFile: true }) as unknown as Record<string, unknown>;
+}
+
 function targetContextHints(
   packet: Record<string, unknown>,
   game?: RunGameMetadata,
+  steeringGate: SteeringGateMode = gameSteeringGate(game),
 ): TargetContextHints {
   const target = asRecord(packet.target);
   const sourcePath = optionalString(target.source_path) ?? "";
@@ -563,9 +673,13 @@ function targetContextHints(
         analogs: asRecordArray(relatedFunctions.analogs).slice(0, 4),
       }
     : null;
-  const card = fromPacket.present
-    ? fromPacket.card
-    : fileCardFromGraph(sourcePath, game, fromPacket.graphDb);
+  const card = verifiedFileCard(
+    fromPacket.present
+      ? fromPacket.card
+      : fileCardFromGraph(sourcePath, game, fromPacket.graphDb),
+    packet,
+    steeringGate,
+  );
   if (Object.keys(card).length === 0) {
     return { editability: null, sameFileSymbols: [], relatedFunctions: related };
   }
@@ -809,7 +923,7 @@ export function workerPromptInputXml(
   const primarySourceAbs = primarySourcePath
     ? resolve(options.repoRoot, primarySourcePath)
     : "";
-  const contextHints = targetContextHints(options.packet, options.game);
+  const contextHints = targetContextHints(options.packet, options.game, options.steeringGate ?? gameSteeringGate(options.game));
   const source = options.targetSourceText !== undefined ? options.targetSourceText
     : primarySourceAbs && existsSync(primarySourceAbs) ? readFileSync(primarySourceAbs, "utf8") : null;
   let proposedView: string | undefined;
@@ -850,6 +964,7 @@ export function buildWorkerKernelContext(
     contextBudget,
     targetSourceText: options.targetSourceText,
     sourceNames: options.sourceNames,
+    steeringGate: workerSteeringGate(options),
   });
   const targetKnowledgeXml = workerTargetKnowledgeXml(
     options.packet,

@@ -19,6 +19,11 @@ import {
   configureCommandWithWrapper,
 } from "@server/core/game-registry/configure-command.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
+import { Database } from "bun:sqlite";
+import { createOrchestratorStateOrm } from "@server/core/orchestrator-state";
+import { branchSteeringHolds, type SteeringPrHold } from "./checkpoint/steering-holds.js";
+import { unverifiedMatchKey } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -36,7 +41,7 @@ export interface CodeIssuesResult {
 
 export interface PrWorktreeGameContext {
   handoffDir?: string;
-  game: { baseRef?: string; kind?: string } | null;
+  game: { baseRef?: string; kind?: string; gameId?: string; steeringGate?: string | null; matching?: { steeringGate?: string | null } } | null;
   repoRoot: string;
   stateDir: string;
   toolPlatform?: ToolPlatform;
@@ -211,6 +216,39 @@ function sourcePathFromUnit(name: string): string {
   return `src/${parts.slice(1).join("/")}.c`;
 }
 
+function withoutExtension(file: string): string {
+  const slash = file.lastIndexOf("/");
+  const dot = file.lastIndexOf(".");
+  return dot > slash ? file.slice(0, dot) : file;
+}
+
+/**
+ * Shipped files that carry a held function: a patch ships whole files, so a
+ * file holding any held function's edit (newly exact, improved, regressed or
+ * unscored) would publish that uncertified code beside its verified matches.
+ * A unit maps to the source paths its report rows name, else to the shipped
+ * file at `src/<unit>` or `src/<unit without its root>` (any extension).
+ */
+function heldShippedFiles(holds: SteeringPrHold[], report: RegressionReport, files: string[]): Map<string, string[]> {
+  const unitPaths = new Map<string, Set<string>>();
+  for (const entry of [...report.newMatches, ...report.improvements ?? [], ...report.brokenMatches, ...report.fuzzyRegressions]) {
+    if (!entry.sourcePath) continue;
+    unitPaths.set(entry.unitName, (unitPaths.get(entry.unitName) ?? new Set()).add(entry.sourcePath));
+  }
+  const shipped = new Set(files);
+  const heldFiles = new Map<string, string[]>();
+  for (const hold of holds) {
+    const named = unitPaths.get(hold.unit);
+    const stems = new Set([`src/${hold.unit}`, `src/${hold.unit.split("/").slice(1).join("/")}`]);
+    const candidates = named ? [...named] : files.filter((file) => stems.has(withoutExtension(file)));
+    for (const file of candidates) {
+      if (!shipped.has(file)) continue;
+      heldFiles.set(file, [...(heldFiles.get(file) ?? []), `steering hold ${hold.unit}::${hold.symbol}: ${hold.detail}`]);
+    }
+  }
+  return heldFiles;
+}
+
 // Upstream CI's "Issues" job rejects PRs that introduce clang semantic issues
 // (-Wself-assign, conflicting prototypes, ...) that the MWCC match build never
 // sees. Run the exact same container locally so a slice fails here, before it
@@ -233,6 +271,59 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     submitWorkflowEvent,
     updatePrRecord,
   } = deps;
+
+  /**
+   * Match credit for a verification report, plus every shipped file that
+   * carries a held function's edit. Without an active steering gate (Melee)
+   * nothing is read and only the legacy credit fields exist.
+   */
+  async function steeringReview(paths: Context, report: RegressionReport, sourceRef: string, files: string[]) {
+    const game = paths.game;
+    const steeringGate = game?.matching?.steeringGate ?? game?.steeringGate;
+    if (!game || !steeringGateActive(steeringGate)) {
+      return {
+        credit: { newMatches: report.newMatches.length, matchedCodeBytesDelta: report.summary.matchedCodeBytesDelta, steering: undefined },
+        heldFiles: new Map<string, string[]>(),
+      };
+    }
+    if (!game.gameId) throw new Error("Steering-gated PR verification requires a gameId.");
+    const path = resolve(paths.stateDir, "orchestrator.sqlite");
+    // Verification must never create/migrate production state. Missing state
+    // fails closed rather than silently treating every raw 100% as certified.
+    const db = new Database(path, { readonly: true });
+    let holds: SteeringPrHold[];
+    try {
+      holds = await branchSteeringHolds(
+        { db, orm: createOrchestratorStateOrm(db), path, stateDir: paths.stateDir },
+        { gameId: game.gameId, steeringGate },
+        sourceRef ? async (rev) => (await runGit(paths.repoRoot,
+          ["merge-base", "--is-ancestor", rev, sourceRef], { check: false })).exitCode === 0 : undefined,
+      );
+    } finally {
+      db.close();
+    }
+    const byTarget = new Map(holds.map((hold) => [unverifiedMatchKey(hold.unit, hold.symbol), hold]));
+    const held = report.newMatches.flatMap((entry) => {
+      const hold = byTarget.get(unverifiedMatchKey(entry.unitName, entry.itemName));
+      return hold ? [{ entry, hold }] : [];
+    });
+    return {
+      credit: {
+        newMatches: report.newMatches.length - held.length,
+        // Exact completion counts the whole function's size; bytesDelta is only
+        // fuzzy movement and would leave credit behind for a 90% -> 100% hold.
+        matchedCodeBytesDelta: report.summary.matchedCodeBytesDelta - held.reduce((total, { entry }) => total + entry.size, 0),
+        steering: {
+          rawNewMatches: report.newMatches.length,
+          unverifiedMatches: held.filter(({ hold }) => hold.reason === "unverified_match").length,
+          heldMatches: held.length,
+          steeringHolds: held.map(({ hold }) => hold),
+          rawMatchedCodeBytesDelta: report.summary.matchedCodeBytesDelta,
+        },
+      },
+      heldFiles: heldShippedFiles(holds, report, files),
+    };
+  }
 
   async function rebuildProductionBaselineWithTrace(
     paths: Context,
@@ -404,26 +495,30 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
         await runCli(["git", "clean", "-fd", "--", "src", "include", "config"], worktreeDir);
       }
 
+      const { credit, heldFiles } = await steeringReview(paths, report, stringValue(options.sourceRef), pathspecs);
       const clean =
-        report.regressions.length === 0 && report.brokenMatches.length === 0 && report.fuzzyRegressions.length === 0 && issues.status === "clean";
+        report.regressions.length === 0 && report.brokenMatches.length === 0 && report.fuzzyRegressions.length === 0 && issues.status === "clean"
+        && heldFiles.size === 0;
       if (clean) {
         const status = {
-          status: report.newMatches.length > 0 ? "pr_ready" : "nothing_to_ship",
+          status: credit.newMatches > 0 ? "pr_ready" : "nothing_to_ship",
           baseSha,
           files: pathspecs.length,
           rounds: round,
-          newMatches: report.newMatches.length,
+          newMatches: credit.newMatches,
+          ...credit.steering,
           brokenMatches: 0,
           fuzzyRegressions: 0,
           metricRegressions: 0,
-          matchedCodeBytesDelta: report.summary.matchedCodeBytesDelta,
+          matchedCodeBytesDelta: credit.matchedCodeBytesDelta,
           issuesCheck: issues.status,
           droppedFiles: Object.fromEntries(droppedFiles),
           shippedFiles: pathspecs,
           patchPath,
           checkedAt: new Date().toISOString(),
         };
-        uiLog("ui", `ship-set verification: ${status.status} (${status.newMatches} confirmed matches, ${droppedFiles.size} file(s) dropped for rework)`);
+        const holdCounts = credit.steering ? `, ${credit.steering.unverifiedMatches} 100% unverified, ${credit.steering.heldMatches} steering holds` : "";
+        uiLog("ui", `ship-set verification: ${status.status} (${status.newMatches} confirmed matches${holdCounts}, ${droppedFiles.size} file(s) dropped for rework)`);
         return writeStatus(status);
       }
 
@@ -434,6 +529,11 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       };
       for (const file of issues.files) {
         note(file, "code issue (upstream check-issues lint)");
+      }
+      // A held function's edit ships with its whole file, so the file drops
+      // out even when every verified match beside it is clean.
+      for (const [file, reasons] of heldFiles) {
+        for (const reason of reasons) note(file, reason);
       }
       for (const entry of [...report.brokenMatches, ...report.fuzzyRegressions]) {
         note(entry.sourcePath || sourcePathFromUnit(entry.unitName), `${entry.itemName} ${entry.fromPercent.toFixed(2)} -> ${entry.toPercent.toFixed(2)}`);
@@ -448,7 +548,8 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
           baseSha,
           files: pathspecs.length,
           rounds: round,
-          newMatches: report.newMatches.length,
+          newMatches: credit.newMatches,
+          ...(credit.steering ? { ...credit.steering, matchedCodeBytesDelta: credit.matchedCodeBytesDelta } : {}),
           brokenMatches: report.brokenMatches.length,
           fuzzyRegressions: report.fuzzyRegressions.length,
           metricRegressions: report.regressions.length,
@@ -517,7 +618,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     return { status: "issues", output, files };
   }
 
-  async function verifyPrSliceInBaseline(params: { baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator }): Promise<{ issues: CodeIssuesResult; report: RegressionReport }> {
+  async function verifyPrSliceInBaseline(params: { paths: Context; sourceRef?: string; baseSha: string; baselineWorktree: string; files: string[]; supportFiles?: string[]; patchPath: string; revalidateLease?: DispatchLeaseRevalidator }): Promise<{ issues: CodeIssuesResult; report: RegressionReport; validation: JsonObject }> {
     const allFiles = manifestFiles(params.files, params.supportFiles);
     const includeArgs = allFiles.map((file) => `--include=${file}`);
     let report: RegressionReport | null = null;
@@ -582,7 +683,8 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
         }
       }
     }
-    return { report, issues };
+    const validation = await sliceValidationSummary(report, issues, params.paths, params.sourceRef, allFiles);
+    return { report, issues, validation };
   }
 
   // Flatten a check-issues tree into "file :: message" entries, ignoring line
@@ -602,18 +704,26 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     return entries.sort();
   }
 
-  function sliceValidationSummary(report: RegressionReport, issues: CodeIssuesResult): JsonObject {
+  /** `files` is the slice's shipped manifest; a held function's edit in any of them rejects the slice. */
+  async function sliceValidationSummary(report: RegressionReport, issues: CodeIssuesResult, paths: Context, sourceRef = "", files: string[] = []): Promise<JsonObject> {
+    const { credit, heldFiles } = await steeringReview(paths, report, sourceRef, files);
     const regressions = report.regressions.length + report.brokenMatches.length + report.fuzzyRegressions.length;
-    const status = regressions > 0 || issues.status === "issues" ? "failed" : issues.status === "unavailable" ? "warning" : "passed";
+    const status = regressions > 0 || issues.status === "issues" || heldFiles.size > 0
+      ? "failed"
+      : credit.steering && credit.steering.heldMatches > 0 && credit.newMatches === 0
+        ? "nothing_to_ship"
+        : issues.status === "unavailable" ? "warning" : "passed";
     return {
       status,
       checkedAt: new Date().toISOString(),
-      newMatches: report.newMatches.length,
+      newMatches: credit.newMatches,
+      ...credit.steering,
       regressions,
       brokenMatches: report.brokenMatches.length,
       fuzzyRegressions: report.fuzzyRegressions.length,
       metricRegressions: report.regressions.length,
-      matchedCodeBytesDelta: report.summary.matchedCodeBytesDelta,
+      matchedCodeBytesDelta: credit.matchedCodeBytesDelta,
+      ...(credit.steering ? { steeringHeldFiles: Object.fromEntries(heldFiles) } : {}),
       issuesCheck: issues.status,
       issuesFiles: issues.files,
       issuesOutput: issues.status === "clean" ? "" : outputTail(issues.output, 1200),
@@ -622,6 +732,13 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
 
   function assertSliceVerificationClean(branch: string, validation: JsonObject): void {
     if (stringValue(validation.status) === "passed" || stringValue(validation.status) === "warning") return;
+    const heldFiles = Object.keys(asObject(validation.steeringHeldFiles));
+    if (heldFiles.length > 0) {
+      throw new Error(`Slice ${branch} is not locally ready: its patch ships held steering edits in ${heldFiles.join(", ")}; move the held functions out or certify them first.`);
+    }
+    if (stringValue(validation.status) === "nothing_to_ship") {
+      throw new Error(`Slice ${branch} is not locally ready: nothing to ship (${numberValue(validation.unverifiedMatches)} 100% unverified, ${numberValue(validation.heldMatches)} steering holds).`);
+    }
     throw new Error(
       `Slice ${branch} is not locally ready: ${numberValue(validation.brokenMatches)} broken · ${numberValue(validation.fuzzyRegressions)} fuzzy · ${numberValue(validation.metricRegressions)} metric · ${stringValue(validation.issuesCheck)} issues.`,
     );

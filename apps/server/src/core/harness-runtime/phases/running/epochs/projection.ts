@@ -1,5 +1,11 @@
-import { listSavePoints } from "@server/core/harness-runtime/phases/pr/state";
+import { listSavePoints, type SavePointRecord } from "@server/core/harness-runtime/phases/pr/state";
 import { openState } from "@server/core/harness-runtime/run-state";
+import type { UnverifiedIndex } from "@server/core/harness-runtime/phases/running/board/candidates.js";
+import {
+  completionIndexAt,
+  withholdUnverifiedStoredMeasures,
+  type CompletionIndexSource,
+} from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
 
 export type RunningEpochJsonObject = Record<string, unknown>;
 
@@ -51,31 +57,67 @@ function compactMeasures(measures: RunningEpochJsonObject): RunningEpochJsonObje
     complete_units: numberValue(measures.complete_units, NaN),
     total_units: numberValue(measures.total_units, NaN),
     unmatched_targets: unmatchedTargetsValue(measures),
+    // Steering-gated games: the "100% unverified" figures and the unknown-completion marker, only when present.
+    ...Object.fromEntries(Object.entries(measures).filter(([key]) => key.startsWith("unverified_"))),
   };
+}
+
+export interface RunningEpochHistoryOptions {
+  /**
+   * Steering-gated games' completion holds: active `unverified_match`
+   * functions and, with a revision-aware index, the rollback holds of each
+   * epoch save point's own commit, withheld from every epoch's done counts.
+   */
+  unverified?: CompletionIndexSource;
+}
+
+/**
+ * The epoch's measures as published. The save point keeps its report's own
+ * measures as evidence; for a steering-gated game they are re-derived from
+ * the epoch's archived raw report under the current active `unverified_match`
+ * rows and the rollback holds at the save point's own commit, or marked `unverified_unbounded` with unknown (null) completion
+ * metrics when that report is unreadable. Without an index the recorded
+ * measures stand.
+ */
+function epochMeasures(savePoint: SavePointRecord, unverified: UnverifiedIndex | undefined): RunningEpochJsonObject {
+  const recorded = asObject(asObject(savePoint.payload).measures);
+  return unverified ? withholdUnverifiedStoredMeasures(recorded, savePoint.reportPath, unverified) : recorded;
+}
+
+/** The epoch's headline matched-code score: unknown while unbounded, the re-derived figure when withheld. */
+function epochMatchedCodePercent(savePoint: SavePointRecord, measures: RunningEpochJsonObject, unverified: UnverifiedIndex | undefined): number | null {
+  if (!unverified) return savePoint.matchedCodePercent;
+  if (measures.unverified_unbounded === true) return null;
+  const derived = numberValue(measures.matched_code_percent, NaN);
+  return Number.isFinite(derived) ? derived : null;
 }
 
 /**
  * Epoch checkpoints, oldest first: the run's measured progress history. Each
  * row is one drain-snapshot-rebuild cycle recorded by the running epoch pipeline.
  */
-export function runningEpochHistory(stateDir: string, limit = 48): RunningEpochJsonObject[] {
+export function runningEpochHistory(stateDir: string, limit = 48, options: RunningEpochHistoryOptions = {}): RunningEpochJsonObject[] {
   const store = openState(stateDir);
   try {
     return listSavePoints(store, 500)
       .filter((savePoint) => savePoint.triggerKind === "epoch_finish" || savePoint.triggerKind === "epoch")
       .slice(0, limit)
       .reverse()
-      .map((savePoint) => ({
-        id: savePoint.id,
-        runId: savePoint.runId,
-        label: savePoint.label,
-        createdAt: savePoint.createdAt,
-        commitSha: savePoint.commitSha,
-        matchedCodePercent: savePoint.matchedCodePercent,
-        measures: compactMeasures(asObject(asObject(savePoint.payload).measures)),
-        regressions: asObject(asObject(savePoint.payload).regressions),
-        repair: asObject(asObject(savePoint.payload).repair),
-      }));
+      .map((savePoint) => {
+        const unverified = completionIndexAt(options.unverified, savePoint.commitSha);
+        const measures = epochMeasures(savePoint, unverified);
+        return {
+          id: savePoint.id,
+          runId: savePoint.runId,
+          label: savePoint.label,
+          createdAt: savePoint.createdAt,
+          commitSha: savePoint.commitSha,
+          matchedCodePercent: epochMatchedCodePercent(savePoint, measures, unverified),
+          measures: compactMeasures(measures),
+          regressions: asObject(asObject(savePoint.payload).regressions),
+          repair: asObject(asObject(savePoint.payload).repair),
+        };
+      });
   } catch {
     return [];
   } finally {

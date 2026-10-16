@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { openState, type StateStore } from "@server/core/orchestrator-state";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { savePointProgress } from "@server/application/dashboard/score-tiers.js";
 import { getHarnessState, getHarnessTimeline, initializeHarnessState, transitionHarnessState } from "@server/core/harness-state/state.js";
 import { appendGameEvent, eventSpan, eventsForSubject, listGameEvents, newSpanId } from "@server/core/harness-state/events.js";
 import { getDispatchState, initializeDispatchState, requestDispatch } from "@server/core/harness-state/lease.js";
@@ -518,6 +521,9 @@ describe("sync atomic publication", () => {
       matched_code_percent: 99.42,
       report_path: reportPath,
     });
+    // Gate off (Melee): the legacy output, no archived report and no derived measures.
+    expect(JSON.parse(savePoint.payload_json)).not.toHaveProperty("measures");
+    expect(existsSync(resolve(fixture.context.stateDir, "save-points"))).toBe(false);
     expect(getHarnessTimeline(fixture.store.db, "melee")).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: "save_point",
@@ -525,6 +531,50 @@ describe("sync atomic publication", () => {
       }),
     ]));
     expect(published.status).toBe("published");
+  }, 30_000);
+
+  for (const hold of ["unverified", "rollback"] as const) test(`sync save points withhold ${hold} exact code from completion credit`, async () => {
+    const fixture = createFixture({ syncId: `sync-publish-${hold}` });
+    fixture.context.game = { ...fixture.context.game, steeringGate: "enforce" };
+    if (hold === "unverified") recordUnverifiedMatch(fixture.store, {
+      gameId: "melee", unit: "fixture/unit", symbol: "unverified",
+      analyzedRev: fixture.localHead, baseRev: fixture.base,
+      match: { base: 0, candidate: 100, real_only: null }, reasons: ["unresolved"],
+    });
+    else recordSteeringRollback(fixture.store, {
+      gameId: "melee", unit: "fixture/unit", symbol: "unverified", analyzedRev: fixture.localHead,
+      initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"],
+      report: {}, status: "reverified",
+    });
+    const validated = await sourceMovingValidated(fixture);
+    const intake = fixture.context.runKnowledgeIntake!;
+    fixture.context.runKnowledgeIntake = async (input) => {
+      write(fixture.worktree, "build/GALE01/report.json", JSON.stringify({
+        measures: { total_code: 100, matched_code: 100, matched_code_percent: 100,
+          total_functions: 2, matched_functions: 2, matched_functions_percent: 100 },
+        units: [{ name: "fixture/unit", functions: [
+          { name: "unverified", size: 40, fuzzy_match_percent: 100 },
+          { name: "verified", size: 60, fuzzy_match_percent: 100 },
+        ] }],
+      }));
+      return intake(input);
+    };
+    await publishSync({ commandId: "publish-unverified", confirmed: true,
+      context: fixture.context, expectedRevision: validated.revision, syncId: validated.sync_id });
+    const saved = fixture.store.db.query("SELECT matched_code_percent, report_path, payload_json FROM save_points WHERE trigger_kind = 'sync'")
+      .get() as { matched_code_percent: number; report_path: string; payload_json: string };
+    expect(saved.matched_code_percent).toBe(60);
+    // Gate on: the raw report is archived under the save point, so history never follows the live path.
+    const liveReport = resolve(fixture.worktree, "build/GALE01/report.json");
+    expect(saved.report_path.startsWith(resolve(fixture.context.stateDir, "save-points"))).toBe(true);
+    expect(readFileSync(saved.report_path, "utf8")).toBe(readFileSync(liveReport, "utf8"));
+    write(fixture.worktree, "build/GALE01/report.json", JSON.stringify({ measures: { matched_code_percent: 1 } }));
+    expect(savePointProgress(saved, new Set(["fixture/unit::unverified"])).score).toBe(60);
+    expect(JSON.parse(saved.payload_json).measures).toMatchObject({
+      matched_code_percent: 60, matched_functions_percent: 50,
+    });
+    expect(getHarnessTimeline(fixture.store.db, "melee").find((entry) => entry.kind === "save_point")?.evidence)
+      .toMatchObject({ matched_code_percent: 60 });
   }, 30_000);
 
   test("rechecks upstream after validation and blocks before changing the harness", async () => {

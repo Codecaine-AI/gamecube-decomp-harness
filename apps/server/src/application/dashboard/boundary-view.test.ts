@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   BOUNDARY_STEP_KEYS,
   projectBoundaryDashboard,
+  withholdUnverifiedSavePointScores,
   type BoundaryEpochRow,
   type BoundaryEventRow,
   type BoundaryProjectionRows,
@@ -480,5 +484,53 @@ describe("boundary view projection", () => {
     expect(view.attempts[0]!.failedStep).toBe("report_build");
     expect(step(view.attempts[0]!.steps, "report_build")).toMatchObject({ state: "failed", detail: "report_build started", error: "objdiff failed for src/foo.c" });
     expect(step(view.attempts[0]!.steps, "typed_close")).toMatchObject({ state: "failed", detail: "objdiff failed for src/foo.c" });
+  });
+  test("a steering-gated epoch's save point score withholds active unverified functions, unknown without its report", () => {
+    const dir = mkdtempSync(join(tmpdir(), "boundary-unverified-"));
+    try {
+      const reportPath = join(dir, "report.json");
+      // The stored column (88.25) predates `F` being recorded unverified; the archived report says 100% raw.
+      writeFileSync(reportPath, JSON.stringify({
+        measures: { total_code: "80", matched_code: "80", matched_code_percent: 100 },
+        units: [{ name: "main/test", functions: [{ name: "Kept", size: "40", fuzzy_match_percent: 100 }, { name: "F", size: "40", fuzzy_match_percent: 100 }] }],
+      }));
+      const unverified = new Set(["main/test::F"]);
+      const score = (row: BoundarySavePointRow, index?: ReadonlySet<string>) =>
+        projectBoundaryDashboard(rows({
+          events: [checkpoint(1, "save_point", "started"), checkpoint(2, "save_point", "finished", { save_point_id: row.id })],
+          savePoints: withholdUnverifiedSavePointScores([row], index),
+        })).current?.matchedCodePercent;
+      expect(score(savePoint({ report_path: reportPath }), unverified)).toBe(50);
+      expect(score(savePoint({ report_path: join(dir, "missing.json") }), unverified)).toBeNull();
+      // Melee (no index): the stored column.
+      expect(score(savePoint({ report_path: reportPath }))).toBe(88.25);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("each save point's score is judged at its own commit, never the live head's holds", () => {
+    const dir = mkdtempSync(join(tmpdir(), "boundary-revision-"));
+    try {
+      const reportPath = join(dir, "report.json");
+      writeFileSync(reportPath, JSON.stringify({
+        measures: { total_code: "80", matched_code: "80", matched_code_percent: 100 },
+        units: [{ name: "main/test", functions: [{ name: "Kept", size: "40", fuzzy_match_percent: 100 }, { name: "F", size: "40", fuzzy_match_percent: 100 }] }],
+      }));
+      // `F` was rolled back and certified later: held at the older save point, cleared at the newer one.
+      const asked: (string | null | undefined)[] = [];
+      const source = {
+        unknown: false,
+        at: (rev: string | null | undefined) => (asked.push(rev), rev === "old-sha" ? new Set(["main/test::F"]) : new Set<string>()),
+      };
+      const scored = withholdUnverifiedSavePointScores([
+        savePoint({ id: "older", commit_sha: "old-sha", report_path: reportPath }),
+        savePoint({ id: "newer", commit_sha: "new-sha", report_path: reportPath }),
+      ], source);
+      expect(scored.map((row) => [row.id, row.matched_code_percent])).toEqual([["older", 50], ["newer", 100]]);
+      expect(asked).toEqual(["old-sha", "new-sha"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -1,4 +1,5 @@
 import { ArrowRight } from "@/icons";
+import { LabelWithUnverified } from "@/components/primitives";
 import { asObject, text, type JsonObject } from "@/lib/format";
 import { activeRuntime, activityAttemptLabel, activityScoreCompact, baselineScoreCompact, latestActivity } from "@/lib/workerActivity";
 
@@ -46,7 +47,7 @@ export function ActiveRows({
             title={selectable ? "Open agent trace" : undefined}
           >
             <td className="max-w-0" title={fileTitle}>
-              <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-fg">{text(file.symbol, "-")}</span>
+              <LabelWithUnverified className="whitespace-nowrap text-fg" label={text(file.symbol, "-")} row={file} />
             </td>
             <td className="w-20 text-right text-dim" title={eventSummary}>{activityAttemptLabel(activity, lastEvent)}</td>
             <td className={`w-[150px] text-right ${displayScore.improved ? "text-up" : "text-soft"}`} title={scoreTitle}>

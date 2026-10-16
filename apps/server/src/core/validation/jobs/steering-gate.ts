@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { booleanArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
@@ -14,6 +15,14 @@ import {
   updateSteeringRollback,
   type SteeringRollbackStatus,
 } from "@server/core/harness-runtime/run-state/steering.js";
+import {
+  activeUnverifiedMatch,
+  clearUnverifiedMatchIfCertified,
+  recordUnverifiedMatch,
+  unverifiedBaseCertified,
+  type RevAncestry,
+} from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { gitRevAncestry } from "@server/core/validation/steering/unverified-certification.js";
 import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 import {
   STEERING_CHECK_TOOLPACK_PATH,
@@ -31,6 +40,7 @@ import {
 } from "@server/core/validation/steering/steering-check.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell";
 import { runShardedSteeringBackfill } from "./steering-gate-sharded.js";
+import { heldGroupIds, steeringGroupIds, unverifiedCertificateView } from "./steering-unverified.js";
 
 /**
  * Backfill for steering-gated games (plan 3.6). Runs `steering_check.py
@@ -70,6 +80,9 @@ import { runShardedSteeringBackfill } from "./steering-gate-sharded.js";
  *     id, file, line: number | null, location: "file:line", shapes: string[],
  *     text: string,                    // candidate (steered) lines, " / "-joined, <= 160 chars
  *     restored: string,                // base lines S* restores, same format
+ *   }],                                // never a group held for an unresolved function (see steering-unverified.ts)
+ *   unexplained_edit_groups?: [{       // first check, unresolved functions only: what the gate could not explain
+ *     ...removed_edit_groups row, status: "held" | "unresolved" | "incomplete",
  *   }],
  *   violations: [{                     // first check: rule violations attached to this function
  *     kind: "dead_unused_body" | "out_of_order" | ..., file, line: number | null,
@@ -83,6 +96,23 @@ import { runShardedSteeringBackfill } from "./steering-gate-sharded.js";
  * }
  * ```
  * decision is one of pass | steering_located | unresolved | rule_violation.
+ *
+ * `unverified_match`: `--record` (not `--apply`) records every function whose
+ * final verdict is `unresolved` in `steering_unverified_matches` (migration
+ * 015) instead of failing the run: it is "100% but unverified", claimable and
+ * never done. The run is clean when every function is pass, applied and
+ * re-verified, or recorded unverified, and nothing else (tool errors, uncovered
+ * units, link-map gaps, budgets, violations, steering) remains. Only a
+ * certified pass clears a row: a clean record run passing the function in a
+ * unit whose certificate holds apart from its unverified functions, run with
+ * `--base` the row's trusted base or an ancestor of it (`unverifiedBaseCertified`;
+ * a pass from a later base is listed under `unverifiedClearRefused`). A row
+ * the run does not list (even a full run) or does not pass stays active, and
+ * keeps its trusted base when re-recorded from a later one. `apply`
+ * reverts only steering groups (`steering_group_ids`: attributed to a
+ * steering_located function) and rule violations; it never rewrites an
+ * unresolved function's code through a group (`held_group_ids`, mixed groups
+ * included) and leaves unattributed removable groups for the recheck.
  *
  * Every function an `--apply` rewrote (non-empty `rules`) also gets one
  * append-only `steering_rollbacks` row with this report: `steering_backfill`
@@ -178,6 +208,11 @@ export interface SteeringRemovedEditGroup {
 }
 
 /** `steering_backfill.report_json`; documented in the module comment. Keep the shape stable. */
+/** A group the gate could not explain for an unresolved function (held removable, unresolved or incomplete). */
+export interface SteeringUnexplainedEditGroup extends SteeringRemovedEditGroup {
+  status: "held" | "unresolved" | "incomplete";
+}
+
 export interface SteeringBackfillFunctionReport {
   base_rev: string;
   initial: SteeringFunctionDecision["decision"] | "absent";
@@ -187,6 +222,8 @@ export interface SteeringBackfillFunctionReport {
   match: Match;
   final_match: Match | null;
   removed_edit_groups: SteeringRemovedEditGroup[];
+  /** Unresolved functions only. */
+  unexplained_edit_groups?: SteeringUnexplainedEditGroup[];
   violations: SteeringAppliedViolation[];
   rules: string[];
   reasons: string[];
@@ -214,25 +251,60 @@ export function rawFunctionRow(raw: JsonObject, unit: string, name: string): Jso
   return null;
 }
 
-/** The behaviour-identical, non-cosmetic `reduce` groups among a function's groups. */
-export function removedEditGroups(raw: JsonObject, row: JsonObject | null): SteeringRemovedEditGroup[] {
+const applyGroupCache = new WeakMap<JsonObject, { held: Set<string>; steering: Set<string> }>();
+
+/**
+ * What `apply` does with a report's removable groups (`steering-unverified.ts`), cached per report:
+ * `steering` it reverts (attributed to a steering_located function), `held` it keeps for unresolved
+ * functions. Every other removable group (no steering function claims it) is left in place too.
+ */
+export function applyGroups(raw: JsonObject): { held: Set<string>; steering: Set<string> } {
+  let groups = applyGroupCache.get(raw);
+  if (!groups) {
+    groups = { held: heldGroupIds(raw), steering: steeringGroupIds(raw) };
+    applyGroupCache.set(raw, groups);
+  }
+  return groups;
+}
+
+function editGroupRow(group: JsonObject & { id: string }): SteeringRemovedEditGroup {
+  const file = typeof group.file === "string" ? group.file : group.id.split("@")[0] ?? "";
+  const line = typeof group.line === "number" ? group.line : null;
+  return {
+    id: group.id,
+    file,
+    line,
+    location: line === null ? file : `${file}:${line}`,
+    shapes: asArray(group.shapes).filter((shape): shape is string => typeof shape === "string"),
+    text: shortGroupText(group.cand_lines),
+    restored: shortGroupText(group.base_lines),
+  };
+}
+
+function rowGroups(raw: JsonObject, row: JsonObject | null): Array<JsonObject & { id: string }> {
   if (!row) return [];
   const ids = new Set(asArray(row.groups).filter((id): id is string => typeof id === "string"));
-  const out: SteeringRemovedEditGroup[] = [];
-  for (const entry of asArray(asObject(raw.reduce).groups)) {
-    const group = asObject(entry);
-    if (typeof group.id !== "string" || !ids.has(group.id) || group.status !== "removable" || group.cosmetic === true) continue;
-    const file = typeof group.file === "string" ? group.file : group.id.split("@")[0] ?? "";
-    const line = typeof group.line === "number" ? group.line : null;
-    out.push({
-      id: group.id,
-      file,
-      line,
-      location: line === null ? file : `${file}:${line}`,
-      shapes: asArray(group.shapes).filter((shape): shape is string => typeof shape === "string"),
-      text: shortGroupText(group.cand_lines),
-      restored: shortGroupText(group.base_lines),
-    });
+  return asArray(asObject(raw.reduce).groups).map(asObject)
+    .filter((group): group is JsonObject & { id: string } => typeof group.id === "string" && ids.has(group.id));
+}
+
+/** The behaviour-identical, non-cosmetic `reduce` groups among a function's groups that `apply` removes (steering groups only). */
+export function removedEditGroups(raw: JsonObject, row: JsonObject | null): SteeringRemovedEditGroup[] {
+  const { steering } = applyGroups(raw);
+  return rowGroups(raw, row).filter((group) => steering.has(group.id)).map(editGroupRow);
+}
+
+/** For an unresolved function: its held, unresolved (decide's final status) and incomplete groups. */
+export function unexplainedEditGroups(raw: JsonObject, row: JsonObject | null): SteeringUnexplainedEditGroup[] {
+  if (!row || row.decision !== "unresolved") return [];
+  const { held } = applyGroups(raw);
+  const statuses = asObject(asObject(raw.decision).group_statuses);
+  const out: SteeringUnexplainedEditGroup[] = [];
+  for (const group of rowGroups(raw, row)) {
+    if (group.cosmetic === true) continue;
+    const final = typeof statuses[group.id] === "string" ? String(statuses[group.id]) : String(group.status ?? "");
+    const status = held.has(group.id) ? "held" : final === "unresolved" ? "unresolved" : group.incomplete === true ? "incomplete" : null;
+    if (status) out.push({ ...editGroupRow(group), status });
   }
   return out;
 }
@@ -312,10 +384,15 @@ export function functionReasons(raw: JsonObject, fn: { unit: string; name: strin
   return reasons;
 }
 
-/** What rolling a function back enforces: `steering` when S* removed its groups or it was steering-located, plus each violation kind. */
-export function rollbackRules(report: Pick<SteeringBackfillFunctionReport, "initial" | "removed_edit_groups" | "violations">): string[] {
+/**
+ * What rolling a function back enforces: `steering` when `apply` reverted its groups, plus the kind of each
+ * attached rule violation `apply` rolled back. A steering_located function whose groups were all held (shared
+ * with an unresolved function) or left unwritten (a shared header) enforced nothing: no rule, no rollback event,
+ * even when another function of its source was rewritten.
+ */
+export function rollbackRules(report: Pick<SteeringBackfillFunctionReport, "removed_edit_groups" | "violations">): string[] {
   const rules = new Set<string>();
-  if (report.removed_edit_groups.length > 0 || report.initial === "steering_located") rules.add("steering");
+  if (report.removed_edit_groups.length > 0) rules.add("steering");
   for (const violation of report.violations) rules.add(violation.kind);
   return [...rules];
 }
@@ -359,7 +436,7 @@ export function steeringFunctionReport(params: {
   recheckViolations?: readonly SteeringViolation[];
   /** The re-check of this function's unit failed (timeout, tool error): never a pass. */
   recheckError?: string | null;
-  /** Keep only removed groups in these files (the sharded apply never writes shared headers). */
+  /** The files `apply` writes: removed groups and rolled-back violations elsewhere are not rules (the sharded apply never writes shared headers). */
   groupFilter?: (file: string) => boolean;
 }): SteeringBackfillFunctionReport {
   const { fn } = params;
@@ -370,8 +447,10 @@ export function steeringFunctionReport(params: {
   const finalReasons = params.recheckError
     ? [`re-check failed (counted unresolved): ${params.recheckError}`]
     : params.recheck && after ? functionReasons(params.recheck.raw, fn, params.recheckViolations ?? []) : null;
-  const removed = removedEditGroups(params.initial.raw, rawFunctionRow(params.initial.raw, fn.unit, fn.name))
+  const initialRow = rawFunctionRow(params.initial.raw, fn.unit, fn.name);
+  const removed = removedEditGroups(params.initial.raw, initialRow)
     .filter((group) => !params.groupFilter || params.groupFilter(group.file));
+  const unexplained = fn.final === "unresolved" ? unexplainedEditGroups(params.initial.raw, initialRow) : [];
   return {
     base_rev: params.baseRev,
     initial: fn.initial,
@@ -381,8 +460,12 @@ export function steeringFunctionReport(params: {
     match: fn.match,
     final_match: after ? after.match : null,
     removed_edit_groups: removed,
+    ...(unexplained.length > 0 ? { unexplained_edit_groups: unexplained } : {}),
     violations: violations.map(appliedViolation),
-    rules: rollbackRules({ initial: fn.initial, removed_edit_groups: removed, violations: violations.map(appliedViolation) }),
+    rules: rollbackRules({
+      removed_edit_groups: removed,
+      violations: violations.filter((violation) => !params.groupFilter || params.groupFilter(violation.file)).map(appliedViolation),
+    }),
     reasons: [...new Set([...initialReasons, ...(finalReasons ?? [])])],
     final_reasons: finalReasons,
     probe: params.probe,
@@ -419,6 +502,13 @@ export interface SteeringBackfillResult {
   clean: boolean;
   /** Why the run is not clean. */
   problems: string[];
+  /** Functions whose final verdict is `unresolved`: recorded as `unverified_match` by `--record` (never after `--apply`). */
+  unverified: SteeringBackfillFunction[];
+  /** Rows written to `steering_unverified_matches`, and active rows a certified pass cleared. */
+  unverifiedRecorded: number;
+  unverifiedCleared: number;
+  /** Active rows a certified-unit pass left active: the run's `--base` does not certify the row's trusted base. */
+  unverifiedClearRefused: UnverifiedClearRefusal[];
   applied: boolean;
   /** Files the apply changed (from git), and the units whose objects were rebuilt. */
   touchedFiles: string[];
@@ -505,12 +595,13 @@ function fileOwners(raw: JsonObject): Map<string, Set<string>> {
   return owners;
 }
 
-/** Files `apply` rewrites: removable groups it reverts and dead UNUSED bodies it restores to the base stub. */
+/** Files `apply` rewrites: the steering groups it reverts and the rule violations (dead UNUSED bodies, out-of-order hunks) it rolls back. */
 function revertedFiles(raw: JsonObject, decision: SteeringDecision): string[] {
   const files = new Set<string>((decision.violations ?? []).map((violation) => violation.file));
+  const { steering } = applyGroups(raw);
   for (const group of asArray(asObject(raw.reduce).groups)) {
     const row = asObject(group);
-    if (row.status === "removable" && typeof row.file === "string") files.add(row.file);
+    if (typeof row.file === "string" && steering.has(String(row.id))) files.add(row.file);
   }
   return [...files].sort();
 }
@@ -553,6 +644,10 @@ function unitFindings(decision: SteeringDecision) {
  * a file) and are judged per unit instead.
  */
 function sharedCertificateProblems(report: CheckReport): string[] {
+  // Facts only unresolved (unverified) functions explain do not dirty every unit; those functions dirty their own.
+  const view = unverifiedCertificateView(report.raw, report.decision,
+    steeringCertificateContext({ decision: report.decision, reduce: report.raw.reduce, sourceChanged: false }));
+  report = { ...report, decision: view.decision };
   const findings = unitFindings(report.decision);
   const explained = report.decision.functions.some((fn) => fn.decision !== "pass")
     || findings.violations.length > 0 || findings.inconclusive.length > 0 || findings.unknownOrder.length > 0;
@@ -563,7 +658,7 @@ function sharedCertificateProblems(report: CheckReport): string[] {
       attempt: explained ? "pass" : report.decision.attempt,
       functions: [], units: [], no_changes: true, violations: [], unused_checks: [], order_checks: [],
     },
-    steeringCertificateContext({ decision: report.decision, reduce: report.raw.reduce, sourceChanged: false }),
+    { ...view.context, sourceChanged: false },
   );
 }
 
@@ -587,7 +682,8 @@ export class SteeringRollbackLedger {
     if (!this.store) return;
     for (const { fn, report } of items) {
       const key = functionKey(fn);
-      if (this.ids.has(key) || fn.initial === "absent" || (report.rules.length === 0 && fn.initial === "pass")) continue;
+      // Only a rewrite that enforced a rule is a rollback; an unresolved function's code is never rewritten (held groups).
+      if (this.ids.has(key) || fn.initial === "absent" || report.rules.length === 0) continue;
       const id = recordSteeringRollback(this.store, {
         gameId: this.params.gameId,
         unit: fn.unit,
@@ -631,6 +727,99 @@ export function rewrittenReport(params: Omit<Parameters<typeof steeringFunctionR
   return steeringFunctionReport({ ...params, fn: { ...params.fn, final: params.fn.initial === "absent" ? "unresolved" : params.fn.initial, applied: false }, recheck: null, provisional: true });
 }
 
+/** unit -> source path, from a check's `edits.units`. */
+export function unitSourceTable(raw: JsonObject): Map<string, string> {
+  const table = new Map<string, string>();
+  for (const row of asArray(asObject(raw.edits).units)) {
+    const unit = asObject(row);
+    if (typeof unit.unit === "string" && typeof unit.source === "string") table.set(unit.unit, unit.source);
+  }
+  return table;
+}
+
+function fileSha(repoRoot: string, path: string | undefined): string | null {
+  if (!path) return null;
+  try {
+    return createHash("sha256").update(readFileSync(resolve(repoRoot, path), "utf8")).digest("hex");
+  } catch {
+    return null;
+  }
+}
+
+export interface UnverifiedClearRefusal {
+  unit: string;
+  symbol: string;
+  /** The row's trusted base the run's `--base` did not certify. */
+  row_base_rev: string | null;
+  reason: string;
+}
+
+/**
+ * `--record` (not after `--apply`): every unresolved function becomes
+ * `unverified_match`. Only a certified pass leaves that state: the function's
+ * verdict is `pass`, its unit is in `certifiedUnits` (the run is clean and
+ * the unit's certificate holds apart from its unverified functions), and the
+ * run's `baseRev` is the row's trusted base or an ancestor of it
+ * (`clearUnverifiedMatchIfCertified`): a run from a later base never saw the
+ * code the backfill could not explain as a change. A row the run does not
+ * list, or lists with any other verdict, stays active: an incomplete or
+ * scoped report never marks an unverified function done. Re-recording an
+ * active row keeps its trusted base unless this run's base is an ancestor of
+ * it (a broader comparison).
+ */
+export async function recordUnverifiedFunctions(store: StateStore, params: {
+  gameId: string;
+  repoRoot: string;
+  headRev: string;
+  baseRev: string;
+  certifiedUnits: ReadonlySet<string>;
+  functions: readonly SteeringBackfillFunction[];
+  reports: ReadonlyMap<string, SteeringBackfillFunctionReport>;
+  sources: ReadonlyMap<string, string>;
+  /** Defaults to `git merge-base --is-ancestor` in `repoRoot`. */
+  isAncestor?: RevAncestry;
+}): Promise<{ recorded: number; cleared: number; refused: UnverifiedClearRefusal[] }> {
+  const isAncestor = params.isAncestor ?? gitRevAncestry(params.repoRoot);
+  const shas = new Map<string, string | null>();
+  let recorded = 0;
+  let cleared = 0;
+  const refused: UnverifiedClearRefusal[] = [];
+  for (const fn of params.functions) {
+    if (fn.final !== "unresolved") {
+      if (fn.final !== "pass" || !params.certifiedUnits.has(fn.unit)) continue;
+      const result = await clearUnverifiedMatchIfCertified(store, {
+        gameId: params.gameId, unit: fn.unit, symbol: fn.name, clearedBy: `backfill:${params.headRev}`, clearedRev: params.headRev, certifiedBaseRev: params.baseRev, isAncestor,
+      });
+      if (result.cleared) cleared += 1;
+      else if (result.active) refused.push({ unit: fn.unit, symbol: fn.name, row_base_rev: result.rowBaseRev, reason: result.refused ?? "not cleared" });
+      continue;
+    }
+    const sourcePath = params.sources.get(fn.unit);
+    if (sourcePath && !shas.has(sourcePath)) shas.set(sourcePath, fileSha(params.repoRoot, sourcePath));
+    const report = params.reports.get(functionKey(fn));
+    const active = activeUnverifiedMatch(store, { gameId: params.gameId, unit: fn.unit, symbol: fn.name });
+    // This run compares from an ancestor of the active row's trusted base: it covers more, so it becomes the base.
+    const widenBaseFrom = active?.baseRev && active.baseRev !== params.baseRev
+      && await unverifiedBaseCertified({ rowBaseRev: active.baseRev, certifiedBaseRev: params.baseRev, isAncestor })
+      ? active.baseRev
+      : null;
+    recordUnverifiedMatch(store, {
+      gameId: params.gameId,
+      unit: fn.unit,
+      symbol: fn.name,
+      analyzedRev: params.headRev,
+      baseRev: params.baseRev,
+      sourcePath: sourcePath ?? null,
+      functionSourceSha: sourcePath ? shas.get(sourcePath) ?? null : null,
+      match: fn.match,
+      reasons: report?.reasons ?? [],
+      ...(report ? { report: report as unknown as Record<string, unknown> } : {}),
+    }, { widenBaseFrom });
+    recorded += 1;
+  }
+  return { recorded, cleared, refused };
+}
+
 export async function runSteeringBackfill(params: {
   store: StateStore | null;
   gameId: string;
@@ -652,6 +841,8 @@ export async function runSteeringBackfill(params: {
   rebuild?: SteeringRebuild;
   /** Defaults to `hostBuildProblem`; tests inject one. */
   buildCheck?: (repoRoot: string) => string | null;
+  /** Ancestry for the `unverified_match` trusted-base rule; defaults to git in `repoRoot`. */
+  isAncestor?: RevAncestry;
 }): Promise<SteeringBackfillResult> {
   const git = params.git ?? gitSteeringOps;
   const writes = !params.dryRun && (params.record || params.apply);
@@ -805,31 +996,52 @@ export async function runSteeringBackfill(params: {
     unused_checks: unusedChecks,
     order_checks: orderChecks,
   };
+  // Unresolved functions become `unverified_match` (recorded below); only what they alone do not explain keeps the run unclean.
+  const view = unverifiedCertificateView(initial.raw, scopedDecision, certificate);
   const problems = applied
     ? ["applied: the cleanup is uncommitted; commit it and rerun with --record to certify the new HEAD"]
-    : steeringCertificateProblems(scopedDecision, certificate);
+    : steeringCertificateProblems(view.decision, view.context);
   const clean = !applied && problems.length === 0;
+  const unverified = functions.filter((fn) => fn.final === "unresolved");
 
   const shared = sharedCertificateProblems(initial);
   const belongsTo = (row: { unit?: string; file: string }, unit: string) => findingUnits(row, owners)?.includes(unit) ?? true;
   const coverage = new Map((initial.decision.units ?? []).map((row) => [row.unit, row]));
   const unitNames = new Set([...scopedUnits, ...touchedUnits]);
+  // Units whose certificate holds apart from their unverified functions: a pass there clears `unverified_match`.
+  const certifiedUnits = new Set<string>();
   const units: SteeringBackfillUnit[] = [...unitNames].sort().map((unit) => {
     const covered = coverage.get(unit);
-    const unitClean = !applied
+    const own = functions.filter((fn) => fn.unit === unit);
+    const certified = !applied
       && shared.length === 0
       && Boolean(covered && unitCovered(covered))
       && !violations.some((violation) => belongsTo(violation, unit))
       && !unusedChecks.some((check) => check.status === "inconclusive" && belongsTo(check, unit))
       && !orderChecks.some((check) => check.status === "unknown" && belongsTo(check, unit))
-      && functions.filter((fn) => fn.unit === unit).every((fn) => fn.final === "pass");
+      && own.every((fn) => fn.final === "pass" || fn.final === "unresolved");
+    if (certified && clean) certifiedUnits.add(unit);
+    const unitClean = certified && own.every((fn) => fn.final === "pass");
     const { unit: _name, ...coverageRow } = covered ?? { unit };
     return { unit, clean: unitClean, provisional: applied, coverage: covered ? coverageRow as SteeringBackfillUnit["coverage"] : null };
   });
 
   let recorded = 0;
   let stackOnlyCleared = 0;
+  let unverifiedRecorded = 0;
+  let unverifiedCleared = 0;
+  let unverifiedClearRefused: UnverifiedClearRefusal[] = [];
   const store = params.store;
+  if (store && writes && params.record && !applied) {
+    const sources = unitSourceTable(initial.raw);
+    const recordedState = await recordUnverifiedFunctions(store, {
+      gameId: params.gameId, repoRoot: params.repoRoot, headRev: params.headRev, baseRev: params.baseRev, certifiedUnits,
+      functions, reports, sources, ...(params.isAncestor ? { isAncestor: params.isAncestor } : {}),
+    });
+    unverifiedRecorded = recordedState.recorded;
+    unverifiedCleared = recordedState.cleared;
+    unverifiedClearRefused = recordedState.refused;
+  }
   if (store && writes) {
     for (const fn of functions) {
       recordSteeringBackfill(store, {
@@ -878,7 +1090,7 @@ export async function runSteeringBackfill(params: {
         "Rerun steering-gate with --record (no --apply) on the new HEAD to certify it.",
       ]
     : !clean && params.record
-      ? ["Fix or --apply the functions listed under not_pass (and any dead UNUSED bodies under problems), commit, and rerun with --record."]
+      ? ["Fix or --apply the functions listed under problems (steering, dead UNUSED bodies, tool failures), commit, and rerun with --record; unresolved functions are recorded as unverified_match and do not block."]
       : [];
 
   return {
@@ -890,6 +1102,10 @@ export async function runSteeringBackfill(params: {
     units,
     clean,
     problems,
+    unverified,
+    unverifiedRecorded,
+    unverifiedCleared,
+    unverifiedClearRefused,
     applied,
     touchedFiles,
     touchedUnits: [...touchedUnits].sort(),
@@ -987,6 +1203,10 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
         clean: result.clean,
         problems: result.problems,
         notes: result.notes,
+        unverified_match: result.unverified.length,
+        unverified_recorded: result.unverifiedRecorded,
+        unverified_cleared: result.unverifiedCleared,
+        unverified_clear_refused: result.unverifiedClearRefused,
         applied: result.applied,
         touched_files: result.touchedFiles,
         touched_units: result.touchedUnits,
@@ -1031,6 +1251,10 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
       full: result.full,
       clean: result.clean,
       problems: result.problems,
+      unverified_match: result.unverified.length,
+      unverified_recorded: result.unverifiedRecorded,
+      unverified_cleared: result.unverifiedCleared,
+      unverified_clear_refused: result.unverifiedClearRefused,
       applied: result.applied,
       touched_files: result.touchedFiles,
       touched_units: result.touchedUnits,

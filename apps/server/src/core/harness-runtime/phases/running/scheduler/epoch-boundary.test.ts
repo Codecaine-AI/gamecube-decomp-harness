@@ -1,12 +1,16 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initializeHarnessState, getHarnessState, transitionHarnessState, getHarnessTimeline, requestHarnessExecution } from "@server/core/harness-state/state.js";
 import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
 import { addEvent, createRun, openState, setRunBoundarySyncHoldLive, startSchedulerEpoch, type StateStore } from "@server/core/harness-runtime/run-state";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
-import { boundaryFindingKnowledgeEvent, runEpochBoundary, type EpochBoundaryParams } from "./epoch-boundary.js";
+import { getDispatchState, initializeDispatchState, requestDispatch } from "@server/core/harness-state";
+import { latestSavePointByTrigger } from "@server/core/harness-runtime/phases/pr/state";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { boundaryFindingKnowledgeEvent, runEpochBoundary, type EpochBoundaryDependencies, type EpochBoundaryParams } from "./epoch-boundary.js";
 const tempDirs: string[] = [];
 function fixture(units: unknown[]): { dir: string; store: StateStore; globals: GlobalArgs; runId: string; epochId: string } {
   const dir = mkdtempSync(join(tmpdir(), "epoch-boundary-"));
@@ -477,6 +481,75 @@ describe("harness epoch handoff", () => {
     } finally { value.store.db.close(); }
   });
 
+});
+
+describe("boundary Sync evidence", () => {
+  for (const hold of ["unverified", "rollback"] as const) test(`steering-gated game: the pr_sync save point withholds ${hold} functions and copies the raw report`, async () => {
+    const unit = "sms/MapObj.o";
+    const measures = { matched_code: 96, total_code: 128, matched_code_percent: 75, matched_functions: 3, total_functions: 4, matched_functions_percent: 75 };
+    const value = fixture([{
+      name: unit,
+      functions: [
+        { name: "exact_a", size: 32, fuzzy_match_percent: 100 },
+        { name: "exact_b", size: 32, fuzzy_match_percent: 100 },
+        { name: "unverified", size: 32, fuzzy_match_percent: 100 },
+        { name: "partial", size: 32, fuzzy_match_percent: 90 },
+      ],
+    }]);
+    const reportPath = resolve(value.globals.repoRoot, "build/GALE01/report.json");
+    writeFileSync(reportPath, JSON.stringify({ ...JSON.parse(readFileSync(reportPath, "utf8")), measures }));
+    git(value.globals.repoRoot, ["init"]);
+    git(value.globals.repoRoot, ["config", "user.email", "epoch@example.invalid"]);
+    git(value.globals.repoRoot, ["config", "user.name", "Epoch test"]);
+    git(value.globals.repoRoot, ["add", "."]);
+    git(value.globals.repoRoot, ["commit", "-m", "initial"]);
+    const head = git(value.globals.repoRoot, ["rev-parse", "HEAD"]);
+    // Sync runs under the run's dispatch lease.
+    initializeDispatchState(value.store, { gameId: "test", traceId: "trace-game-test" });
+    requestDispatch(value.store, { actor: "runner", commandId: `command-sync-${value.runId}`, correlationId: value.runId, kind: "run", gameId: "test", reason: "boundary sync test", workflowId: value.runId });
+    const leaseId = getDispatchState(value.store, "test")!.active_workflow!.lease_id;
+    const initial = getHarnessState(value.store.db, "test")!;
+    transitionHarnessState(value.store.db, { gameId: "test", expectedRevision: initial.identity.revision, commandId: "ready",
+      patch: { source: { head, upstream_revision: head }, readiness: { build: "ready", sources: "ready", sandbox: "ready", evidence: "ready" },
+        execution: { desired: "run", workflow: "run", status: "active" }, history: { run_id: value.runId } } });
+    if (hold === "unverified") recordUnverifiedMatch(value.store, { gameId: "test", unit, symbol: "unverified", analyzedRev: head, match: { base: 40, candidate: 100, real_only: null }, reasons: ["no steering located"] });
+    else recordSteeringRollback(value.store, { gameId: "test", unit, symbol: "unverified", analyzedRev: head,
+      initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified" });
+    const game = {
+      gameId: "test",
+      matching: { steeringGate: "enforce" },
+      validation: { reportPath: "build/GALE01/report.json" },
+    } as unknown as GlobalArgs["game"];
+    let recomputed: { matchedCodePercent?: number | null; measures?: Record<string, unknown> } | undefined;
+    type ProductionSync = NonNullable<EpochBoundaryDependencies["productionRunBoundarySync"]>;
+    const productionRunBoundarySync = (async (input: Parameters<ProductionSync>[0]) => {
+      if (!input.hooks) throw new Error("Boundary Sync report hooks are required by this fixture");
+      recomputed = await input.hooks.recomputeReport();
+      await input.hooks.writePrSyncSavePoint({
+        kind: "pr_sync", anchorSha: head, commitSha: head, upstreamHeadSha: head,
+        matchedCodePercent: recomputed.matchedCodePercent ?? null, measures: recomputed.measures ?? {},
+      });
+      return { changed: false, headSha: head, plan: { drifted: false } };
+    }) as unknown as ProductionSync;
+    try {
+      const input = params(value, { globals: { ...value.globals, dryRunAgents: false, gameId: "test", game }, dependencies: {
+        productionRunBoundarySync,
+        forceReportRun: (async () => ({})) as never,
+        reconcilePendingIntegrationAttempt: () => ({ status: "completed", completed: { epochId: value.epochId, commitSha: head, attempt: 1 } }) as never,
+        ensureSchedulerEpochFromBoard: (() => ({ epoch: { id: "next" }, progress: { ordinal: 2, admitted: 0, available: 0 } })) as never,
+      } });
+      input.leaseId = leaseId;
+      await runEpochBoundary(input);
+
+      expect(recomputed).toMatchObject({ matchedCodePercent: 50, measures: { matched_functions: 2, matched_functions_percent: 50, matched_code: 64 } });
+      const savePoint = latestSavePointByTrigger(value.store, "pr_sync")!;
+      expect(savePoint).toMatchObject({ matchedCodePercent: 50, payload: { measures: { matched_functions: 2, matched_code_percent: 50 } } });
+      // The copied report is the raw evidence.
+      expect(JSON.parse(readFileSync(savePoint.reportPath!, "utf8")).measures).toEqual(measures);
+    } finally {
+      value.store.db.close();
+    }
+  });
 });
 
 describe("boundary QA knowledge notes", () => {

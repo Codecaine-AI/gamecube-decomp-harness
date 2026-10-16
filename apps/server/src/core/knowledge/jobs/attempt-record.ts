@@ -26,6 +26,7 @@ export interface AttemptRecordCheckpointRow extends AttemptCheckpointRow {
   selectable: number | boolean;
   selected: number | boolean;
   validation_status: string;
+  validation_state?: string | null;
   failure_reasons_json: string;
   metadata_json: string;
 }
@@ -111,7 +112,7 @@ export function loadWorkerCondenseInput(db: Database, workerStateId: string): At
         SELECT
           id, worker_state_id, attempt_index, validation_time, old_score,
           new_score, delta, exact_match, hard_gates_passed,
-          improved_over_baseline, selectable, selected, validation_status,
+          improved_over_baseline, selectable, selected, validation_status, validation_state,
           failure_reasons_json, metadata_json
         FROM worker_checkpoints
         WHERE worker_state_id = ?

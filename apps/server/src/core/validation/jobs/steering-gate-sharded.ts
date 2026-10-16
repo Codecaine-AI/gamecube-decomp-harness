@@ -28,13 +28,16 @@ import {
   attachViolations,
   functionKey,
   gitSteeringOps,
+  applyGroups,
   hostBuildProblem,
+  recordUnverifiedFunctions,
   invocationError,
   rewrittenReport,
   runCheck,
   SteeringRollbackLedger,
   shortGroupText,
   steeringFunctionReport,
+  unitSourceTable,
   type CheckReport,
   type SteeringBackfillFunctionReport,
   type SteeringRebuild,
@@ -45,7 +48,10 @@ import {
   type SteeringBuildRunner,
   type SteeringCheckOptions,
   type SteeringGitOps,
+  type UnverifiedClearRefusal,
 } from "./steering-gate.js";
+import type { RevAncestry } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { isOrderSensitiveReason, unverifiedTolerance, type UnverifiedTolerance } from "./steering-unverified.js";
 
 /**
  * Sharded steering backfill (`steering-gate --from-reports`). A whole-tree
@@ -77,8 +83,13 @@ import {
  * - `real`: a real change; nothing to do.
  * Header pseudo-units (`... (no unit)`) are never recorded as units.
  *
- * Unresolved (and rule-violating) functions stay listed under `not_pass`
- * and keep their unit and the run unclean; nothing here decides a policy.
+ * Unresolved functions are `unverified_match` ("100% but unverified"):
+ * `--record` writes them to `steering_unverified_matches` and they do not make
+ * the run unclean, nor do the facts only they explain (their held, unresolved
+ * and incomplete groups, an IR-oracle failure of a unit whose every function
+ * is unresolved, an order-sensitive reduction; see `steering-unverified.ts`).
+ * Their units' coverage stays unclean (the claim shortcut never trusts them).
+ * Rule-violating and steering-located functions keep the run unclean.
  *
  * Attempt-level certification. Function rows can all pass while `decide`
  * rejects the attempt (missing link-map coverage for the UNUSED rule, a
@@ -288,6 +299,8 @@ export async function runShardedSteeringBackfill(params: {
   rebuild?: SteeringRebuild;
   /** Defaults to `hostBuildProblem`; tests inject one. */
   buildCheck?: (repoRoot: string) => string | null;
+  /** Ancestry for the `unverified_match` trusted-base rule; defaults to git in `repoRoot`. */
+  isAncestor?: RevAncestry;
 }): Promise<SteeringShardedBackfillResult> {
   const git = params.git ?? gitSteeringOps;
   const writes = !params.dryRun && (params.record || params.apply);
@@ -446,8 +459,9 @@ export async function runShardedSteeringBackfill(params: {
   const recheckPaths: string[] = [];
   const rechecks = new Map<ShardReport, CheckReport & { path: string }>();
   let applied = false;
+  // `apply` reverts only steering groups (attributed to a steering_located function); held and unattributed ones stay.
   const ownedRemovable = (report: ShardReport) => reportGroups(report)
-    .filter((group) => group.status === "removable" && group.cosmetic !== true && sourceOwner.get(group.file) === report);
+    .filter((group) => applyGroups(report.raw).steering.has(group.id) && sourceOwner.get(group.file) === report);
   const ownedViolations = (report: ShardReport) => (report.decision.violations ?? []).filter((violation) => sourceOwner.get(violation.file) === report);
   const toApply = reports.filter((report) => ownedRemovable(report).length > 0 || ownedViolations(report).length > 0);
 
@@ -576,15 +590,21 @@ export async function runShardedSteeringBackfill(params: {
   const problems: string[] = [];
   const notes: string[] = [];
   const dirty = new Map<string, string[]>();
+  // What only unresolved (unverified) functions explain: dirties the unit's coverage, never the run.
+  const unverifiedDirt = new Map<string, string[]>();
+  const tolerance = new Map<ShardReport, UnverifiedTolerance>(reports.map((report) => [report, unverifiedTolerance(report.raw)]));
   const allUnits = new Set<string>([...coverage.keys(), ...functions.map((fn) => fn.unit)]);
   for (const report of reports) for (const unit of report.unitSources.keys()) if (unitOwner(unit) === report || !unitOwner(unit)) allUnits.add(unit);
-  const markDirty = (units: Iterable<string>, why: string) => {
-    for (const unit of units) dirty.set(unit, [...(dirty.get(unit) ?? []), why]);
+  const markDirty = (units: Iterable<string>, why: string, tolerated = false) => {
+    const target = tolerated ? unverifiedDirt : dirty;
+    for (const unit of units) target.set(unit, [...(target.get(unit) ?? []), why]);
   };
 
   const byDecision = (kind: SteeringFunctionDecision["decision"]) => functions.filter((fn) => fn.final === kind);
   if (byDecision("steering_located").length > 0) problems.push(`steering located in ${capList(byDecision("steering_located").map(functionLabel))}`);
-  if (byDecision("unresolved").length > 0) problems.push(`unresolved: ${capList(byDecision("unresolved").map(functionLabel))}`);
+  if (byDecision("unresolved").length > 0) {
+    notes.push(`unverified_match (unresolved; ${params.record && !applied ? "recorded" : "recorded by --record"}, not done): ${capList(byDecision("unresolved").map(functionLabel), 10)}`);
+  }
   if (byDecision("rule_violation").length > 0) problems.push(`rule violation in ${capList(byDecision("rule_violation").map((fn) => fn.name))}`);
   const finalRow = (fn: (typeof functions)[number]) => (rechecks.get(fn.report)?.decision.functions ?? fn.report.decision.functions)
     .find((row) => row.unit === fn.unit && row.name === fn.name);
@@ -611,18 +631,25 @@ export async function runShardedSteeringBackfill(params: {
     for (const group of reportGroups(report)) {
       if (sourceOwner.get(group.file) !== report) continue;
       const units = fileUnits(group.file);
-      if (group.status === "removable" && group.cosmetic !== true && !(applied && touchedFiles.includes(group.file))) {
+      const explained = tolerance.get(report)!;
+      if (group.status === "removable" && group.cosmetic !== true && explained.held.has(group.id)) {
+        markDirty(units, `edit group held for an unverified function: ${group.id}`, true);
+      } else if (group.status === "removable" && group.cosmetic !== true
+        && !(applied && touchedFiles.includes(group.file) && applyGroups(report.raw).steering.has(group.id))) {
         left.push(group.id);
         markDirty(units, `behaviour-identical edit group left: ${group.id}`);
       } else if (unresolvedIds.has(group.id) || group.incomplete === true) {
-        markDirty(units, `unresolved edit group: ${group.id}`);
+        markDirty(units, `unresolved edit group: ${group.id}`, explained.attributed.has(group.id));
       }
     }
     if (left.length > 0 && !applied) problems.push(`behaviour-identical edit groups left in ${basename(report.path)}: ${capList(left)}`);
     const global = asArray(asObject(report.raw.reduce).global_incomplete).filter((reason): reason is string => typeof reason === "string");
     if (global.length > 0) {
-      problems.push(`reduction incomplete in ${report.path}: ${global.join("; ")}`);
-      markDirty([...report.unitSources.keys()].filter((unit) => unitOwner(unit) === report), "reduction incomplete");
+      // Order sensitivity leaves every function of the report unresolved (unverified); a budget or group cap does not count.
+      const orderOnly = global.every(isOrderSensitiveReason) && report.decision.functions.some((fn) => fn.decision === "unresolved");
+      if (orderOnly) notes.push(`reduction order-sensitive in ${basename(report.path)} (its functions are unverified_match): ${global.join("; ").slice(0, 300)}`);
+      else problems.push(`reduction incomplete in ${report.path}: ${global.join("; ")}`);
+      markDirty([...report.unitSources.keys()].filter((unit) => unitOwner(unit) === report), "reduction incomplete", orderOnly);
     }
   }
 
@@ -645,6 +672,7 @@ export async function runShardedSteeringBackfill(params: {
       continue;
     }
     const groups = groupById(report);
+    const explained = tolerance.get(report)!;
     for (const entry of raw.map(asObject)) {
       const category = typeof entry.category === "string" ? entry.category : "unknown";
       const units = asArray(entry.units).filter((unit): unit is string => typeof unit === "string" && !isHeaderPseudoUnit(unit));
@@ -662,8 +690,12 @@ export async function runShardedSteeringBackfill(params: {
       if (category === "unresolved_groups") continue; // owned and shared groups are judged above; no-unit shared ones are the residual
       if (JUDGED.has(category)) continue;
       if (category === "unit_oracle_failed" || category === "group_incomplete") {
-        markDirty(units.length > 0 ? units : ownedUnitsOf(report), `${category}${detail}`);
+        const issue = { category, units, groups: ids, files, detail: typeof entry.detail === "string" ? entry.detail : "" };
+        markDirty(units.length > 0 ? units : ownedUnitsOf(report), `${category}${detail}`, explained.tolerates(issue));
         continue;
+      }
+      if (category === "global" && explained.tolerates({ category, units, groups: ids, files, detail: typeof entry.detail === "string" ? entry.detail : "" })) {
+        continue; // order-sensitive reduction: judged with the report's global reasons above
       }
       // Anything else (tool, tool_error, unused_map_gap, header_cap, global, unstructured, unknown): not certified.
       problems.push(`${name}: attempt ${report.decision.attempt}: ${category}${units.length > 0 ? ` (${capList(units, 6)})` : ""}${detail}`);
@@ -680,7 +712,14 @@ export async function runShardedSteeringBackfill(params: {
     notes.push(`rule violations no function row names (rolled back by the apply, not attached to a function): ${capList(unattachedViolations.map((violation) => `${violation.kind} ${violation.file}${violation.line != null ? `:${violation.line}` : ""}`), 10)}`);
   }
 
-  const steeringShared = sharedGroups.filter((group) => group.classification === "steering");
+  // A shared group held for unverified functions in every report that found it removable is theirs, not steering.
+  const heldEverywhere = (group: SteeringSharedGroup) => reports.every((report) =>
+    !reportGroups(report).some((row) => row.id === group.id && row.finalStatus === "removable") || tolerance.get(report)!.held.has(group.id));
+  const attributedSomewhere = (group: SteeringSharedGroup) => reports.some((report) => tolerance.get(report)!.attributed.has(group.id));
+  for (const group of sharedGroups.filter((row) => row.classification === "steering" && heldEverywhere(row))) {
+    markDirty(group.units, `shared group held for unverified functions: ${group.location}`, true);
+  }
+  const steeringShared = sharedGroups.filter((group) => group.classification === "steering" && !heldEverywhere(group));
   if (steeringShared.length > 0) {
     problems.push(
       `behaviour-identical edits in shared files that the sharded apply never writes: ${capList(steeringShared.map((group) => group.location))}; `
@@ -688,7 +727,9 @@ export async function runShardedSteeringBackfill(params: {
     );
     for (const group of steeringShared) markDirty(group.units, `steering in shared file: ${group.location}`);
   }
-  for (const group of sharedGroups.filter((row) => row.classification === "unresolved")) markDirty(group.units, `unresolved shared group: ${group.location}`);
+  for (const group of sharedGroups.filter((row) => row.classification === "unresolved")) {
+    markDirty(group.units, `unresolved shared group: ${group.location}`, attributedSomewhere(group));
+  }
   const unanalysed = sharedGroups.filter((group) => group.classification === "unanalysed");
   if (unanalysed.length > 0) {
     notes.push(`${unanalysed.length} shared (header) edit groups were not analysed by any report (no unit compiles them); listed under shared_groups, not judged: ${capList(unanalysed.map((group) => group.location), 10)}`);
@@ -700,12 +741,14 @@ export async function runShardedSteeringBackfill(params: {
   }
   if (applied) problems.unshift("applied: the cleanup is uncommitted; commit it, rerun the check shards on the new HEAD and record them with --from-reports --record");
 
+  const unverifiedOnly = new Set<string>();
   const units: SteeringBackfillUnit[] = [...allUnits].sort().map((unit) => {
     const row = coverage.get(unit);
-    const unitClean = !applied
-      && Boolean(row && unitCovered(row))
-      && !dirty.has(unit)
-      && functions.filter((fn) => fn.unit === unit).every((fn) => fn.final === "pass");
+    const covered = !applied && Boolean(row && unitCovered(row)) && !dirty.has(unit);
+    const own = functions.filter((fn) => fn.unit === unit);
+    const unitClean = covered && !unverifiedDirt.has(unit) && own.every((fn) => fn.final === "pass");
+    // Not clean (its coverage never authorizes a claim shortcut), but nothing beyond unverified functions keeps it so.
+    if (!unitClean && covered && own.every((fn) => fn.final === "pass" || fn.final === "unresolved")) unverifiedOnly.add(unit);
     return {
       unit,
       clean: unitClean,
@@ -713,13 +756,29 @@ export async function runShardedSteeringBackfill(params: {
       coverage: row ? { built: row.built, compared: row.compared, ...(row.exempt !== undefined ? { exempt: row.exempt } : {}) } : null,
     };
   });
-  const clean = !applied && coverageComplete && problems.length === 0 && units.every((unit) => unit.clean);
+  const clean = !applied && coverageComplete && problems.length === 0 && units.every((unit) => unit.clean || unverifiedOnly.has(unit.unit));
   if (!coverageComplete && params.record && problems.length === 0) problems.push("reports do not cover every changed file");
 
   // ---- record -----------------------------------------------------------------------------------
   let recorded = 0;
   let stackOnlyCleared = 0;
+  let unverifiedRecorded = 0;
+  let unverifiedCleared = 0;
+  let unverifiedClearRefused: UnverifiedClearRefusal[] = [];
   const store = params.store;
+  if (store && writes && params.record && !applied) {
+    const sources = new Map<string, string>();
+    for (const report of reports) for (const [unit, source] of unitSourceTable(report.raw)) sources.set(unit, source);
+    // A pass clears `unverified_match` only in a clean run, in a unit certified apart from its unverified functions.
+    const certifiedUnits = new Set(clean ? units.filter((unit) => unit.clean || unverifiedOnly.has(unit.unit)).map((unit) => unit.unit) : []);
+    const state = await recordUnverifiedFunctions(store, {
+      gameId: params.gameId, repoRoot: params.repoRoot, headRev: params.headRev, baseRev: params.baseRev,
+      certifiedUnits, functions, reports: functionReports, sources, ...(params.isAncestor ? { isAncestor: params.isAncestor } : {}),
+    });
+    unverifiedRecorded = state.recorded;
+    unverifiedCleared = state.cleared;
+    unverifiedClearRefused = state.refused;
+  }
   if (store && writes) {
     for (const fn of functions) {
       const report = functionReports.get(functionKey(fn))!;
@@ -752,6 +811,7 @@ export async function runShardedSteeringBackfill(params: {
           check: row?.report ?? unitOwner(unit.unit)?.path ?? null,
           sharded: true,
           ...(dirty.has(unit.unit) ? { dirty: dirty.get(unit.unit) } : {}),
+          ...(unverifiedDirt.has(unit.unit) ? { unverified: unverifiedDirt.get(unit.unit) } : {}),
         },
       });
     }
@@ -770,7 +830,7 @@ export async function runShardedSteeringBackfill(params: {
         "Rerun the check shards on the new HEAD, then steering-gate --from-reports <reports> --record (no --apply) to certify it.",
       ]
     : !clean && params.record
-      ? ["Fix or --apply the functions listed under not_pass (and the problems), commit, rerun the affected shards and record again."]
+      ? ["Fix or --apply what the problems list (steering, rule violations, tool failures, coverage), commit, rerun the affected shards and record again; unresolved functions are recorded as unverified_match and do not block."]
       : [];
 
   const result: SteeringShardedBackfillResult = {
@@ -782,6 +842,10 @@ export async function runShardedSteeringBackfill(params: {
     units,
     clean,
     problems,
+    unverified: functions.filter((fn) => fn.final === "unresolved").map(({ report: _report, ...fn }) => fn),
+    unverifiedRecorded,
+    unverifiedCleared,
+    unverifiedClearRefused,
     applied,
     touchedFiles,
     touchedUnits: [...touchedUnits].sort(),

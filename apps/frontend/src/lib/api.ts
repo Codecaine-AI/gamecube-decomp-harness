@@ -24,9 +24,16 @@ export interface KernelAgentDefinition extends AgentViewerDefinition {
   renderedTools: string | null;
 }
 
+/** Which `previous_attempt` variant the worker sample renders (steering-gated games). */
+export type KernelPreviousAttemptVariant = "rollback" | "unverified_match";
+
 export interface KernelAgentsPayload {
   generatedAt: string;
   source: "sample";
+  /** The selected game's steering gate the worker sample was rendered for. */
+  steeringGate?: "off" | "shadow" | "enforce";
+  /** The `previous_attempt` variant the server rendered (echo of the `previous_attempt` query, default `rollback`). */
+  previousAttempt?: KernelPreviousAttemptVariant;
   agents: KernelAgentDefinition[];
   warnings: string[];
 }
@@ -233,10 +240,11 @@ export function fetchKernelStatus(): Promise<KernelStatusPayload> {
 
 export function fetchKernelAgents(
   form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
-  options?: { target?: string },
+  options?: { target?: string; previousAttempt?: KernelPreviousAttemptVariant },
 ): Promise<KernelAgentsPayload> {
   const params = dashboardParams(form);
   if (options?.target) params.set("target", options.target);
+  if (options?.previousAttempt) params.set("previous_attempt", options.previousAttempt);
   return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
 }
 

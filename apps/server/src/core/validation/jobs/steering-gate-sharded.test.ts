@@ -11,6 +11,7 @@ import {
   listSteeringRollbacks,
   steeringCoverageFor,
 } from "@server/core/harness-runtime/run-state/steering.js";
+import { listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { steeringPreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import { assertSteeringGatePreflight } from "@server/core/validation/steering/steering-preflight.js";
 import type { SteeringRunner } from "@server/core/validation/steering/steering-check.js";
@@ -240,7 +241,7 @@ describe("sharded steering backfill --record", () => {
     });
   });
 
-  test("an unresolved function stays listed and makes the full run unclean; enforce stays refused", async () => {
+  test("an unresolved function is recorded as unverified_match: the full run is clean, enforce starts, the unit stays unclean", async () => {
     await withStore(async (store, dir) => {
       const { repo, base, head } = checkout();
       const unresolvedGroup = { id: `${SRC_B}@0.0`, file: SRC_B, line: 1, status: "unresolved", units: [UNIT_B], shapes: ["temp_alias", "other"], cand_lines: ["int t = g();"], base_lines: [] };
@@ -249,16 +250,76 @@ describe("sharded steering backfill --record", () => {
         shard(base, head, { unit: UNIT_B, source: SRC_B, functions: [fn(UNIT_B, "f__b", "unresolved", [`${SRC_B}@0.0`])], groups: [unresolvedGroup] }),
       ]);
       const result = await sharded(repo, base, head, store, dir, fakeRunners(repo), reports);
-      expect(result.clean).toBe(false);
-      expect(result.problems).toContain("unresolved: f__b (without steering: 97%)");
-      expect(result.functions.filter((row) => row.final !== "pass").map((row) => row.name)).toEqual(["f__b"]);
+      expect(result.clean).toBe(true);
+      expect(result.problems).toEqual([]);
+      expect(result.notes.join(" ")).toContain("unverified_match (unresolved; recorded, not done): f__b (without steering: 97%)");
+      expect(result.unverified.map((row) => row.name)).toEqual(["f__b"]);
+      expect(result.unverifiedRecorded).toBe(1);
+      // The unit with the unverified function never authorizes a claim shortcut.
       expect(result.units.map((unit) => [unit.unit, unit.clean])).toEqual([[UNIT_A, true], [UNIT_B, false]]);
-      // A full run is recorded, unclean.
-      expect(latestCleanSteeringBackfillRun(store, "sms")).toBeNull();
-      expect(store.db.query("SELECT clean FROM steering_backfill_runs WHERE game_id = 'sms'").all()).toEqual([{ clean: 0 }]);
-      expect(() => assertSteeringGatePreflight(store, { game: enforced, repoRoot: repo, command: "run-loop" })).toThrow(/no clean steering backfill run/);
+      expect(steeringCoverageFor(store, "sms", UNIT_B)?.clean).toBe(false);
+      // A clean full run is recorded and the enforce preflight accepts it.
+      expect(latestCleanSteeringBackfillRun(store, "sms")?.baselineRev).toBe(head);
+      expect(() => assertSteeringGatePreflight(store, { game: enforced, repoRoot: repo, command: "run-loop" })).not.toThrow();
       const row = listSteeringBackfill(store, "sms", UNIT_B)[0]!;
       expect(row.report).toMatchObject({ decision: "unresolved", applied: false, provisional: false, reasons: ["f__b: why"], removed_edit_groups: [], probe: { symbol: "f__b" } });
+      expect(row.report.unexplained_edit_groups).toEqual([expect.objectContaining({ id: `${SRC_B}@0.0`, status: "unresolved", location: `${SRC_B}:1` })]);
+      const [state] = listUnverifiedMatches(store, "sms");
+      expect(state).toMatchObject({
+        unit: UNIT_B, symbol: "f__b", analyzedRev: head, baseRev: base, sourcePath: SRC_B, reasons: ["f__b: why"],
+        match: { base: 90, candidate: 100, real_only: 97 }, clearedAt: null,
+      });
+      expect(state!.functionSourceSha).toMatch(/^[0-9a-f]{64}$/);
+      // The next record run that passes it clears the state.
+      writeReports(dir, [
+        shard(base, head, { unit: UNIT_A, source: SRC_A, functions: [fn(UNIT_A, "f__a", "pass")] }),
+        shard(base, head, { unit: UNIT_B, source: SRC_B, functions: [fn(UNIT_B, "f__b", "pass")] }),
+      ]);
+      const again = await sharded(repo, base, head, store, dir, fakeRunners(repo), reports);
+      expect(again).toMatchObject({ clean: true, unverifiedCleared: 1 });
+      expect(listUnverifiedMatches(store, "sms")).toEqual([]);
+      expect(listUnverifiedMatches(store, "sms", { includeCleared: true })[0]).toMatchObject({ clearedBy: `backfill:${head}` });
+    });
+  });
+
+  test("an unverified function does not excuse anything else: a link-map gap or a budget keeps the run unclean and clears nothing", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, base, head } = checkout();
+      const unresolvedB = fn(UNIT_B, "f__b", "unresolved");
+      // f__a was unverified before; "old" is a row no report lists.
+      for (const [unit, symbol] of [[UNIT_A, "f__a"], ["gone", "old"]] as const) {
+        recordUnverifiedMatch(store, { gameId: "sms", unit, symbol, analyzedRev: "before", baseRev: base, match: { base: null, candidate: 100, real_only: null }, reasons: [] });
+      }
+      const active = () => listUnverifiedMatches(store, "sms").map((row) => row.symbol).sort();
+      const gap = writeReports(dir, [
+        shard(base, head, { unit: UNIT_A, source: SRC_A, functions: [fn(UNIT_A, "f__a", "pass")] }),
+        shard(base, head, { unit: UNIT_B, source: SRC_B, functions: [unresolvedB], issues: [issue("unused_map_gap", { units: [UNIT_B], detail: "Enemy/b (no map)" })] }),
+      ]);
+      const mapGap = await sharded(repo, base, head, store, dir, fakeRunners(repo), gap);
+      expect(mapGap.clean).toBe(false);
+      expect(mapGap.problems.join("; ")).toContain("unused_map_gap");
+      // f__a passes, but in an unclean run: not a certificate, so it stays unverified.
+      expect(mapGap.unverifiedCleared).toBe(0);
+      expect(active()).toEqual(["f__a", "f__b", "old"]);
+
+      const budget = shard(base, head, { unit: UNIT_B, source: SRC_B, functions: [unresolvedB], issues: [issue("global", { detail: "budget of 120s exceeded" })] });
+      (budget.reduce as Record<string, unknown>).global_incomplete = ["budget of 120s exceeded"];
+      const budgetReports = writeReports(dir, [shard(base, head, { unit: UNIT_A, source: SRC_A, functions: [fn(UNIT_A, "f__a", "pass")] }), budget]);
+      const overBudget = await sharded(repo, base, head, store, dir, fakeRunners(repo), budgetReports);
+      expect(overBudget.clean).toBe(false);
+      expect(overBudget.problems.join("; ")).toContain("reduction incomplete");
+      expect(overBudget.unverifiedCleared).toBe(0);
+
+      // Order sensitivity alone (every function of the report unresolved) is tolerated.
+      const order = shard(base, head, { unit: UNIT_B, source: SRC_B, functions: [unresolvedB], issues: [issue("global", { detail: "order sensitive: forward and reverse reductions differ on x" })] });
+      (order.reduce as Record<string, unknown>).global_incomplete = ["order sensitive: forward and reverse reductions differ on x"];
+      const orderReports = writeReports(dir, [shard(base, head, { unit: UNIT_A, source: SRC_A, functions: [fn(UNIT_A, "f__a", "pass")] }), order]);
+      const orderSensitive = await sharded(repo, base, head, store, dir, fakeRunners(repo), orderReports);
+      expect(orderSensitive).toMatchObject({ clean: true, problems: [] });
+      expect(orderSensitive.notes.join(" ")).toContain("reduction order-sensitive");
+      // The clean run certifies f__a's pass; the row no report lists stays active.
+      expect(orderSensitive.unverifiedCleared).toBe(1);
+      expect(active()).toEqual(["f__b", "old"]);
     });
   });
 

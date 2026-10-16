@@ -3,7 +3,7 @@ import { Database } from "bun:sqlite";
 import { runStorageMigrations, verifyStorageSchema } from "./index.js";
 
 const LATER_TABLES = [
-  "stack_only_functions", "steering_observations", "steering_backfill", "steering_backfill_coverage", "steering_backfill_runs", "steering_rollbacks",
+  "stack_only_functions", "steering_observations", "steering_backfill", "steering_backfill_coverage", "steering_backfill_runs", "steering_rollbacks", "steering_unverified_matches",
 ];
 
 test("a live v11 store migrates through 014 additively and keeps its rows", () => {
@@ -12,7 +12,7 @@ test("a live v11 store migrates through 014 additively and keeps its rows", () =
     runStorageMigrations(db);
     db.query("INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at) VALUES ('run-1', 'matched_percent', 100, 1, 'active', 'then')").run();
     db.exec(`${LATER_TABLES.map((table) => `DROP TABLE ${table};`).join(" ")} DELETE FROM schema_migrations WHERE version >= 12`);
-    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v11, this build requires v14");
+    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v11, this build requires v15");
 
     runStorageMigrations(db);
 
@@ -20,6 +20,7 @@ test("a live v11 store migrates through 014 additively and keeps its rows", () =
       { version: 12, name: "stack_only_functions" },
       { version: 13, name: "steering" },
       { version: 14, name: "steering_rollbacks" },
+      { version: 15, name: "unverified_matches" },
     ]);
     expect(() => verifyStorageSchema(db)).not.toThrow();
     expect(db.query("SELECT COUNT(*) AS count FROM runs").get()).toEqual({ count: 1 });

@@ -32,7 +32,12 @@ import {
   steeringRepairProbe,
   steeringRulingsPath,
   steeringSourceSha,
+  UNVERIFIED_MATCH_CERTIFICATION_KEY,
+  unverifiedMatchCertification,
+  unverifiedTargetRejected,
 } from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
+import { activeUnverifiedMatch, type UnverifiedMatchRecord } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { completionHoldRefs, steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { steeringPreviousAttempt, type PreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import { packageRoot } from "@server/core/knowledge";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
@@ -95,6 +100,7 @@ import {
   relatedFunctions,
   resourceGraphDbPath,
 } from "@server/core/knowledge";
+import type { UnverifiedFunctionRef } from "@server/core/knowledge/graph/builders/code-graph.js";
 import { loadV2TargetCard } from "@server/core/knowledge-v2/card.js";
 import {
   captureWorkspaceGitDiff,
@@ -515,7 +521,8 @@ const GATE_FAILED_EXACT_REPAIR_INSTRUCTION = `The runner measured an exact targe
  * without running the agent. Under an enforced steering gate the claim base
  * might still carry pre-gate steering, so the unit additionally needs a clean
  * steering backfill coverage row whose baseline is an ancestor of the claim
- * base; otherwise the worker runs normally.
+ * base; otherwise the worker runs normally. An `unverified_match` target never
+ * takes the shortcut: only an attempt the gate certifies can retire it.
  */
 export function claimStackOnlyShortcutAllowed(params: {
   stopAtFrame: boolean;
@@ -526,7 +533,14 @@ export function claimStackOnlyShortcutAllowed(params: {
   baseRev: string | null | undefined;
   hostRepoRoot: string;
   isAncestor?: GitAncestorCheck;
+  /**
+   * The target has an active `unverified_match` row: its current code is not
+   * certified, so it is never closed without an agent, whatever the unit's
+   * coverage says.
+   */
+  unverifiedMatch?: boolean;
 }): boolean {
+  if (params.unverifiedMatch) return false;
   if (!params.stopAtFrame || params.stackRemainingClass !== "stack_only") return false;
   if (params.measuredBaselineScore !== null && params.measuredBaselineScore >= EXACT_SCORE) return false;
   if (!steeringGateEnforced(params.steeringGate)) return true;
@@ -583,6 +597,10 @@ export function workerRepairInstruction(params: {
   stopAtFrame: boolean;
 }): string {
   const tail = "Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.";
+  // An `unverified_match` target that matched without the gate certifying it: its reason carries the instruction.
+  if (unverifiedTargetRejected(params.runnerValidation)) {
+    return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected: the steering gate did not certify this unverified target."} ${tail}`;
+  }
   // An enforced steering rejection is never the "exact but a hard gate failed" case: the
   // match itself is what failed, so the worker gets the steering probe instruction instead
   // (or the UNUSED-body instruction when the gate listed a dead UNUSED body).
@@ -1903,12 +1921,25 @@ async function executeClaimedWorker(params: {
     let currentEntries = [...claimed.writeSetEntries];
     const wideningIds: string[] = [];
     const game = gameMetadata(globals, { graphDbPath, repoRoot: workerRepoRoot });
-    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, { graphDbPath, validation: globals.game?.validation });
+    // Steering-gated games: a function with no completion credit at the claim base (an active
+    // `unverified_match`, or a rollback no certifying rev of which is its ancestor) stays
+    // unmatched in the measures the worker starts from and is never labelled complete.
+    const unverifiedIndex = steeringCompletionHolds(
+      store,
+      { gameId: globals.game?.gameId ?? globals.gameId, steeringGate: globals.game?.matching?.steeringGate },
+      globals.repoRoot,
+    )?.at(baseRev);
+    const snapshot = loadKnowledgeBoardSnapshot(globals.repoRoot, {
+      graphDbPath,
+      validation: globals.game?.validation,
+      ...(unverifiedIndex ? { unverified: unverifiedIndex } : {}),
+    });
     const target = targetPacketTarget(claimed.target);
     const knowledgeContext = buildWorkerKnowledgeContext(String(target.source_path ?? ""), graphDbPath, {
       unit: String(target.unit ?? ""),
       symbol: (target.symbol as string | undefined) ?? null,
       gameId: game?.gameId,
+      ...(unverifiedIndex ? { unverifiedMatches: completionHoldRefs(unverifiedIndex) } : {}),
     });
     const initialBoardPath = resolve(globals.stateDir, "runs", runId, "snapshots", "initial_board.json");
     const reportDir = resolve(outputDir, "state");
@@ -1982,6 +2013,8 @@ async function executeClaimedWorker(params: {
     let claimSourceSha: string | null = null;
     let claimSteeringProbe: SteeringProbe | null = null;
     let claimPreviousAttempt: PreviousAttempt | null = null;
+    // Enforce: the target's active `unverified_match` row (its match is not certified).
+    let claimUnverifiedMatch: UnverifiedMatchRecord | null = null;
     if (steeringActive) {
       const claimSourcePath = safeRepoRelativePath(workerRepoRoot, String(target.source_path ?? ""));
       if (claimSourcePath) {
@@ -1997,6 +2030,23 @@ async function executeClaimedWorker(params: {
         symbol: String(target.symbol ?? ""),
         functionSourceSha: claimSourceSha,
       });
+      if (steeringGateEnforced(steeringGate) && stackGameId) {
+        try {
+          claimUnverifiedMatch = activeUnverifiedMatch(store, {
+            gameId: stackGameId,
+            unit: String(target.unit ?? ""),
+            symbol: String(target.symbol ?? ""),
+          });
+        } catch (error) {
+          // Unreadable state fails closed: treated as unverified with no trusted base, so no attempt can retire it.
+          claimUnverifiedMatch = {
+            gameId: stackGameId, unit: String(target.unit ?? ""), symbol: String(target.symbol ?? ""), analyzedRev: "", baseRev: null,
+            sourcePath: null, functionSourceSha: null, match: { base: null, candidate: null, real_only: null },
+            reasons: [`unverified_match state unreadable: ${error instanceof Error ? error.message : String(error)}`],
+            report: {}, recordedAt: "", clearedAt: null, clearedBy: null, clearedRev: null,
+          };
+        }
+      }
       // A backfill rollback rewrote the source, so this lookup ignores the hash;
       // it is shown only while the function is not done.
       claimPreviousAttempt = steeringPreviousAttempt(store, {
@@ -2188,6 +2238,7 @@ async function executeClaimedWorker(params: {
         coverage: steeringGateEnforced(steeringGate) ? steeringCoverageFor(store, stackGameId, targetUnit) : null,
         baseRev,
         hostRepoRoot: globals.repoRoot,
+        unverifiedMatch: claimUnverifiedMatch !== null,
       }) &&
       workerChangeBaseline.stackRemaining
     ) {
@@ -2863,6 +2914,10 @@ async function executeClaimedWorker(params: {
                 },
               ),
               ...steeringLessonPaths(game, packageRoot()),
+              // The trusted base the backfill measured against; the claim base still holds the unexplained code.
+              unverifiedTarget: claimUnverifiedMatch
+                ? { unit: claimUnverifiedMatch.unit, symbol: claimUnverifiedMatch.symbol, baseRev: claimUnverifiedMatch.baseRev }
+                : null,
             }
           : null,
         editScope: editScopePolicy
@@ -2957,6 +3012,10 @@ async function executeClaimedWorker(params: {
       // The steering run's UNUSED stub tests, bound to the claim base and the
       // measured patch: integration re-checks them and writes Evidence trailers.
       const boundUnusedChecks = await loadBoundUnusedChecks(targetChangeValidation.steering, { baseRev });
+      // Enforce, unverified target: the gate's own-target pass for this attempt (integration clears on it).
+      const unverifiedCertification = claimUnverifiedMatch
+        ? unverifiedMatchCertification({ validation: runnerValidation, gameId: stackGameId, unit: targetUnit, symbol: targetSymbol, baseRev })
+        : null;
       const checkpoint = recordWorkerCheckpoint(store, {
         authority: token,
         workerStateId: claimed.workerStateId,
@@ -2978,7 +3037,18 @@ async function executeClaimedWorker(params: {
         diffPath: postAttemptDiffPath,
         writeSet: currentWriteSet,
         failureReasons: runnerValidation.reasons,
+        ...(unverifiedCertification
+          ? {
+              verificationImprovement: {
+                kind: "unverified_match" as const,
+                unit: targetUnit,
+                symbol: targetSymbol,
+                targetStackOnly: runnerValidation.stackPolicy?.targetStackOnly === true,
+              },
+            }
+          : {}),
         metadata: {
+          ...(unverifiedCertification ? { [UNVERIFIED_MATCH_CERTIFICATION_KEY]: unverifiedCertification } : {}),
           agent_output_path: result.outputPath,
           agent_note: agentNote,
           agent_note_parse_error: parsedAgentNote.error ?? null,
@@ -3443,7 +3513,7 @@ async function executeClaimedWorker(params: {
 export function buildWorkerKnowledgeContext(
   sourcePath: string,
   graphDb = resourceGraphDbPath(),
-  v2?: { unit?: string; symbol?: string | null; gameId?: string },
+  v2?: { unit?: string; symbol?: string | null; gameId?: string; unverifiedMatches?: readonly UnverifiedFunctionRef[] },
 ): Record<string, unknown> {
   const lookupTools = [...defaultWorkerToolProfile];
   const v2Card = v2?.unit
@@ -3477,7 +3547,8 @@ export function buildWorkerKnowledgeContext(
       status: "ready",
       graph_db: graphDb,
       generated_at: new Date().toISOString(),
-      file_card: fileGraphCard(store, sourcePath),
+      // Steering-gated games: active `unverified_match` rows overlay a stale stored card, so it never reads `read_only_complete`.
+      file_card: fileGraphCard(store, sourcePath, { unverifiedMatches: v2?.unverifiedMatches }),
       ...(related ? { related_functions: related } : {}),
       lookup_tools: lookupTools,
       ...(v2Card ? { knowledge_card_v2: v2Card } : {}),

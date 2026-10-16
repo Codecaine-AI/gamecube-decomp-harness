@@ -25,6 +25,15 @@ import {
   type UnusedCheckFreshness,
 } from "@server/core/validation/edit-scope/unused-evidence.js";
 import { REJECTED_OUT_OF_SCOPE_DISPOSITION } from "@server/core/harness-runtime/run-state/worker-output-integration.js";
+import { activeUnverifiedMatch, clearUnverifiedMatchIfCertified, integrationClearedBy } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import {
+  checkpointUnverifiedCertification,
+  gitRevAncestry,
+  sourceFreshBeforeApply,
+  sourceUnchangedSinceClaim,
+  type SourceFreshness,
+  type UnverifiedMatchCertification,
+} from "@server/core/validation/steering/unverified-certification.js";
 import { rejectWorkerOutputIntegrationRecord } from "./reject-output.js";
 import {
   addEvent,
@@ -371,6 +380,159 @@ function checkpointMetadata(store: StateStore, record: WorkerOutputIntegrationRe
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
   } catch {
     return {};
+  }
+}
+
+/**
+ * After a clean apply: the integrated checkpoint carries the enforced gate's
+ * own-target pass for an `unverified_match` target, so that version is now
+ * accepted and the target's row is cleared, provided the pass's trusted base
+ * (`base_rev`) is the row's trusted base as it stands now, or an ancestor of
+ * it (`clearUnverifiedMatchIfCertified`; ancestry from git in the
+ * integration checkout, failing closed). A row re-based or re-recorded since
+ * the checkpoint is judged as it is now. The certified content must also be
+ * what landed: before the apply the row's whole source file on disk
+ * (committed, staged and unstaged) was the claim base's
+ * (`unverifiedFreshnessBeforeApply`), the row cleared is the one that check
+ * read, and the file is unchanged between the claim base and `preApplyRev`
+ * (`sourceUnchangedSinceClaim`). Any change to it since the claim (it may be
+ * a newer implementation the row now describes), or a fact that cannot be
+ * established, leaves the row active although the patch applied. Nothing else clears it here (a validation pass alone, a skipped,
+ * conflicting or rejected output). Never throws: the commit already landed.
+ */
+/** The checkpoint's certification for this integration's own target, else null. */
+function integratedUnverifiedCertification(record: WorkerOutputIntegrationRecord, metadata: Record<string, unknown>): UnverifiedMatchCertification | null {
+  const certification = checkpointUnverifiedCertification(metadata);
+  return certification && record.targetKey === `${certification.unit}::${certification.symbol}` ? certification : null;
+}
+
+/**
+ * Before `git apply`, for a checkpoint that would clear its target's
+ * `unverified_match` row: whether the row's source file on disk is still the
+ * claim base's (`sourceFreshBeforeApply`). Null when there is nothing to
+ * clear. Never throws (a failure is stale).
+ */
+async function unverifiedFreshnessBeforeApply(params: {
+  store: StateStore;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  record: WorkerOutputIntegrationRecord;
+  metadata: Record<string, unknown>;
+}): Promise<SourceFreshness | null> {
+  const certification = integratedUnverifiedCertification(params.record, params.metadata);
+  if (!certification) return null;
+  try {
+    const row = activeUnverifiedMatch(params.store, { gameId: certification.game_id, unit: certification.unit, symbol: certification.symbol });
+    return await sourceFreshBeforeApply({
+      repoRoot: params.repoRoot, claimBaseRev: certification.claim_base_rev, row, run: (cwd, command) => params.commandRunner(cwd, command),
+    });
+  } catch (error) {
+    return { sourcePath: null, recordedAt: null, stale: `content freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+async function clearCertifiedUnverifiedMatch(params: {
+  store: StateStore;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  record: WorkerOutputIntegrationRecord;
+  metadata: Record<string, unknown>;
+  /** HEAD the patch was applied on (`commitAppliedPatch`). */
+  preApplyRev: string;
+  /** The integration commit: the certified version's revision (`cleared_rev`). */
+  integratedRev: string;
+  /** `unverifiedFreshnessBeforeApply`'s result for this integration. */
+  beforeApply: SourceFreshness | null;
+}): Promise<Record<string, unknown> | null> {
+  const { record } = params;
+  const certification = integratedUnverifiedCertification(record, params.metadata);
+  if (!certification) return null;
+  const facts = {
+    game_id: certification.game_id, unit: certification.unit, symbol: certification.symbol, base_rev: certification.base_rev,
+    claim_base_rev: certification.claim_base_rev ?? null, pre_apply_rev: params.preApplyRev || null, checkpoint_id: record.workerCheckpointId,
+  };
+  const git = (cwd: string, command: string[]) => params.commandRunner(cwd, command);
+  try {
+    const result = await clearUnverifiedMatchIfCertified(params.store, {
+      gameId: certification.game_id,
+      unit: certification.unit,
+      symbol: certification.symbol,
+      clearedBy: integrationClearedBy(record.id),
+      clearedRev: params.integratedRev || null,
+      certifiedBaseRev: certification.base_rev,
+      isAncestor: gitRevAncestry(params.repoRoot, git),
+      fresh: sourceUnchangedSinceClaim({
+        repoRoot: params.repoRoot, claimBaseRev: certification.claim_base_rev, preApplyRev: params.preApplyRev, beforeApply: params.beforeApply, run: git,
+      }),
+    });
+    return { ...facts, cleared: result.cleared, row_base_rev: result.rowBaseRev, ...(result.refused ? { refused: result.refused } : {}) };
+  } catch (error) {
+    return { ...facts, cleared: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+interface IntegrationContentBeforeApply {
+  target_key: string | null;
+  source_path: string | null;
+  claim_base_rev: string | null;
+  reason?: string;
+}
+
+/** Whole-file evidence for every landing, including rollback-only targets without an unverified certification. */
+async function integrationContentBeforeApply(params: {
+  store: StateStore;
+  record: WorkerOutputIntegrationRecord;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+}): Promise<IntegrationContentBeforeApply> {
+  const bound: IntegrationContentBeforeApply = { target_key: params.record.targetKey, source_path: null, claim_base_rev: null };
+  try {
+    const source = targetSnapshot(params.store, params.record).source_path;
+    bound.source_path = typeof source === "string" && source ? source : null;
+    const claim = params.store.db.query("SELECT base_rev FROM target_claims WHERE id = ?").get(params.record.targetClaimId) as { base_rev: unknown } | undefined;
+    bound.claim_base_rev = typeof claim?.base_rev === "string" && claim.base_rev ? claim.base_rev : null;
+    if (!bound.target_key) return { ...bound, reason: "the integration has no target key" };
+    if (!bound.source_path) return { ...bound, reason: "the epoch target has no source path" };
+    if (!bound.claim_base_rev || bound.claim_base_rev.startsWith("-")) return { ...bound, reason: "the target claim has no usable base revision" };
+    const tracked = await params.commandRunner(params.repoRoot, ["git", "cat-file", "-e", `${bound.claim_base_rev}:${bound.source_path}`]);
+    if (tracked.exitCode !== 0) return { ...bound, reason: `${bound.source_path} is not in the claim base ${bound.claim_base_rev}` };
+    const diff = await params.commandRunner(params.repoRoot, ["git", "diff", "--quiet", "--no-ext-diff", bound.claim_base_rev, "--", bound.source_path]);
+    if (diff.exitCode !== 0) return {
+      ...bound,
+      reason: diff.exitCode === 1
+        ? `${bound.source_path} differs from the claim base before the apply`
+        : `could not compare ${bound.source_path} with the claim base before the apply`,
+    };
+    return bound;
+  } catch (error) {
+    return { ...bound, reason: `content freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+/** A failed proof is metadata only: the patch already landed and must remain accepted. */
+async function integratedContentFreshness(params: {
+  beforeApply: IntegrationContentBeforeApply;
+  preApplyRev: string;
+  integratedRev: string;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+}): Promise<Record<string, unknown>> {
+  const bound = { ...params.beforeApply, pre_apply_rev: params.preApplyRev, integrated_rev: params.integratedRev };
+  if (bound.reason) return { fresh: false, ...bound };
+  if (!bound.claim_base_rev || !bound.source_path || !params.preApplyRev || params.preApplyRev.startsWith("-") || !params.integratedRev) {
+    return { fresh: false, ...bound, reason: "the landing has incomplete content freshness evidence" };
+  }
+  try {
+    const diff = await params.commandRunner(params.repoRoot, ["git", "diff", "--quiet", "--no-ext-diff", bound.claim_base_rev, params.preApplyRev, "--", bound.source_path]);
+    if (diff.exitCode === 0) return { fresh: true, ...bound };
+    return {
+      fresh: false, ...bound,
+      reason: diff.exitCode === 1
+        ? `${bound.source_path} changed between the claim base and the pre-apply revision`
+        : `could not compare ${bound.source_path} between the claim base and the pre-apply revision`,
+    };
+  } catch (error) {
+    return { fresh: false, ...bound, reason: `landed content freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
@@ -914,7 +1076,8 @@ async function applyClaimedWorkerOutput(params: {
   // Order-and-scope fence: classify the patch over the current HEAD before it
   // touches the index or working tree. Enforce rejects on a reject verdict or
   // any checker failure (fail closed); shadow records and applies.
-  const unusedChecks = checkpointUnusedChecks(checkpointMetadata(params.store, params.record));
+  const integratedCheckpointMetadata = checkpointMetadata(params.store, params.record);
+  const unusedChecks = checkpointUnusedChecks(integratedCheckpointMetadata);
   const { ordering, editScopeRunner, unresolved, storedMode } = params.scope();
   let scopeRecord: Record<string, unknown> | null = null;
   if (!ordering && unresolved) {
@@ -941,6 +1104,11 @@ async function applyClaimedWorkerOutput(params: {
     scopeRecord = integrationScopeRecord(check);
   }
 
+  // Before anything touches the tree: is the target's source still the certified claim-base content?
+  const unverifiedBeforeApply = await unverifiedFreshnessBeforeApply({
+    store: params.store, commandRunner: params.commandRunner, repoRoot: params.repoRoot, record: params.record, metadata: integratedCheckpointMetadata,
+  });
+  const contentBeforeApply = await integrationContentBeforeApply(params);
   const applyCommand = ["git", "apply", params.record.patchPath];
   revalidateIntegrationLease(params.store, params.leaseId);
   const apply = await params.commandRunner(params.repoRoot, applyCommand);
@@ -976,6 +1144,19 @@ async function applyClaimedWorkerOutput(params: {
     store: params.store,
     unusedChecks,
   });
+  const contentFreshness = await integratedContentFreshness({
+    beforeApply: contentBeforeApply, ...revisions, commandRunner: params.commandRunner, repoRoot: params.repoRoot,
+  });
+  const unverifiedCleared = await clearCertifiedUnverifiedMatch({
+    store: params.store,
+    commandRunner: params.commandRunner,
+    repoRoot: params.repoRoot,
+    record: params.record,
+    metadata: integratedCheckpointMetadata,
+    preApplyRev: revisions.preApplyRev,
+    integratedRev: revisions.integratedRev,
+    beforeApply: unverifiedBeforeApply,
+  });
   const result = await updateAndSummarize(params.store, params.record, {
     status: "applied",
     disposition: "clean_apply",
@@ -988,8 +1169,10 @@ async function applyClaimedWorkerOutput(params: {
       validation_state: "tentative",
       pre_apply_rev: revisions.preApplyRev,
       integrated_rev: revisions.integratedRev,
+      steering_content_freshness: contentFreshness,
       ...(scopeRecord ? { edit_scope: scopeRecord } : {}),
       ...(!ordering && unresolved ? { ordering_unresolved: unresolved } : {}),
+      ...(unverifiedCleared ? { unverified_match: unverifiedCleared } : {}),
     },
     integratedRev: revisions.integratedRev,
   });

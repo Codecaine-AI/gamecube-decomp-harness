@@ -1,5 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { getHarnessState } from "@server/core/harness-state/state.js";
+import { completionIndexUnknown, isUnverifiedTarget, type UnverifiedIndex } from "@server/core/harness-runtime/phases/running/board/candidates.js";
+import {
+  completionIndexAt,
+  withholdUnverifiedStoredMeasures,
+  type CompletionIndexSource,
+} from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { buildRegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 
@@ -29,6 +35,8 @@ export interface ScoreTierImprovement {
   bytesDelta?: number;
   kind?: "function" | "section";
   state: ScoreTierState;
+  /** A 100% function still `unverified_match`: not a match, listed with the improvements. */
+  verification?: "unverified_match";
 }
 
 export interface ScoreTierPoint {
@@ -94,12 +102,70 @@ function finiteNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function measures(row: SavePointRow): Record<string, unknown> {
+export interface SavePointProgressRow {
+  matched_code_percent: number | null;
+  /** The saved revision: a revision-aware index withholds the figures under its own holds. */
+  commit_sha?: string | null;
+  report_path?: string | null;
+  payload_json: string;
+}
+
+/** Re-derived stored progress per `report_path` + mtime + active rows: archived reports are immutable but large. */
+const progressCache = new Map<string, Record<string, unknown>>();
+const PROGRESS_CACHE_LIMIT = 512;
+
+const signatures = new WeakMap<UnverifiedIndex, string>();
+
+function unverifiedSignature(unverified: UnverifiedIndex): string {
+  let signature = signatures.get(unverified);
+  if (signature === undefined) {
+    signature = completionIndexUnknown(unverified) ? "\0unknown" : [...unverified.keys()].sort().join("\n");
+    signatures.set(unverified, signature);
+  }
+  return signature;
+}
+
+function storedMeasures(row: SavePointProgressRow): Record<string, unknown> {
   return parseObject(parseObject(row.payload_json).measures);
 }
 
-function score(row: SavePointRow): number | null {
-  return finiteNumber(row.matched_code_percent) ?? finiteNumber(measures(row).matched_code_percent);
+/**
+ * A save point's progress measures and score. Without an index (Melee, gate
+ * off) they are as stored. With one, they are re-derived from the save
+ * point's raw archived report under the active `unverified_match` rows (each
+ * row withheld exactly once, whatever the stored figures withheld), and a
+ * missing report leaves the score unknown rather than raw. A revision-aware
+ * index withholds under the save point's own `commit_sha` (its rollback
+ * holds there), and an unknown one leaves the score unknown.
+ */
+export function savePointProgress(
+  row: SavePointProgressRow,
+  source?: CompletionIndexSource,
+): { score: number | null; measures: Record<string, unknown> } {
+  const stored = storedMeasures(row);
+  const unverified = completionIndexAt(source, row.commit_sha);
+  if (!unverified) return { score: finiteNumber(row.matched_code_percent) ?? finiteNumber(stored.matched_code_percent), measures: stored };
+  const reportPath = row.report_path ?? null;
+  let key: string | null = null;
+  try {
+    if (reportPath && existsSync(reportPath)) {
+      const stat = statSync(reportPath);
+      key = `${reportPath}\0${stat.mtimeMs}\0${stat.size}\0${JSON.stringify(stored)}\0${unverifiedSignature(unverified)}`;
+    }
+  } catch {
+    key = null;
+  }
+  let measures = key ? progressCache.get(key) : undefined;
+  if (!measures) {
+    measures = withholdUnverifiedStoredMeasures(stored, reportPath, unverified);
+    if (key) {
+      if (progressCache.size >= PROGRESS_CACHE_LIMIT) progressCache.delete(progressCache.keys().next().value as string);
+      progressCache.set(key, measures);
+    }
+  }
+  // Missing evidence or a report without a denominator leaves the score unknown, never the raw column.
+  if (measures.unverified_unbounded === true) return { score: null, measures };
+  return { score: finiteNumber(measures.matched_code_percent), measures };
 }
 
 function reportItem(entry: ReportEntry): ScoreTierImprovement {
@@ -176,6 +242,33 @@ function confirmedComparison(baseline: SavePointRow | null, confirmed: SavePoint
   };
 }
 
+/**
+ * Matches of functions still held (`unverified_match`, an uncertified
+ * rollback, or unknown state) are not done: each moves to the improvements
+ * (its score delta still counts), flagged `unverified_match` when `labels`
+ * (the active rows) holds it or no labels are given. Identity without an
+ * index.
+ */
+export function withholdUnverifiedMatches<T extends { matches: ScoreTierMatch[]; improvements: ScoreTierImprovement[] }>(
+  tier: T,
+  unverified: UnverifiedIndex | undefined,
+  labels?: UnverifiedIndex,
+): T {
+  if (!unverified || (unverified.size === 0 && !completionIndexUnknown(unverified))) return tier;
+  const withheld = tier.matches.filter((row) => isUnverifiedTarget(unverified, `${row.unit}::${row.symbol}`));
+  if (withheld.length === 0) return tier;
+  // Flagged only for an active row: a rollback hold or unknown state is withheld, not labelled.
+  const flagged = (row: { unit: string; symbol: string }) => !labels || labels.has(`${row.unit}::${row.symbol}`);
+  return {
+    ...tier,
+    matches: tier.matches.filter((row) => !withheld.includes(row)),
+    improvements: [
+      ...withheld.map(({ score: _score, ...row }) => flagged(row) ? { ...row, verification: "unverified_match" as const } : row),
+      ...tier.improvements,
+    ],
+  } as T;
+}
+
 /** Normalize saved evidence labels for the score chart. */
 export function scoreTimelineKind(triggerKind: string, label: string | null): ScoreTimelineKind {
   if (triggerKind === "baseline" || triggerKind === "init") return "baseline";
@@ -230,7 +323,19 @@ function tentativeWins(store: StateStore, runId: string | null): DashboardScoreT
 export async function scoreTiersProjection(
   store: StateStore,
   gameId: string,
-  options: { sourceState?: { head: string | null; dirty: boolean | null } } = {},
+  options: {
+    sourceState?: { head: string | null; dirty: boolean | null };
+    /**
+     * Steering-gated games: the completion holds (active `unverified_match`
+     * rows; a revision-aware index adds the rollback holds of each save
+     * point's own commit). Every score, measure and timeline point withholds
+     * them and their matches list as improvements. Omitted (Melee, gate
+     * off): the stored figures.
+     */
+    unverified?: CompletionIndexSource;
+    /** Active rows that flag withheld matches (default: every withheld match is flagged). */
+    labels?: UnverifiedIndex;
+  } = {},
 ): Promise<DashboardScoreTiers> {
   const empty: DashboardScoreTiers = {
     baseline: { score: null, measures: {}, anchorRevision: null, savePointId: null },
@@ -243,6 +348,14 @@ export async function scoreTiersProjection(
   };
   const canonicalState = getHarnessState(store.db, gameId);
   if (canonicalState) {
+    const progress = new Map<string, { score: number | null; measures: Record<string, unknown> }>();
+    const rowProgress = (row: SavePointRow) => {
+      let value = progress.get(row.id);
+      if (!value) progress.set(row.id, value = savePointProgress(row, options.unverified));
+      return value;
+    };
+    const score = (row: SavePointRow) => rowProgress(row).score;
+    const measures = (row: SavePointRow) => rowProgress(row).measures;
     const savePoints = store.db.query(`
       SELECT DISTINCT s.id, s.trigger_kind, s.label, s.commit_sha, s.matched_code_percent,
              s.report_path, s.payload_json, s.created_at
@@ -280,7 +393,8 @@ export async function scoreTiersProjection(
       : baseline;
     const fresh = canonicalState.readiness.evidence === "ready" && options.sourceState?.dirty === false &&
       options.sourceState.head === canonicalState.source.head && latest?.commit_sha === canonicalState.source.head;
-    const comparison = confirmedComparison(baselineReportRow, latest);
+    const comparison = withholdUnverifiedMatches(confirmedComparison(baselineReportRow, latest),
+      latest ? completionIndexAt(options.unverified, latest.commit_sha) : undefined, options.labels);
     return {
       ...empty,
       baseline: { score: baseline ? score(baseline) : null, measures: baseline ? measures(baseline) : {}, anchorRevision: baseline?.commit_sha ?? canonicalState.source.upstream_revision, savePointId: baseline?.id ?? null },
@@ -297,7 +411,9 @@ export async function scoreTiersProjection(
         anchorRevision: baseline?.commit_sha ?? canonicalState.source.upstream_revision,
         ...comparison,
       },
-      tentative: tentativeWins(store, canonicalState.history.run_id),
+      // Not yet saved: held as at the live source head.
+      tentative: withholdUnverifiedMatches(tentativeWins(store, canonicalState.history.run_id),
+        completionIndexAt(options.unverified, options.sourceState?.head ?? canonicalState.source.head), options.labels),
       timeline: savePoints.map((row) => ({ savePointId: row.id, commitSha: row.commit_sha, score: score(row), measures: measures(row), kind: scoreTimelineKind(row.trigger_kind, row.label), label: row.label, createdAt: row.created_at })),
     };
   }

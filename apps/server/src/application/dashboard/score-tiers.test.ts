@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { addSavePoint, ensureCampaign } from "@server/core/harness-runtime/phases/pr/state";
 import { admitEpochTargets, createRun, openState, startSchedulerEpoch } from "@server/core/harness-runtime/run-state";
 import { type StateStore } from "@server/core/orchestrator-state";
-import { scoreTiersProjection } from "./score-tiers.js";
+import { UNKNOWN_COMPLETION_INDEX } from "@server/core/harness-runtime/phases/running/board/candidates.js";
+import { savePointProgress, scoreTiersProjection, withholdUnverifiedMatches, type ScoreTierImprovement } from "./score-tiers.js";
 
 const tempDirs: string[] = [];
 afterAll(() => {
@@ -279,5 +280,104 @@ describe("score tiers projection", () => {
       expect(projection.timeline).toEqual([]);
       expect(projection.tentative).toEqual({ matches: [], improvements: [] });
     } finally { store.db.close(); }
+  });
+  test("percent-only archived reports keep gated baseline, confirmed and timeline scores unknown", async () => {
+    const store = fixture();
+    try {
+      const reportPath = join(store.stateDir, "percent-only.json");
+      writeReport(reportPath, 100, [{ name: "F", score: 100 }]);
+      store.db.query("UPDATE save_points SET matched_code_percent = 100, report_path = ?").run(reportPath);
+
+      const projection = await scoreTiersProjection(store, "melee", { ...fresh, unverified: new Set(["main/test::F"]) });
+      expect(projection.baseline.score).toBeNull();
+      expect(projection.baseline.measures.matched_code_percent).toBeNull();
+      expect(projection.confirmed.score).toBeNull();
+      expect(projection.confirmed.measures).toMatchObject({ matched_code_percent: null, unverified_functions: 1 });
+      expect(projection.timeline.map((point) => point.score)).toEqual([null, null]);
+    } finally { store.db.close(); }
+  });
+
+  test("steering-gated tiers withhold active unverified functions from scores, the timeline and the matches", async () => {
+    const store = fixture();
+    try {
+      // Two 40-byte functions; `F` went from 50% to 100% and is `unverified_match`.
+      const write = (path: string, fScore: number) => writeFileSync(path, JSON.stringify({
+        measures: { total_code: "80", matched_code: fScore >= 100 ? "80" : "40", matched_code_percent: fScore >= 100 ? 100 : 50, fuzzy_match_percent: (100 + fScore) / 2 },
+        units: [{ name: "main/test", functions: [{ name: "Kept", size: "40", fuzzy_match_percent: 100 }, { name: "F", size: "40", fuzzy_match_percent: fScore }] }],
+      }));
+      const baseReport = join(store.stateDir, "gated-base.json");
+      const headReport = join(store.stateDir, "gated-head.json");
+      write(baseReport, 50);
+      write(headReport, 100);
+      addPoint(store, "gated-base", "upstream", 50, "2026-08-26T02:00:00Z", baseReport);
+      transition(store, {}, "gated-base");
+      addPoint(store, "gated-head", "head2", 100, "2026-08-26T03:00:00Z", headReport);
+      // Saved before `F` was recorded unverified: an adjusted figure that withheld nothing.
+      store.db.query("UPDATE save_points SET payload_json = ? WHERE id = 'gated-head'")
+        .run(JSON.stringify({ measures: { total_code: "80", matched_code: "80", matched_code_percent: 100, unverified_functions: 0 } }));
+      transition(store, { source: { head: "head2" }, readiness: { evidence: "ready" }, history: { save_point_id: "gated-head" } }, "gated-head");
+      const sourceState = { head: "head2", dirty: false };
+
+      const gated = await scoreTiersProjection(store, "melee", { sourceState, unverified: new Set(["main/test::F"]) });
+      // Re-derived from the raw archived report, despite the stored figure.
+      expect(gated.confirmed.score).toBe(50);
+      expect(gated.confirmed.measures).toMatchObject({ matched_code_percent: 50, unverified_functions: 1, unverified_code: 40 });
+      expect(gated.timeline.find((point) => point.savePointId === "gated-head")?.score).toBe(50);
+      // A save point without its archived report cannot bound the exclusion: unknown, never the raw column.
+      expect(gated.timeline.find((point) => point.savePointId === "confirmed")?.score).toBeNull();
+      expect(gated.baseline.score).toBeNull();
+      expect(gated.confirmed.matches).toEqual([]);
+      expect(gated.confirmed.improvements.map((entry) => [entry.symbol, entry.verification])).toContainEqual(["F", "unverified_match"]);
+
+      // Without an index (Melee, gate off) the stored figures and the match stand.
+      const raw = await scoreTiersProjection(store, "melee", { sourceState });
+      expect(raw.confirmed.score).toBe(100);
+      expect(raw.timeline.find((point) => point.savePointId === "confirmed")?.score).toBe(91.08);
+      expect(raw.confirmed.matches.map((entry) => entry.symbol)).toEqual(["F"]);
+    } finally { store.db.close(); }
+  });
+});
+
+describe("savePointProgress with a revision-aware index", () => {
+  test("the same archived report is judged at each save point's own revision, and unknown state leaves the score unknown", () => {
+    const dir = mkdtempSync(join(tmpdir(), "score-tiers-progress-"));
+    tempDirs.push(dir);
+    const reportPath = join(dir, "report.json");
+    writeFileSync(reportPath, JSON.stringify({
+      measures: { total_code: "80", matched_code: "80", matched_code_percent: 100 },
+      units: [{ name: "u", functions: [{ name: "kept", size: "40", fuzzy_match_percent: 100 }, { name: "held", size: "40", fuzzy_match_percent: 100 }] }],
+    }));
+    const row = (commitSha: string) => ({
+      matched_code_percent: 100, commit_sha: commitSha, report_path: reportPath,
+      payload_json: JSON.stringify({ measures: { total_code: "80", matched_code: "80", matched_code_percent: 100 } }),
+    });
+    // `u::held` is held at the older save point only (its certificate is not an ancestor there).
+    const source = { unknown: false, at: (rev: string | null | undefined) => rev === "old" ? new Set(["u::held"]) : new Set<string>() };
+
+    expect(savePointProgress(row("old"), source)).toMatchObject({ score: 50, measures: { matched_code_percent: 50, unverified_functions: 1 } });
+    expect(savePointProgress(row("new"), source).score).toBe(100);
+    const unknown = savePointProgress(row("new"), { unknown: true, at: () => UNKNOWN_COMPLETION_INDEX });
+    expect(unknown.score).toBeNull();
+    expect(unknown.measures).toMatchObject({ matched_code_percent: null, unverified_unbounded: true });
+  });
+});
+
+describe("withholdUnverifiedMatches", () => {
+  const match = (symbol: string) => ({
+    targetKey: `u::${symbol}`, unit: "u", symbol, score: 100, oldScore: 50, newScore: 100, delta: 50, state: "in_branch" as const,
+  });
+  const tier = { matches: [match("rolledBack"), match("active"), match("clean")], improvements: [] as ScoreTierImprovement[] };
+
+  test("held matches move to the improvements, flagged only when an active row labels them", () => {
+    const view = withholdUnverifiedMatches(tier, new Set(["u::rolledBack", "u::active"]), new Set(["u::active"]));
+    expect(view.matches.map((entry) => entry.symbol)).toEqual(["clean"]);
+    expect(view.improvements.map((entry) => [entry.symbol, entry.verification])).toEqual([["rolledBack", undefined], ["active", "unverified_match"]]);
+    expect(view.improvements[0]).not.toHaveProperty("score");
+  });
+
+  test("an unknown index withholds every match", () => {
+    const view = withholdUnverifiedMatches(tier, UNKNOWN_COMPLETION_INDEX, new Set());
+    expect(view.matches).toEqual([]);
+    expect(view.improvements.map((entry) => [entry.symbol, entry.verification])).toEqual([["rolledBack", undefined], ["active", undefined], ["clean", undefined]]);
   });
 });

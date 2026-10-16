@@ -12,6 +12,10 @@ import { blockingWorkerOutputIntegrationCount, enqueueWorkerOutputIntegration } 
 import { runCommand } from "@server/infrastructure/shell";
 import { integrationCommitMessage, processWorkerOutputIntegrationQueue } from "./worker-output-queue.js";
 import { unitInputsSha256 } from "@server/core/validation/edit-scope/unused-evidence.js";
+import { activeUnverifiedMatch, clearUnverifiedMatch, listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { runConfirmationPass, type ConfirmationPassDeps } from "../epochs/confirmation-pass.js";
+import { UNVERIFIED_MATCH_CERTIFICATION_KEY } from "@server/core/validation/steering/unverified-certification.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 
 const tempDirs: string[] = [];
 
@@ -846,6 +850,357 @@ describe("integration UNUSED certificates bind to unit content", () => {
 
       expect(fake.calls[0]!.unusedChecks).toEqual([dependencyCertificate]);
       expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+    } finally {
+      store.db.close();
+    }
+  });
+});
+
+describe("integration records landed content freshness for rollback-only targets", () => {
+  const claimed = ["int value = 0;", ...Array.from({ length: 12 }, (_, index) => `// context ${index}`), "int f(void) { return 1; }", ""].join("\n");
+  const newerF = claimed.replace("return 1;", "return 2;");
+
+  async function setupRollbackLanding() {
+    // A later enforced own-target pass, with no unverified_match certification.
+    const ctx = await setupRun("worker-integration-rollback-content-", {
+      runner_validation: {
+        status: "passed",
+        steering: {
+          mode: "enforce", error: null, artifactPath: null, durationMs: 1,
+          decision: {
+            attempt: "pass", reasons: [], removable_noncosmetic: [], probes: [], violations: [], unused_checks: [], order_checks: [],
+            functions: [{
+              unit: "unit", name: "symbol", decision: "pass", semantic: "clean", analysis: "complete", audit_label: "clean",
+              match: { base: 90, candidate: 100, real_only: 100 }, groups: ["g1"],
+            }],
+            units: [{ unit: "unit", built: true, compared: true }],
+          },
+        },
+      },
+    });
+    const { store, repo, stateDir, run } = ctx;
+    writeFileSync(join(repo, "src/a.c"), claimed);
+    git(repo, ["commit", "-qam", "claim base"]);
+    const claimBaseRev = git(repo, ["rev-parse", "HEAD"]);
+    writeFileSync(join(repo, "src/a.c"), claimed.replace("value = 0", "value = 1"));
+    writeFileSync(join(stateDir, "worker.patch"), `${git(repo, ["diff"])}\n`);
+    writeFileSync(join(repo, "src/a.c"), claimed);
+    store.db.query(`
+      INSERT INTO epoch_targets (id, epoch_id, run_id, target_key, unit, symbol, source_path, size, baseline_score, priority, admission_index, status, admitted_at)
+      VALUES ('target-1', 'epoch-1', ?, 'unit::symbol', 'unit', 'symbol', 'src/a.c', 16, 90, 1, 0, 'claimed', '2026-08-10T00:00:00.000Z')
+    `).run(run.id);
+    store.db.query(`
+      INSERT INTO target_claims (id, run_id, epoch_id, epoch_target_id, worker_id, base_rev, status, claimed_at)
+      VALUES ('claim-1', ?, 'epoch-1', 'target-1', 'worker-1', ?, 'active', '2026-08-10T00:00:00.000Z')
+    `).run(run.id, claimBaseRev);
+    const rollbackId = recordSteeringRollback(store, {
+      gameId: "test", unit: "unit", symbol: "symbol", analyzedRev: claimBaseRev, baseRev: claimBaseRev,
+      initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+    });
+    store.db.query("UPDATE steering_rollbacks SET recorded_at = ?, updated_at = ? WHERE id = ?")
+      .run("2026-08-10T00:00:00.000Z", "2026-08-10T00:00:00.000Z", rollbackId);
+    store.db.query("UPDATE worker_checkpoints SET new_score = 100, exact_match = 1 WHERE id = 'checkpoint-integration-1'").run();
+    return { ...ctx, claimBaseRev };
+  }
+
+  test("non-overlapping committed, staged and unstaged source edits land but have stale evidence; unchanged source stays fresh", async () => {
+    for (const change of ["none", "commit", "staged", "unstaged", "other-file"] as const) {
+      const { store, repo, stateDir, run, leaseId, claimBaseRev } = await setupRollbackLanding();
+      try {
+        if (change === "commit" || change === "staged" || change === "unstaged") writeFileSync(join(repo, "src/a.c"), newerF);
+        if (change === "commit") git(repo, ["commit", "-qam", "intervening non-overlapping f edit"]);
+        if (change === "staged") git(repo, ["add", "src/a.c"]);
+        if (change === "other-file") {
+          writeFileSync(join(repo, "src/a.h"), "extern int value;\nextern int other;\n");
+          git(repo, ["commit", "-qam", "unrelated header edit"]);
+        }
+        const preApplyRev = git(repo, ["rev-parse", "HEAD"]);
+        const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+        const fresh = change === "none" || change === "other-file";
+        const landed = (fresh ? claimed : newerF).replace("value = 0", "value = 1");
+        expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+        expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe(landed);
+        const head = git(repo, ["rev-parse", "HEAD"]);
+        const metadata = JSON.parse(String(integration(store).metadata_json));
+        expect(metadata.steering_content_freshness).toEqual({
+          fresh, target_key: "unit::symbol", source_path: "src/a.c", claim_base_rev: claimBaseRev,
+          pre_apply_rev: preApplyRev, integrated_rev: head,
+          ...(!fresh ? { reason: "src/a.c differs from the claim base before the apply" } : {}),
+        });
+        expect(metadata).toMatchObject({ pre_apply_rev: preApplyRev, integrated_rev: head });
+        expect(checkpointRow(store).new_score).toBe(100);
+        expect(activeUnverifiedMatch(store, { gameId: "test", unit: "unit", symbol: "symbol" })).toBeNull();
+      } finally {
+        store.db.close();
+      }
+    }
+  }, 30_000);
+
+  test("a working-tree restoration cannot hide changed committed source at the accepted pre-apply revision", async () => {
+    const { store, repo, stateDir, run, leaseId, claimBaseRev } = await setupRollbackLanding();
+    try {
+      writeFileSync(join(repo, "src/a.c"), newerF);
+      git(repo, ["commit", "-qam", "intervening f edit"]);
+      const preApplyRev = git(repo, ["rev-parse", "HEAD"]);
+      // The whole file on disk equals the claim base, but HEAD still has the intervening edit.
+      writeFileSync(join(repo, "src/a.c"), claimed);
+      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+      expect(result.processed[0]?.status).toBe("applied");
+      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe(claimed.replace("value = 0", "value = 1"));
+      expect(JSON.parse(String(integration(store).metadata_json)).steering_content_freshness).toEqual({
+        fresh: false, target_key: "unit::symbol", source_path: "src/a.c", claim_base_rev: claimBaseRev,
+        pre_apply_rev: preApplyRev, integrated_rev: git(repo, ["rev-parse", "HEAD"]),
+        reason: "src/a.c changed between the claim base and the pre-apply revision",
+      });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("missing immutable claim base or source at that base records stale evidence without rejecting the apply", async () => {
+    for (const missing of ["claim-base", "source-at-base"] as const) {
+      const { store, repo, stateDir, run, leaseId } = await setupRollbackLanding();
+      try {
+        const claimBaseRev = missing === "claim-base" ? null : git(repo, ["rev-parse", "HEAD"]);
+        store.db.query("UPDATE target_claims SET base_rev = ? WHERE id = 'claim-1'").run(claimBaseRev);
+        if (missing === "source-at-base") store.db.query("UPDATE epoch_targets SET source_path = 'src/missing.c' WHERE id = 'target-1'").run();
+        const preApplyRev = git(repo, ["rev-parse", "HEAD"]);
+        const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+        expect(result.processed[0]?.status).toBe("applied");
+        expect(JSON.parse(String(integration(store).metadata_json)).steering_content_freshness).toEqual({
+          fresh: false, target_key: "unit::symbol", source_path: missing === "claim-base" ? "src/a.c" : "src/missing.c", claim_base_rev: claimBaseRev,
+          pre_apply_rev: preApplyRev, integrated_rev: git(repo, ["rev-parse", "HEAD"]),
+          reason: missing === "claim-base" ? "the target claim has no usable base revision" : `src/missing.c is not in the claim base ${claimBaseRev}`,
+        });
+      } finally {
+        store.db.close();
+      }
+    }
+  });
+});
+
+describe("integration clears a certified unverified_match", () => {
+  // insertQueued's target key is `unit::symbol`.
+  const target = { gameId: "test", unit: "unit", symbol: "symbol" };
+  const certified = {
+    [UNVERIFIED_MATCH_CERTIFICATION_KEY]: {
+      kind: "unverified_match", game_id: "test", unit: "unit", symbol: "symbol", mode: "enforce", decision: "pass", base_rev: "base-test", artifact_path: null,
+    },
+  };
+
+  function markUnverified(store: StateStore): void {
+    recordUnverifiedMatch(store, { ...target, analyzedRev: "analyzed", baseRev: "base-test", sourcePath: "src/a.c", match: { base: 96, candidate: 100, real_only: 98 }, reasons: ["IR oracle failed for the unit"] });
+  }
+
+  // The checkpoint's certification, with what the worker recorded about its claim (`claim_base_rev`).
+  function certify(store: StateStore, extra: Record<string, unknown>): void {
+    store.db.query("UPDATE worker_checkpoints SET metadata_json = ? WHERE id = 'checkpoint-integration-1'")
+      .run(JSON.stringify({ [UNVERIFIED_MATCH_CERTIFICATION_KEY]: { ...certified[UNVERIFIED_MATCH_CERTIFICATION_KEY], ...extra } }));
+  }
+
+  function unverifiedRow(store: StateStore): Record<string, unknown> {
+    return store.db.query("SELECT * FROM steering_unverified_matches WHERE game_id = 'test' AND unit = 'unit' AND symbol = 'symbol'").get() as Record<string, unknown>;
+  }
+
+  function clearedBy(store: StateStore): unknown {
+    return unverifiedRow(store).cleared_by;
+  }
+
+  // An approved widening on the claim makes its integration a blame candidate
+  // of the epoch confirmation pass.
+  function widenClaim(store: StateStore, runId: string): void {
+    store.db.query(
+      `INSERT INTO write_set_widenings (id, run_id, epoch_id, target_claim_id, worker_state_id, attempt_index, category, rung, status, created_at)
+       VALUES ('widening-1', ?, 'epoch-1', 'claim-1', 'worker-1', 0, 'header', 1, 'approved', '2026-08-11T00:00:00.000Z')`,
+    ).run(runId);
+  }
+
+  // The live revert settlement performs: reverse-apply the blamed patch and commit.
+  function revertIn(repo: string): ConfirmationPassDeps["revertLive"] {
+    return async (candidate) => {
+      git(repo, ["apply", "--reverse", candidate.patchPath!]);
+      git(repo, ["commit", "-am", "confirmation: revert"]);
+      return { ok: true, revision: git(repo, ["rev-parse", "HEAD"]) };
+    };
+  }
+
+  // The epoch confirmation pass on a dirty global whose probe blames the widened integration.
+  function confirmDirtyEpoch(store: StateStore, runId: string, revertLive: ConfirmationPassDeps["revertLive"]) {
+    return runConfirmationPass({
+      enabled: true,
+      store,
+      runId,
+      global: { clean: false, buildId: "epoch-build", reportPath: "/reports/dirty.json", regressionPaths: ["src/a.c"] },
+      deps: { probeWithout: async () => true, revertLive, now: () => "2026-08-12T00:00:00.000Z" },
+    });
+  }
+
+  test("a clean apply of the certified checkpoint clears the target's row", async () => {
+    const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-", certified);
+    try {
+      markUnverified(store);
+      certify(store, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+      expect(activeUnverifiedMatch(store, target)).toBeNull();
+      expect(clearedBy(store)).toBe(`integration:${result.processed[0]!.id}`);
+      // The certifying revision is the integration commit: saved revisions before it stay held.
+      expect(unverifiedRow(store).cleared_rev).toBe(git(repo, ["rev-parse", "HEAD"]));
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("the clear holds only while the certification's base is the row's current trusted base or an ancestor of it", async () => {
+    const cases = [
+      // The backfill at H measured from B marked the target; a pass measured from H treats B..H as trusted.
+      { name: "later base", certifiedAt: "H", rowAt: "B", cleared: false },
+      { name: "base git cannot place", certifiedAt: "unknown", rowAt: "B", cleared: false },
+      // Re-based since the checkpoint to an older trusted base: the certification no longer covers the row.
+      { name: "row re-based to an ancestor since the checkpoint", certifiedAt: "B", rowAt: "A", cleared: false },
+      { name: "ancestor of the row's base", certifiedAt: "B", rowAt: "H", cleared: true },
+    ] as const;
+    const outcomes = [];
+    for (const { name, certifiedAt, rowAt } of cases) {
+      const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-base-", certified);
+      try {
+        // A (the repo's baseline) -> B -> H, each touching only the header the patch leaves alone.
+        const revs: Record<string, string> = { A: git(repo, ["rev-parse", "HEAD"]), unknown: "0000000000000000000000000000000000000000" };
+        for (const [rev, text] of [["B", "extern int value; /* B */\n"], ["H", "extern int value; /* H */\n"]] as const) {
+          writeFileSync(join(repo, "src/a.h"), text);
+          git(repo, ["commit", "-qam", rev]);
+          revs[rev] = git(repo, ["rev-parse", "HEAD"]);
+        }
+        // The worker claimed at H; only the trusted base its target-only run used varies.
+        certify(store, { base_rev: revs[certifiedAt], claim_base_rev: revs.H });
+        recordUnverifiedMatch(store, { ...target, analyzedRev: revs.H!, baseRev: revs[rowAt], sourcePath: "src/a.c", match: { base: 96, candidate: 100, real_only: 98 }, reasons: ["IR oracle failed for the unit"] });
+        const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+        outcomes.push({
+          name,
+          status: result.processed[0]?.status,
+          cleared: activeUnverifiedMatch(store, target) === null,
+          clearedBy: clearedBy(store) ?? null,
+          rowBase: unverifiedRow(store).base_rev === revs[rowAt],
+        });
+      } finally {
+        store.db.close();
+      }
+    }
+    expect(outcomes.map(({ clearedBy: by, ...outcome }) => ({ ...outcome, clearedByIntegration: typeof by === "string" && by.startsWith("integration:") })))
+      .toEqual(cases.map(({ name, cleared }) => ({ name, status: "applied", cleared, clearedByIntegration: cleared, rowBase: true })));
+  });
+
+  test("the clear needs the target's whole source to be the claim base's when the patch lands", async () => {
+    // f is far from the patched line: every edit below applies cleanly beside the patch.
+    const claimed = ["int value = 0;", "", "", "", "", "", "", "int f(void) { return 1; }", ""].join("\n");
+    const newerF = claimed.replace("return 1;", "return 2;");
+    const contextPatch = ["diff --git a/src/a.c b/src/a.c", "--- a/src/a.c", "+++ b/src/a.c", "@@ -1,4 +1,4 @@", "-int value = 0;", "+int value = 1;", " ", " ", " ", ""].join("\n");
+    const cases = [
+      { name: "unchanged since the claim", change: "none", cleared: true },
+      // Another integration changed f without touching the patch; a backfill re-recorded it from the same base.
+      { name: "non-overlapping commit, re-recorded", change: "commit", cleared: false },
+      { name: "staged edit", change: "staged", cleared: false },
+      { name: "unstaged edit", change: "unstaged", cleared: false },
+      { name: "no claim base in the certification", change: "no-claim-base", cleared: false },
+    ] as const;
+    const outcomes = [];
+    for (const { name, change } of cases) {
+      const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-fresh-", certified);
+      try {
+        writeFileSync(join(repo, "src/a.c"), claimed);
+        git(repo, ["commit", "-qam", "claim base"]);
+        writeFileSync(join(stateDir, "worker.patch"), contextPatch);
+        markUnverified(store);
+        certify(store, change === "no-claim-base" ? {} : { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+        if (change !== "none" && change !== "no-claim-base") writeFileSync(join(repo, "src/a.c"), newerF);
+        if (change === "staged") git(repo, ["add", "src/a.c"]);
+        if (change === "commit") {
+          git(repo, ["commit", "-qam", "newer f"]);
+          recordUnverifiedMatch(store, { ...target, analyzedRev: git(repo, ["rev-parse", "HEAD"]), baseRev: "base-test", sourcePath: "src/a.c", match: { base: 96, candidate: 100, real_only: 98 }, reasons: ["IR oracle failed for the unit"] });
+        }
+        const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+        outcomes.push({
+          name,
+          status: result.processed[0]?.status,
+          landed: readFileSync(join(repo, "src/a.c"), "utf8") === (change === "none" || change === "no-claim-base" ? claimed : newerF).replace("value = 0", "value = 1"),
+          cleared: activeUnverifiedMatch(store, target) === null,
+        });
+      } finally {
+        store.db.close();
+      }
+    }
+    expect(outcomes).toEqual(cases.map(({ name, cleared }) => ({ name, status: "applied", landed: true, cleared })));
+  });
+
+  test("a conflicting certified output, or a clean apply without the certification, keeps the row", async () => {
+    const conflict = await setupRun("worker-integration-unverified-conflict-", certified);
+    try {
+      markUnverified(conflict.store);
+      writeFileSync(join(conflict.repo, "src/a.c"), "int value = 2;\n");
+      git(conflict.repo, ["commit", "-am", "current side"]);
+      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId: conflict.leaseId, repoRoot: conflict.repo, runId: conflict.run.id, stateDir: conflict.stateDir, store: conflict.store, ordering: null });
+      expect(result.processed[0]).toMatchObject({ status: "conflict" });
+      expect(activeUnverifiedMatch(conflict.store, target)).not.toBeNull();
+    } finally {
+      conflict.store.db.close();
+    }
+
+    const uncertified = await setupRun("worker-integration-unverified-plain-");
+    try {
+      markUnverified(uncertified.store);
+      const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId: uncertified.leaseId, repoRoot: uncertified.repo, runId: uncertified.run.id, stateDir: uncertified.stateDir, store: uncertified.store, ordering: null });
+      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+      expect(activeUnverifiedMatch(uncertified.store, target)).not.toBeNull();
+    } finally {
+      uncertified.store.db.close();
+    }
+  });
+
+  test("the epoch revert of the clearing integration makes the row active again, as recorded", async () => {
+    const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-revert-", certified);
+    try {
+      markUnverified(store);
+      certify(store, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+      const recorded = unverifiedRow(store);
+      const applied = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+      const integrationId = applied.processed[0]!.id;
+      expect(clearedBy(store)).toBe(`integration:${integrationId}`);
+      widenClaim(store, run.id);
+
+      // Blamed, but the code could not be rolled back: the accepted version stands.
+      const unreverted = await confirmDirtyEpoch(store, run.id, async () => ({ ok: false, error: "reverse apply check failed" }));
+      expect(unreverted.status).toBe("unattributed");
+      expect(activeUnverifiedMatch(store, target)).toBeNull();
+
+      const reverted = await confirmDirtyEpoch(store, run.id, revertIn(repo));
+      expect(reverted).toMatchObject({ status: "regressed", regressedId: integrationId });
+      expect(readFileSync(join(repo, "src/a.c"), "utf8")).toBe("int value = 0;\n");
+      expect(unverifiedRow(store)).toEqual(recorded);
+      expect(activeUnverifiedMatch(store, target)?.match.candidate).toBe(100);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("the epoch revert leaves rows another pass cleared, or re-recorded and certified since, cleared", async () => {
+    const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-revert-scope-", certified);
+    try {
+      markUnverified(store);
+      certify(store, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+      const other = { ...target, symbol: "other" };
+      recordUnverifiedMatch(store, { ...other, analyzedRev: "analyzed", match: { base: 50, candidate: 100, real_only: null }, reasons: ["no steering located"] });
+      expect(clearUnverifiedMatch(store, { ...other, clearedBy: "integration:another-integration" })).toBeTrue();
+      const applied = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+      expect(clearedBy(store)).toBe(`integration:${applied.processed[0]!.id}`);
+      // Since the apply, a backfill re-recorded the target and a certified unit passed it.
+      recordUnverifiedMatch(store, { ...target, analyzedRev: "rescanned", match: { base: 96, candidate: 100, real_only: 100 }, reasons: ["IR oracle failed for the unit"] });
+      expect(clearUnverifiedMatch(store, { ...target, clearedBy: "backfill:rev-2" })).toBeTrue();
+      widenClaim(store, run.id);
+
+      const reverted = await confirmDirtyEpoch(store, run.id, revertIn(repo));
+      expect(reverted.status).toBe("regressed");
+      expect(clearedBy(store)).toBe("backfill:rev-2");
+      expect(listUnverifiedMatches(store, "test")).toEqual([]);
     } finally {
       store.db.close();
     }

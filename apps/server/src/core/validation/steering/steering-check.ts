@@ -34,6 +34,12 @@ export interface SteeringFunctionDecision {
   analysis: "complete" | "incomplete";
   audit_label: string;
   match: { base: number | null; candidate: number | null; real_only: number | null };
+  /**
+   * The ids of this attempt's edit groups touching the function (`decide`'s
+   * row `groups`). Kept only when it is an array of non-empty strings; empty
+   * means the attempt left the function alone.
+   */
+  groups?: string[];
 }
 
 export interface SteeringProbe {
@@ -478,6 +484,7 @@ export function parseSteeringDecision(json: unknown): SteeringDecision | null {
       analysis: row.analysis === "complete" ? "complete" : "incomplete",
       audit_label: typeof row.audit_label === "string" ? row.audit_label : "unresolved",
       match: { base: finiteOrNull(match.base), candidate: finiteOrNull(match.candidate), real_only: finiteOrNull(match.real_only) },
+      ...(Array.isArray(row.groups) && row.groups.every((id) => typeof id === "string" && id !== "") ? { groups: [...row.groups] as string[] } : {}),
     });
   }
   const probes = (Array.isArray(root.probes) ? root.probes : [])

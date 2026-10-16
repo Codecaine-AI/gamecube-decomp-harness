@@ -17,6 +17,8 @@ export {
 } from "./trusted-report.js";
 export {
   boardMeasuresFromReportSummary,
+  publishedReportRunResult,
   recordReportRunDashboardArtifacts,
+  type PublishedReportRunResult,
   type RecordReportRunDashboardArtifactsInput,
 } from "./dashboard-artifacts.js";

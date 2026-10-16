@@ -10,6 +10,8 @@ import {
 import { openKnowledgeGraph, readReportProvenance } from "@server/core/knowledge/graph";
 import { loadExactTargetKeys, loadStackOnlyTargetKeys } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
 import { stackOnlyIndexForGame } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
+import { steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import type { UnverifiedIndex } from "@server/core/harness-runtime/phases/running/board/candidates.js";
 import {
   activeWorkerCount,
   activeSchedulerEpoch,
@@ -136,14 +138,27 @@ export function refreshReadinessArtifact(params: {
 }): boolean {
   const gameId = params.globals.game?.gameId ?? params.globals.gameId;
   const stackOnly = stackOnlyIndexForGame(params.store, { gameId, stackFramePolicy: params.globals.game?.matching?.stackFramePolicy });
+  const unverified = completionHoldsAtHead(params.store, params.globals, gameId);
   const readiness = boardReadinessOptions(params.readiness);
   const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
     graphDbPath: params.graphDbPath,
     validation: params.globals.game?.validation,
     ...(stackOnly ? { stackOnly } : {}),
+    ...(unverified ? { unverified } : {}),
     ...(readiness ? { readiness } : {}),
   });
   return recordReadinessArtifact(params.store, { runId: params.runId, gameId, board });
+}
+
+/**
+ * Steering-gated games (SMS): targets with no completion credit at the
+ * checkout's HEAD, the same holds settlement and sync withhold: active
+ * `unverified_match` rows and latest rollbacks no certifying rev of which is
+ * an ancestor of HEAD. Undefined without an active gate (Melee: nothing read).
+ */
+function completionHoldsAtHead(store: StateStore, globals: GlobalArgs, gameId: string | null | undefined): UnverifiedIndex | undefined {
+  const holds = steeringCompletionHolds(store, { gameId, steeringGate: globals.game?.matching?.steeringGate }, globals.repoRoot);
+  return holds?.at(readinessRevision(globals.repoRoot));
 }
 
 export function reconcileOrphanedEpochTargets(
@@ -252,11 +267,14 @@ export function ensureSchedulerEpochFromBoard(params: EnsureSchedulerEpochParams
       gameId,
       stackFramePolicy: params.globals.game?.matching?.stackFramePolicy,
     });
+    // Steering-gated games (SMS): held functions (unverified, uncertified rollback) are claimable at 100% and never retired as done.
+    const unverified = completionHoldsAtHead(params.store, params.globals, gameId);
     const readiness = boardReadinessOptions(params.readiness);
     const board = loadKnowledgeBoardSnapshot(params.globals.repoRoot, {
       graphDbPath: params.graphDbPath,
       validation: params.globals.game?.validation,
       ...(stackOnly ? { stackOnly } : {}),
+      ...(unverified && unverified.size > 0 ? { unverified } : {}),
       ...(readiness ? { readiness } : {}),
     });
     if (!progress || progress.admitted === 0) {
@@ -283,10 +301,10 @@ export function ensureSchedulerEpochFromBoard(params: EnsureSchedulerEpochParams
     const availabilityRefresh = refreshEpochTargetAvailability(params.store, epoch.id, {
       exactTargetKeys: stackOnly
         ? new Set([
-            ...loadExactTargetKeys(params.globals.repoRoot, params.globals.game?.validation),
-            ...loadStackOnlyTargetKeys(params.globals.repoRoot, { ...params.globals.game?.validation, stackOnly }),
+            ...loadExactTargetKeys(params.globals.repoRoot, { ...params.globals.game?.validation, ...(unverified ? { unverified } : {}) }),
+            ...loadStackOnlyTargetKeys(params.globals.repoRoot, { ...params.globals.game?.validation, stackOnly, ...(unverified ? { unverified } : {}) }),
           ])
-        : loadExactTargetKeys(params.globals.repoRoot, params.globals.game?.validation),
+        : loadExactTargetKeys(params.globals.repoRoot, { ...params.globals.game?.validation, ...(unverified ? { unverified } : {}) }),
     });
     if (harness && gameId && (admission || !params.prepareOnly)) {
       const current = getHarnessState(params.store.db, gameId)!;

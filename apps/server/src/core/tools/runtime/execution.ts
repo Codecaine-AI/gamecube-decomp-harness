@@ -8,13 +8,21 @@
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { Database } from "bun:sqlite";
 import { runCommand } from "@server/infrastructure/shell";
-import { fileGraphCard } from "@server/core/knowledge/graph/file-card.js";
+import { fileGraphCard, type FileGraphCardOptions } from "@server/core/knowledge/graph/file-card.js";
+import {
+  checkoutHeadRevision,
+  completionHoldRefs,
+  steeringCompletionHolds,
+} from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { createOrchestratorStateOrm } from "@server/core/orchestrator-state";
 import { graphDbExists, openKnowledgeGraph, searchKnowledgeGraph } from "@server/core/knowledge/graph/db.js";
 import { relatedFunctions } from "@server/core/knowledge/graph/queries/related-functions.js";
 import { readSourceRegistry } from "@server/core/knowledge/graph/registry/sources.js";
 import { packageRoot, resourceGraphDbPath, sourceRoot } from "@server/core/knowledge/paths.js";
 import { registeredToolIdsForContext, runRegisteredToolApi, type ToolRuntimeContext } from "../resolver.js";
+import { gameSteeringGate, steeringGateActive } from "../steering-gate.js";
 import type { AgentToolRuntimeContext } from "../types.js";
 import { commandToolPayload } from "./results.js";
 
@@ -139,6 +147,30 @@ export function graphRelatedFunctions(
   }
 }
 
+/**
+ * Read current verification state without creating or migrating the run
+ * database: the targets with no completion credit at the checkout's HEAD
+ * (active `unverified_match` rows and uncertified rollbacks,
+ * `steeringCompletionHolds`), so a graph built before a rollback never shows
+ * its file as complete. An unreadable HEAD clears no rollback.
+ */
+function graphVerificationInputsForContext(context: AgentToolRuntimeContext): FileGraphCardOptions {
+  const gameId = context.game?.gameId;
+  const steeringGate = gameSteeringGate(context.game);
+  const stateDir = context.stateDir ?? context.game?.stateDir;
+  if (!gameId || !stateDir || !steeringGateActive(steeringGate)) return {};
+  const dbPath = resolve(stateDir, "orchestrator.sqlite");
+  if (!existsSync(dbPath)) return {};
+  const db = new Database(dbPath, { readonly: true });
+  try {
+    const repoRoot = context.hostRepoRoot ?? context.game?.repoRoot ?? context.repoRoot;
+    const holds = steeringCompletionHolds({ db, orm: createOrchestratorStateOrm(db), path: dbPath, stateDir }, { gameId, steeringGate }, repoRoot);
+    return { unverifiedMatches: completionHoldRefs(holds?.at(checkoutHeadRevision(repoRoot))) };
+  } finally {
+    db.close();
+  }
+}
+
 /** Load a file-card summary from the SQLite resource graph when available. */
 export function graphFileCard(context: AgentToolRuntimeContext, sourcePath: string): Record<string, unknown> {
   const graphDb = graphDbForContext(context);
@@ -160,7 +192,7 @@ export function graphFileCard(context: AgentToolRuntimeContext, sourcePath: stri
     return {
       status: "ok",
       graph_db: graphDb,
-      file_card: fileGraphCard(store, sourcePath),
+      file_card: fileGraphCard(store, sourcePath, graphVerificationInputsForContext(context)),
     };
   } finally {
     store.db.close();

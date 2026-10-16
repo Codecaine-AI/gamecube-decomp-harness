@@ -54,6 +54,15 @@ export interface WorkerCheckpointInput {
   validationState?: "tentative" | "confirmed" | "regressed";
   failureReasons?: string[];
   metadata?: Record<string, unknown>;
+  /**
+   * An attempt on an `unverified_match` target the enforced steering gate
+   * certified for this worker state's own (unit, symbol). Its match was
+   * already there, so the score need not move, but the certification is the
+   * improvement: a hard-gate-clean checkpoint that is exact (or, with
+   * `targetStackOnly`, done up to the stack frame) and loses no score becomes
+   * selectable. Without it a 100 -> 100 attempt stays unselectable.
+   */
+  verificationImprovement?: { kind: "unverified_match"; unit: string; symbol: string; targetStackOnly?: boolean };
   authority: WorkerWriteAuthority;
 }
 
@@ -758,6 +767,25 @@ function selectBestCheckpointForWorkerState(store: StateStore, workerStateId: st
   return best;
 }
 
+/**
+ * The narrow zero-delta path: a certified exact (or stack-only) attempt on the
+ * worker state's own target that keeps (or raises) both the stored and the
+ * measured baseline.
+ */
+function certifiedVerificationImprovement(
+  store: StateStore,
+  input: WorkerCheckpointInput,
+  scores: { baseline: number | null; oldScore: number | null; newScore: number | null },
+): boolean {
+  const claim = input.verificationImprovement;
+  if (!claim || claim.kind !== "unverified_match" || !input.hardGatesPassed) return false;
+  if (!input.exactMatch && claim.targetStackOnly !== true) return false;
+  const { baseline, oldScore, newScore } = scores;
+  if (newScore === null || baseline === null || newScore < baseline || (oldScore !== null && newScore < oldScore)) return false;
+  const row = store.db.query("SELECT target_key FROM worker_state WHERE id = ?").get(input.workerStateId) as { target_key?: unknown } | undefined;
+  return row?.target_key === targetKey(claim.unit, claim.symbol);
+}
+
 export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpointInput): WorkerCheckpointRecord {
   const { authority, ...recordInput } = input;
   const id = randomUUID();
@@ -769,7 +797,8 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
   const improvedOverStoredBaseline = baseline !== null && newScore !== null && newScore > baseline;
   const improvedOverValidationBaseline = delta === null ? improvedOverStoredBaseline : delta > 0;
   const exactAgainstStaleBaseline = input.exactMatch && improvedOverStoredBaseline;
-  const improvedOverBaseline = improvedOverStoredBaseline && (improvedOverValidationBaseline || exactAgainstStaleBaseline);
+  const scoreImproved = improvedOverStoredBaseline && (improvedOverValidationBaseline || exactAgainstStaleBaseline);
+  const improvedOverBaseline = scoreImproved || certifiedVerificationImprovement(store, input, { baseline, oldScore, newScore });
   const selectable = input.hardGatesPassed && improvedOverBaseline;
 
   immediateTransaction(store.db, () => {

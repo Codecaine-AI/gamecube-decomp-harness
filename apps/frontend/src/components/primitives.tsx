@@ -1,4 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
+import type { JsonObject } from "@/lib/format";
+import { unverifiedMatch } from "@/lib/verification";
 
 type ButtonTone = "default" | "primary" | "warning" | "danger";
 type ButtonProps = Omit<ComponentProps<"button">, "ref"> & { icon?: ReactNode; tone?: ButtonTone };
@@ -121,6 +123,43 @@ export function Pill({ state }: { state: string }) {
     <span className={`status-tag ${tone}`}>
       <span className="lamp" />
       {state}
+    </span>
+  );
+}
+
+/** Warning text for "100% unverified": design-system token, the app's own token until it loads `tokens.css`. */
+export const UNVERIFIED_TONE = "text-[color:var(--ds-color-status-warning-text,var(--color-status-warning))]";
+
+/**
+ * "100% unverified" badge for a steering-gated function whose code reaches
+ * 100% but the gate could not verify it: claimable, never done. Renders
+ * nothing for verified rows and games without an active steering gate.
+ */
+export function UnverifiedBadge({ row }: { row: JsonObject | null | undefined }) {
+  const view = unverifiedMatch(row);
+  if (!view) return null;
+  return (
+    <span
+      className={[
+        "status-tag min-w-0 shrink-0",
+        "border-[color:var(--ds-color-status-warning-line,var(--color-status-warning-border))]",
+        "bg-[color:var(--ds-color-status-warning-soft,var(--color-status-warning-fill))]",
+        "px-[var(--ds-space-1-5,calc(var(--spacing)*1.5))] py-[var(--ds-space-0,0)]",
+        UNVERIFIED_TONE,
+      ].join(" ")}
+      title={view.title}
+    >
+      {view.label}
+    </span>
+  );
+}
+
+/** A truncating target label followed by its "100% unverified" badge (nothing extra for verified rows). */
+export function LabelWithUnverified({ label, row, className = "" }: { label: ReactNode; row: JsonObject | null | undefined; className?: string }) {
+  return (
+    <span className={`flex min-w-0 items-center gap-[var(--ds-space-1-5,calc(var(--spacing)*1.5))] ${className}`}>
+      <span className="min-w-0 overflow-hidden text-ellipsis">{label}</span>
+      <UnverifiedBadge row={row} />
     </span>
   );
 }

@@ -27,6 +27,7 @@ import {
   buildAttemptMechanicalRows,
   deriveWorkerRunIntegration,
   hasAttemptErrorSignal,
+  loadAttemptMatchHold,
   type AttemptSourceCheckpoint,
   type AttemptSourceCheckpointItem,
   type AttemptSourceIntegration,
@@ -187,7 +188,19 @@ export function narrativeSubmissionsById(
   return rowsById;
 }
 
-function sourceCheckpoint(row: AttemptRecordCheckpointRow): AttemptSourceCheckpoint | null {
+function hasColumn(db: Database, table: string, column: string): boolean {
+  return db.query<{ name: string }, []>(`PRAGMA table_info(${table})`).all().some((row) => row.name === column);
+}
+
+/** Checkpoint id -> its own runner validation artifact; empty on stores from before `artifact_path`. */
+function checkpointArtifactPaths(db: Database, workerStateId: string): Map<string, string | null> {
+  if (!hasColumn(db, "worker_checkpoints", "artifact_path")) return new Map();
+  return new Map(db.query<{ id: string; artifact_path: string | null }, [string]>(
+    "SELECT id, artifact_path FROM worker_checkpoints WHERE worker_state_id = ?",
+  ).all(workerStateId).map((row) => [row.id, row.artifact_path]));
+}
+
+function sourceCheckpoint(row: AttemptRecordCheckpointRow, artifactPaths: ReadonlyMap<string, string | null>): AttemptSourceCheckpoint | null {
   if (typeof row.new_score !== "number") return null;
   return {
     id: row.id,
@@ -195,7 +208,10 @@ function sourceCheckpoint(row: AttemptRecordCheckpointRow): AttemptSourceCheckpo
     validation_time: row.validation_time,
     new_score: row.new_score,
     exact_match: Number(row.exact_match),
+    hard_gates_passed: Number(row.hard_gates_passed),
+    validation_state: row.validation_state,
     metadata_json: row.metadata_json,
+    artifact_path: artifactPaths.get(row.id) ?? null,
   };
 }
 
@@ -222,9 +238,12 @@ export async function handleWorkerSummaryJob(
     const existing = knowledge.db.query<{ id: string }, [string]>(
       "SELECT id FROM worker_run WHERE worker_state_id = ?",
     ).get(workerStateId);
-    if (existing) return { resultRef: existing.id, detail: { skipped: "existing" } };
 
     const state = input.worker_state as unknown as AttemptSourceWorkerState;
+    // Active unverified_match rows and unresolved steering rollbacks, judged on each checkpoint's own gate evidence.
+    // Undefined without recorded steering state (Melee, gate off): an existing run is skipped untouched, as before.
+    const matchHold = loadAttemptMatchHold(orchestratorStore.db, state.target_key);
+    if (existing && !matchHold) return { resultRef: existing.id, detail: { skipped: "existing" } };
     const target = knowledge.db.query<{ id: string; stable_key: string }, [string]>(
       "SELECT id, stable_key FROM target WHERE stable_key = ? AND identity_status = 'current'",
     ).get(state.target_key.replace("::", ":"));
@@ -232,7 +251,8 @@ export async function handleWorkerSummaryJob(
       deps.log?.(`worker_summary skipped ${workerStateId}: no current V2 target`);
       return { detail: { skipped: "no_target" } };
     }
-    const checkpoints = input.checkpoints.map(sourceCheckpoint).filter((row): row is AttemptSourceCheckpoint => row !== null);
+    const artifactPaths = checkpointArtifactPaths(orchestratorStore.db, workerStateId);
+    const checkpoints = input.checkpoints.map((row) => sourceCheckpoint(row, artifactPaths)).filter((row): row is AttemptSourceCheckpoint => row !== null);
     if (checkpoints.length === 0 && !hasAttemptErrorSignal(state)) {
       deps.log?.(`worker_summary skipped ${workerStateId}: no scored checkpoint or error signal`);
       return { detail: { skipped: "no_signal" } };
@@ -257,7 +277,13 @@ export async function handleWorkerSummaryJob(
       closedAt: new Date().toISOString(),
       integration,
       useLegacyIntegrationHeuristic: integrationTable === null,
+      matchHold,
     });
+    if (existing) {
+      knowledge.db.query("UPDATE worker_run SET final_outcome = ?, error_type = ? WHERE id = ?")
+        .run(mechanical.run.finalOutcome, mechanical.run.errorType, existing.id);
+      return { resultRef: existing.id, detail: { skipped: "existing" } };
+    }
     const timeoutMs = (deps.globals.agentTimeoutSeconds || DEFAULT_TIMEOUT_SECONDS) * 1_000;
     const outputDir = resolve(deps.globals.stateDir, "knowledge_v2", "summarizer-output", new Date().toISOString().replace(/[:.]/g, "-"));
     await mkdir(outputDir, { recursive: true });

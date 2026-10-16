@@ -5,6 +5,7 @@ import type { ChartMark } from "../_lib/types";
 const measureRowSpecs = [
   { key: "complete_code_percent", label: "Complete code" },
   { key: "matched_functions_percent", label: "Matched funcs" },
+  { key: "unverified_code_percent", label: "100% unverified" },
   { key: "fuzzy_match_percent", label: "Fuzzy match" },
 ];
 

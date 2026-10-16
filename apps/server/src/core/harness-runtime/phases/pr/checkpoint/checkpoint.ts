@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { immediateTransaction, now, withBusyRetry, type StateStore } from "@server/core/orchestrator-state";
+import { gameSteeringGate } from "@server/core/tools/steering-gate.js";
+import { checkpointOwnRunnerValidation, steeringPrHolds, type SteeringPrHold, type SteeringPrHolds } from "./steering-holds.js";
 
 export type CheckpointDisposition =
   | "pr_candidate"
@@ -10,7 +12,11 @@ export type CheckpointDisposition =
   | "stalled"
   | "needs_rework"
   | "tool_error"
-  | "review_required";
+  | "review_required"
+  // Steering-gated games: an exact checkpoint of an active `unverified_match`,
+  // or of a function a steering rollback rewrote with no later certified pass
+  // (steering-holds.ts). It is not done: no exact credit, it never ships.
+  | "steering_hold";
 
 export interface ImprovementPromotionPolicy {
   minGainPoints: number;
@@ -74,6 +80,9 @@ export interface RunCheckpointResult {
     activationReasons: string[];
     excludedTentative: number;
     excludedRegressed: number;
+    /** Steering-gated games: exact items held back by an active steering hold (any validation state). */
+    steeringGate: string;
+    excludedSteeringHold: number;
   };
   items: RunCheckpointItem[];
 }
@@ -92,6 +101,13 @@ interface CreateRunCheckpointOptions {
    * recorded as needs_rework instead.
    */
   reworkSymbols?: string[];
+  /**
+   * The run's game and its `matching.steeringGate`. Omitted, they come from
+   * the run row and the game's current configuration; an inactive gate
+   * (Melee) applies no steering hold.
+   */
+  gameId?: string | null;
+  steeringGate?: string | null;
   title?: string;
 }
 
@@ -229,6 +245,11 @@ function runnerValidationForCheckpoint(checkpoint: WorkerCheckpointEvidence | nu
   return asObject(workerSummary.runner_validation);
 }
 
+/** The checkpoint's own runner validation only: a hold is never judged by another attempt's result. */
+function ownRunnerValidation(checkpoint: Pick<WorkerCheckpointEvidence, "artifactPath" | "metadata">): Record<string, unknown> {
+  return checkpointOwnRunnerValidation(checkpoint.artifactPath, checkpoint.metadata);
+}
+
 export interface ImprovementPromotionEvaluation {
   promoted: boolean;
   gain_points: number | null;
@@ -336,6 +357,7 @@ function checkpointCounts(items: RunCheckpointItem[]): Record<string, number> {
     needs_rework: 0,
     tool_error: 0,
     review_required: 0,
+    steering_hold: 0,
     exact_match: 0,
     carry_forward: 0,
   };
@@ -362,6 +384,7 @@ function itemFromWorkerState(
   policy: ImprovementPromotionPolicy,
   reworkSymbols: Set<string>,
   confirmedOnlyPrEligibility: boolean,
+  holds: SteeringPrHolds,
 ): RunCheckpointItem {
   const workerSummary = jsonObjectValue(row.summary_json);
   const bestCheckpoint = checkpointFromRow(row, "best");
@@ -374,13 +397,19 @@ function itemFromWorkerState(
   const symbol = stringValue(validationTarget.symbol, stringValue(summaryTarget.symbol, stringValue(row.symbol)));
   const sourcePath = stringValue(validationTarget.source_path, stringValue(summaryTarget.source_path, stringValue(row.source_path)));
   const lifecycleStatus = stringValue(row.lifecycle_status);
-  const exactMatch = Boolean(bestCheckpoint?.selectable && bestCheckpoint.hardGatesPassed && bestCheckpoint.exactMatch);
+  const recordedExact = Boolean(bestCheckpoint?.selectable && bestCheckpoint.hardGatesPassed && bestCheckpoint.exactMatch);
+  // The checkpoint's flags are history: an active hold (unverified, or rolled
+  // back since) outranks them, confirmed or not.
+  const steeringHold = recordedExact && bestCheckpoint
+    ? holds.holdFor(unit, symbol, { validationTime: bestCheckpoint.validationTime, runnerValidation: ownRunnerValidation(bestCheckpoint) })
+    : null;
+  const exactMatch = recordedExact && !steeringHold;
   const improvement =
-    checkpoint && !exactMatch ? evaluateImprovementPromotion(checkpoint, runnerValidation, symbol, policy) : null;
+    checkpoint && !recordedExact ? evaluateImprovementPromotion(checkpoint, runnerValidation, symbol, policy) : null;
   const regressedAgainstBaseline = Boolean(symbol) && reworkSymbols.has(symbol);
   const candidateDisposition = dispositionForWorkerState({
     checkpoint,
-    exactMatch,
+    exactMatch: recordedExact,
     improvement,
     lifecycleStatus,
     regressedAgainstBaseline,
@@ -390,11 +419,13 @@ function itemFromWorkerState(
     confirmedOnlyPrEligibility &&
     (candidateDisposition === "pr_candidate" || candidateDisposition === "improvement_candidate") &&
     validationState !== "confirmed";
-  const disposition = excludedByValidationState
-    ? validationState === "regressed"
-      ? "needs_rework"
-      : "deferred_patch"
-    : candidateDisposition;
+  const disposition: CheckpointDisposition = steeringHold && candidateDisposition === "pr_candidate"
+    ? "steering_hold"
+    : excludedByValidationState
+      ? validationState === "regressed"
+        ? "needs_rework"
+        : "deferred_patch"
+      : candidateDisposition;
   const validationStatus = checkpoint?.validationStatus || stringValue(runnerValidation.status);
   const summaryPath = workerStateSummaryPath(row, workerSummary);
   const itemSummary =
@@ -421,10 +452,13 @@ function itemFromWorkerState(
     pr_eligibility: {
       confirmed_only_gate: confirmedOnlyPrEligibility,
       validation_state: validationState,
-      eligible: !excludedByValidationState,
-      excluded: excludedByValidationState,
+      eligible: !excludedByValidationState && disposition !== "steering_hold",
+      excluded: excludedByValidationState || disposition === "steering_hold",
       candidate_disposition: candidateDisposition,
-      reason: excludedByValidationState
+      ...(steeringHold ? { steering_hold: steeringHold, recorded_exact_match: true } : {}),
+      reason: disposition === "steering_hold" && steeringHold
+        ? `steering hold (${steeringHold.reason}): ${steeringHold.detail}`
+        : excludedByValidationState
         ? `validation_state=${validationState}; confirmed-only PR eligibility gate requires confirmed`
         : confirmedOnlyPrEligibility
           ? "validation_state=confirmed or item was not in a PR-preparation lane"
@@ -762,6 +796,28 @@ function persistCheckpoint(store: StateStore, result: RunCheckpointResult): void
   });
 }
 
+/**
+ * The run's game and steering gate: the caller's, else the run row's game id
+ * resolved through the game's current configuration (`off` when it cannot be
+ * resolved, so non-steering games never read steering state).
+ */
+function runSteeringGame(
+  store: StateStore,
+  runId: string,
+  options: Pick<CreateRunCheckpointOptions, "gameId" | "steeringGate">,
+): { gameId: string | null; steeringGate: string | null } {
+  const row = withBusyRetry(
+    () => store.db.query("SELECT game_id, game_descriptor_path FROM runs WHERE id = ?").get(runId) as Record<string, unknown> | null,
+  );
+  const gameId = options.gameId ?? (stringValue(row?.game_id) || null);
+  const steeringGate = options.steeringGate !== undefined
+    ? options.steeringGate
+    : gameId
+      ? gameSteeringGate({ gameId, descriptorPath: stringValue(row?.game_descriptor_path) || undefined })
+      : null;
+  return { gameId, steeringGate };
+}
+
 export function createRunCheckpoint(store: StateStore, runId: string, options: CreateRunCheckpointOptions = {}): RunCheckpointResult {
   const activeClaims = activeClaimCount(store, runId);
   if (activeClaims > 0 && !options.allowActiveClaims) {
@@ -792,8 +848,10 @@ export function createRunCheckpoint(store: StateStore, runId: string, options: C
   const reworkSymbols = new Set((options.reworkSymbols ?? []).filter(Boolean));
   const activationReasons = confirmedOnlyPrEligibilityReasons(store, runId, options.confirmedOnlyPrEligibility === true);
   const confirmedOnlyPrEligibility = activationReasons.length > 0;
+  const steering = runSteeringGame(store, runId, options);
+  const holds = steeringPrHolds(store, steering);
   const items = workerStateRows(store, runId).map((row) =>
-    itemFromWorkerState(row, checkpointId, runId, createdAt, policy, reworkSymbols, confirmedOnlyPrEligibility),
+    itemFromWorkerState(row, checkpointId, runId, createdAt, policy, reworkSymbols, confirmedOnlyPrEligibility, holds),
   );
   const counts = checkpointCounts(items);
   const eligibility = {
@@ -805,6 +863,8 @@ export function createRunCheckpoint(store: StateStore, runId: string, options: C
     excludedRegressed: items.filter(
       (item) => item.validationState === "regressed" && boolValue(asObject(item.evidence.pr_eligibility).excluded),
     ).length,
+    steeringGate: steering.steeringGate ?? "off",
+    excludedSteeringHold: items.filter((item) => item.disposition === "steering_hold").length,
   };
   const result = { checkpoint, counts, eligibility, items };
   writeArtifacts({
@@ -822,7 +882,54 @@ export function createRunCheckpoint(store: StateStore, runId: string, options: C
   return result;
 }
 
-export function latestCheckpointSummary(store: StateStore, runId: string): Record<string, unknown> | null {
+export interface CheckpointPrRecheck {
+  /** Stored `pr_candidate` items no current steering hold covers: what may still ship. */
+  shipping: Record<string, unknown>[];
+  /** Stored `pr_candidate` items a steering hold now covers, with the hold. */
+  held: Array<{ item: Record<string, unknown>; hold: SteeringPrHold }>;
+}
+
+/**
+ * Re-checks a stored checkpoint's `pr_candidate` items against the current
+ * steering holds. A checkpoint written before a function became unverified
+ * or was rolled back keeps its rows as history; every PR consumer reads the
+ * shipping set through here, never the stored disposition alone.
+ */
+export function recheckCheckpointPrCandidates(
+  store: StateStore,
+  checkpointId: string,
+  game: Pick<CreateRunCheckpointOptions, "gameId" | "steeringGate"> = {},
+): CheckpointPrRecheck {
+  const rows = withBusyRetry(
+    () =>
+      store.db
+        .query("SELECT * FROM checkpoint_items WHERE checkpoint_id = ? AND disposition = 'pr_candidate' ORDER BY created_at, id")
+        .all(checkpointId) as Record<string, unknown>[],
+  );
+  if (rows.length === 0) return { shipping: [], held: [] };
+  const runId = stringValue(rows[0]!.run_id);
+  const holds = steeringPrHolds(store, runSteeringGame(store, runId, game));
+  const result: CheckpointPrRecheck = { shipping: [], held: [] };
+  for (const row of rows) {
+    const evidence = jsonObjectValue(row.evidence_json);
+    const selected = asObject(evidence.selected_checkpoint);
+    const hold = holds.holdFor(stringValue(row.unit), stringValue(row.symbol), Object.keys(selected).length > 0
+      ? {
+          validationTime: stringValue(selected.validationTime),
+          runnerValidation: ownRunnerValidation({ artifactPath: stringValue(selected.artifactPath), metadata: asObject(selected.metadata) }),
+        }
+      : null);
+    if (hold) result.held.push({ item: row, hold });
+    else result.shipping.push(row);
+  }
+  return result;
+}
+
+export function latestCheckpointSummary(
+  store: StateStore,
+  runId: string,
+  game: Pick<CreateRunCheckpointOptions, "gameId" | "steeringGate"> = {},
+): Record<string, unknown> | null {
   const checkpoint = withBusyRetry(
     () =>
       store.db
@@ -851,6 +958,15 @@ export function latestCheckpointSummary(store: StateStore, runId: string): Recor
         )
         .all(String(checkpoint.id)) as Record<string, unknown>[],
   );
+  const recordedCounts: Record<string, number> = Object.fromEntries(countsRows.map((row) => [String(row.disposition), numberValue(row.count)]));
+  // `counts` is current: stored pr_candidate items a steering hold now covers
+  // count as steering_hold. `recordedCounts` keeps what the checkpoint wrote.
+  const recheck = recheckCheckpointPrCandidates(store, String(checkpoint.id), game);
+  const counts = { ...recordedCounts };
+  if (recheck.held.length > 0) {
+    counts.pr_candidate = recheck.shipping.length;
+    counts.steering_hold = numberValue(counts.steering_hold) + recheck.held.length;
+  }
   return {
     id: checkpoint.id,
     runId: checkpoint.run_id,
@@ -861,6 +977,8 @@ export function latestCheckpointSummary(store: StateStore, runId: string): Recor
     prCandidatesPath: checkpoint.pr_candidates_path,
     carryForwardPath: checkpoint.carry_forward_path,
     createdAt: checkpoint.created_at,
-    counts: Object.fromEntries(countsRows.map((row) => [String(row.disposition), numberValue(row.count)])),
+    counts,
+    recordedCounts,
+    steeringHeld: recheck.held.map(({ item, hold }) => ({ targetKey: stringValue(item.target_key), reason: hold.reason, detail: hold.detail })),
   };
 }

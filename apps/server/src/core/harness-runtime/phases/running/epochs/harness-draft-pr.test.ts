@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { latestDashboardArtifactPayload, openState, type StateStore } from "@server/core/orchestrator-state";
+import { recordSteeringBackfill, recordSteeringCoverage, recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import {
   DEFAULT_HARNESS_DRAFT_PR_BODY,
   DEFAULT_HARNESS_DRAFT_PR_TITLE,
@@ -176,5 +178,63 @@ describe("publishHarnessDraftPr", () => {
     expect(result.status).toBe("failed");
     expect(result.error).toContain("selected game");
     expect(calls).toEqual(["git rev-parse --abbrev-ref HEAD"]);
+  });
+
+  test("a steering-gated body lists unverified and uncertified rolled-back functions, and drops a certified rollback", async () => {
+    const { stateDir, store } = state();
+    const repoRoot = tempDir("harness-draft-pr-repo-");
+    initializeHarnessState(store.db, { gameId: "sms", harnessId: "sms-harness", worktree: repoRoot, configurationRevision: "test", commandId: "init" });
+    transitionHarnessState(store.db, { gameId: "sms", expectedRevision: 0, commandId: "run", patch: { history: { run_id: "run-sms" } } });
+    recordUnverifiedMatch(store, {
+      gameId: "sms", unit: "unit_a", symbol: "unverified_fn", analyzedRev: "head", match: { base: 90, candidate: 100, real_only: 90 }, reasons: [],
+    });
+    // All rolled back with status reverified and a later function-level backfill pass. unit_a's coverage is not clean;
+    // unit_c's is, at a rev that is not an ancestor of the published head; only unit_b is certified at an ancestor.
+    for (const [unit, symbol, clean, rev] of [
+      ["unit_a", "uncertified_fn", false, "certified-rev"],
+      ["unit_b", "certified_fn", true, "certified-rev"],
+      ["unit_c", "off_branch_fn", true, "off-branch-rev"],
+    ] as const) {
+      const id = recordSteeringRollback(store, {
+        gameId: "sms", unit, symbol, analyzedRev: "steered", initialVerdict: "steering_located", finalVerdict: "pass",
+        rules: ["steering"], report: {}, status: "reverified",
+      });
+      store.db.query("UPDATE steering_rollbacks SET recorded_at = '2000-01-01T00:00:00.000Z', updated_at = '2000-01-01T00:00:00.000Z' WHERE id = ?").run(id);
+      recordSteeringBackfill(store, { gameId: "sms", unit, symbol, analyzedRev: rev, verdict: "pass" });
+      recordSteeringCoverage(store, { gameId: "sms", unit, analyzedRev: rev, baselineRev: rev, clean });
+    }
+
+    const branch = "orchestrator/cycle/sms";
+    const title = `${DEFAULT_HARNESS_DRAFT_PR_TITLE} sms-harn`;
+    const bodyPath = join(stateDir, "harness_draft_pr", "run-sms", "draft_body.md");
+    const { runCommand } = fakeRunner({
+      "git rev-parse --abbrev-ref HEAD": ok(`${branch}\n`),
+      "git diff --quiet origin/master...HEAD": fail("", 1),
+      "git remote get-url origin": ok("https://github.com/doldecomp/sms.git\n"),
+      "git remote get-url fork": ok("https://github.com/Ford/sms.git\n"),
+      [`git push --force-with-lease -u fork HEAD:${branch}`]: ok(),
+      "gh api repos/doldecomp/sms/pulls?head=Ford%3Aorchestrator%2Fcycle%2Fsms&state=open": ok("[]\n"),
+      "git merge-base --is-ancestor certified-rev head-sha": ok(),
+      "git merge-base --is-ancestor off-branch-rev head-sha": fail("", 1),
+      [`gh pr create --repo doldecomp/sms --head Ford:${branch} --base master --draft --title ${title} --body-file ${bodyPath}`]:
+        ok("https://github.com/doldecomp/sms/pull/7\n"),
+    });
+
+    const result = await publishHarnessDraftPr(
+      { commitSha: "head-sha", gameId: "sms", repoRoot, runId: "run-sms", stateDir, steeringGate: "enforce", store },
+      { runCommand },
+    );
+
+    expect(result.status).toBe("created");
+    expect(result.steeringHolds).toEqual([
+      { unit: "unit_a", symbol: "uncertified_fn", reason: "steering_rollback" },
+      { unit: "unit_a", symbol: "unverified_fn", reason: "unverified_match" },
+      { unit: "unit_c", symbol: "off_branch_fn", reason: "steering_rollback" },
+    ]);
+    const body = readFileSync(bodyPath, "utf8");
+    expect(body).toContain("3 function(s) on this branch may read as 100% but are not verified matches");
+    expect(body).toContain("`unit_a::unverified_fn` (100% unverified)");
+    expect(body).toContain("`unit_a::uncertified_fn` (rolled back by the steering gate, not re-certified)");
+    expect(body).not.toContain("unit_b::certified_fn");
   });
 });

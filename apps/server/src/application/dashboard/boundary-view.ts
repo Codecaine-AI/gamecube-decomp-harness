@@ -1,4 +1,6 @@
 import type { Database } from "bun:sqlite";
+import type { CompletionIndexSource } from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
+import { savePointProgress } from "./score-tiers.js";
 
 export type BoundaryStepState = "pending" | "running" | "done" | "warning" | "failed" | "skipped";
 
@@ -76,8 +78,24 @@ export interface BoundarySavePointRow {
   id: string;
   trigger_kind: string;
   matched_code_percent: number | null;
+  /** The saved revision: rollback holds are judged at it, never at the live head. */
+  commit_sha?: string | null;
+  /** The save point's raw archived report: re-derives its score under active `unverified_match` rows. */
+  report_path?: string | null;
   payload_json: string;
   created_at: string;
+}
+
+/**
+ * Save points with their score as progress: steering-gated games withhold
+ * active `unverified_match` functions and, with a revision-aware index, the
+ * rollback holds of each save point's own commit (re-derived from each raw
+ * archived report; unknown when it is gone or the state is unreadable).
+ * Identity without an index.
+ */
+export function withholdUnverifiedSavePointScores(rows: BoundarySavePointRow[], unverified?: CompletionIndexSource): BoundarySavePointRow[] {
+  if (!unverified) return rows;
+  return rows.map((row) => ({ ...row, matched_code_percent: savePointProgress(row, unverified).score }));
 }
 
 export interface BoundaryGameEventRow {
@@ -402,12 +420,15 @@ export function projectBoundaryDashboard(rows: BoundaryProjectionRows): Boundary
   return { current, recent };
 }
 
-export function boundaryDashboardForRun(db: Database, runId: string, now?: string | number | Date): BoundaryDashboard {
+export function boundaryDashboardForRun(db: Database, runId: string, now?: string | number | Date, unverified?: CompletionIndexSource): BoundaryDashboard {
   if (!runId) return { current: null, recent: [] };
   const epochs = db.query(`SELECT id, ordinal, status, admitted_count, finished_count, boundary_status, boundary_attempt_count, boundary_next_attempt_at, created_at, closed_at FROM epochs WHERE run_id = ? AND (boundary_status IS NULL OR boundary_status NOT LIKE 'manual_discarded%') ORDER BY created_at ASC`).all(runId) as BoundaryEpochRow[];
   const placeholders = EVENT_TYPES.map(() => "?").join(",");
   const events = db.query(`SELECT id, event_type, payload_json, created_at FROM events WHERE run_id = ? AND event_type IN (${placeholders}) ORDER BY created_at ASC`).all(runId, ...EVENT_TYPES) as BoundaryEventRow[];
-  const savePoints = db.query(`SELECT id, trigger_kind, matched_code_percent, payload_json, created_at FROM save_points WHERE run_id = ? ORDER BY created_at ASC`).all(runId) as BoundarySavePointRow[];
+  const savePoints = withholdUnverifiedSavePointScores(
+    db.query(`SELECT id, trigger_kind, commit_sha, matched_code_percent, report_path, payload_json, created_at FROM save_points WHERE run_id = ? ORDER BY created_at ASC`).all(runId) as BoundarySavePointRow[],
+    unverified,
+  );
   const gameEvents = db.query(`SELECT event_type, payload_json, occurred_at FROM game_events WHERE subject_kind = 'run' AND subject_id = ? AND event_type = 'run.epoch_integrated' ORDER BY occurred_at ASC`).all(runId) as BoundaryGameEventRow[];
   return projectBoundaryDashboard({ epochs, events, savePoints, gameEvents, now });
 }

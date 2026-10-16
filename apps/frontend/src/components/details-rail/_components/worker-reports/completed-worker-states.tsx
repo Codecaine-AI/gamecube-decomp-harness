@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "@/icons";
 
-import { Button } from "@/components/primitives";
+import { Button, UnverifiedBadge } from "@/components/primitives";
 import { asArray, asObject, ago, delta, num, shortId, text, type JsonObject } from "@/lib/format";
 
 import type { RunTabProps } from "../../_lib/types";
@@ -180,6 +180,7 @@ export function CompletedWorkerStates({
                   <span className="border border-line2 bg-inset px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-soft" title={reportOutcomeDescription(report)}>
                     {reportFinishLabel(report)}
                   </span>
+                  <UnverifiedBadge row={report} />
                   <span className={reportDelta > 0 ? "text-up" : "text-dim"}>{delta(reportDelta)}</span>
                   <span>{ago(report.createdAt)}</span>
                 </span>
@@ -187,7 +188,7 @@ export function CompletedWorkerStates({
               {expanded ? (
                 <div className="border-t border-line px-3 pb-3 pt-2">
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-dim">
-                    <span>{workerStateStatusLabel(report.lifecycleStatus)}</span>
+                    <span>{report.completionHold !== undefined || report.verification === "unverified_match" ? outcomeLabel : workerStateStatusLabel(report.lifecycleStatus)}</span>
                     <span>{ago(report.createdAt)}</span>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap leading-5 text-soft">{text(report.summary, "No summary recorded.")}</p>

@@ -3299,6 +3299,47 @@ def revert_edit_ids(reduce: dict) -> list[str]:
     return sorted(out)
 
 
+def _final_group_status(report: dict, g: dict) -> Optional[str]:
+    """A group's status after decide's promotions (`group_statuses`), else reduce's."""
+    statuses = (report.get("decision") or {}).get("group_statuses") or {}
+    return statuses.get(g["id"], g.get("status"))
+
+
+def held_group_ids(report: dict) -> list[str]:
+    """Removable, non-cosmetic groups that belong to an unresolved function:
+    listed in its decision row's `groups`, or line-located in it (same unit,
+    or a group without units). apply never reverts them."""
+    rows = [r for r in (report.get("decision") or {}).get("functions") or [] if r.get("decision") == "unresolved"]
+    listed = {gid for r in rows for gid in r.get("groups") or []}
+    out = []
+    for g in (report.get("reduce") or {}).get("groups") or []:
+        if _final_group_status(report, g) != "removable" or g.get("cosmetic"):
+            continue
+        line = g.get("functions") or []
+        units = g.get("units") or []
+        if g["id"] in listed or (line and any(
+                (not units or r.get("unit") in units)
+                and _match_function([r.get("demangled"), r.get("name"), r.get("target_name")], line)
+                for r in rows)):
+            out.append(g["id"])
+    return sorted(out)
+
+
+def steering_group_ids(report: dict) -> list[str]:
+    """The groups apply reverts: removable, non-cosmetic, listed in a
+    steering_located function's `groups` (decide's evidence attribution) and
+    not held for an unresolved function. A removable group no steering
+    function claims (unattributed, or only touching passing functions) is
+    left in place for the recheck to report; a group shared by a steering and
+    an unresolved function is held whole."""
+    rows = [r for r in (report.get("decision") or {}).get("functions") or [] if r.get("decision") == "steering_located"]
+    listed = {gid for r in rows for gid in r.get("groups") or []}
+    held = set(held_group_ids(report))
+    return sorted(g["id"] for g in (report.get("reduce") or {}).get("groups") or []
+                  if g["id"] in listed and g["id"] not in held
+                  and _final_group_status(report, g) == "removable" and not g.get("cosmetic"))
+
+
 def run_check(repo: Path, base_ref: str, *, oracle_repo: Optional[Path] = None, cache_dir: Optional[Path] = None,
               functions: Optional[list[str]] = None, paths: Sequence[str] = DEFAULT_PATHS,
               overlay_dir: Optional[str] = None, jobs: int = MAX_JOBS, budget: float = DEFAULT_BUDGET,
@@ -3341,6 +3382,15 @@ def run_apply(report: dict, dry_run: bool, only_paths: Optional[Sequence[str]] =
     base text of that function back (the stub, or no definition), re-checked
     in the written text; out-of-order hunks are reverted.
 
+    Only steering is reverted (`steering_group_ids`): edits of removable groups
+    a steering_located function is attributed to, and that the S* the check
+    measured reverted (`mwcc.revert_edits`). A group held by `held_group_ids`
+    (it belongs to an unresolved function, kept as unverified) is never
+    reverted, even when a steering function shares it, so apply never rewrites
+    an unresolved function's code through a group; unattributed removable
+    groups are left for the recheck. Rule violations are explicit and always
+    applied.
+
     `only_paths` (sharded backfill) limits the writes to those repo-relative
     files; the edits_hash check still covers every file of the report, so a
     file shared with another report (a changed header) is never written by
@@ -3355,7 +3405,14 @@ def run_apply(report: dict, dry_run: bool, only_paths: Optional[Sequence[str]] =
             raise ToolFailure("the working tree changed since the check (edits_hash mismatch)")
     if edits.get("overlay"):
         raise ToolFailure("the check used --overlay-dir; apply needs a check of the working tree")
-    revert = set(report["mwcc"].get("revert_edits") or revert_edit_ids(report["reduce"]))
+    held = held_group_ids(report)
+    steering = set(steering_group_ids(report))
+    group_edits = {g["id"]: set(g.get("edit_ids") or []) for g in (report.get("reduce") or {}).get("groups") or []}
+    held_edits = {gid: group_edits.get(gid, set()) for gid in held}
+    revert = set().union(*(group_edits[gid] for gid in steering)) - set().union(*held_edits.values())
+    measured = (report.get("mwcc") or {}).get("revert_edits")
+    if measured is not None:
+        revert &= set(measured)
     dead: dict[str, list[dict]] = {}
     late: dict[str, set[int]] = {}
     for v in (report.get("decision") or {}).get("violations") or []:
@@ -3382,6 +3439,10 @@ def run_apply(report: dict, dry_run: bool, only_paths: Optional[Sequence[str]] =
         row = {"path": f["path"], "reverted": ids, "deleted": text is None}
         if restored:
             row["unused_restored"] = restored
+        file_ids = {e.id for e in es_}
+        held_here = [gid for gid in held if held_edits[gid] & file_ids]
+        if held_here:
+            row["held"] = held_here
         written.append(row)
         if dry_run:
             continue
@@ -3391,7 +3452,8 @@ def run_apply(report: dict, dry_run: bool, only_paths: Optional[Sequence[str]] =
         else:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(se.encode(text))
-    out = {"tool": TOOL, "repo": str(repo), "dry_run": dry_run, "files": written}
+    out = {"tool": TOOL, "repo": str(repo), "dry_run": dry_run, "files": written, "held_groups": held,
+           "steering_groups": sorted(steering)}
     if only is not None:
         out["only_paths"] = sorted(only)
     return out

@@ -14,6 +14,7 @@ import { acceptedAdvisoryMigration } from "./011-accepted-advisory.js";
 import { stackOnlyFunctionsMigration } from "./012-stack-only-functions.js";
 import { steeringMigration } from "./013-steering.js";
 import { steeringRollbacksMigration } from "./014-steering-rollbacks.js";
+import { unverifiedMatchesMigration } from "./015-unverified-matches.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -34,6 +35,7 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   stackOnlyFunctionsMigration,
   steeringMigration,
   steeringRollbacksMigration,
+  unverifiedMatchesMigration,
 ]);
 
 interface AppliedMigrationRow {

@@ -18,9 +18,12 @@ export const gitIsAncestor: GitAncestorCheck = (repoRoot, ancestor, descendant) 
 /**
  * Enforce-mode run preflight (plan 3.5). A game whose `matching.steeringGate`
  * is `enforce` may only start or resume a run once a clean full steering
- * backfill exists whose baseline is an ancestor of the integration head:
- * from then on every banked change is certified by the gate. Off and shadow
- * games (Melee, SMS today) return immediately.
+ * backfill exists whose baseline is an ancestor of the integration head.
+ * Clean backfills may retain `unverified_match` functions: their code stays
+ * claimable until a new attempt passes the enforced gate. The job owns the
+ * clean verdict, including attempt-level failures; preflight does not require
+ * every historical function to be certified. Every new banked change still
+ * needs certification. Off and shadow games return immediately.
  */
 export function assertSteeringGatePreflight(store: StateStore, input: {
   game?: Pick<ResolvedGame, "gameId" | "matching"> | null;

@@ -13,6 +13,7 @@ import {
   steeringCoverageReport,
 } from "@server/core/harness-runtime/run-state/steering.js";
 import { assertSteeringGatePreflight } from "@server/core/validation/steering/steering-preflight.js";
+import { listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { steeringPreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import type { SteeringRunner } from "@server/core/validation/steering/steering-check.js";
 import type { CommandResult } from "@server/infrastructure/shell";
@@ -60,10 +61,11 @@ function checkout(): { repo: string; head: string } {
   return { repo, head: git(repo, "rev-parse", "HEAD") };
 }
 
-function fn(unit: string, name: string, decision: string) {
+function fn(unit: string, name: string, decision: string, extra: Record<string, unknown> = {}) {
   return {
-    unit, name, decision, semantic: decision === "pass" ? "clean" : "steering", analysis: "complete", audit_label: "x",
-    match: { base: 90, candidate: 100, real_only: 97 },
+    unit, name, decision, semantic: decision === "pass" ? "clean" : decision === "unresolved" ? "unresolved" : "steering",
+    analysis: decision === "unresolved" ? "incomplete" : "complete", audit_label: "x",
+    match: { base: 90, candidate: 100, real_only: 97 }, ...extra,
   };
 }
 
@@ -82,6 +84,9 @@ interface CheckFixture {
   violations?: Array<Record<string, unknown>>;
   orderChecks?: Array<Record<string, unknown>>;
   unusedChecks?: Array<{ unit: string; file: string; function: string; status: string; changed: unknown[]; reason?: string }>;
+  /** decide's structured attempt issues and reduce's incomplete details. */
+  attemptIssues?: Array<Record<string, unknown>>;
+  incompleteDetails?: Array<Record<string, unknown>>;
 }
 
 const covered = (...units: string[]) => units.map((unit) => ({ unit, built: true, compared: true }));
@@ -99,6 +104,7 @@ function check(fixture: CheckFixture) {
     },
     reduce: {
       analysis: fixture.analysis ?? "complete",
+      ...(fixture.incompleteDetails ? { incomplete_details: fixture.incompleteDetails } : {}),
       groups: [
         ...(fixture.removable ?? []).map((group) => ({ ...group, status: "removable", edit_ids: [`${group.id}e`] })),
         ...(fixture.unresolvedGroups ?? []).map((id) => ({ id, file: SRC_A, status: "unresolved", edit_ids: [] })),
@@ -116,9 +122,12 @@ function check(fixture: CheckFixture) {
       ...(fixture.violations ? { violations: fixture.violations } : {}),
       ...(fixture.unusedChecks ? { unused_checks: fixture.unusedChecks } : {}),
       ...(fixture.orderChecks ? { order_checks: fixture.orderChecks } : {}),
+      ...(fixture.attemptIssues ? { attempt_issues: fixture.attemptIssues } : {}),
     },
   };
 }
+
+const issue = (category: string, extra: Record<string, unknown> = {}) => ({ category, units: [], groups: [], files: [], detail: "", ...extra });
 
 /** `check` answers with the next queued report; `apply` rewrites the listed files to their S* text. */
 function fakeRunners(repo: string, reports: unknown[], applyWrites: Record<string, string> = {}) {
@@ -165,7 +174,7 @@ describe("steering-gate --record certifies HEAD only", () => {
   test("record-only with steering writes unclean coverage and an unclean run", async () => {
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
-      const runners = fakeRunners(repo, [check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located"), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] })]);
+      const runners = fakeRunners(repo, [check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] })]);
       const result = await backfill(repo, head, store, dir, runners);
       expect(result.clean).toBe(false);
       expect(runners.calls.map((args) => args[0])).toEqual(["check"]);
@@ -378,7 +387,7 @@ describe("steering-gate clean needs the whole certificate", () => {
   });
 
   test("rollback events are written when apply rewrites, so a failed rebuild or re-check never loses them", async () => {
-    const steered = () => check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located")], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] });
+    const steered = () => check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] })], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] });
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
       const runners = fakeRunners(repo, [steered()], { [SRC_A]: REAL });
@@ -412,6 +421,167 @@ describe("steering-gate clean needs the whole certificate", () => {
   });
 });
 
+describe("steering-gate unverified_match", () => {
+  test("--record writes unresolved functions as unverified_match; the run is clean and enforce starts", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const report = check({
+        attempt: "unresolved",
+        functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "u", "unresolved", { groups: ["g9"], reasons: ["IR oracle failed for the unit"] })],
+        units: covered(UNIT_A, UNIT_B),
+        analysis: "incomplete",
+        unresolvedGroups: ["g9"],
+        incompleteDetails: [issue("unit_oracle_failed", { units: [UNIT_B] })],
+        attemptIssues: [issue("unit_oracle_failed", { units: [UNIT_B] }), issue("unresolved_functions", { units: [UNIT_B] }), issue("unresolved_groups", { groups: ["g9"] })],
+      });
+      const result = await backfill(repo, head, store, dir, fakeRunners(repo, [report]));
+      expect(result).toMatchObject({ clean: true, problems: [], unverifiedRecorded: 1 });
+      expect(result.unverified.map((row) => row.name)).toEqual(["u"]);
+      expect(steeringCoverageFor(store, "sms", UNIT_A)?.clean).toBe(true);
+      expect(steeringCoverageFor(store, "sms", UNIT_B)?.clean).toBe(false);
+      expect(latestCleanSteeringBackfillRun(store, "sms")?.baselineRev).toBe(head);
+      expect(() => assertSteeringGatePreflight(store, { game: enforced, repoRoot: repo, command: "run-loop" })).not.toThrow();
+      expect(listUnverifiedMatches(store, "sms")).toEqual([expect.objectContaining({
+        unit: UNIT_B, symbol: "u", analyzedRev: head, baseRev: "base000", sourcePath: SRC_B, reasons: ["IR oracle failed for the unit"],
+        match: { base: 90, candidate: 100, real_only: 97 },
+      })]);
+    });
+  });
+
+  test("only a certified pass clears a row: an unclean full run or an unlisted row leaves it active; unresolved again reactivates it", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const unverified = (unit: string, symbol: string) =>
+        recordUnverifiedMatch(store, { gameId: "sms", unit, symbol, analyzedRev: "old", baseRev: "base000", match: { base: null, candidate: 100, real_only: null }, reasons: ["why"] });
+      unverified(UNIT_B, "u");
+      unverified("gone", "old");
+      const active = () => listUnverifiedMatches(store, "sms").map((row) => row.symbol).sort();
+      const passing = (extra: Partial<CheckFixture> = {}) =>
+        check({ attempt: "pass", functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "u", "pass")], units: covered(UNIT_A, UNIT_B), ...extra });
+
+      expect((await backfill(repo, head, store, dir, fakeRunners(repo, [passing()]), { dryRun: true })).unverifiedCleared).toBe(0);
+      // A full run with a link-map gap is not a certificate: u passes in it but stays unverified.
+      const gap = await backfill(repo, head, store, dir, fakeRunners(repo, [passing({ attempt: "unresolved", attemptIssues: [issue("unused_map_gap", { units: [UNIT_A] })] })]));
+      expect(gap).toMatchObject({ clean: false, unverifiedCleared: 0 });
+      expect(active()).toEqual(["old", "u"]);
+      // A dead UNUSED body in u's unit leaves u's pass uncertified.
+      const dead = await backfill(repo, head, store, dir, fakeRunners(repo, [passing({ attempt: "rule_violation", violations: [{ kind: "dead_unused_body", unit: UNIT_B, file: SRC_B, function: "T::x" }] })]));
+      expect(dead).toMatchObject({ clean: false, unverifiedCleared: 0 });
+      expect(active()).toEqual(["old", "u"]);
+
+      // A clean full run clears u, which it passes; the row it does not list stays active.
+      const clean = await backfill(repo, head, store, dir, fakeRunners(repo, [passing()]));
+      expect(clean).toMatchObject({ clean: true, unverifiedCleared: 1 });
+      expect(active()).toEqual(["old"]);
+      expect(listUnverifiedMatches(store, "sms", { includeCleared: true }).find((row) => row.symbol === "u")).toMatchObject({ clearedBy: `backfill:${head}`, clearedRev: head });
+
+      // Unresolved again: the cleared row is active again with this run's facts.
+      const again = check({ attempt: "unresolved", functions: [fn(UNIT_A, "f", "pass"), fn(UNIT_B, "u", "unresolved", { reasons: ["IR oracle failed for the unit"] })], units: covered(UNIT_A, UNIT_B),
+        attemptIssues: [issue("unresolved_functions", { units: [UNIT_B] })] });
+      expect(await backfill(repo, head, store, dir, fakeRunners(repo, [again]))).toMatchObject({ clean: true, unverifiedRecorded: 1 });
+      expect(listUnverifiedMatches(store, "sms").find((row) => row.symbol === "u")).toMatchObject({ analyzedRev: head, clearedAt: null, reasons: ["IR oracle failed for the unit"] });
+    });
+  });
+
+  test("only a pass measured from the row's trusted base or an ancestor clears it; a later base neither clears nor re-bases it", async () => {
+    await withStore(async (store, dir) => {
+      // A -> B -> H -> H2: the backfill at H measured from B marks f unresolved (f's unexplained code is in B..H).
+      const { repo, head: revA } = checkout();
+      const commit = (path: string, text: string, message: string) => {
+        writeFileSync(join(repo, path), text);
+        git(repo, "commit", "-qam", message);
+        return git(repo, "rev-parse", "HEAD");
+      };
+      const revB = commit(HEADER, "// shared, trusted\n", "trusted base");
+      const revH = commit(SRC_B, "int f() { int t = g(); return t + 0; }\n", "f implemented");
+      const unresolvedF = () => check({ attempt: "unresolved", functions: [fn(UNIT_B, "f", "unresolved", { reasons: ["IR oracle failed for the unit"] })],
+        units: covered(UNIT_B), files: [SRC_B], attemptIssues: [issue("unresolved_functions", { units: [UNIT_B] })] });
+      const passF = () => check({ attempt: "pass", functions: [fn(UNIT_B, "f", "pass")], units: covered(UNIT_B), files: [SRC_B] });
+      const row = () => listUnverifiedMatches(store, "sms", { includeCleared: true }).find((entry) => entry.symbol === "f");
+      const record = (report: unknown, baseRev: string, headRev: string) =>
+        backfill(repo, headRev, store, dir, fakeRunners(repo, [report]), { baseRev, functions: ["f"] });
+
+      expect(await record(unresolvedF(), revB, revH)).toMatchObject({ unverifiedRecorded: 1 });
+      expect(row()).toMatchObject({ baseRev: revB, analyzedRev: revH, clearedAt: null });
+
+      // H committed, then a cosmetic edit: the code the backfill could not explain is now below the --base H.
+      const revH2 = commit(SRC_B, "int f() { int t = g(); return t + 0; }\n\n", "cosmetic");
+      // Still unresolved from H: the facts refresh, the trusted base stays B.
+      await record(unresolvedF(), revH, revH2);
+      expect(row()).toMatchObject({ baseRev: revB, analyzedRev: revH2, clearedAt: null });
+      // A clean, certified pass from H (or from a base git cannot place) never clears it.
+      for (const baseRev of [revH, "no-such-rev"]) {
+        const later = await record(passF(), baseRev, revH2);
+        expect(later).toMatchObject({ clean: true, unverifiedCleared: 0 });
+        expect(later.unverifiedClearRefused).toEqual([expect.objectContaining({ unit: UNIT_B, symbol: "f", row_base_rev: revB })]);
+        expect(row()).toMatchObject({ baseRev: revB, clearedAt: null });
+      }
+
+      // Unresolved again from A, an ancestor of B: the comparison covers more, so A becomes the trusted base.
+      await record(unresolvedF(), revA, revH2);
+      expect(row()).toMatchObject({ baseRev: revA, clearedAt: null });
+      expect((await record(passF(), revB, revH2)).unverifiedCleared).toBe(0);
+      expect(row()?.clearedAt).toBeNull();
+
+      const certified = await record(passF(), revA, revH2);
+      expect(certified).toMatchObject({ clean: true, unverifiedCleared: 1, unverifiedClearRefused: [] });
+      expect(row()).toMatchObject({ baseRev: revA, clearedBy: `backfill:${revH2}` });
+    });
+  });
+
+  test("tool errors, uncovered units and budgets still make the run unclean", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const unresolved = fn(UNIT_B, "u", "unresolved");
+      const cases = [
+        check({ attempt: "unresolved", functions: [unresolved], units: [{ unit: UNIT_B, built: false, compared: false }], attemptIssues: [issue("tool_error", { units: [UNIT_B] }), issue("unresolved_functions")] }),
+        check({ attempt: "unresolved", functions: [unresolved], units: covered(UNIT_B), analysis: "incomplete", incompleteDetails: [issue("global", { detail: "budget of 120s exceeded" })], attemptIssues: [issue("global", { detail: "budget of 120s exceeded" }), issue("unresolved_functions")] }),
+        check({ attempt: "unresolved", functions: [unresolved], units: covered(UNIT_B), attemptIssues: [issue("unused_map_gap", { units: [UNIT_B] }), issue("unresolved_functions")] }),
+      ];
+      for (const report of cases) {
+        const result = await backfill(repo, head, store, dir, fakeRunners(repo, [report]));
+        expect(result.clean).toBe(false);
+        expect(result.problems.length).toBeGreaterThan(0);
+      }
+      // An order-sensitive reduction alone is tolerated (every function unresolved).
+      const order = check({ attempt: "unresolved", functions: [unresolved], units: covered(UNIT_B), analysis: "incomplete",
+        incompleteDetails: [issue("global", { detail: "order sensitive: forward and reverse reductions differ on g1" })],
+        attemptIssues: [issue("global", { detail: "order sensitive: forward and reverse reductions differ on g1" }), issue("unresolved_functions")] });
+      expect(await backfill(repo, head, store, dir, fakeRunners(repo, [order]))).toMatchObject({ clean: true, problems: [] });
+    });
+  });
+
+  test("--apply never removes an unresolved function's groups: they are held, not reported removed, and no rollback is recorded for it or a steering function they hold", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      // "mixed" is steering-located only through g2, which it shares with the unresolved u: held whole.
+      const first = check({
+        attempt: "steering_located",
+        functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_A, "mixed", "steering_located", { groups: ["g2"] }),
+          fn(UNIT_A, "u", "unresolved", { groups: ["g2"] })],
+        units: covered(UNIT_A),
+        removable: [{ id: "g1", file: SRC_A }, { id: "g2", file: SRC_A }],
+        removableNoncosmetic: ["g1", "g2"],
+      });
+      const recheck = check({ attempt: "unresolved", functions: [fn(UNIT_A, "steer", "pass"), fn(UNIT_A, "mixed", "steering_located", { groups: ["g2"] }),
+        fn(UNIT_A, "u", "unresolved", { groups: ["g2"] })], units: covered(UNIT_A),
+        removable: [{ id: "g2", file: SRC_A }], removableNoncosmetic: ["g2"] });
+      const result = await backfill(repo, head, store, dir, fakeRunners(repo, [first, recheck], { [SRC_A]: REAL }), { apply: true });
+      expect(result.applied).toBe(true);
+      const rows = listSteeringBackfill(store, "sms", UNIT_A);
+      expect(rows.find((row) => row.symbol === "steer")?.report.removed_edit_groups).toEqual([expect.objectContaining({ id: "g1" })]);
+      const held = rows.find((row) => row.symbol === "u")!;
+      expect(held.report.removed_edit_groups).toEqual([]);
+      expect(held.report.unexplained_edit_groups).toEqual([expect.objectContaining({ id: "g2", status: "held" })]);
+      // Its source was rewritten (steer's g1), but nothing of mixed was: no rule, no rollback event.
+      expect(rows.find((row) => row.symbol === "mixed")?.report).toMatchObject({ removed_edit_groups: [], rules: [], applied: false });
+      expect(listSteeringRollbacks(store, "sms").map((row) => row.symbol)).toEqual(["steer"]);
+      // An apply is provisional: nothing becomes unverified until the commit is recorded.
+      expect(listUnverifiedMatches(store, "sms")).toEqual([]);
+    });
+  });
+});
+
 describe("steering-gate --apply is provisional", () => {
   test("apply writes S*, rebuilds and re-checks, records provisional rows; discarding it leaves enforce refused", async () => {
     await withStore(async (store, dir) => {
@@ -419,7 +589,7 @@ describe("steering-gate --apply is provisional", () => {
       recordStackOnlyFunction(store, { gameId: "sms", unit: UNIT_A, symbol: "steer", fuzzy: 99, source: "backfill" });
       recordStackOnlyFunction(store, { gameId: "sms", unit: UNIT_B, symbol: "fine", fuzzy: 98, source: "backfill" });
       const runners = fakeRunners(repo, [
-        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located"), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
         check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass"), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B) }),
       ], { [SRC_A]: REAL });
       const result = await backfill(repo, head, store, dir, runners, { apply: true });
@@ -443,7 +613,7 @@ describe("steering-gate --apply is provisional", () => {
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
       const applyRunners = fakeRunners(repo, [
-        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located")], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] })], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
         check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass")], units: covered(UNIT_A) }),
       ], { [SRC_A]: REAL });
       await backfill(repo, head, store, dir, applyRunners, { apply: true, record: false });
@@ -461,7 +631,7 @@ describe("steering-gate --apply is provisional", () => {
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
       const runners = fakeRunners(repo, [
-        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located")], units: covered(UNIT_A), removable: [{ id: "g1", file: HEADER }], removableNoncosmetic: ["g1"] }),
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] })], units: covered(UNIT_A), removable: [{ id: "g1", file: HEADER }], removableNoncosmetic: ["g1"] }),
         check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass"), fn(UNIT_B, "other", "pass")], units: covered(UNIT_A, UNIT_B) }),
       ], { [HEADER]: "// shared, cleaned\n" });
       const result = await backfill(repo, head, store, dir, runners, { apply: true });
@@ -478,7 +648,7 @@ describe("steering-gate scoped --apply", () => {
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
       const runners = fakeRunners(repo, [
-        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located"), fn(UNIT_B, "other", "steering_located")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }, { id: "g2", file: SRC_B }], removableNoncosmetic: ["g1", "g2"] }),
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_B, "other", "steering_located", { groups: ["g2"] })], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }, { id: "g2", file: SRC_B }], removableNoncosmetic: ["g1", "g2"] }),
       ], { [SRC_A]: REAL, [SRC_B]: REAL });
       await expect(backfill(repo, head, store, dir, runners, { apply: true, unitFilter: "Enemy/a" }))
         .rejects.toThrow(/refuses a scoped --apply: apply reverts behaviour-identical edits in src\/Enemy\/b\.cpp/);
@@ -486,8 +656,23 @@ describe("steering-gate scoped --apply", () => {
       expect(readFileSync(join(repo, SRC_A), "utf8")).toBe(STEERED);
       expect(readFileSync(join(repo, SRC_B), "utf8")).toBe(STEERED);
       // A header shared with an out-of-scope unit is refused too.
-      const header = fakeRunners(repo, [check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located")], units: covered(UNIT_A), removable: [{ id: "g1", file: HEADER }] })]);
+      const header = fakeRunners(repo, [check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] })], units: covered(UNIT_A), removable: [{ id: "g1", file: HEADER }] })]);
       await expect(backfill(repo, head, store, dir, header, { apply: true, unitFilter: "Enemy/a" })).rejects.toThrow(/include\/Enemy\/shared\.h/);
+    });
+  });
+
+  test("a removable group no steering function claims is not reverted, so it never makes a scoped --apply refuse", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const runners = fakeRunners(repo, [
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_B, "fine", "pass", { groups: ["g2"] })], units: covered(UNIT_A, UNIT_B),
+          removable: [{ id: "g1", file: SRC_A }, { id: "g2", file: SRC_B }, { id: "g3", file: HEADER }], removableNoncosmetic: ["g1", "g2", "g3"] }),
+        check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass")], units: covered(UNIT_A) }),
+      ], { [SRC_A]: REAL });
+      const result = await backfill(repo, head, store, dir, runners, { apply: true, unitFilter: "Enemy/a" });
+      expect(runners.calls.map((args) => args[0])).toEqual(["check", "apply", "check"]);
+      expect(result.touchedUnits).toEqual([UNIT_A]);
+      expect(listSteeringBackfill(store, "sms", UNIT_A)[0]!.report.removed_edit_groups).toEqual([expect.objectContaining({ id: "g1" })]);
     });
   });
 
@@ -495,7 +680,7 @@ describe("steering-gate scoped --apply", () => {
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
       const runners = fakeRunners(repo, [
-        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located"), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
         check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass")], units: covered(UNIT_A) }),
       ], { [SRC_A]: REAL });
       const result = await backfill(repo, head, store, dir, runners, { apply: true, unitFilter: "Enemy/a" });
@@ -511,7 +696,7 @@ describe("steering-gate scoped --apply", () => {
   test("--dry-run passes --dry-run to apply and writes nothing", async () => {
     await withStore(async (store, dir) => {
       const { repo, head } = checkout();
-      const runners = fakeRunners(repo, [check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located")], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }] })], { [SRC_A]: REAL });
+      const runners = fakeRunners(repo, [check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] })], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }] })], { [SRC_A]: REAL });
       await backfill(repo, head, store, dir, runners, { apply: true, dryRun: true });
       expect(runners.calls.map((args) => args.filter((arg) => arg === "apply" || arg === "check" || arg === "--dry-run"))).toEqual([["check"], ["apply", "--dry-run"]]);
       expect(runners.builds).toEqual([]);

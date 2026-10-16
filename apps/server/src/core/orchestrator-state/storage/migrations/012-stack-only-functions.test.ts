@@ -6,8 +6,8 @@ test("migration 012 applies on a v11 store and is recorded", () => {
   const db = new Database(":memory:");
   try {
     runStorageMigrations(db);
-    db.exec("DROP TABLE stack_only_functions; DROP TABLE steering_observations; DROP TABLE steering_backfill; DROP TABLE steering_backfill_coverage; DROP TABLE steering_backfill_runs; DROP TABLE steering_rollbacks; DELETE FROM schema_migrations WHERE version >= 12");
-    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v11, this build requires v14");
+    db.exec("DROP TABLE stack_only_functions; DROP TABLE steering_observations; DROP TABLE steering_backfill; DROP TABLE steering_backfill_coverage; DROP TABLE steering_backfill_runs; DROP TABLE steering_rollbacks; DROP TABLE steering_unverified_matches; DELETE FROM schema_migrations WHERE version >= 12");
+    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v11, this build requires v15");
 
     runStorageMigrations(db);
 

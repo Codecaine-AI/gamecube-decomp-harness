@@ -117,6 +117,15 @@ export function reportScoreDelta(report: JsonObject): number {
   return positivePercentAttempts(report).reduce((sum, attempt) => sum + Math.max(0, attemptNumber(attempt.delta, 0)), 0);
 }
 
+/**
+ * The read model withholds this report's exact result: its function is an
+ * active `unverified_match`, or the game's steering holds at the revision the
+ * result measured withhold it (`completionHold`). Absent on Melee.
+ */
+function reportCompletionWithheld(report: JsonObject): boolean {
+  return report.verification === "unverified_match" || report.completionHold !== undefined;
+}
+
 function reportHasExactAttempt(report: JsonObject): boolean {
   const runnerTarget = reportRunnerTarget(report);
   if (runnerTarget) return runnerTarget.exact === true;
@@ -243,6 +252,13 @@ function reportStopReasonEndstate(report: JsonObject): WorkerStateOutcome | null
 }
 
 export function reportResult(report: JsonObject): WorkerStateResult {
+  const result = recordedReportResult(report);
+  // A withheld exact keeps its score delta but is not a completion.
+  if (result === "exact" && reportCompletionWithheld(report)) return reportScoreDelta(report) > 0 ? "improved" : "no_progress";
+  return result;
+}
+
+function recordedReportResult(report: JsonObject): WorkerStateResult {
   const runnerTarget = reportRunnerTarget(report);
   if (runnerTarget) {
     if (runnerTarget.exact === true) return "exact";
@@ -260,6 +276,7 @@ export function reportResult(report: JsonObject): WorkerStateResult {
 
 export function reportStopReason(report: JsonObject, result = reportResult(report)): StopReason {
   const explicit = text(report.stopReason);
+  if (explicit === "target_complete" && reportCompletionWithheld(report)) return "stalled";
   if (explicit === "target_complete" || explicit === "stalled") return explicit;
   if (explicit === "no_useful_hypothesis") return "stalled";
   if (result === "exact") return "target_complete";
@@ -275,8 +292,9 @@ export function reportOutcome(report: JsonObject): WorkerStateOutcome {
   if (reportSessionFailed(report)) return "worker_session_failed";
   if (reportAgentToolError(report)) return "agent_tool_error";
   const stopReasonEndstate = reportStopReasonEndstate(report);
+  if (stopReasonEndstate === "exact") return reportCompletionWithheld(report) ? "finished" : stopReasonEndstate;
   if (stopReasonEndstate) return stopReasonEndstate;
-  if (lifecycle === "exact") return "exact";
+  if (lifecycle === "exact") return reportCompletionWithheld(report) ? "finished" : "exact";
   if (lifecycle === "cancelled") return "cancelled";
   if (lifecycle === "timeout") return reportHasSelectedCheckpoint(report) ? "timeout_selected_checkpoint" : "timeout_baseline";
   const validationEndstate = reportValidationEndstate(report);
