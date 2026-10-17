@@ -45,7 +45,8 @@ import {
   WARNING_FINDING,
   type FeedFixture,
 } from "./__fixtures__/feed-fixture.js";
-import { sha256Hex } from "./confirmed-good.js";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { HELD_UNVERIFIED_MATCH, sha256Hex } from "./confirmed-good.js";
 import {
   CHECKPOINT_KNOWLEDGE_CALL_TIMEOUT_MS,
   checkpointKnowledgeRetry,
@@ -427,6 +428,35 @@ describe("checkpoint_knowledge handler", () => {
     expect(waitedMs).toBeGreaterThanOrEqual(SUBMISSION_RETRY.windowMs);
     expect(checkpointKnowledgeRetry(record(1), new Error("submission-not-found lookalike"))).toBeNull();
     expect(checkpointKnowledgeRetry(record(1), new Error("node kernel unavailable"))).toBeNull();
+  });
+
+  test("SMS: a checkpoint whose prefixed target is held under its short steering unit is never fed, and the outcome says why", async () => {
+    const f = fixture("held-sms");
+    const harness = await nodeHarness();
+    seedSettledEpoch(f, { id: "epoch-1", runId: "run-a" });
+    const checkpoint = seedCheckpoint(f, { id: "cp-held", epochId: "epoch-1", runId: "run-a", exact: true, unit: "mario/Animal/AnimalBase", symbol: "held" });
+    const knowledge = f.openKnowledge();
+    try {
+      seedKnowledgeSubmission(knowledge, { checkpointId: "cp-held", workerStateId: checkpoint.workerStateId, unit: "mario/Animal/AnimalBase", symbol: "held" });
+    } finally {
+      knowledge.close();
+    }
+    // The gate's spelling: no `mario/` module prefix. SMS's descriptor enforces the gate.
+    recordUnverifiedMatch(f.store, {
+      gameId: "sms", unit: "Animal/AnimalBase", symbol: "held", analyzedRev: "head", baseRev: "base",
+      match: { base: 60, candidate: 100, real_only: null }, reasons: ["unresolved"],
+    });
+    enqueueJob(f.store, {
+      kind: "checkpoint_knowledge", dedupeKey: "cp-held", gameId: "sms", runId: "run-a",
+      payload: { checkpointId: "cp-held", epochId: "epoch-1", integrationId: "integration-cp-held" },
+    });
+    const claim = claimJobByDedupeKey(f.store, { kind: "checkpoint_knowledge", dedupeKey: "cp-held", leaseMs: 60_000 })!;
+    const handler = createCheckpointKnowledgeHandler(f.globals, deps(f, harness));
+    const result = await handler(claim.job, { store: f.store, token: claim.token, signal: new AbortController().signal, ensureClaim: () => {} });
+    expect(result.detail).toMatchObject({ status: "not-confirmed", rule: 6, reason: HELD_UNVERIFIED_MATCH });
+    expect(recordedOutcome(f, "cp-held")).toMatchObject({ status: "not-confirmed", rule: 6, reason: HELD_UNVERIFIED_MATCH });
+    expect(harness.inputs).toHaveLength(0);
+    expect(tasks(f)).toEqual([]);
   });
 
   test("info-advisory checkpoint is extracted and fed; a checkpoint with no advisory too", async () => {

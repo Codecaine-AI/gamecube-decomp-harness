@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { codeGraphFunctionsIndexPath, gameRoot, gameSharedToolDataRoot } from "../../paths.js";
 import type { GraphEdge, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, readJsonl, shortHash, stableJson, stringValue, truncate } from "../util.js";
-import { functionEntityId, UNVERIFIED_MATCH_VERIFICATION, verificationKey, type UnverifiedFunctionRef } from "./code-graph.js";
+import { functionEntityId, UNVERIFIED_MATCH_VERIFICATION, unverifiedKeySet, verificationKey, type UnverifiedFunctionRef } from "./code-graph.js";
+import type { UnitKeyGame } from "../../../harness-runtime/run-state/unit-key.js";
 
 export const OPSEQ_SIMILARITY_SOURCE_ID = "opseq_similarity";
 
@@ -18,6 +19,8 @@ export interface BuildOpseqSimilarityGraphRecordsOptions {
   maxAnalogsPerFunction?: number;
   /** Steering-gated games' active `unverified_match` functions: never a matched analog, whatever their score. */
   unverifiedMatches?: readonly UnverifiedFunctionRef[];
+  /** The game the refs belong to: matched under every unit spelling its report may carry (`unverifiedKeySet`). */
+  game?: UnitKeyGame;
 }
 
 interface CurrentFunction {
@@ -66,7 +69,7 @@ export function buildOpseqSimilarityGraphRecords(
   const sourcePaths = [...profilePaths, ...neighborPaths];
   if (sourcePaths.length === 0 || neighborPaths.length === 0) return null;
 
-  const unverified = new Set((options.unverifiedMatches ?? []).map((ref) => verificationKey(ref.unit, ref.symbol)));
+  const unverified = unverifiedKeySet(options.unverifiedMatches, options.game);
   const functions = currentFunctionIndex(options.reportPath ? repoRoot : repoRootWithFunctionReport(repoRoot), options.reportPath, unverified);
   if (functions.byEntityId.size === 0) return null;
 

@@ -13,11 +13,23 @@ import {
   metrics,
   REAL_REPORT_PATH,
   seedCheckpoint,
+  seedLandedGatePass,
   seedSettledEpoch,
   writeJson,
   type FeedFixture,
 } from "./__fixtures__/feed-fixture.js";
-import { confirmationPassStatus, evaluateConfirmedGood, sha256Hex, type ConfirmedGoodVerdict } from "./confirmed-good.js";
+import { steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { clearUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import {
+  confirmationPassStatus,
+  evaluateConfirmedGood,
+  HELD_STEERING_ROLLBACK,
+  HELD_UNCERTIFIED_RESTORATION,
+  HELD_UNVERIFIED_MATCH,
+  sha256Hex,
+  type ConfirmedGoodVerdict,
+} from "./confirmed-good.js";
 
 const fixtures: FeedFixture[] = [];
 afterEach(() => {
@@ -31,7 +43,7 @@ function fixture(name: string): FeedFixture {
 }
 
 function evaluate(f: FeedFixture, checkpointId: string, isAncestor = alwaysAncestor): Promise<ConfirmedGoodVerdict> {
-  return evaluateConfirmedGood(f.store, checkpointId, { repoRoot: f.repoRoot, isAncestor });
+  return evaluateConfirmedGood(f.store, checkpointId, { repoRoot: f.repoRoot, isAncestor, gameId: "melee" });
 }
 
 function rejection(verdict: ConfirmedGoodVerdict): { rule: number; reason: string } {
@@ -398,5 +410,80 @@ describe("confirmed-good selection", () => {
     });
     expect(confirmationPassStatus(f.store, "mixed")).toEqual({ status: "ran", source: "progress" });
     expect(rejection(await evaluate(f, "cp-mixed"))).toEqual({ rule: 5, reason: "not-confirmed-by-confirmation-pass" });
+  });
+});
+
+describe("rule 6: steering holds at the checkpoint's revision", () => {
+  const REV = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const unverified = (f: FeedFixture, gameId: string, unit: string, symbol: string) => recordUnverifiedMatch(f.store, {
+    gameId, unit, symbol, analyzedRev: "head", baseRev: "base", match: { base: 60, candidate: 100, real_only: null }, reasons: ["unresolved"],
+  });
+  const holds = (f: FeedFixture, gameId: string) => steeringCompletionHolds(f.store, { gameId, steeringGate: "enforce" }, f.repoRoot);
+
+  test("SMS: a module-prefixed epoch target held under its short steering unit is never confirmed good, and says why", async () => {
+    const f = fixture("rule6-sms");
+    const unit = "mario/Animal/AnimalBase";
+    const report = improvingReport(unit, "held");
+    epochWithReport(f, "epoch-sms", report, [
+      { id: "cp-held", unit, symbol: "held" },
+      { id: "cp-rolled", unit, symbol: "rolled" },
+      { id: "cp-cleared", unit, symbol: "cleared" },
+      { id: "cp-clean", unit, symbol: "clean" },
+    ]);
+    // The gate's spelling: no `mario/` module prefix.
+    unverified(f, "sms", "Animal/AnimalBase", "held");
+    recordSteeringRollback(f.store, {
+      gameId: "sms", unit: "Animal/AnimalBase", symbol: "rolled", analyzedRev: "steered", initialVerdict: "steering_located",
+      finalVerdict: "pass", rules: ["steering"], report: {},
+    });
+    // Certified at exactly this checkpoint's revision: no longer held there.
+    unverified(f, "sms", "Animal/AnimalBase", "cleared");
+    clearUnverifiedMatch(f.store, { gameId: "sms", unit: "Animal/AnimalBase", symbol: "cleared", clearedBy: "integration:x", clearedRev: REV });
+
+    const deps = { repoRoot: f.repoRoot, isAncestor: alwaysAncestor, holds: holds(f, "sms") };
+    const held = await evaluateConfirmedGood(f.store, "cp-held", deps);
+    expect(rejection(held)).toEqual({ rule: 6, reason: HELD_UNVERIFIED_MATCH });
+    expect(held.confirmed ? null : held.detail).toEqual({ target_key: `${unit}::held`, integrated_rev: REV });
+    expect(rejection(await evaluateConfirmedGood(f.store, "cp-rolled", deps))).toEqual({ rule: 6, reason: HELD_STEERING_ROLLBACK });
+    // Not held at this revision: confirmed good.
+    for (const id of ["cp-cleared", "cp-clean"]) {
+      const verdict = await evaluateConfirmedGood(f.store, id, deps);
+      expect(verdict.confirmed).toBe(true);
+    }
+    // Without holds (gate off) the held checkpoint is judged by rules 1–5 alone, as before.
+    expect((await evaluateConfirmedGood(f.store, "cp-held", { repoRoot: f.repoRoot, isAncestor: alwaysAncestor })).confirmed).toBe(true);
+  });
+
+  test("Melee: units compare as written, so a differently spelled steering row holds nothing", async () => {
+    const f = fixture("rule6-melee");
+    epochWithReport(f, "epoch-melee", improvingReport(), [{ id: "cp-melee", unit: "main/melee/lb/lbsnap", symbol: "lbSnap_8001DA5C" }]);
+    unverified(f, "melee", "melee/lb/lbsnap", "lbSnap_8001DA5C");
+    const verdict = await evaluateConfirmedGood(f.store, "cp-melee", { repoRoot: f.repoRoot, isAncestor: alwaysAncestor, holds: holds(f, "melee") });
+    expect(verdict.confirmed).toBe(true);
+  });
+});
+
+describe("restorations are not confirmed good without a later gate-pass certificate", () => {
+  const certification = (kind: "restoration" | "gate_pass", symbol: string) =>
+    ({ certification: { certified: true, kind, unit: "main/melee/lb/lbsnap", symbol, score: 100 } });
+
+  const REV = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  test("a restoration is excluded until a gate pass of its target lands, fresh, at its revision", async () => {
+    const f = fixture("restoration");
+    seedSettledEpoch(f, { id: "epoch-r", runId: "run-a" });
+    seedCheckpoint(f, { id: "cp-restored", epochId: "epoch-r", runId: "run-a", symbol: "lbSnap_8001DA5C", metadata: certification("restoration", "lbSnap_8001DA5C") });
+    const verdict = await evaluate(f, "cp-restored");
+    expect(rejection(verdict)).toEqual({ rule: 6, reason: HELD_UNCERTIFIED_RESTORATION });
+
+    // A later gate pass whose landing proof is stale (`fresh: false`) proves nothing.
+    seedSettledEpoch(f, { id: "epoch-stale", runId: "run-a" });
+    seedLandedGatePass(f, { id: "cp-stale", epochId: "epoch-stale", runId: "run-a", integratedRev: REV, fresh: false });
+    expect(rejection(await evaluate(f, "cp-restored"))).toEqual({ rule: 6, reason: HELD_UNCERTIFIED_RESTORATION });
+
+    // A later gate pass with a bound, fresh landing at the restoration's revision covers it.
+    seedSettledEpoch(f, { id: "epoch-r2", runId: "run-a" });
+    seedLandedGatePass(f, { id: "cp-gate-pass", epochId: "epoch-r2", runId: "run-a", integratedRev: REV, fresh: true });
+    expect((await evaluate(f, "cp-restored")).confirmed).toBe(true);
   });
 });

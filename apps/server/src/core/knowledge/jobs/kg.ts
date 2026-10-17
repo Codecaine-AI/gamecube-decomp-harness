@@ -33,6 +33,7 @@ import { createOrchestratorStateOrm, type StateStore } from "@server/core/orches
 import { completionHoldRefs, steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 import type { UnverifiedFunctionRef } from "@server/core/knowledge/graph/builders/code-graph.js";
+import type { UnitKeyGame } from "@server/core/harness-runtime/run-state/unit-key.js";
 import { booleanArg, numberArg, stringArg } from "@server/core/game-registry/runtime-options.js";
 
 export interface SpawnSummary {
@@ -724,9 +725,10 @@ async function toolStatus(tool: { id: string; commands?: Record<string, string> 
  * no database has recorded nothing. Melee and gate-off games: their state is
  * never read and the graph is built from the report alone. An unreadable
  * database throws: a graph that might call an unverified file complete is not
- * published.
+ * published. `game` matches the refs' short steering units to the report's
+ * module-prefixed ones.
  */
-export function graphVerificationInputs(globals: GlobalArgs, stateStore?: StateStore): { unverifiedMatches?: UnverifiedFunctionRef[] } {
+export function graphVerificationInputs(globals: GlobalArgs, stateStore?: StateStore): { unverifiedMatches?: UnverifiedFunctionRef[]; game?: UnitKeyGame } {
   const game = globals.game;
   const steeringGate = game?.matching?.steeringGate;
   if (!game || !steeringGateActive(steeringGate)) return {};
@@ -735,12 +737,12 @@ export function graphVerificationInputs(globals: GlobalArgs, stateStore?: StateS
     const holds = steeringCompletionHolds(store, { gameId: game.gameId, steeringGate }, repoRoot);
     return completionHoldRefs(holds?.at(sourceRevision(repoRoot)));
   };
-  if (stateStore) return { unverifiedMatches: refs(stateStore) };
+  if (stateStore) return { unverifiedMatches: refs(stateStore), game };
   const dbPath = resolve(globals.stateDir, "orchestrator.sqlite");
   if (!existsSync(dbPath)) return { unverifiedMatches: [] };
   const db = new Database(dbPath, { readonly: true });
   try {
-    return { unverifiedMatches: refs({ db, orm: createOrchestratorStateOrm(db), path: dbPath, stateDir: globals.stateDir }) };
+    return { unverifiedMatches: refs({ db, orm: createOrchestratorStateOrm(db), path: dbPath, stateDir: globals.stateDir }), game };
   } finally {
     db.close();
   }

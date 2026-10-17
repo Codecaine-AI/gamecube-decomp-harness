@@ -14,6 +14,8 @@
 import { knowledgePolicyForGame } from "../stack-policy-filter.js";
 import type { ConfirmedCheckpointKnowledge } from "@server/generated/baml_client/types";
 import type { GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { steeringCompletionHolds, unknownCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { gameSteeringGate, steeringGateActive } from "@server/core/tools/steering-gate.js";
 import type { JsonObject } from "@server/core/harness-state/events.js";
 import type { JobRecord, JobResult } from "@server/core/job-queue/types.js";
 import { knowledgeHarnessSessionId } from "@server/core/knowledge/jobs/harness-session.js";
@@ -138,6 +140,22 @@ function isUnderTestRunner(): boolean {
   return process.env.NODE_ENV === "test"
     || process.env.BUN_TEST !== undefined
     || (typeof Bun !== "undefined" && Bun.env.NODE_ENV === "test");
+}
+
+/**
+ * Rule 6's holds for a steering-gated game, read from the run store; none
+ * for a game without an active gate (Melee). Unreadable state holds every
+ * checkpoint (`unknownCompletionHolds`): the feed fails closed.
+ */
+function steeringHoldsDep(store: StateStore, gameId: string, globals: GlobalArgs): Pick<ConfirmedGoodDeps, "holds"> {
+  const steeringGate = gameSteeringGate({ gameId, descriptorPath: globals.game?.gameId === gameId ? globals.game.descriptorPath : undefined });
+  if (!steeringGateActive(steeringGate)) return {};
+  try {
+    const holds = steeringCompletionHolds(store, { gameId, steeringGate }, globals.repoRoot);
+    return holds ? { holds } : {};
+  } catch {
+    return { holds: unknownCompletionHolds() };
+  }
 }
 
 function defaultKnowledgeStore(gameId: string): KnowledgeStore {
@@ -320,6 +338,8 @@ export function createCheckpointKnowledgeHandler(
       const verdict = await evaluateConfirmedGood(ctx.store, checkpointId, {
         repoRoot: globals.repoRoot,
         ...(deps.isAncestor ? { isAncestor: deps.isAncestor } : {}),
+        ...steeringHoldsDep(ctx.store, job.gameId, globals),
+        gameId: job.gameId,
       });
       if (!verdict.confirmed) {
         return done({ status: "not-confirmed", rule: verdict.rule, reason: verdict.reason, ...(verdict.detail ? { detail: verdict.detail } : {}) });

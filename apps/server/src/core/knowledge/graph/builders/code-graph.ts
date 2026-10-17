@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { sourceRoot } from "../../paths.js";
 import { EXACT_SCORE } from "../../../validation/objdiff/constants.js";
+import { targetKeyVariants, type UnitKeyGame } from "../../../harness-runtime/run-state/unit-key.js";
 import type { GraphEdge, GraphEntity, GraphFact, GraphRecords, SearchChunk } from "../types.js";
 import { arrayValue, filesFingerprint, numberValue, objectValue, readJson, readJsonl, shortHash, stableJson, stringValue } from "../util.js";
 
@@ -45,6 +46,13 @@ export interface CodeGraphOptions {
    * off): the report's scores alone decide.
    */
   unverifiedMatches?: readonly UnverifiedFunctionRef[];
+  /**
+   * The game the refs belong to: steering rows name units without the
+   * objdiff module prefix the report carries (SMS `Animal/AnimalBase` vs
+   * `mario/Animal/AnimalBase`), so each ref is matched under every spelling
+   * (`unitVariants`). Omitted or without module prefixes (Melee): exact keys.
+   */
+  game?: UnitKeyGame;
 }
 
 /** `unit::symbol`, the same key as `unverifiedMatchKey`. */
@@ -71,7 +79,7 @@ export function sourceFileEditability(
   if (functionCount === 0 && unverifiedCount === 0) return { mode: "unknown", reason: emptyReason };
   if (unmatchedCount === 0) return { mode: "read_only_complete", reason: "Every known function in this file is exact 100%; use as reference evidence only." };
   const unverified = unverifiedCount > 0
-    ? ` (${unverifiedCount} of them 100% unverified: not done, its match not certified by the steering gate)`
+    ? ` (${unverifiedCount} of them 100% but unverified: not done, its match not certified by the steering gate)`
     : "";
   return { mode: "editable", reason: `${unmatchedCount} unmatched function(s) remain in this source file${unverified}.` };
 }
@@ -81,8 +89,13 @@ function verificationKeyUnit(key: string): string {
   return key.slice(0, key.indexOf("::"));
 }
 
-function unverifiedKeySet(options: CodeGraphOptions): Set<string> {
-  return new Set((options.unverifiedMatches ?? []).map((ref) => verificationKey(ref.unit, ref.symbol)));
+/**
+ * The keys the refs hold, under every unit spelling the game's report may
+ * carry (`targetKeyVariants`): report keys look up a short-unit steering ref
+ * directly. Exact keys without a game or module prefixes (Melee).
+ */
+export function unverifiedKeySet(refs: readonly UnverifiedFunctionRef[] | undefined, game?: UnitKeyGame): Set<string> {
+  return new Set((refs ?? []).flatMap((ref) => targetKeyVariants(game, ref.unit, ref.symbol)));
 }
 
 /**
@@ -107,7 +120,7 @@ function functionRow(fn: FunctionRecord): Record<string, unknown> {
 export function buildCodeGraphRecords(repoRoot: string, options: CodeGraphOptions = {}): GraphRecords {
   const reportPath = resolve(repoRoot, options.reportPath ?? "build/GALE01/report.json");
   const objdiffPath = resolve(repoRoot, "objdiff.json");
-  const unverified = unverifiedKeySet(options);
+  const unverified = unverifiedKeySet(options.unverifiedMatches, options.game);
   if (!existsSync(reportPath) || !existsSync(objdiffPath)) return buildCodeGraphRecordsFromIndexes(reportPath, objdiffPath, unverified);
 
   const sourceByUnit = objdiffSourceMap(readJson(objdiffPath));

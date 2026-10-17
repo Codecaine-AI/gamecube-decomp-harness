@@ -25,7 +25,10 @@ const UNIT = "main/MarioUtil/Foo";
  * temporary run state dir, and a steering-gated game pointing at both. The
  * report never changes between rebuilds: only the verification state does.
  */
-function fixture(steeringGate: "off" | "enforce") {
+function fixture(steeringGate: "off" | "enforce", units: { report?: string; hold?: string } = {}) {
+  // `report`: the objdiff unit the report and graph carry; `hold`: the unit the steering rows carry.
+  const reportUnit = units.report ?? UNIT;
+  const holdUnit = units.hold ?? reportUnit;
   const root = mkdtempSync(join(tmpdir(), "kg-code-graph-verification-"));
   tempDirs.push(root);
   const repoRoot = join(root, "repo");
@@ -35,7 +38,7 @@ function fixture(steeringGate: "off" | "enforce") {
   mkdirSync(gameDir, { recursive: true });
   writeFileSync(join(repoRoot, "build/GMSJ01/report.json"), JSON.stringify({
     units: [{
-      name: UNIT,
+      name: reportUnit,
       metadata: { source_path: SOURCE },
       functions: [
         { name: "Real__3FooFv", size: 64, fuzzy_match_percent: 100, metadata: { virtual_address: 0x80001000 } },
@@ -43,7 +46,7 @@ function fixture(steeringGate: "off" | "enforce") {
       ],
     }],
   }));
-  writeFileSync(join(repoRoot, "objdiff.json"), JSON.stringify({ units: [{ name: UNIT, metadata: { source_path: SOURCE } }] }));
+  writeFileSync(join(repoRoot, "objdiff.json"), JSON.stringify({ units: [{ name: reportUnit, metadata: { source_path: SOURCE } }] }));
   // A committed checkout: a clear credits the graph only at its certifying revision or a descendant.
   const git = (...args: string[]) => {
     const result = Bun.spawnSync(["git", "-C", repoRoot, ...args], { stdout: "pipe", stderr: "pipe" });
@@ -77,23 +80,23 @@ function fixture(steeringGate: "off" | "enforce") {
     new Map<string, string | true>([["--graph-db", graphDb], ["--sources", "code_graph"]]),
     { rebuildInProcess: true },
   );
-  const card = () => {
+  const card = (options: Parameters<typeof fileGraphCard>[2] = {}) => {
     const store = openKnowledgeGraph(graphDb);
-    try { return fileGraphCard(store, SOURCE); }
+    try { return fileGraphCard(store, SOURCE, options); }
     finally { store.db.close(); }
   };
   const recordSteered = () => {
     const store = openState(stateDir);
     try {
       recordUnverifiedMatch(store, {
-        gameId: "sms", unit: UNIT, symbol: "Steered__3FooFv", analyzedRev: "a".repeat(40), baseRev: "b".repeat(40),
+        gameId: "sms", unit: holdUnit, symbol: "Steered__3FooFv", analyzedRev: "a".repeat(40), baseRev: "b".repeat(40),
         sourcePath: SOURCE, match: { base: 91, candidate: 100, real_only: 94 }, reasons: ["unexplained edit"],
       });
     } finally { store.db.close(); }
   };
   const clearSteered = () => {
     const store = openState(stateDir);
-    try { clearUnverifiedMatch(store, { gameId: "sms", unit: UNIT, symbol: "Steered__3FooFv", clearedBy: "test:certified", clearedRev: head }); }
+    try { clearUnverifiedMatch(store, { gameId: "sms", unit: holdUnit, symbol: "Steered__3FooFv", clearedBy: "test:certified", clearedRev: head }); }
     finally { store.db.close(); }
   };
   const workerContext = (target: Record<string, unknown>) => workerPrompt({
@@ -104,7 +107,7 @@ function fixture(steeringGate: "off" | "enforce") {
     workerLogDir: join(stateDir, "workers"),
     steeringGate,
   }).kernelContext?.renderedContext ?? "";
-  return { rebuild, card, recordSteered, clearSteered, workerContext };
+  return { rebuild, card, recordSteered, clearSteered, workerContext, holdUnit };
 }
 
 describe("code graph verification state", () => {
@@ -118,7 +121,7 @@ describe("code graph verification state", () => {
     await sms.rebuild();
     const card = sms.card();
     expect(card.editability.mode).toBe("editable");
-    expect(card.editability.reason).toContain("100% unverified");
+    expect(card.editability.reason).toContain("100% but unverified");
     expect(card.match_status).toMatchObject({ function_count: 2, matched_function_count: 1, unmatched_function_count: 1, unverified_function_count: 1 });
     // Labels and counts only: the raw score stays the report's honest 100.
     expect(card.functions.find((fn) => fn.symbol === "Steered__3FooFv")).toMatchObject({ fuzzy: 100, verification: "unverified_match" });
@@ -133,6 +136,34 @@ describe("code graph verification state", () => {
     sms.clearSteered();
     await sms.rebuild();
     expect(sms.card().editability.mode).toBe("read_only_complete");
+  });
+
+  test("SMS: a short-unit hold labels the module-prefixed report function and keeps its file editable", async () => {
+    // The report names the unit `mario/MarioUtil/Foo`; the steering row names it `MarioUtil/Foo`.
+    const sms = fixture("enforce", { report: "mario/MarioUtil/Foo", hold: "MarioUtil/Foo" });
+    sms.recordSteered();
+    await sms.rebuild();
+    const card = sms.card();
+    expect(card.editability.mode).toBe("editable");
+    expect(card.match_status).toMatchObject({ matched_function_count: 1, unmatched_function_count: 1, unverified_function_count: 1 });
+    expect(card.functions.find((fn) => fn.symbol === "Steered__3FooFv")).toMatchObject({ unit: "mario/MarioUtil/Foo", fuzzy: 100, verification: "unverified_match" });
+    expect(card.functions.find((fn) => fn.symbol === "Real__3FooFv")).not.toHaveProperty("verification");
+  });
+
+  test("SMS: the live overlay matches a short-unit ref to a stored module-prefixed card; Melee compares as written", async () => {
+    const sms = fixture("enforce", { report: "mario/MarioUtil/Foo", hold: "MarioUtil/Foo" });
+    // Built before the row was recorded: the stored card calls the file complete.
+    await sms.rebuild();
+    expect(sms.card().editability.mode).toBe("read_only_complete");
+    const refs = [{ unit: "MarioUtil/Foo", symbol: "Steered__3FooFv" }];
+
+    const overlaid = sms.card({ unverifiedMatches: refs, game: "sms" });
+    expect(overlaid.editability.mode).toBe("editable");
+    expect(overlaid.match_status).toMatchObject({ function_count: 2, matched_function_count: 1, unmatched_function_count: 1, unverified_function_count: 1 });
+    expect(overlaid.functions.find((fn) => fn.symbol === "Steered__3FooFv")).toMatchObject({ unit: "mario/MarioUtil/Foo", verification: "unverified_match" });
+
+    // A game without module prefixes: the short ref names no unit of this card.
+    expect(sms.card({ unverifiedMatches: refs, game: "melee" }).editability.mode).toBe("read_only_complete");
   });
 
   test("gate off (Melee): the state is never read and the scores alone decide", async () => {

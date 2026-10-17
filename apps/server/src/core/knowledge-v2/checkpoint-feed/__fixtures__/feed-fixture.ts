@@ -276,6 +276,32 @@ export function seedCheckpoint(f: FeedFixture, seed: CheckpointSeed): SeededChec
   return { id: seed.id, integrationId, workerStateId, notePath, patchPath, runnerSummaryPath };
 }
 
+/**
+ * A checkpoint the gate certified (`certification.kind: "gate_pass"`) for its
+ * own target, landed at `integratedRev` with its claim and a landed-content
+ * proof bound to that landing (`fresh: false` makes the proof stale).
+ */
+export function seedLandedGatePass(
+  f: FeedFixture,
+  seed: { id: string; epochId: string; runId: string; unit?: string; symbol?: string; integratedRev: string; fresh: boolean },
+): SeededCheckpoint {
+  const unit = seed.unit ?? UNIT;
+  const symbol = seed.symbol ?? SYMBOL;
+  const proof = {
+    fresh: seed.fresh, target_key: `${unit}::${symbol}`, source_path: SOURCE_PATH,
+    claim_base_rev: "claim-base-rev", pre_apply_rev: "pre-apply-rev", integrated_rev: seed.integratedRev,
+  };
+  const checkpoint = seedCheckpoint(f, {
+    id: seed.id, epochId: seed.epochId, runId: seed.runId, unit, symbol, integratedRev: seed.integratedRev, validationState: "confirmed",
+    metadata: { certification: { certified: true, kind: "gate_pass", unit, symbol, score: 96 } },
+    integrationMetadata: { pre_apply_rev: "pre-apply-rev", steering_content_freshness: proof },
+  });
+  f.store.db.query(`INSERT INTO target_claims (id, run_id, epoch_id, epoch_target_id, worker_id, base_rev, status, claimed_at)
+    VALUES (?, ?, ?, ?, 'worker-1', 'claim-base-rev', 'closed', ?)`).run(`claim-${seed.id}`, seed.runId, seed.epochId, `et-${seed.id}`, ago(120_000));
+  f.store.db.query("UPDATE integration_outcomes SET target_claim_id = ? WHERE id = ?").run(`claim-${seed.id}`, checkpoint.integrationId);
+  return checkpoint;
+}
+
 /** Seeds the knowledge target, worker run and the submission whose runtime_ref is the checkpoint. */
 export function seedKnowledgeSubmission(
   knowledge: KnowledgeStore,

@@ -10,7 +10,15 @@ import { buildV2TargetCard } from "../card.js";
 import { formatLocator, parseLocator, type AttemptLocator } from "../locator.js";
 import { insertEntitiesIfMissing, insertRunNarrative, insertTargets } from "../records/index.js";
 import { openKnowledgeStore } from "../storage/store.js";
-import { deriveWorkerRunIntegration, importAttempts, type AttemptSourceIntegration } from "./attempts.js";
+import {
+  createFeedFixture,
+  SYMBOL as FEED_SYMBOL,
+  UNIT as FEED_UNIT,
+  seedCheckpoint,
+  seedLandedGatePass,
+  seedSettledEpoch,
+} from "../checkpoint-feed/__fixtures__/feed-fixture.js";
+import { deriveWorkerRunIntegration, importAttempts, loadActiveUnverifiedMatches, type AttemptSourceIntegration } from "./attempts.js";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -100,9 +108,20 @@ function markUnverified(sourcePath: string, symbol: string): void {
   db.close();
 }
 
-function clearUnverified(sourcePath: string, symbol: string): void {
+function clearUnverified(sourcePath: string, symbol: string, clearedRev: string | null = null): void {
   const db = new Database(sourcePath);
-  db.query("UPDATE steering_unverified_matches SET cleared_at = '2026-03-11T00:00:00Z', cleared_by = 'integration' WHERE symbol = ?").run(symbol);
+  db.query("UPDATE steering_unverified_matches SET cleared_at = '2026-03-11T00:00:00Z', cleared_by = 'integration', cleared_rev = ? WHERE symbol = ?").run(clearedRev, symbol);
+  db.close();
+}
+
+/** The checkpoint `cp-<symbol>` landed (an applied integration) at `rev`. */
+function landAt(sourcePath: string, symbol: string, rev: string): void {
+  const db = new Database(sourcePath);
+  db.run(`CREATE TABLE IF NOT EXISTS integration_outcomes (
+    id TEXT PRIMARY KEY, worker_state_id TEXT, worker_checkpoint_id TEXT, status TEXT, disposition TEXT,
+    conflict_paths_json TEXT, failure_reasons_json TEXT, metadata_json TEXT, created_at TEXT, updated_at TEXT, resolved_at TEXT)`);
+  db.query(`INSERT OR REPLACE INTO integration_outcomes VALUES (?, ?, ?, 'applied', 'landed', '[]', '[]', ?, '2026-03-05T00:00:00Z', '2026-03-05T00:00:00Z', NULL)`)
+    .run(`integration-${symbol}`, symbol, `cp-${symbol}`, JSON.stringify({ integrated_rev: rev }));
   db.close();
 }
 
@@ -472,14 +491,284 @@ describe("importAttempts", () => {
     expect(buildV2TargetCard(store, "unit:Namespace::Func", "full")!.prior_runs[0]?.unresolved_diagnosis).toBe("Matched without explaining the cast");
     expect(store.db.query<{ count: number }, []>("SELECT COUNT(*) AS count FROM submission").get()?.count).toBe(1);
 
+    // A clear certifies only the version at its revision: this checkpoint landed at another one.
+    landAt(sourcePath, "Namespace::Func", "landed-rev");
+    clearUnverified(sourcePath, "Namespace::Func", "certified-rev");
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "improvement" });
+
     // A dry run never writes the re-derived outcome.
-    clearUnverified(sourcePath, "Namespace::Func");
+    clearUnverified(sourcePath, "Namespace::Func", "landed-rev");
     importAttempts(store, { orchestratorDbPath: sourcePath, dryRun: true });
     expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "improvement" });
 
-    // Only the row's actual clear restores the accepted exact's match.
+    // A clear certified at the checkpoint's own revision restores the accepted exact's match.
     importAttempts(store, { orchestratorDbPath: sourcePath });
     expect(storedOutcomes(store)).toEqual({ "Namespace::Func": "match" });
     store.close();
   });
+});
+
+/**
+ * A source whose worker targets carry the report unit (SMS `mario/...`,
+ * Melee `main/...`) while its steering rows name the short unit, as the gate
+ * writes them. `runs` records each worker state's game unless `withRuns` is false.
+ */
+function prefixedFixture(dir: string, game: string, reportUnit: string, symbols: readonly string[], options: { withRuns?: boolean; metadata?: (symbol: string) => Record<string, unknown> } = {}): string {
+  const path = join(dir, "orchestrator.sqlite");
+  const db = new Database(path);
+  db.run(`CREATE TABLE worker_state (
+    id TEXT PRIMARY KEY, run_id TEXT, epoch_id TEXT, target_claim_id TEXT, worker_id TEXT,
+    target_key TEXT, lifecycle_status TEXT, started_at TEXT, ended_at TEXT, baseline_score REAL,
+    timeout_summary TEXT, error_summary TEXT)`);
+  db.run(`CREATE TABLE worker_checkpoints (
+    id TEXT PRIMARY KEY, worker_state_id TEXT, attempt_index INTEGER, validation_time TEXT,
+    new_score REAL, exact_match INTEGER, hard_gates_passed INTEGER NOT NULL DEFAULT 0,
+    validation_status TEXT, validation_state TEXT NOT NULL DEFAULT 'tentative', metadata_json TEXT)`);
+  if (options.withRuns !== false) {
+    db.run("CREATE TABLE runs (id TEXT PRIMARY KEY, game_id TEXT)");
+    db.query("INSERT INTO runs VALUES ('run', ?)").run(game);
+  }
+  db.exec(UNVERIFIED_MATCHES_DDL);
+  db.exec(STEERING_ROLLBACKS_DDL);
+  symbols.forEach((symbol, index) => {
+    const at = `2026-03-0${index + 1}T00:00:00Z`;
+    db.query("INSERT INTO worker_state VALUES (?, 'run', 'epoch', ?, 'worker', ?, 'exact', ?, ?, 50, NULL, NULL)")
+      .run(symbol, `claim-${symbol}`, `${reportUnit}::${symbol}`, at, at);
+    db.query("INSERT INTO worker_checkpoints VALUES (?, ?, 1, ?, 100, 1, 1, 'passed', 'tentative', ?)")
+      .run(`cp-${symbol}`, symbol, at, JSON.stringify(options.metadata?.(symbol) ?? {}));
+  });
+  db.close();
+  return path;
+}
+
+function seedUnitTargets(store: ReturnType<typeof openKnowledgeStore>, unit: string, symbols: readonly string[]): void {
+  insertEntitiesIfMissing(store, [{ id: `translation_unit:${unit}`, kind: "translation_unit", locator: `src/${unit}.cpp` }]);
+  insertTargets(store, symbols.map((symbol, index) => ({
+    id: `target:function:${unit}:${symbol}`, kind: "function" as const, unit, unitEntityId: `translation_unit:${unit}`,
+    symbol, stableKey: `${unit}:${symbol}`, address: `0x8000010${index}`, identityStatus: "current" as const, reportRevision: "r1",
+  })));
+}
+
+function steeringRow(sourcePath: string, sql: string, ...params: string[]): void {
+  const db = new Database(sourcePath);
+  db.query(sql).run(...params);
+  db.close();
+}
+
+/** The checkpoint's own enforced pass, as the gate writes it: the short unit. */
+function shortUnitEnforcedPass(unit: string, symbol: string): Record<string, unknown> {
+  const pass = ownEnforcedPass(symbol) as { runner_validation: { steering: { decision: { functions: Array<Record<string, unknown>>; units: Array<Record<string, unknown>> } } } };
+  const decision = pass.runner_validation.steering.decision;
+  decision.functions = decision.functions.map((fn) => ({ ...fn, unit }));
+  decision.units = [{ unit, built: true, compared: true }];
+  return pass;
+}
+
+describe("importAttempts with module-prefixed targets and short steering units", () => {
+  test("SMS: a short-unit unverified_match withholds the prefixed target's 100, by runs.game_id or the passed game", () => {
+    for (const withRuns of [true, false]) {
+      const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-sms-unit-"));
+      dirs.push(dir);
+      const sourcePath = prefixedFixture(dir, "sms", "mario/Animal/AnimalBase", ["held", "clean"], { withRuns });
+      steeringRow(sourcePath, `INSERT INTO steering_unverified_matches (game_id, unit, symbol, analyzed_rev, base_rev, recorded_at)
+        VALUES ('sms', 'Animal/AnimalBase', 'held', 'head', 'trusted-base', '2026-03-10T00:00:00Z')`);
+      expect(loadActiveUnverifiedMatches(new Database(sourcePath, { readonly: true }), "mario/Animal/AnimalBase::held", "sms")).toHaveLength(1);
+      const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+      seedUnitTargets(store, "mario/Animal/AnimalBase", ["held", "clean"]);
+      importAttempts(store, { orchestratorDbPath: sourcePath, ...(withRuns ? {} : { gameId: "sms" }) });
+      expect(storedOutcomes(store)).toEqual({ held: "improvement", clean: "match" });
+      store.close();
+    }
+  });
+
+  test("SMS: an already-imported prefixed match loses its credit once the short-unit hold is recorded", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-sms-reimport-"));
+    dirs.push(dir);
+    const sourcePath = prefixedFixture(dir, "sms", "mario/Animal/AnimalBase", ["held"]);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedUnitTargets(store, "mario/Animal/AnimalBase", ["held"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ held: "match" });
+    steeringRow(sourcePath, `INSERT INTO steering_unverified_matches (game_id, unit, symbol, analyzed_rev, base_rev, recorded_at)
+      VALUES ('sms', 'Animal/AnimalBase', 'held', 'head', 'trusted-base', '2026-03-10T00:00:00Z')`);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ held: "improvement" });
+    store.close();
+  });
+
+  test("SMS: a short-unit rollback holds the earlier prefixed 100; a later checkpoint's own short-unit gate pass certifies", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-sms-rollback-"));
+    dirs.push(dir);
+    const sourcePath = prefixedFixture(dir, "sms", "mario/Animal/AnimalBase", ["Historical", "Recertified"], {
+      metadata: (symbol) => shortUnitEnforcedPass("Animal/AnimalBase", symbol),
+    });
+    for (const symbol of ["Historical", "Recertified"]) {
+      steeringRow(sourcePath, `INSERT INTO steering_rollbacks (game_id, unit, symbol, analyzed_rev, initial_verdict, final_verdict, rules_json, status, recorded_at, updated_at)
+        VALUES ('sms', 'Animal/AnimalBase', ?, 'steered-head', 'steering_located', 'pass', '["steering"]', 'reverified', '2026-03-01T12:00:00Z', '2026-03-01T12:00:00Z')`, symbol);
+    }
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedUnitTargets(store, "mario/Animal/AnimalBase", ["Historical", "Recertified"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ Historical: "improvement", Recertified: "match" });
+    store.close();
+  });
+
+  test("Melee: units compare as written, so a differently spelled steering row is not this target's", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-melee-unit-"));
+    dirs.push(dir);
+    const sourcePath = prefixedFixture(dir, "melee", "main/melee/lb/lbcommand", ["fn"]);
+    steeringRow(sourcePath, `INSERT INTO steering_unverified_matches (game_id, unit, symbol, analyzed_rev, base_rev, recorded_at)
+      VALUES ('melee', 'melee/lb/lbcommand', 'fn', 'head', 'trusted-base', '2026-03-10T00:00:00Z')`);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedUnitTargets(store, "main/melee/lb/lbcommand", ["fn"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ fn: "match" });
+    store.close();
+  });
+});
+
+describe("importAttempts against cleared unverified_match history", () => {
+  test("a certified repair's clear never restores an older uncertified 100 from another revision", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-cleared-history-"));
+    dirs.push(dir);
+    // Old: an accepted, uncertified 100 that landed at `old-rev`. Repair: the certified 95 that cleared the row at `repair-rev`.
+    const sourcePath = gatedFixture(dir, [
+      { symbol: "Old", hardGatesPassed: 1, validationStatus: "passed" },
+      { symbol: "NeverLanded", hardGatesPassed: 1, validationStatus: "passed" },
+      { symbol: "Descendant", hardGatesPassed: 1, validationStatus: "passed" },
+    ]);
+    for (const symbol of ["Old", "NeverLanded", "Descendant"]) {
+      markUnverified(sourcePath, symbol);
+      clearUnverified(sourcePath, symbol, "repair-rev");
+    }
+    landAt(sourcePath, "Old", "old-rev");
+    landAt(sourcePath, "Descendant", "after-repair-rev");
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["Old", "NeverLanded", "Descendant"]);
+    // Ancestry answers come from the repository; with none, only an equal revision certifies (fail closed).
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ Old: "improvement", NeverLanded: "improvement", Descendant: "improvement" });
+    store.close();
+  });
+
+  test("a clear at an ancestor of the checkpoint's revision certifies it (real git ancestry)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-cleared-ancestry-"));
+    dirs.push(dir);
+    const repo = join(dir, "repo");
+    const git = (...args: string[]) => Bun.spawnSync(["git", "-C", repo, ...args], { stdout: "pipe", stderr: "pipe" }).stdout.toString().trim();
+    Bun.spawnSync(["git", "init", "-q", repo]);
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "old");
+    const oldRev = git("rev-parse", "HEAD");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "repair");
+    const repairRev = git("rev-parse", "HEAD");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "later");
+    const laterRev = git("rev-parse", "HEAD");
+    const sourcePath = gatedFixture(dir, [
+      { symbol: "Before", hardGatesPassed: 1, validationStatus: "passed" },
+      { symbol: "After", hardGatesPassed: 1, validationStatus: "passed" },
+    ]);
+    for (const symbol of ["Before", "After"]) {
+      markUnverified(sourcePath, symbol);
+      clearUnverified(sourcePath, symbol, repairRev);
+    }
+    landAt(sourcePath, "Before", oldRev);
+    landAt(sourcePath, "After", laterRev);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["Before", "After"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath, repoRoot: repo });
+    expect(storedOutcomes(store)).toEqual({ Before: "improvement", After: "match" });
+    store.close();
+  });
+});
+
+describe("importAttempts with restoration checkpoints", () => {
+  const restoration = (symbol: string) => ({ certification: { certified: true, kind: "restoration", unit: "unit", symbol, score: 100 } });
+  const gatePass = (symbol: string) => ({ certification: { certified: true, kind: "gate_pass", unit: "unit", symbol, score: 100 } });
+
+  /** A restoration (100, not exact) of `unit::<symbol>`, landed at `rev`. */
+  function restored(sourcePath: string, symbol: string, rev: string): void {
+    const db = new Database(sourcePath);
+    db.query("UPDATE worker_checkpoints SET exact_match = 0, metadata_json = ? WHERE id = ?").run(JSON.stringify(restoration(symbol)), `cp-${symbol}`);
+    db.close();
+    landAt(sourcePath, symbol, rev);
+  }
+
+  /** A later worker run of the same target whose checkpoint the gate certified, landed at `rev`. */
+  function laterGatePass(sourcePath: string, symbol: string, rev: string): void {
+    const db = new Database(sourcePath);
+    db.query("INSERT INTO worker_state VALUES (?, 'run-later', 'epoch', 'claim-later', 'worker', ?, 'exact', '2026-03-20T00:00:00Z', '2026-03-20T00:00:00Z', 50, NULL, NULL)")
+      .run(`${symbol}-later`, `unit::${symbol}`);
+    db.query("INSERT INTO worker_checkpoints VALUES (?, ?, 1, '2026-03-20T00:00:00Z', 96, 0, 1, 'passed', 'confirmed', ?)")
+      .run(`cp-${symbol}-later`, `${symbol}-later`, JSON.stringify(gatePass(symbol)));
+    db.close();
+    landAt(sourcePath, `${symbol}-later`, rev);
+  }
+
+  test("a restoration's 100 is no match (raw or gated) without a landed gate-pass certificate", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-restoration-"));
+    dirs.push(dir);
+    const sourcePath = gatedFixture(dir, [
+      // Gate off, no steering state: the raw-score rule.
+      { symbol: "RawRestored", hardGatesPassed: 1, validationStatus: "passed" },
+      // Its unverified_match row was cleared at the restoration's own revision.
+      { symbol: "ClearedRestored", hardGatesPassed: 1, validationStatus: "passed" },
+      // A gate pass landed at another (unrelated) revision covers nothing.
+      { symbol: "Elsewhere", hardGatesPassed: 1, validationStatus: "passed" },
+    ]);
+    for (const symbol of ["RawRestored", "ClearedRestored", "Elsewhere"]) restored(sourcePath, symbol, `restored-${symbol}`);
+    markUnverified(sourcePath, "ClearedRestored");
+    clearUnverified(sourcePath, "ClearedRestored", "restored-ClearedRestored");
+    laterGatePass(sourcePath, "Elsewhere", "unrelated-rev");
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["RawRestored", "ClearedRestored", "Elsewhere"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    // `Elsewhere`'s later gate pass is only checkpoint metadata: no bound landing proves it.
+    expect(storedOutcomes(store)).toMatchObject({ RawRestored: "improvement", ClearedRestored: "improvement", Elsewhere: "improvement" });
+    store.close();
+  });
+
+  test("a run already imported as a match on a restoration is re-judged, even without steering state", () => {
+    const dir = mkdtempSync(join(tmpdir(), "knowledge-attempts-restoration-reimport-"));
+    dirs.push(dir);
+    const sourcePath = gatedFixture(dir, [{ symbol: "Restored", hardGatesPassed: 1, validationStatus: "passed" }]);
+    const store = openKnowledgeStore({ knowledgeRoot: join(dir, "knowledge") });
+    seedGatedTargets(store, ["Restored"]);
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ Restored: "match" });
+    restored(sourcePath, "Restored", "restored-rev");
+    importAttempts(store, { orchestratorDbPath: sourcePath });
+    expect(storedOutcomes(store)).toEqual({ Restored: "improvement" });
+    store.close();
+  });
+});
+
+describe("importAttempts: a restoration counts only after a fresh landed gate pass", () => {
+  for (const fresh of [true, false]) {
+    test(`a later gate pass landed at the restoration's revision with a ${fresh ? "fresh" : "stale"} proof`, () => {
+      const f = createFeedFixture(`attempts-restoration-${fresh ? "fresh" : "stale"}`);
+      try {
+        seedSettledEpoch(f, { id: "epoch-1", runId: "run-a" });
+        seedCheckpoint(f, {
+          id: "cp-restored", epochId: "epoch-1", runId: "run-a", delta: 40, integratedRev: "restored-rev",
+          metadata: { certification: { certified: true, kind: "restoration", unit: FEED_UNIT, symbol: FEED_SYMBOL, score: 100 } },
+        });
+        // The worker started at 60 and restored the trusted 100.
+        f.store.db.query("UPDATE worker_state SET baseline_score = 60 WHERE id = 'ws-cp-restored'").run();
+        seedSettledEpoch(f, { id: "epoch-2", runId: "run-a" });
+        seedLandedGatePass(f, { id: "cp-gate-pass", epochId: "epoch-2", runId: "run-a", integratedRev: "restored-rev", fresh });
+        const store = openKnowledgeStore({ knowledgeRoot: join(f.root, "attempts-knowledge") });
+        insertEntitiesIfMissing(store, [{ id: "translation_unit:feed", kind: "translation_unit", locator: "src/feed.c" }]);
+        insertTargets(store, [{
+          id: `target:function:${FEED_UNIT}:${FEED_SYMBOL}`, kind: "function", unit: FEED_UNIT, unitEntityId: "translation_unit:feed",
+          symbol: FEED_SYMBOL, stableKey: `${FEED_UNIT}:${FEED_SYMBOL}`, address: "0x8001DA5C", identityStatus: "current", reportRevision: "r1",
+        }]);
+        importAttempts(store, { orchestratorDbPath: f.store.path });
+        expect(storedOutcomes(store)["ws-cp-restored"]).toBe(fresh ? "match" : "improvement");
+        store.close();
+      } finally {
+        f.cleanup();
+      }
+    });
+  }
 });

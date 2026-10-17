@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { buildAgentSharedStateGraphRecords } from "./agent-shared-state.js";
 import { buildCallGraphEdgeRecords } from "./call-graph-edges.js";
 import { buildCodeGraphRecords, type UnverifiedFunctionRef } from "./code-graph.js";
+import type { UnitKeyGame } from "../../../harness-runtime/run-state/unit-key.js";
 import { buildDecompStandardsGraphRecords } from "./decomp-standards.js";
 import { buildDocumentSourceGraphRecords } from "./document-sources.js";
 import { buildGhidraXrefGraphRecords } from "./ghidra-xrefs.js";
@@ -45,6 +46,8 @@ export interface RebuildKnowledgeGraphOptions {
    * are unchanged. Omitted for Melee and gate-off games.
    */
   unverifiedMatches?: readonly UnverifiedFunctionRef[];
+  /** The game `unverifiedMatches` belong to: their short steering units match the report's module-prefixed ones. */
+  game?: UnitKeyGame;
 }
 
 export function rebuildKnowledgeGraph(options: RebuildKnowledgeGraphOptions): Record<string, unknown> {
@@ -72,7 +75,7 @@ function rebuildSelectedKnowledgeGraph(options: RebuildKnowledgeGraphOptions): R
     for (const tool of readToolRegistry()) upsertToolDescriptor(store, tool);
 
     if (selected.has("code_graph")) {
-      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot, { reportPath: options.reportPath, unverifiedMatches: options.unverifiedMatches }));
+      insertGraphRecords(store, buildCodeGraphRecords(options.repoRoot, { reportPath: options.reportPath, unverifiedMatches: options.unverifiedMatches, game: options.game }));
       indexedSources.push("code_graph");
     }
     if (selected.has("past_prs")) {
@@ -123,6 +126,7 @@ function rebuildSelectedKnowledgeGraph(options: RebuildKnowledgeGraphOptions): R
         reportPath: options.reportPath,
         indexesRoot: options.opseqIndexesRoot,
         unverifiedMatches: options.unverifiedMatches,
+        game: options.game,
       });
       if (records) {
         insertGraphRecords(store, records);
