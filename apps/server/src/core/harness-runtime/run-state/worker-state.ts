@@ -63,6 +63,16 @@ export interface WorkerCheckpointInput {
    * selectable. Without it a 100 -> 100 attempt stays unselectable.
    */
   verificationImprovement?: { kind: "unverified_match"; unit: string; symbol: string; targetStackOnly?: boolean };
+  /**
+   * The certification lane (plan §3.1): the enforced gate certified this
+   * attempt for the worker state's own (unit, symbol) and it is progress
+   * (`certified_progress`: it raised the certified high-water mark or is the
+   * target's first certificate), or the runner accepted a base-identity proof
+   * for an `unverified_match` target (`restoration`). Either is the
+   * improvement, whatever the score: a hard-gate-clean checkpoint becomes
+   * selectable even when its score is lower than the baseline.
+   */
+  certifiedImprovement?: { kind: "certified_progress" | "restoration"; unit: string; symbol: string };
   authority: WorkerWriteAuthority;
 }
 
@@ -648,6 +658,37 @@ export function setClaimWorktreePath(
   });
 }
 
+/**
+ * Push an active claim's TTL out to `ttl` (never shorter), fenced to its
+ * owner: the job token must still hold the claim and the claim must still
+ * name the job's worker. A worker's agent budget is measured against the
+ * claim TTL, so a claim that waited for its sandbox (create admission queues
+ * behind a provider quota) restarts its budget clock at dispatch instead of
+ * spending it in the queue. Returns the claim's TTL afterwards.
+ */
+export function extendClaimTtl(
+  store: StateStore,
+  claimId: string,
+  workerStateId: string,
+  ttl: string,
+  authority: WorkerWriteAuthority,
+): string {
+  return immediateTransaction(store.db, () => {
+    verifyWorkerWriteAuthority(store, authority, workerStateId);
+    const row = store.db.query("SELECT ttl, status, worker_id FROM target_claims WHERE id = ?").get(claimId) as
+      | { ttl: string; status: string; worker_id: string }
+      | null;
+    if (!row || row.status !== "active") throw new Error(`Target claim ${claimId} is not active; its TTL cannot be extended`);
+    const ownerWorkerId = "host" in authority ? null : verifyClaimToken(store, authority).payload.worker_id;
+    if (typeof ownerWorkerId === "string" && ownerWorkerId && row.worker_id !== ownerWorkerId) {
+      throw new Error(`Target claim ${claimId} now belongs to ${row.worker_id}, not ${ownerWorkerId}`);
+    }
+    if (Date.parse(ttl) <= Date.parse(row.ttl)) return row.ttl;
+    store.db.query("UPDATE target_claims SET ttl = ? WHERE id = ? AND status = 'active'").run(ttl, claimId);
+    return ttl;
+  });
+}
+
 export function appendWorkerSessionId(
   store: StateStore,
   workerStateId: string,
@@ -728,6 +769,19 @@ function checkpointFromRow(row: Record<string, unknown>): WorkerCheckpointRecord
   };
 }
 
+/**
+ * Checkpoint selection ranks certification first (SMS, plan §3.1): a checkpoint
+ * the enforced gate certified (`metadata_json.certification.kind` =
+ * `gate_pass`) beats any higher uncertified one, a restoration comes next.
+ * Checkpoints without the metadata (Melee, gate off) all rank 0, so their
+ * order is unchanged.
+ */
+const CERTIFICATION_RANK_SQL = `(CASE
+          WHEN json_valid(metadata_json) AND json_extract(metadata_json, '$.certification.certified') = 1 THEN
+            CASE json_extract(metadata_json, '$.certification.kind') WHEN 'gate_pass' THEN 2 WHEN 'restoration' THEN 1 ELSE 0 END
+          ELSE 0
+        END)`;
+
 export function bestCheckpointForWorkerState(store: StateStore, workerStateId: string): WorkerCheckpointRecord | null {
   const row = store.db
     .query(
@@ -736,7 +790,7 @@ export function bestCheckpointForWorkerState(store: StateStore, workerStateId: s
         FROM worker_checkpoints
         WHERE worker_state_id = ?
           AND selectable = 1
-        ORDER BY exact_match DESC, new_score DESC, validation_time ASC, attempt_index ASC
+        ORDER BY ${CERTIFICATION_RANK_SQL} DESC, exact_match DESC, new_score DESC, validation_time ASC, attempt_index ASC
         LIMIT 1
       `,
     )
@@ -786,6 +840,14 @@ function certifiedVerificationImprovement(
   return row?.target_key === targetKey(claim.unit, claim.symbol);
 }
 
+/** The certification lane's improvement: hard-gate clean and on the worker state's own target, whatever the score. */
+function certifiedLaneImprovement(store: StateStore, input: WorkerCheckpointInput): boolean {
+  const claim = input.certifiedImprovement;
+  if (!claim || !input.hardGatesPassed) return false;
+  const row = store.db.query("SELECT target_key FROM worker_state WHERE id = ?").get(input.workerStateId) as { target_key?: unknown } | undefined;
+  return row?.target_key === targetKey(claim.unit, claim.symbol);
+}
+
 export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpointInput): WorkerCheckpointRecord {
   const { authority, ...recordInput } = input;
   const id = randomUUID();
@@ -798,7 +860,9 @@ export function recordWorkerCheckpoint(store: StateStore, input: WorkerCheckpoin
   const improvedOverValidationBaseline = delta === null ? improvedOverStoredBaseline : delta > 0;
   const exactAgainstStaleBaseline = input.exactMatch && improvedOverStoredBaseline;
   const scoreImproved = improvedOverStoredBaseline && (improvedOverValidationBaseline || exactAgainstStaleBaseline);
-  const improvedOverBaseline = scoreImproved || certifiedVerificationImprovement(store, input, { baseline, oldScore, newScore });
+  const improvedOverBaseline = scoreImproved
+    || certifiedVerificationImprovement(store, input, { baseline, oldScore, newScore })
+    || certifiedLaneImprovement(store, input);
   const selectable = input.hardGatesPassed && improvedOverBaseline;
 
   immediateTransaction(store.db, () => {

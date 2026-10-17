@@ -1,4 +1,5 @@
 import { now, type StateStore } from "@server/core/orchestrator-state";
+import { canonicalUnit, sqlPlaceholders, targetKey, unitKeyedGet, unitVariants, withUnitKeys } from "./unit-key.js";
 
 /**
  * Per-game record of functions whose only remaining difference from the
@@ -6,6 +7,10 @@ import { now, type StateStore } from "@server/core/orchestrator-state";
  * "stop_at_frame"` read it: the board skips such a function while its report
  * score still equals the recorded `fuzzy`, so a later source change to the
  * function re-queues it automatically.
+ *
+ * Units are stored canonical (`unit-key.ts`: SMS without its `mario/` module
+ * prefix) and read under either spelling, so a report or target unit and a
+ * steering unit name the same record.
  */
 export type StackOnlyRecordSource = "claim" | "attempt" | "backfill";
 
@@ -48,7 +53,7 @@ export function stackOnlyTargetKey(unit: string, symbol: string): string {
 export function recordStackOnlyFunction(store: StateStore, input: StackOnlyFunctionInput): StackOnlyFunctionRecord {
   const record: StackOnlyFunctionRecord = {
     gameId: input.gameId,
-    unit: input.unit,
+    unit: canonicalUnit(input.gameId, input.unit),
     symbol: input.symbol,
     fuzzy: finiteOrNull(input.fuzzy),
     frameCompiled: finiteOrNull(input.frameCompiled),
@@ -92,8 +97,9 @@ export function recordStackOnlyFunction(store: StateStore, input: StackOnlyFunct
 
 export function clearStackOnlyFunction(store: StateStore, params: { gameId: string; unit: string; symbol: string }): void {
   if (!tableExists(store)) return;
-  store.db.query("DELETE FROM stack_only_functions WHERE game_id = ? AND unit = ? AND symbol = ?")
-    .run(params.gameId, params.unit, params.symbol);
+  const units = unitVariants(params.gameId, params.unit);
+  store.db.query(`DELETE FROM stack_only_functions WHERE game_id = ? AND unit IN (${sqlPlaceholders(units)}) AND symbol = ?`)
+    .run(params.gameId, ...units, params.symbol);
 }
 
 export function listStackOnlyFunctions(store: StateStore, gameId: string): StackOnlyFunctionRecord[] {
@@ -110,7 +116,7 @@ export function listStackOnlyFunctions(store: StateStore, gameId: string): Stack
     } catch {}
     return {
       gameId: String(row.game_id),
-      unit: String(row.unit),
+      unit: canonicalUnit(gameId, String(row.unit)),
       symbol: String(row.symbol),
       fuzzy: finiteOrNull(row.fuzzy),
       frameCompiled: finiteOrNull(row.frame_compiled),
@@ -123,9 +129,9 @@ export function listStackOnlyFunctions(store: StateStore, gameId: string): Stack
   });
 }
 
-/** `unit::symbol` -> recorded score, the board's exclusion index. */
+/** Canonical `unit::symbol` -> recorded score, the board's exclusion index; report-unit lookups canonicalise (`withUnitKeys`). */
 export function stackOnlyFunctionIndex(store: StateStore, gameId: string): Map<string, number | null> {
-  return new Map(listStackOnlyFunctions(store, gameId).map((record) => [stackOnlyTargetKey(record.unit, record.symbol), record.fuzzy]));
+  return withUnitKeys(new Map(listStackOnlyFunctions(store, gameId).map((record) => [targetKey(gameId, record.unit, record.symbol), record.fuzzy])), gameId);
 }
 
 /**
@@ -134,8 +140,8 @@ export function stackOnlyFunctionIndex(store: StateStore, gameId: string): Map<s
  * is stale and is a candidate again.
  */
 export function isRecordedStackOnly(index: ReadonlyMap<string, number | null> | undefined, key: string, fuzzy: number): boolean {
-  if (!index?.has(key)) return false;
-  const recorded = index.get(key);
+  const recorded = unitKeyedGet(index, key);
+  if (recorded === undefined) return false;
   if (recorded == null) return true;
   return Math.abs(recorded - fuzzy) <= STACK_ONLY_SCORE_TOLERANCE;
 }

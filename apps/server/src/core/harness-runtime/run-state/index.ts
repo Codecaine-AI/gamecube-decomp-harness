@@ -42,6 +42,7 @@ export {
   claimNextEpochTarget,
   closeWorkerState,
   recordWorkerCheckpoint,
+  extendClaimTtl,
   setClaimWorktreePath,
   updateWorkerStateBaselineScore,
   workerCheckpointsForWorkerState,

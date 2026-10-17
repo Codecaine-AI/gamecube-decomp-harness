@@ -9,7 +9,7 @@ export interface BoardMeasures {
   unmatched_targets?: number | null;
   /**
    * Steering-gated games with active `unverified_match` rows: the separate
-   * "100% unverified" figure, withheld from every count above. Presence marks
+   * "100% but unverified" figure, withheld from every count above. Presence marks
    * the measures as adjusted (see board/unverified-measures.ts). A figure that
    * cannot be bounded without a denominator is null in the JSON (unknown).
    */
