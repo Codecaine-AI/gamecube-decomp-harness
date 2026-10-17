@@ -987,7 +987,20 @@ async function seedSandboxCheckout(params: {
   return { kind, ...(thinFallback ? { thinFallback } : {}), requiredRevs, ...extra };
 }
 
-export async function provisionSandboxWorkspace(params: {
+/** Total provisions tried when the runner cannot exec the i386 wibo binary (default 3, min 1). */
+export const SANDBOX_WIBO_EXEC_ATTEMPTS_ENV = "ORCH_SANDBOX_WIBO_EXEC_ATTEMPTS";
+const DEFAULT_WIBO_EXEC_ATTEMPTS = 3;
+const WIBO_ENOEXEC = /wibo-real cannot exec on (\S+) (\S+): \[Errno 8\]/;
+
+/** The wibo exec probe failed with ENOEXEC: this runner's kernel cannot exec 32-bit i386 binaries. */
+export class SandboxWiboExecError extends Error {
+  constructor(message: string, readonly sandboxId: string, readonly kernel: string) {
+    super(message);
+    this.name = "SandboxWiboExecError";
+  }
+}
+
+type ProvisionSandboxWorkspaceParams = {
   provider: SandboxProvider;
   sourceRepoRoot: string;
   baseRev: string;
@@ -1006,7 +1019,35 @@ export async function provisionSandboxWorkspace(params: {
   sandboxFiles?: SandboxWorkspaceFile[];
   /** Prebuilt tool data synced under /opt/tool-data (e.g. the asm-window index). */
   toolData?: SandboxToolDataTree[];
-}): Promise<ProvisionSandboxWorkspaceResult> {
+};
+
+/**
+ * Creates and provisions one sandbox. Some Daytona runners cannot exec the
+ * i386 wibo binary (ENOEXEC); that one failure is retried on a fresh sandbox
+ * (each create goes through the provider, so create admission sees it), up to
+ * ORCH_SANDBOX_WIBO_EXEC_ATTEMPTS total. Every other failure throws at once.
+ */
+export async function provisionSandboxWorkspace(params: ProvisionSandboxWorkspaceParams): Promise<ProvisionSandboxWorkspaceResult> {
+  const attempts = envCount(SANDBOX_WIBO_EXEC_ATTEMPTS_ENV, DEFAULT_WIBO_EXEC_ATTEMPTS, 1);
+  const kernels: string[] = [];
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await provisionSandboxWorkspaceOnce(params);
+    } catch (error) {
+      if (!(error instanceof SandboxWiboExecError)) throw error;
+      kernels.push(error.kernel);
+      if (attempt >= attempts) {
+        throw new Error(
+          `sandbox provisioning failed: ${attempts} sandbox${attempts === 1 ? "" : "es"} in a row landed on Daytona runners that cannot exec the 32-bit i386 wibo binary (ENOEXEC; kernels ${kernels.join(", ")}); every MWCC compile needs it. Last: ${error.message}`,
+          { cause: error },
+        );
+      }
+      console.warn(`[sandbox] ${error.sandboxId}: runner cannot exec i386 wibo (${error.kernel}); retrying on a new sandbox (attempt ${attempt + 1}/${attempts})`);
+    }
+  }
+}
+
+async function provisionSandboxWorkspaceOnce(params: ProvisionSandboxWorkspaceParams): Promise<ProvisionSandboxWorkspaceResult> {
   const runner = params.commandRunner ?? defaultRunner;
   let sandbox: SandboxHandle | undefined;
   try {
@@ -1074,16 +1115,20 @@ export async function provisionSandboxWorkspace(params: {
     );
     // wibo is a 32-bit i386 binary: some Daytona runners cannot exec it (ENOEXEC), and every MWCC
     // compile in this sandbox would fail. Python, not sh: sh retries an ENOEXEC file as a script.
-    await checkedSandboxExec(
-      sandbox,
+    const wiboProbe = await sandbox.exec(
       [
         "python3",
         "-c",
         "import os,subprocess,sys\ntry: subprocess.run(['build/tools/wibo-real','--help'],capture_output=True,timeout=30)\nexcept OSError as e: sys.exit(f'wibo-real cannot exec on {os.uname().release} {os.uname().machine}: {e}')",
       ],
-      params.workspaceRoot,
-      "sandbox wibo exec probe",
+      { cwd: params.workspaceRoot, timeoutMs: SETUP_TIMEOUT_MS },
     );
+    if (wiboProbe.exitCode !== 0) {
+      const output = wiboProbe.stderr || wiboProbe.stdout;
+      const message = `sandbox wibo exec probe failed (${wiboProbe.exitCode}): ${outputTail(output)}`;
+      const enoexec = WIBO_ENOEXEC.exec(output);
+      throw enoexec ? new SandboxWiboExecError(message, sandbox.sandboxId, enoexec[1]!) : new Error(message);
+    }
     return { sandboxId: sandbox.sandboxId, workspaceRoot: params.workspaceRoot, seed };
   } catch (error) {
     if (sandbox) {

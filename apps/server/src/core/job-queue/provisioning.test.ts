@@ -15,6 +15,7 @@ import {
   SANDBOX_QA_ROOT,
   SANDBOX_QA_STAMP_PATH,
   SANDBOX_TOOLPACK_TAR_TTL_ENV,
+  SANDBOX_WIBO_EXEC_ATTEMPTS_ENV,
   sandboxQaAssetsStamp,
   sharedQaAssetTarCount,
   sharedToolpackTarCount,
@@ -246,6 +247,89 @@ describe("provisionSandboxWorkspace", () => {
       job_id: "job-1",
       claim_id: "claim-1",
     });
+  });
+});
+
+/** Answers each sandbox's wibo exec probe (the python3 exec) in turn; null lets the probe pass. */
+function scriptWiboProbes(provider: FakeSandboxProvider, outcomes: Array<{ exitCode: number; stdout: string; stderr: string } | null>) {
+  const create = provider.create.bind(provider);
+  provider.create = async (params) => {
+    const handle = await create(params);
+    const exec = handle.exec.bind(handle);
+    handle.exec = async (command, opts) => {
+      const result = await exec(command, opts);
+      if (command[0] !== "python3") return result;
+      return outcomes.shift() ?? result;
+    };
+    return handle;
+  };
+  return provider;
+}
+
+const enoexec = (kernel: string) => ({
+  exitCode: 1,
+  stdout: "",
+  stderr: `wibo-real cannot exec on ${kernel} x86_64: [Errno 8] Exec format error: 'build/tools/wibo-real'`,
+});
+
+describe("provisionSandboxWorkspace wibo exec retry", () => {
+  const savedAttempts = process.env[SANDBOX_WIBO_EXEC_ATTEMPTS_ENV];
+  afterEach(() => {
+    if (savedAttempts === undefined) delete process.env[SANDBOX_WIBO_EXEC_ATTEMPTS_ENV];
+    else process.env[SANDBOX_WIBO_EXEC_ATTEMPTS_ENV] = savedAttempts;
+  });
+
+  async function provisionSameRev(provider: FakeSandboxProvider) {
+    const { store, sourceRepoRoot } = await sandboxFixture("provision-wibo-");
+    const run = provisionSandboxWorkspace({
+      provider,
+      sourceRepoRoot,
+      baseRev: "same-rev",
+      snapshotBakedRev: "same-rev",
+      workspaceRoot: "/opt/melee",
+      snapshot: "snapshot",
+      resources: { cpu: 2, memoryGiB: 4, diskGiB: 5 },
+      ttlSeconds: 300,
+      labels: sandboxLabels,
+      reportArtifactSources: [],
+      event: sandboxEvent(store),
+    });
+    return { store, run };
+  }
+
+  test("an ENOEXEC wibo probe deletes that sandbox and provisions a fresh one", async () => {
+    delete process.env[SANDBOX_WIBO_EXEC_ATTEMPTS_ENV];
+    const provider = scriptWiboProbes(new FakeSandboxProvider(), [enoexec("6.18.15")]);
+    const { store, run } = await provisionSameRev(provider);
+
+    expect((await run).sandboxId).toBe("sandbox-2");
+    expect(provider.createdSandboxes.map((sandbox) => sandbox.sandboxId)).toEqual(["sandbox-1", "sandbox-2"]);
+    expect(provider.deletedSandboxes.map(({ sandboxId, reason }) => ({ sandboxId, reason }))).toEqual([{ sandboxId: "sandbox-1", reason: "provision_failure" }]);
+    expect(listGameEvents(store.db).map((event) => [event.eventType, event.payload.sandbox_id])).toEqual([
+      ["sandbox.created", "sandbox-1"],
+      ["sandbox.deleted", "sandbox-1"],
+      ["sandbox.created", "sandbox-2"],
+    ]);
+  });
+
+  test("every attempt on a runner that cannot exec wibo fails naming the cause, each sandbox deleted", async () => {
+    process.env[SANDBOX_WIBO_EXEC_ATTEMPTS_ENV] = "3";
+    const provider = scriptWiboProbes(new FakeSandboxProvider(), [enoexec("6.18.15"), enoexec("6.18.15"), enoexec("6.18.16"), null]);
+    const { run } = await provisionSameRev(provider);
+
+    await expect(run).rejects.toThrow(/3 sandboxes in a row .* cannot exec the 32-bit i386 wibo binary \(ENOEXEC; kernels 6\.18\.15, 6\.18\.15, 6\.18\.16\)/);
+    expect(provider.createdSandboxes).toHaveLength(3);
+    expect(provider.deletedSandboxes.map((sandbox) => sandbox.sandboxId)).toEqual(["sandbox-1", "sandbox-2", "sandbox-3"]);
+  });
+
+  test("a wibo probe failure other than ENOEXEC is not retried", async () => {
+    delete process.env[SANDBOX_WIBO_EXEC_ATTEMPTS_ENV];
+    const provider = scriptWiboProbes(new FakeSandboxProvider(), [{ exitCode: 1, stdout: "", stderr: "python3: command not found" }]);
+    const { run } = await provisionSameRev(provider);
+
+    await expect(run).rejects.toThrow("sandbox wibo exec probe failed (1): python3: command not found");
+    expect(provider.createdSandboxes).toHaveLength(1);
+    expect(provider.deletedSandboxes.map((sandbox) => sandbox.sandboxId)).toEqual(["sandbox-1"]);
   });
 });
 
