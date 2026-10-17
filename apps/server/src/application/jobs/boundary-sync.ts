@@ -8,6 +8,8 @@ import {
   type BoundaryTargetState,
 } from "@server/core/harness-runtime/phases/running/epochs/boundary-sync.js";
 import { booleanArg, syncMergePolicyArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
+import { matchingSyncMergePolicy } from "@server/core/game-registry/resolver.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 
 interface BoundarySyncDryRunState {
   anchorSha: string;
@@ -94,6 +96,8 @@ export async function boundarySync(
     ...(globals.game?.baseRef ? { upstreamRef: globals.game.baseRef } : {}),
   };
   if (args.has("--sync-merge-policy")) planInput.mergePolicy = syncMergePolicyArg(args);
+  // The plan names the game's conflict rule (`matching.syncMergePolicy`, active steering gate only).
+  if (globals.game && steeringGateActive(globals.game.matching.steeringGate)) planInput.conflictRule = matchingSyncMergePolicy(globals.game);
   const plan = await (dependencies.plan ?? planBoundarySync)(planInput);
   (dependencies.print ?? ((value) => console.log(JSON.stringify(value, null, 2))))(plan);
 }

@@ -29,3 +29,12 @@ describe("harness routes", () => {
     expect(routeFromUrl()).toEqual({ kind: "dashboard" });
   });
 });
+
+describe("reviews route", () => {
+  test("the evidence-review section round-trips with its game", () => {
+    const route = { kind: "workspace", section: "reviews", gameId: "sms" } as const;
+    expect(routeToUrl(route)).toBe("/reviews?gameId=sms");
+    locationAt(routeToUrl(route));
+    expect(routeFromUrl()).toEqual(route);
+  });
+});

@@ -189,7 +189,7 @@ export interface ReadinessClassRef {
 /** A work-table row for a target held back or reordered by class readiness. */
 /**
  * Steering-gated games only: the function's code usually reaches 100% but the
- * steering gate could not verify it ("100% unverified"). Claimable, never done.
+ * steering gate could not verify it ("100% but unverified"). Claimable, never done.
  * Absent on verified rows and on games without an active steering gate.
  */
 export interface UnverifiedMatchFields {
@@ -495,4 +495,67 @@ export interface StandardsPayload {
   context: JsonObject;
   inventory: KnowledgeInventory;
   warnings: string[];
+}
+
+/** `approving`: an approval is being published (a stuck one can be decided again after the server's stale window). */
+export type EvidenceReviewStatus = "open" | "approving" | "approved" | "rejected";
+export type EvidenceReviewStatusFilter = EvidenceReviewStatus | "all";
+export type EvidenceReviewDecision = "approved" | "rejected";
+
+/** One deduplicated human evidence-review request (snake_case, as the server persists it). */
+export interface EvidenceReview {
+  id: string;
+  game: string;
+  unit: string;
+  /** Mangled target function. */
+  symbol: string;
+  base_rev: string;
+  /** Set for an unverified-match target: one approval writes a row for each base. */
+  claim_base_rev?: string | null;
+  trusted_base_rev?: string | null;
+  site_file: string;
+  site_lines: [number, number];
+  group_digest: string;
+  callee: string | null;
+  callee_symbol: string | null;
+  /** Unified-diff-style text of the edit group. */
+  patch: string;
+  /** `{ gate: {...}, worker: {...} | null }` */
+  evidence: Record<string, unknown>;
+  status: EvidenceReviewStatus;
+  decided_by: string | null;
+  note: string | null;
+  /** How many rejected attempts hit this request. */
+  occurrences: number;
+  /** The request revision; a decision sends the one it was made on and fails if the request changed since. */
+  revision: number;
+  created_at: string;
+  updated_at: string;
+  decided_at: string | null;
+}
+
+/** Payload returned by GET /api/evidence-reviews. */
+export interface EvidenceReviewsPayload {
+  gameId: string;
+  reviews: EvidenceReview[];
+}
+
+/** Body of POST /api/evidence-reviews/decision. */
+export interface EvidenceReviewDecisionBody {
+  gameId: string;
+  id: string;
+  /** The revision the operator saw. */
+  revision: number;
+  decision: EvidenceReviewDecision;
+  note: string;
+  decidedBy?: string;
+}
+
+/** Response of POST /api/evidence-reviews/decision. */
+export interface EvidenceReviewDecisionResult {
+  review: EvidenceReview;
+  approval: Record<string, unknown> | null;
+  /** Every site-bound row the approval wrote (one per base). */
+  approvals?: Array<Record<string, unknown>>;
+  requeue: { status: "requeued" | "deferred" | "none"; message: string };
 }

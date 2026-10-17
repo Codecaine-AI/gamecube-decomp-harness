@@ -2,7 +2,7 @@ import { asObject, num, text, type JsonObject } from "./format";
 
 /** Server `verification` value for a steering-gated function whose code is "100% but unverified". */
 export const UNVERIFIED_MATCH_STATE = "unverified_match";
-export const UNVERIFIED_MATCH_LABEL = "100% unverified";
+export const UNVERIFIED_MATCH_LABEL = "100% but unverified";
 
 export interface UnverifiedMatchView {
   label: string;
@@ -32,7 +32,7 @@ export function unverifiedRunTargets(summary: JsonObject | null | undefined): nu
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/** "12 done · 3 100% unverified"; "12 done" without unverified targets. */
+/** "12 done · 3 100% but unverified"; "12 done" without unverified targets. */
 export function doneWithUnverifiedLabel(done: unknown, unverified: number | null): string {
   const doneLabel = `${num(done)} done`;
   return unverified ? `${doneLabel} · ${num(unverified)} ${UNVERIFIED_MATCH_LABEL}` : doneLabel;

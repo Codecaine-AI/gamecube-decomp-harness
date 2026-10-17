@@ -6,6 +6,7 @@ import { HarnessPage } from "@/pages/workspace/harness/page";
 import { SettingsPage } from "@/pages/workspace/settings";
 import { StandardsPage } from "@/pages/workspace/standards";
 import { StylePage } from "@/pages/workspace/style";
+import { ReviewsPage } from "@/pages/workspace/reviews";
 import { TracePage } from "@/pages/workspace/trace";
 import type { GameWorkspaceProps, HarnessView, WorkspaceNav } from "@/pages/workspace/_lib/types";
 
@@ -34,6 +35,9 @@ function WorkspaceSectionContent(props: GameWorkspaceProps & { nav: WorkspaceNav
   }
   if (props.route.section === "harness") {
     return <HarnessPage {...props} />;
+  }
+  if (props.route.section === "reviews") {
+    return <ReviewsPage form={props.form} gameName={gameName} />;
   }
   return <OverviewPage busy={props.busy} form={props.form} nav={props.nav} onAction={props.onAction} view={props.view} />;
 }

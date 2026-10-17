@@ -127,11 +127,11 @@ export function Pill({ state }: { state: string }) {
   );
 }
 
-/** Warning text for "100% unverified": design-system token, the app's own token until it loads `tokens.css`. */
+/** Warning text for "100% but unverified": design-system token, the app's own token until it loads `tokens.css`. */
 export const UNVERIFIED_TONE = "text-[color:var(--ds-color-status-warning-text,var(--color-status-warning))]";
 
 /**
- * "100% unverified" badge for a steering-gated function whose code reaches
+ * "100% but unverified" badge for a steering-gated function whose code reaches
  * 100% but the gate could not verify it: claimable, never done. Renders
  * nothing for verified rows and games without an active steering gate.
  */
@@ -154,7 +154,7 @@ export function UnverifiedBadge({ row }: { row: JsonObject | null | undefined })
   );
 }
 
-/** A truncating target label followed by its "100% unverified" badge (nothing extra for verified rows). */
+/** A truncating target label followed by its "100% but unverified" badge (nothing extra for verified rows). */
 export function LabelWithUnverified({ label, row, className = "" }: { label: ReactNode; row: JsonObject | null | undefined; className?: string }) {
   return (
     <span className={`flex min-w-0 items-center gap-[var(--ds-space-1-5,calc(var(--spacing)*1.5))] ${className}`}>

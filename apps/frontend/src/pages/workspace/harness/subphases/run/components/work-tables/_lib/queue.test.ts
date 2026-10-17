@@ -31,8 +31,8 @@ describe("queue rows", () => {
     expect(queueRows(dashboard).map(queueRowStatus)).toEqual(["admitted"]);
   });
 
-  test("unverified targets keep their 100% unverified state in the queue, admitted or readiness-blocked", () => {
-    const unverified = { verification: "unverified_match", verification_label: "100% unverified", verification_reasons: ["no steering located"] };
+  test("unverified targets keep their 100% but unverified state in the queue, admitted or readiness-blocked", () => {
+    const unverified = { verification: "unverified_match", verification_label: "100% but unverified", verification_reasons: ["no steering located"] };
     const dashboard = {
       epochTargets: [
         { epochTargetId: "t1", symbol: "update", epochStatus: "active", epochTargetStatus: "admitted", ...unverified },

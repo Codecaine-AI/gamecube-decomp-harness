@@ -3,11 +3,21 @@ import { getHarnessState } from "@server/core/harness-state/state.js";
 import { completionIndexUnknown, isUnverifiedTarget, type UnverifiedIndex } from "@server/core/harness-runtime/phases/running/board/candidates.js";
 import {
   completionIndexAt,
+  isRevisionCompletionIndex,
   withholdUnverifiedStoredMeasures,
   type CompletionIndexSource,
 } from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
+import {
+  targetKeyVariants,
+  unitKeyedHas,
+  unitKeyNormalizer,
+  withUnitKeys,
+  type UnitKeyGame,
+} from "@server/core/harness-runtime/run-state/unit-key.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 import { buildRegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
+import { judgeMasterBreakages } from "@server/core/harness-runtime/phases/running/epochs/certified-regression.js";
+import { gitRevAncestry } from "@server/core/validation/steering/unverified-certification.js";
 
 export type ScoreTierState = "in_branch" | "in_upstream";
 export type ScoreTimelineKind = "baseline" | "epoch_finish" | "pr_sync" | "legacy";
@@ -122,7 +132,8 @@ function unverifiedSignature(unverified: UnverifiedIndex): string {
     signature = completionIndexUnknown(unverified) ? "\0unknown" : [...unverified.keys()].sort().join("\n");
     signatures.set(unverified, signature);
   }
-  return signature;
+  // A game-keyed index (`withUnitKeys`) also withholds the report spelling of its keys.
+  return unitKeyNormalizer(unverified) ? `${signature}\0keyed` : signature;
 }
 
 function storedMeasures(row: SavePointProgressRow): Record<string, unknown> {
@@ -243,6 +254,25 @@ function confirmedComparison(baseline: SavePointRow | null, confirmed: SavePoint
 }
 
 /**
+ * The vs-upstream breakages of open-verification targets (a certified repair
+ * that holds its certified baseline, or a function still unverified) are not
+ * breakages (certified-regression.ts `judgeMasterBreakages`).
+ */
+async function judgeConfirmedBreakages<T extends { breakages: ScoreTierImprovement[] }>(
+  store: StateStore,
+  gameId: string,
+  tier: T,
+  provenance: { measuredRev: string | null; repoRoot: string | null },
+): Promise<T> {
+  if (tier.breakages.length === 0) return tier;
+  const rows = tier.breakages.map((row) => ({ row, unitName: row.unit, itemName: row.symbol, toPercent: row.newScore, kind: row.kind }));
+  // Only landings proven to be in the measured save point's commit excuse a row (no repo: none).
+  if (!provenance.repoRoot || !provenance.measuredRev) return tier;
+  const { kept } = await judgeMasterBreakages(rows, { store, gameId, measuredRev: provenance.measuredRev, isAncestor: gitRevAncestry(provenance.repoRoot) });
+  return kept.length === rows.length ? tier : { ...tier, breakages: kept.map(({ row }) => row) };
+}
+
+/**
  * Matches of functions still held (`unverified_match`, an uncertified
  * rollback, or unknown state) are not done: each moves to the improvements
  * (its score delta still counts), flagged `unverified_match` when `labels`
@@ -253,12 +283,16 @@ export function withholdUnverifiedMatches<T extends { matches: ScoreTierMatch[];
   tier: T,
   unverified: UnverifiedIndex | undefined,
   labels?: UnverifiedIndex,
+  /** The game the rows belong to: report rows name units with the objdiff module prefix, holds without it. */
+  game?: UnitKeyGame,
 ): T {
   if (!unverified || (unverified.size === 0 && !completionIndexUnknown(unverified))) return tier;
-  const withheld = tier.matches.filter((row) => isUnverifiedTarget(unverified, `${row.unit}::${row.symbol}`));
+  // Every spelling of the row's unit (identity without module prefixes, Melee).
+  const keys = (row: { unit: string; symbol: string }) => targetKeyVariants(game, row.unit, row.symbol);
+  const withheld = tier.matches.filter((row) => keys(row).some((key) => isUnverifiedTarget(unverified, key)));
   if (withheld.length === 0) return tier;
   // Flagged only for an active row: a rollback hold or unknown state is withheld, not labelled.
-  const flagged = (row: { unit: string; symbol: string }) => !labels || labels.has(`${row.unit}::${row.symbol}`);
+  const flagged = (row: { unit: string; symbol: string }) => !labels || keys(row).some((key) => unitKeyedHas(labels, key));
   return {
     ...tier,
     matches: tier.matches.filter((row) => !withheld.includes(row)),
@@ -320,6 +354,18 @@ function tentativeWins(store: StateStore, runId: string | null): DashboardScoreT
   return { matches, improvements };
 }
 
+/**
+ * The holds keyed for the game (`withUnitKeys`): stored figures are withheld
+ * by report unit names, which carry the objdiff module prefix the steering
+ * rows lack. Identity for games without module prefixes (Melee).
+ */
+function keyedCompletionSource(source: CompletionIndexSource | undefined, game: UnitKeyGame): CompletionIndexSource | undefined {
+  const keyed = (index: UnverifiedIndex) => completionIndexUnknown(index) ? index : withUnitKeys(index, game);
+  if (!source) return source;
+  if (!isRevisionCompletionIndex(source)) return keyed(source);
+  return { ...source, at: (rev) => keyed(source.at(rev)) };
+}
+
 export async function scoreTiersProjection(
   store: StateStore,
   gameId: string,
@@ -348,10 +394,11 @@ export async function scoreTiersProjection(
   };
   const canonicalState = getHarnessState(store.db, gameId);
   if (canonicalState) {
+    const unverified = keyedCompletionSource(options.unverified, gameId);
     const progress = new Map<string, { score: number | null; measures: Record<string, unknown> }>();
     const rowProgress = (row: SavePointRow) => {
       let value = progress.get(row.id);
-      if (!value) progress.set(row.id, value = savePointProgress(row, options.unverified));
+      if (!value) progress.set(row.id, value = savePointProgress(row, unverified));
       return value;
     };
     const score = (row: SavePointRow) => rowProgress(row).score;
@@ -393,8 +440,12 @@ export async function scoreTiersProjection(
       : baseline;
     const fresh = canonicalState.readiness.evidence === "ready" && options.sourceState?.dirty === false &&
       options.sourceState.head === canonicalState.source.head && latest?.commit_sha === canonicalState.source.head;
-    const comparison = withholdUnverifiedMatches(confirmedComparison(baselineReportRow, latest),
-      latest ? completionIndexAt(options.unverified, latest.commit_sha) : undefined, options.labels);
+    const withheldComparison = withholdUnverifiedMatches(confirmedComparison(baselineReportRow, latest),
+      latest ? completionIndexAt(unverified, latest.commit_sha) : undefined, options.labels, gameId);
+    // Steering-gated games: an open-verification target is judged against its certified baseline, not the uncertified upstream score.
+    const comparison = options.unverified
+      ? await judgeConfirmedBreakages(store, gameId, withheldComparison, { measuredRev: latest?.commit_sha ?? null, repoRoot: canonicalState.source.worktree || null })
+      : withheldComparison;
     return {
       ...empty,
       baseline: { score: baseline ? score(baseline) : null, measures: baseline ? measures(baseline) : {}, anchorRevision: baseline?.commit_sha ?? canonicalState.source.upstream_revision, savePointId: baseline?.id ?? null },
@@ -413,7 +464,7 @@ export async function scoreTiersProjection(
       },
       // Not yet saved: held as at the live source head.
       tentative: withholdUnverifiedMatches(tentativeWins(store, canonicalState.history.run_id),
-        completionIndexAt(options.unverified, options.sourceState?.head ?? canonicalState.source.head), options.labels),
+        completionIndexAt(unverified, options.sourceState?.head ?? canonicalState.source.head), options.labels, gameId),
       timeline: savePoints.map((row) => ({ savePointId: row.id, commitSha: row.commit_sha, score: score(row), measures: measures(row), kind: scoreTimelineKind(row.trigger_kind, row.label), label: row.label, createdAt: row.created_at })),
     };
   }

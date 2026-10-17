@@ -16,6 +16,7 @@ import type {
   UiConfig,
   WorkerStateTrace,
 } from "./api-types";
+import type { EvidenceReviewDecisionBody, EvidenceReviewDecisionResult, EvidenceReviewStatusFilter, EvidenceReviewsPayload } from "./api-types";
 
 export type KernelAgentGroup = "running" | "knowledge" | "pr";
 
@@ -25,7 +26,10 @@ export interface KernelAgentDefinition extends AgentViewerDefinition {
 }
 
 /** Which `previous_attempt` variant the worker sample renders (steering-gated games). */
-export type KernelPreviousAttemptVariant = "rollback" | "unverified_match";
+export type KernelPreviousAttemptVariant = "rollback" | "unverified_match" | "none";
+
+/** Which `compiler_delta` variant the worker sample's steering_probe renders (enforced steering gate). */
+export type KernelCompilerDeltaVariant = "present" | "unavailable" | "absent";
 
 export interface KernelAgentsPayload {
   generatedAt: string;
@@ -34,6 +38,8 @@ export interface KernelAgentsPayload {
   steeringGate?: "off" | "shadow" | "enforce";
   /** The `previous_attempt` variant the server rendered (echo of the `previous_attempt` query, default `rollback`). */
   previousAttempt?: KernelPreviousAttemptVariant;
+  /** The `compiler_delta` variant the server rendered (echo of the `compiler_delta` query, default `present`). */
+  compilerDelta?: KernelCompilerDeltaVariant;
   agents: KernelAgentDefinition[];
   warnings: string[];
 }
@@ -240,11 +246,12 @@ export function fetchKernelStatus(): Promise<KernelStatusPayload> {
 
 export function fetchKernelAgents(
   form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
-  options?: { target?: string; previousAttempt?: KernelPreviousAttemptVariant },
+  options?: { target?: string; previousAttempt?: KernelPreviousAttemptVariant; compilerDelta?: KernelCompilerDeltaVariant },
 ): Promise<KernelAgentsPayload> {
   const params = dashboardParams(form);
   if (options?.target) params.set("target", options.target);
   if (options?.previousAttempt) params.set("previous_attempt", options.previousAttempt);
+  if (options?.compilerDelta) params.set("compiler_delta", options.compilerDelta);
   return fetchJson<KernelAgentsPayload>(`/api/kernel/agents?${params}`);
 }
 
@@ -298,4 +305,31 @@ export function fetchKernelWorkerTrace(identity: KernelWorkerTraceIdentity): Pro
 
 export function saveStandard(form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">, edit: JsonObject): Promise<{ ok: boolean; errors?: string[]; savedId?: string }> {
   return postJson(`/api/standards?${dashboardParams(form)}`, { edit });
+}
+
+export function fetchEvidenceReviews(
+  form: Pick<FormState, "gameId" | "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  status: EvidenceReviewStatusFilter = "open",
+): Promise<EvidenceReviewsPayload> {
+  const params = dashboardParams(form);
+  params.set("status", status);
+  return fetchJson<EvidenceReviewsPayload>(`/api/evidence-reviews?${params}`);
+}
+
+/** The decision body plus the active path overrides, so override mode decides in the same state dir the list came from. */
+export function evidenceReviewDecisionPayload(
+  form: Pick<FormState, "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  body: EvidenceReviewDecisionBody,
+): JsonObject {
+  const overrides = form.usePathOverrides
+    ? { usePathOverrides: true, repoRoot: form.repoRoot, stateDir: form.stateDir, graphDbPath: form.graphDbPath }
+    : {};
+  return { ...body, ...overrides };
+}
+
+export function postEvidenceReviewDecision(
+  form: Pick<FormState, "usePathOverrides" | "repoRoot" | "stateDir" | "graphDbPath">,
+  body: EvidenceReviewDecisionBody,
+): Promise<EvidenceReviewDecisionResult> {
+  return postJson<EvidenceReviewDecisionResult>("/api/evidence-reviews/decision", evidenceReviewDecisionPayload(form, body));
 }

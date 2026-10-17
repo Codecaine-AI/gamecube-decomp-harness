@@ -1,4 +1,5 @@
 import { Activity, Bot, ChevronLeft, ChevronRight, ClipboardCheck, Database, Home, ListTree, Palette, Settings } from "@/icons";
+import { ShieldCheck } from "@/icons";
 import type { ReactNode } from "react";
 import { type AppRoute, type WorkspaceSection, WORKSPACE_SECTIONS } from "@/routing";
 import { NavItem } from "@/components/primitives";
@@ -13,6 +14,7 @@ const SECTION_ICONS: Record<WorkspaceSection, ReactNode> = {
   knowledge: <Database size={18} />,
   settings: <Settings size={18} />,
   style: <Palette size={18} />,
+  reviews: <ShieldCheck size={18} />,
 };
 
 function workspaceSection(id: WorkspaceSection) {
@@ -21,7 +23,7 @@ function workspaceSection(id: WorkspaceSection) {
   return section;
 }
 
-const HARNESS_WORKSPACE_SECTIONS = (["overview", "harness"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
+const HARNESS_WORKSPACE_SECTIONS = (["overview", "harness", "reviews"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const STANDARD_WORKSPACE_SECTIONS = (["standards", "knowledge"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const AGENT_WORKSPACE_SECTIONS = (["agents", "trace"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);
 const SETTINGS_WORKSPACE_SECTIONS = (["settings"] satisfies ReadonlyArray<WorkspaceSection>).map(workspaceSection);

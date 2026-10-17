@@ -1467,7 +1467,8 @@ describe("dashboard read model", () => {
     for (const key of ["readiness", "blockedTargets", "deferredTargets", "wouldBlockTargets", "wouldDeferTargets"]) expect(details).not.toHaveProperty(key);
   });
 
-  function seedUnverifiedRun(gameId: string): { dir: string; runId: string } {
+  /** `targetUnit`: the report spelling targets carry; `holdUnit`: the steering spelling the unverified rows carry. */
+  function seedUnverifiedRun(gameId: string, targetUnit = "main/Map/MapObj", holdUnit = targetUnit): { dir: string; runId: string } {
     const { dir, store } = tempState();
     try {
       seedHarnessState(store, gameId, { head: `base-${gameId}` });
@@ -1477,8 +1478,8 @@ describe("dashboard read model", () => {
         epochId: epoch.id,
         runId: run.id,
         candidates: [
-          { kind: "function", unit: "main/Map/MapObj", symbol: "update", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 100 },
-          { kind: "function", unit: "main/Map/MapObj", symbol: "draw", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 40 },
+          { kind: "function", unit: targetUnit, symbol: "update", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 100 },
+          { kind: "function", unit: targetUnit, symbol: "draw", sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 40 },
         ],
         workerPoolSize: 2,
       });
@@ -1489,7 +1490,7 @@ describe("dashboard read model", () => {
       writeFileSync(artifactPath, JSON.stringify({
         status: "passed",
         reasons: [],
-        target: { unit: "main/Map/MapObj", symbol: "update", before: 40, after: 100, improved: true, exact: true },
+        target: { unit: targetUnit, symbol: "update", before: 40, after: 100, improved: true, exact: true },
       }));
       recordWorkerCheckpoint(store, {
         authority: { host: "dashboard-read-model-test" },
@@ -1517,7 +1518,7 @@ describe("dashboard read model", () => {
       closeWorkerState(store, { workerStateId: claim.workerStateId, lifecycleStatus: "exact", summary: {} });
       for (const symbol of ["update", "outsideRun"]) {
         recordUnverifiedMatch(store, {
-          gameId, unit: "main/Map/MapObj", symbol, analyzedRev: "rev-1",
+          gameId, unit: holdUnit, symbol, analyzedRev: "rev-1",
           match: { base: 40, candidate: 100, real_only: null },
           reasons: ["no steering located", "real-only build regressed", "patch touches inline asm", "fourth reason"],
         });
@@ -1539,7 +1540,7 @@ describe("dashboard read model", () => {
     const targets = details.epochTargets as JsonObject[];
     expect(targets.find((row) => row.symbol === "update")).toMatchObject({
       verification: "unverified_match",
-      verification_label: "100% unverified",
+      verification_label: "100% but unverified",
       verification_match: { base: 40, candidate: 100, real_only: null },
       verification_reasons: ["no steering located", "real-only build regressed", "patch touches inline asm"],
     });
@@ -1553,6 +1554,44 @@ describe("dashboard read model", () => {
     expect((dashboard.epochTargets as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ verification: "unverified_match" });
     expect(dashboard.runSummary).toMatchObject({ targetExactMatches: 0, unverified_matches: 2, unverified_run_targets: 1 });
     expect(dashboard.current).toMatchObject({ unverified_matches: 2 });
+  });
+
+  test("unverified match: SMS short-unit rows hold the module-prefixed run targets", async () => {
+    // Targets carry the report unit `mario/Map/MapObj`; the steering rows carry `Map/MapObj`.
+    const { dir, runId } = seedUnverifiedRun("sms", "mario/Map/MapObj", "Map/MapObj");
+    const game = { gameId: "sms", baseRef: "origin/master", matching: { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" } };
+    const { runDashboard, runDetails } = createDashboardReadModel(readModelDeps);
+
+    const details = runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+    expect((details.epochTargets as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ verification: "unverified_match" });
+    expect(details.summary).toMatchObject({ exactMatches: 0, unverified_matches: 2, unverified_run_targets: 1 });
+    expect((details.improvements as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ exactMatches: 0, verification: "unverified_match" });
+    expect((details.timeline as JsonObject[]).find((row) => row.kind === "worker_state" && row.title === "update")).toMatchObject({ exactMatches: 0 });
+
+    const dashboard = await runDashboard({ game, repoRoot: dir, stateDir: dir, graphDbPath: "", usePathOverrides: true } as unknown as Parameters<typeof runDashboard>[0]);
+    expect((dashboard.epochTargets as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ verification: "unverified_match" });
+    expect(dashboard.runSummary).toMatchObject({ targetExactMatches: 0, unverified_matches: 2, unverified_run_targets: 1 });
+
+    // Cleared at a revision that does not certify the result's: a rollback hold at that revision, still not done.
+    const store = openState(dir);
+    try {
+      expect(clearUnverifiedMatch(store, { gameId: "sms", unit: "Map/MapObj", symbol: "update", clearedBy: "attempt:test", clearedRev: "elsewhere" })).toBe(true);
+    } finally {
+      store.db.close();
+    }
+    const held = runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+    expect(held.summary).toMatchObject({ exactMatches: 0, unverified_matches: 1, unverified_run_targets: 0 });
+    expect((held.improvements as JsonObject[]).find((row) => row.symbol === "update")).toMatchObject({ exactMatches: 0, completionHold: "steering_rollback" });
+  });
+
+  test("unverified match: without module prefixes (Melee) units compare as written", () => {
+    // A gated game without `unitModulePrefixes`: a short row never holds a differently spelled target.
+    const { dir, runId } = seedUnverifiedRun("melee", "mario/Map/MapObj", "Map/MapObj");
+    const game = { gameId: "melee", baseRef: "origin/master", matching: { stackFramePolicy: "match_frame", steeringGate: "enforce" } };
+    const { runDetails } = createDashboardReadModel(readModelDeps);
+    const details = runDetails(dir, runId, game as unknown as Parameters<typeof runDetails>[2]);
+    expect((details.epochTargets as JsonObject[]).find((row) => row.symbol === "update")).not.toHaveProperty("verification");
+    expect(details.summary).toMatchObject({ exactMatches: 1, unverified_matches: 2, unverified_run_targets: 0 });
   });
 
   test("unverified progress: dashboard re-derives every stored view under the current active rows", async () => {
@@ -1827,7 +1866,7 @@ describe("dashboard read model", () => {
         confirmed: { score: 75, savePointId: saved.id, delta: 75 },
         timeline: [{ commitSha: shas.base, score: 0 }, { commitSha: shas.saved, score: 75 }] });
       expect(symbols(tiers.confirmed.matches)).toEqual(["verified"]);
-      // A rollback hold is withheld, not labelled: no active row backs a "100% unverified" flag.
+      // A rollback hold is withheld, not labelled: no active row backs a "100% but unverified" flag.
       const heldImprovement = tiers.confirmed.improvements.find((row) => row.symbol === "held");
       expect(heldImprovement).toBeDefined();
       expect(heldImprovement).not.toHaveProperty("verification");
@@ -2012,10 +2051,11 @@ describe("dashboard read model", () => {
     expect(await initialWith({ measuredRevision: shas.later }, 6000)).toMatchObject({ fuzzy_match_percent: 50 });
   });
 
-  test("unverified match: a certified 100% -> 100% attempt is done once the state clears, never while it is active", () => {
+  /** `targetUnit`: the report spelling targets and evidence carry; `gateUnit`: the steering spelling gate rows and unverified rows carry. */
+  function certifiedCompletionCase(targetUnit: string, gateUnit: string): void {
     const { dir, store } = tempState();
     let runId = "";
-    const unit = "main/Map/MapObj";
+    const unit = gateUnit;
     // An enforced gate run that passes `symbol` with an edit group touching it (and its unit built and compared).
     const passingGate = (symbol: string, artifactPath: string) => ({
       mode: "enforce",
@@ -2040,8 +2080,8 @@ describe("dashboard read model", () => {
     // certified: both runs pass. uncertified: the claim-base run passes but the trusted-base run was skipped;
     // the stale `certified: true` flag must not stand in for the trusted-base result.
     const evidenceFor = (symbol: string) => symbol === "certified"
-      ? { steering: passingGate(symbol, "claim-base.json"), unverifiedTarget: { unit, symbol, trustedBaseRev: "trusted-rev", baseline: passingGate(symbol, "trusted-base.json") } }
-      : { steering: passingGate(symbol, "claim-base.json"), unverifiedTarget: { unit, symbol, certified: true, trustedBaseRev: "trusted-rev", baseline: null, skipped: "the steering gate budget was spent by the claim-base run" } };
+      ? { steering: passingGate(symbol, "claim-base.json"), unverifiedTarget: { unit: targetUnit, symbol, trustedBaseRev: "trusted-rev", baseline: passingGate(symbol, "trusted-base.json") } }
+      : { steering: passingGate(symbol, "claim-base.json"), unverifiedTarget: { unit: targetUnit, symbol, certified: true, trustedBaseRev: "trusted-rev", baseline: null, skipped: "the steering gate budget was spent by the claim-base run" } };
     try {
       seedHarnessState(store, "sms", { head: "base-sms" });
       const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sms" });
@@ -2050,7 +2090,7 @@ describe("dashboard read model", () => {
       admitEpochTargets(store, {
         epochId: epoch.id,
         runId: run.id,
-        candidates: ["certified", "uncertified"].map((symbol) => ({ kind: "function" as const, unit, symbol, sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 100 })),
+        candidates: ["certified", "uncertified"].map((symbol) => ({ kind: "function" as const, unit: targetUnit, symbol, sourcePath: "src/Map/MapObj.cpp", size: 32, fuzzy: 100 })),
         workerPoolSize: 2,
       });
       for (const index of [0, 1]) {
@@ -2060,7 +2100,7 @@ describe("dashboard read model", () => {
         writeFileSync(artifactPath, JSON.stringify({
           status: "passed",
           reasons: [],
-          target: { unit, symbol, before: 100, after: 100, improved: false, exact: true },
+          target: { unit: targetUnit, symbol, before: 100, after: 100, improved: false, exact: true },
           ...evidenceFor(symbol),
         }));
         recordWorkerCheckpoint(store, {
@@ -2110,6 +2150,14 @@ describe("dashboard read model", () => {
     // Only the certified completion counts; the uncertified 100% -> 100% never does. No score delta is invented.
     expect(cleared.summary).toMatchObject({ exactMatches: 1, totalPositiveDelta: 0 });
     expect((cleared.improvements as JsonObject[]).find((row) => row.symbol === "certified")).toMatchObject({ exactMatches: 1, totalDelta: 0, verifiedCompletion: true });
+  }
+
+  test("unverified match: a certified 100% -> 100% attempt is done once the state clears, never while it is active", () => {
+    certifiedCompletionCase("main/Map/MapObj", "main/Map/MapObj");
+  });
+
+  test("unverified match: SMS certifies a module-prefixed target from short-unit gate rows", () => {
+    certifiedCompletionCase("mario/Map/MapObj", "Map/MapObj");
   });
 
   test("unverified match: games without an active steering gate are unchanged", async () => {
