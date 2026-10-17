@@ -98,6 +98,69 @@ python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare.py \
   --json
 ```
 
+## Native Backend
+
+`--backend auto|native|qemu` (default `auto`) picks the backend per capture.
+`pcode`, `coloring`, `pair` and `trace` stay on qemu: they need PCode blocks,
+which the traced compiler does not record in milestone 1. The native backend
+serves `coloring-native`, `decisions` and `compare_sources.py`. Every result
+has a `backend` field.
+
+The native backend runs the traced MWCC build of the unit's compiler version
+(`build/compilers-traced/GC/<ver>/mwcceppc.exe` in the sandbox image, or
+`$ORCH_MWCC_TRACED_ROOT/<ver>/`). It writes `mwcc-trace-v1` JSON lines to
+`MWCC_TRACE_OUT`, filtered by `MWCC_TRACE_FUNC`. Each capture also compiles
+the same sources with the stock compiler and requires byte-identical objects;
+otherwise it returns `unavailable: traced-object-mismatch`. Trace points come
+from `CAPABILITIES.json` (beside the binaries, else `native/CAPABILITIES.json`);
+a point a version lacks is listed in `unavailable_points`.
+
+A function with no decisions (empty, asm, `__sinit`) writes no trace lines.
+Captures report it as `no_decisions_traced`, and `compare_sources` lists the
+variants without decisions; neither is an error or an empty diff. A plain name
+shared by several functions (C++ overloads) is refused as ambiguous: pass the
+mangled name.
+
+```sh
+python3 /opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py \
+  --repo-root "$PWD" --unit src/MarioUtil/MathUtil.cpp \
+  --function <symbol> --capture decisions --json
+```
+
+- `coloring-native` writes `coloring-0001-<cls>-<pass>-{before,after}.json` in
+  the qemu `mwcc-coloring-snapshot-v1` schema for every class and allocation
+  pass, plus `provenance` (backend, traced SHA-1, stock identity, version).
+  `api/compare.py` and the replay model read them; the result reports whether
+  replay reproduces each pass.
+- `decisions` writes `mwcc-decisions-v1`: vreg identities with declaration
+  sites, coloring per class and pass, inlining verdicts, CSE temps and frame
+  slots.
+
+`compare_sources.py` compiles two source variants of one unit in separate
+shadow roots and diffs MWCC's decisions (`mwcc-decision-diff-v1`). A variant
+is `@worktree`, `@base[:rev]`, `@revert:<file>:<first>-<last>` or a manifest
+`{"files": {"<repo path>": "<content>" | null}, "base": "<rev>"}`. Webs are
+matched by class, pass, declaration site (lines mapped across the two
+sources) and temp origin, never by vreg number. Duplicate keys are reported as
+`ambiguous`.
+
+```sh
+python3 /opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare_sources.py \
+  --repo-root "$PWD" --unit <unit> --function <symbol> \
+  --a @base --b @worktree --json
+```
+
+Traced compiles set `MWCC_CACHE_DISABLE=1`, because an object-cache hit
+replays the object without running the compiler and writes no trace. Both
+compile paths (`ninja_compile.direct_compile`, `stack_check.compile_in`) take a
+compiler override, extra environment, a deadline that kills the whole process
+group, and output and trace size caps (`_impl/gamecube/tools/bounded_run.py`).
+
+The replay model reproduces later allocation passes: a pass after the first
+simplifies with the registers the previous pass claimed still bound (for
+example 29 - 18 = 11 GPRs) and never spills webs created by spill code
+(`vendor/mwcc-decomp/PIN.json` lists this local change).
+
 ## Snapshot Formats and Compiler Gate
 
 Allocator files use `mwcc-allocator-snapshot-v1`. They contain the function's

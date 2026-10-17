@@ -1,0 +1,75 @@
+diff --git a/src/backend/CodeGen.c b/src/backend/CodeGen.c
+index 6265de4..ad39e07 100644
+--- a/src/backend/CodeGen.c
++++ b/src/backend/CodeGen.c
+@@ -41,6 +41,7 @@
+ #include "compiler/TOC.h"
+ #include "driver/cc-eabi-ppc.h"
+ #include <string.h>
++#include "compiler/MwccTrace.h"
+ 
+ struct CompilerLinkerOptions copts;
+ struct Object *data_0058758c;
+@@ -255,6 +256,13 @@ static VarInfo *new_varinfo(void)
+     return info;
+ }
+ 
++/* (decision trace: see compiler/MwccTrace.h) */
++static void trace_frame_slot(Object *object)
++{
++    MwccTrace_FrameSlot(object, object->u.var.uid, object->type->size,
++                        StackFrameEABI_GetTypeAlignment(object->type));
++}
++
+ static inline Boolean TooManyStructArgs(SInt16 n)
+ {
+     Boolean r;
+@@ -389,6 +397,8 @@ void CodeGen_AllocateArgumentSlots(Object *function, Boolean isVariadic, Boolean
+                 obj->u.var.info = info;
+                 obj->u.var.uid = 0;
+                 StackFrameEABI_AllocateObjectSlot(obj);
++                if (mwcc_trace_on)
++                    trace_frame_slot(obj);
+             }
+         } else {
+             info = new_varinfo();
+@@ -406,6 +416,8 @@ void CodeGen_AllocateArgumentSlots(Object *function, Boolean isVariadic, Boolean
+                 obj->u.var.info = info;
+                 obj->u.var.uid = 0;
+                 StackFrameEABI_AllocateObjectSlot(obj);
++                if (mwcc_trace_on)
++                    trace_frame_slot(obj);
+             }
+             structArgCount++;
+         }
+@@ -868,8 +880,11 @@ void allocate_registers_and_local_slots(void)
+         allocate_saved_vrs();
+     }
+     for (local = locals; local != NULL; local = local->next) {
+-        if ((Registers_GetInfo(local->object) != NULL ? Registers_GetInfo(local->object)->reg : 0) == 0)
++        if ((Registers_GetInfo(local->object) != NULL ? Registers_GetInfo(local->object)->reg : 0) == 0) {
+             StackFrameEABI_AllocateObjectSlot(local->object);
++            if (mwcc_trace_on)
++                trace_frame_slot(local->object);
++        }
+         if ((type = local->object->type) != NULL && type->type == TYPEARRAY &&
+             (elementType = TYPE_STRUCT(TPTR_TARGET(type)))->type == TYPESTRUCT) {
+             SInt32 structKind = elementType->stype;
+@@ -1574,11 +1589,16 @@ void CodeGen_Generator(Statement *statements, Object *functionObject, Boolean co
+     Coloring_AllocateRegisters(functionObject);
+     if (copts.debug_listing)
+         fn_004c4bd0(COptimizer_GetFunctionObject(functionObject)->name, "AFTER REGISTER COLORING");
+-    for (temporaryEntry = temporary_objects; temporaryEntry != NULL; temporaryEntry = temporaryEntry->next)
++    for (temporaryEntry = temporary_objects; temporaryEntry != NULL; temporaryEntry = temporaryEntry->next) {
+         StackFrameEABI_AllocateObjectSlot(temporaryEntry->object);
++        if (mwcc_trace_on)
++            trace_frame_slot(temporaryEntry->object);
++    }
+     if (!hasSentinelArgument)
+         StackFrameEABI_ClearUnusedStackFrame();
+     StackFrameEABI_FinalizeLayout(frameBlock);
++    if (mwcc_trace_on)
++        MwccTrace_FrameLayout(data_005880cc + outgoing_argument_size, eabi_stack_frame_size, gStackFrameSize);
+     StackFrameEABI_GeneratePrologueEpilogue(prologueBlock, hasSentinelArgument, has_dlocal_initialization);
+     if (hasSentinelArgument) {
+         StackFrameEABI_SaveArgumentRegisters(firstEntryBlock, secondEntryBlock, commonEntryBlock, entryLabel);

@@ -22,6 +22,9 @@ INITIAL_COLORS = {
     "vr": tuple(range(20)),
 }
 FIRST_SAVED_COLOR = {"gpr": 14, "fpr": 14, "vr": 20}
+# Coloring_SimplifyGraph's maxcost: a web created after the first allocation
+# pass (vreg >= gColoringRegisterCount, i.e. spill code) is never spilled.
+MAX_SPILL_COST = 3.4028234663852886e38
 
 
 def register_class_name(snapshot: Mapping) -> str:
@@ -155,18 +158,30 @@ def _rank_key(register: int, ranks: Mapping[int, float]) -> tuple[float, int]:
 def replay_simplify(
     snapshot: Mapping,
     *,
-    available_colors: int = 29,
+    available_colors: int | None = None,
     extra_permanent_degree: Mapping[int, int] | None = None,
     ranks: Mapping[int, float] | None = None,
     added_edges: Iterable[tuple[int, int]] = (),
     synthetic_nodes: Iterable[Mapping] = (),
+    spill_threshold: int | None = None,
 ) -> dict:
     """Replay simplify and selection with explicit graph hypotheses.
 
     ``extra_permanent_degree`` changes only degree and is therefore abstract.
     ``added_edges`` and ``synthetic_nodes`` mutate a concrete graph copy and
     affect both endpoints, simplify dynamics, and color blocking.
+
+    ``available_colors`` (K) defaults to the snapshot's ``available_colors``,
+    else 29. After the first pass of a class, K is the free-register count
+    left by the previous pass's claims (SimplifyGraph runs before
+    SelectColors resets the claims), e.g. 29 - 18 = 11. ``spill_threshold``
+    defaults to the snapshot's ``coloring_register_count``: webs at or above
+    it (spill code from earlier passes) get the maximum spill cost.
     """
+    if available_colors is None:
+        available_colors = int(snapshot.get("available_colors", 29))
+    if spill_threshold is None:
+        spill_threshold = snapshot.get("coloring_register_count")
     if available_colors <= 0 or available_colors > 32:
         raise ValueError("available_colors must be between 1 and 32")
     extra_permanent_degree = dict(extra_permanent_degree or {})
@@ -223,6 +238,8 @@ def replay_simplify(
             continue
 
         def spill_score(register: int) -> float:
+            if spill_threshold is not None and register >= spill_threshold:
+                return MAX_SPILL_COST
             if degree[register] == 0:
                 return float("inf")
             return nodes[register].get("spill_cost", 0) / degree[register]
@@ -247,6 +264,41 @@ def replay_simplify(
         "spill_choices": spill_choices,
         "selection": selection,
         "nodes": nodes,
+    }
+
+
+FIRST_PASS_AVAILABLE = {"gpr": 29, "fpr": 32, "vr": 32}
+
+
+def claimed_colors(after: Mapping) -> set[int]:
+    """Callee-saved colors one pass claimed (Coloring_Claim*Color binds them)."""
+    first_saved = FIRST_SAVED_COLOR[register_class_name(after)]
+    return {
+        node["physical_register"]
+        for node in after["nodes"]
+        if node["virtual_register"] >= FIRST_VIRTUAL_REGISTER
+        and not node.get("flags", 0) & COALESCED_FLAG
+        and first_saved <= node.get("physical_register", -1) < 32
+    }
+
+
+def pass_parameters(
+    first_before: Mapping,
+    previous_after: Mapping | None,
+    first_available: int | None = None,
+) -> dict:
+    """K and spill threshold for one allocation pass of a register class.
+
+    Pass 1 uses the class's free-register count. A later pass simplifies with
+    the registers the previous pass claimed still bound, and treats webs at or
+    above pass 1's register count (spill code) as unspillable.
+    """
+    first = first_available or FIRST_PASS_AVAILABLE[register_class_name(first_before)]
+    if previous_after is None:
+        return {"available_colors": first, "coloring_register_count": first_before["register_count"]}
+    return {
+        "available_colors": first - len(claimed_colors(previous_after)),
+        "coloring_register_count": first_before["register_count"],
     }
 
 

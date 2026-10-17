@@ -6,6 +6,8 @@
 # Local modifications:
 # - Accept the verified GC/1.2.5 and GC/1.2.5n compiler hashes.
 # - Let SnapshotReader record the compiler hash and label used for capture.
+# - Accept the stock GC/1.1p1 hash for snapshots rebuilt from native traces
+#   (the qemu reader's addresses remain 1.2.5/1.2.5n only).
 
 import argparse
 import json
@@ -18,6 +20,7 @@ TARGET_SHA256 = "0443b5c02b1aa7b575b61e0e24c4d5ad6bed8fd54cc42de5a2204a521600191
 ACCEPTED_TARGET_SHA256S = {
     TARGET_SHA256: "GC/1.2.5",
     "ccf4b465cec73b5aae9c5c5543dcf8cda8a62aba246f89e2e0b200d742f2e55c": "GC/1.2.5n",
+    "d877e9365ba40eee2939aa119ac3e92dbbfdc62c8d9aaf35d54babdbd9a1e6ce": "GC/1.1p1",
 }
 PCODE_BLOCKS_ADDRESS = 0x00587C74
 INTERFERENCE_GRAPH_ADDRESS = 0x00587E3C

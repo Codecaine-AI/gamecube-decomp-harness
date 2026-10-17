@@ -2,22 +2,25 @@
   "id": "mwcc_alloc",
   "title": "MWCC allocator capture and analysis",
   "trust_tier": "tool_evidence",
-  "description": "Capture stock MWCC PCode stages, register allocation and stack traces; analyze saved evidence offline.",
+  "description": "Capture what MWCC decided for one function: native traced-compiler decisions, coloring snapshots and source-variant diffs, or stock PCode/allocator stages under qemu; analyze saved evidence offline.",
   "operation_mode": "live_runner_v1",
   "runner_status": "live_smoke_required",
-  "status_message": "Live runner v1: allocator captures use the stock hash-gated MWCC compiler under qemu-i386 with a synchronous gdb-multiarch driver.",
+  "status_message": "Live runner v1: qemu captures use the stock hash-gated MWCC under qemu-i386 with a synchronous gdb-multiarch driver; native captures and compare_sources use the traced MWCC build (build/compilers-traced/GC/<ver>) and require its object to equal the stock object.",
   "limitations": [
-    "Capture uses the stock compiler and does not require an instrumented build.",
-    "Capture is Linux sandbox-only; offline analysis can also run on macOS.",
-    "Qemu-emulated full traces can take minutes.",
-    "Allocator addresses are valid only for hash-gated GC/1.2.5 and GC/1.2.5n binaries.",
-    "Trace uses the current object function index when compiler names are absent, checks decoded names and object order, and reports the remaining symbol-order caveat.",
+    "--backend auto picks per capture: pcode, coloring, pair and trace stay on qemu (they need PCode blocks); coloring-native, decisions and compare_sources run on the native traced compiler.",
+    "Native captures need a validated traced build of the unit's compiler version (native/CAPABILITIES.json, or CAPABILITIES.json beside the traced binaries); a trace point that version lacks is listed in unavailable_points, never reported empty.",
+    "Every native compile is checked against a stock compile of the same sources; a traced/stock object mismatch is reported as unavailable, never as a diff.",
+    "Traced compiles disable the MWCC object cache (MWCC_CACHE_DISABLE=1) and write the trace to a file, never stderr. Compiles have a deadline with process-group cleanup and output/trace size caps.",
+    "Qemu capture is Linux sandbox-only and can take minutes; offline analysis also runs on macOS.",
+    "Qemu allocator addresses are valid only for hash-gated GC/1.2.5 and GC/1.2.5n binaries.",
+    "Qemu trace uses the current object function index when compiler names are absent, checks decoded names and object order, and reports the remaining symbol-order caveat. Native captures select the function by name.",
     "Offline solver results require baseline replay agreement and real compile/checkdiff verification. Searches have fixed time and input limits.",
-    "Trace defaults to stages and graphs. Full event, creation and stack tracing is opt-in; omitted event classes are explicitly listed.",
+    "Qemu trace defaults to stages and graphs. Full event, creation and stack tracing is opt-in; omitted event classes are explicitly listed.",
     "Analysis always saves a full workspace artifact and returns at most 8 KiB of result facts."
   ],
   "commands": {
-    "snapshot": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py --repo-root <repo_root> --unit <unit> --function <symbol> --capture <pcode|coloring|pair|trace> --json",
+    "snapshot": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/snapshot.py --repo-root <repo_root> --unit <unit> --function <symbol> --capture <decisions|coloring-native|pcode|coloring|pair|trace> [--backend auto|native|qemu] --json",
+    "compare_sources": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare_sources.py --repo-root <repo_root> --unit <unit> --function <symbol> --a <@worktree|@base[:rev]|@revert:<file>:<lines>|manifest.json> --b <...> [--base-rev <rev>] --json",
     "compare": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/compare.py --before <path> --after <path> --json",
     "analyze": "python3 toolpacks/gamecube-decomp/compiler/mwcc_alloc/api/analyze.py --repo-root <repo_root> --mode <provenance|explain|inverse|source-rank|stack|origins> --input <path> --json"
   },
@@ -29,7 +32,10 @@
     "allocator_provenance",
     "allocator_inverse_coloring",
     "allocator_source_rank",
-    "allocator_stack_trace"
+    "allocator_stack_trace",
+    "mwcc_decisions",
+    "native_coloring_snapshot",
+    "decision_diff"
   ],
   "category": "compiler",
   "path": "compiler/mwcc_alloc",
@@ -48,8 +54,10 @@
       "coloring_snapshot",
       "coloring_diff",
       "allocator_trace",
-      "allocator_analysis"
+      "allocator_analysis",
+      "decisions",
+      "decision_diff"
     ],
-    "agent_guidance": "Use trace for source identity, PCode stages, GPR/FPR allocation, creation origins and stack evidence. Analyze saved files with provenance, explain, inverse, source-rank, stack or origins; validate baseline replay before using solver hypotheses."
+    "agent_guidance": "Use the native decisions capture to see what MWCC decided for a candidate (vreg owners and declaration sites, coloring per class and pass, inlining, CSE, frame) and compare_sources to measure what an edit changes. Use qemu trace for PCode stages, then analyze with provenance, explain, inverse, source-rank, stack or origins; validate baseline replay before using solver hypotheses."
   }
 }
