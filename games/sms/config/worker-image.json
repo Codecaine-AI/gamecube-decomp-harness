@@ -8,11 +8,39 @@
   ],
   "configure_args": ["--map", "--version", "GMSJ01", "--wrapper", "build/tools/wibo", "--dtk", "build/tools/dtk", "--objdiff", "build/tools/objdiff-cli", "--binutils", "build/binutils", "--compilers", "build/compilers", "--sjiswrap", "build/tools/sjiswrap.exe"],
   "build_targets": ["all_source", "progress", "build/GMSJ01/report.json"],
+  "traced_compilers": {
+    "required": ["1.2.5", "1.2.5n"],
+    "stock_exclusions": {"1.2.5": [
+      "build/GMSJ01/src/GC2D/MovieRumble.o",
+      "build/GMSJ01/src/GC2D/Option.o",
+      "build/GMSJ01/src/Map/BathWaterManager.o",
+      "build/GMSJ01/src/Map/Map.o",
+      "build/GMSJ01/src/MoveBG/MapObjMare.o"
+    ]}
+  },
+  "type_index": {"umbrella": {"output": "build/type-index/umbrella.cpp", "root": "include", "glob": "**/*.h*"}, "ctx_command": ["python3", "tools/decompctx.py", "build/type-index/umbrella.cpp", "-o", "build/type-index/ctx.cpp", "-I", "include", "-I", "libs/dolphin/include", "-I", "libs/JSystem/include", "-I", "libs/THPPlayer/include", "-I", "libs/PowerPC_EABI_Support/include", "-I", "libs/TRK_MINNOW_DOLPHIN/include", "-I", "libs/OdemuExi2/include", "-I", "libs/PowerPC_EABI_Support/include/PowerPC_EABI_Support/Msl/MSL_C/MSL_Common", "-I", "libs/PowerPC_EABI_Support/include/PowerPC_EABI_Support/Msl/MSL_C++/MSL_Common", "-I", "build/GMSJ01/include"], "ctx": "build/type-index/ctx.cpp", "lang": "c++", "project": "sms"},
   "verification_commands": [
     ["sha1sum", "-c", "config/GMSJ01/build.sha1"],
     ["clang-format", "--version"],
     ["test", "-x", "build/tools/wibo-real"],
     ["test", "-f", "orig/GMSJ01/files/mario.MAP"],
-    ["git", "diff", "--quiet", "--exit-code", "--", "config"]
+    ["git", "diff", "--quiet", "--exit-code", "--", "config"],
+    ["sh", "-c", "clang-21 -print-targets | grep -q ppc32"],
+    ["sh", "-c", "test \"$ORCH_IR_ORACLE_CLANG\" = /usr/bin/clang-21"],
+    ["sh", "-c", "command -v llvm-cxxfilt && llvm-cxxfilt _ZN3Foo3barEv"],
+    ["test", "-f", "build/compilers-traced/GC/1.1p1/mwcceppc.exe"],
+    ["test", "-f", "build/compilers-traced/GC/1.1p1/lmgr326b.dll"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5/mwcceppc.exe"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5/lmgr326b.dll"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5n/mwcceppc.exe"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5n/lmgr326b.dll"],
+    ["test", "-f", "build/compilers-traced/CAPABILITIES.json"],
+    ["test", "-d", "/opt/mwcc/src"],
+    ["test", "-d", "../mwcc/src"],
+    ["test", "-d", "/opt/refs/jsystem/tp"],
+    ["test", "-d", "/opt/refs/jsystem/tww"],
+    ["env", "PYTHONPATH=/opt/toolpacks/gamecube-decomp/_impl/gamecube/m2c", "python3", "-c", "import m2c.main, elftools, graphviz, pcpp"],
+    ["test", "-s", "/opt/build-orchestrator/.qa-ready"],
+    ["test", "-s", "/opt/tool-data/type_layout_lookup/indexes/type_layout_index.json"]
   ]
 }
