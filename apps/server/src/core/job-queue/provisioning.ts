@@ -1072,6 +1072,18 @@ export async function provisionSandboxWorkspace(params: {
       params.workspaceRoot,
       "sandbox canonical tool verification",
     );
+    // wibo is a 32-bit i386 binary: some Daytona runners cannot exec it (ENOEXEC), and every MWCC
+    // compile in this sandbox would fail. Python, not sh: sh retries an ENOEXEC file as a script.
+    await checkedSandboxExec(
+      sandbox,
+      [
+        "python3",
+        "-c",
+        "import os,subprocess,sys\ntry: subprocess.run(['build/tools/wibo-real','--help'],capture_output=True,timeout=30)\nexcept OSError as e: sys.exit(f'wibo-real cannot exec on {os.uname().release} {os.uname().machine}: {e}')",
+      ],
+      params.workspaceRoot,
+      "sandbox wibo exec probe",
+    );
     return { sandboxId: sandbox.sandboxId, workspaceRoot: params.workspaceRoot, seed };
   } catch (error) {
     if (sandbox) {

@@ -150,9 +150,14 @@ describe("provisionSandboxWorkspace", () => {
         opts: { timeoutMs: 180_000, env: undefined },
       },
     ]);
-    expect(provider.execCalls.at(-1)).toEqual({
+    expect(provider.execCalls.at(-2)).toEqual({
       sandboxId: "sandbox-1",
       command: ["/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk"],
+      opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined },
+    });
+    expect(provider.execCalls.at(-1)).toEqual({
+      sandboxId: "sandbox-1",
+      command: ["python3", "-c", expect.stringContaining("subprocess.run(['build/tools/wibo-real','--help']")],
       opts: { cwd: "/opt/melee", timeoutMs: 1_200_000, env: undefined },
     });
     expect(provider.uploadCalls.map(({ remotePath }) => remotePath)).toEqual([
@@ -204,9 +209,10 @@ describe("provisionSandboxWorkspace", () => {
       ["git", "rev-parse", "--verify", "same-rev^{commit}"],
       ["git", "checkout", "--force", "--detach", "same-rev"],
     ]);
-    expect(provider.execCalls.at(-1)?.command).toEqual([
+    expect(provider.execCalls.at(-2)?.command).toEqual([
       "/bin/sh", "-c", "test -x build/tools/wibo-real && test -x build/tools/objdiff-cli && test -x build/tools/dtk",
     ]);
+    expect(provider.execCalls.at(-1)?.command).toEqual(["python3", "-c", expect.stringContaining("except OSError")]);
     expect(provider.createdSandboxes[0]?.params.ttlMinutes).toBe(31);
   });
 
