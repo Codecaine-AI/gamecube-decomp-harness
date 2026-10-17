@@ -1,0 +1,36 @@
+### Behaviour and incentives
+
+1. **[BLOCKING] Certification rewards can replenish the budget indefinitely.** §1.3 permits “a certified pass” without requiring new progress. Today, `apps/server/src/core/harness-runtime/phases/running/workers/worker-cycle.ts:980` requires a new score high; lines 984–988 also contain an exact-claim bypass.  
+   **Fix:** reward only newly resolved certification obligations or improvement beyond the certified high-water mark. Deduplicate obligations across revisions and retries. Require selectable, hard-gate-passing, revision-bound certification for every SMS grant.
+
+2. **[BLOCKING] Lower-score real-code repairs cannot reach certification.** §1.2–1.4 prefer certified repairs over higher-scoring probes, but `apps/server/src/core/agent-catalog/agents/running/worker/change-validation.ts:1002` rejects target regressions and unchanged nonexact results. `steering-validation.ts:305` only runs the gate after validation passes. Removing an unexplained edit can therefore disqualify its replacement before certification.  
+   **Fix:** add an explicit repair-validation and checkpoint-selection path allowing target regression or equality when resolving unverified work. Preserve unrelated-function regression checks and require trusted-base certification.
+
+3. **[BLOCKING] The evidence list permits circular justification.** §4 step 6 calls m2c output evidence, contradicting `prompt.ts:498`, which correctly calls it a scaffold. Header existence and similar assembly also do not establish use at this site. Worse, `toolpacks/gamecube-decomp/_impl/gamecube/tools/evidence_search.py:978` identifies “matched” siblings using fuzzy percent alone, admitting unverified SMS donors.  
+   **Replacement:** “m2c output, similar assembly and compiler explanations generate candidates. Cite independent evidence connecting the construct to this target, including its operands, placement and behaviour. A helper’s existence alone is insufficient. Treat uncertified SMS siblings as hypotheses.” Add certification status and revision provenance to `usage` results.
+
+4. **[BLOCKING] Candidate traces are presented as explanations of the original compiler run.** §4 steps 4–5 require a definitive explanation of the remaining difference, although native/pair capture measures reconstructed candidates. A probe adding one interference edge does not establish that the original had that edge, or that a particular missing construct caused it. This encourages invented compiler evidence.  
+   **Replacement:** “Separate measured candidate decisions from hypotheses about the original. State what the trace observed, the predicted target instruction change, and what would falsify the explanation. Report unknown when unsupported. A candidate delta does not uniquely identify original source.”
+
+5. **[BLOCKING] Three hypotheses is neither defined nor an effective exploration bound.** §1.9 promises a cap; §4 stops only after the residual is explained. Unexplained residuals permit endless reading. Conversely, three cheap spelling variants can exhaust the allowance prematurely. Existing `prompt.ts:342` encourages continued iteration whenever evidence suggests another move.  
+   **Replacement:** “A hypothesis identifies one source construct, supporting evidence, predicted instruction changes and a falsifier. Spelling variants and probes belong to that hypothesis. Bound diagnostic work and probe runs within the claim budget. After three distinct tested hypotheses for an unchanged residual, stop and record observations, unknowns and untried leads. New residuals require measured instruction changes.” Remove the open-ended continuation rule.
+
+### Prompt integration and completion
+
+1. **[BLOCKING] Unverified instructions invent a certified subset.** §4 says “Keep the parts the gate already certified.” The packet provides no per-edit certificate; `previous-attempt.ts:109` explicitly says `real_only` is not a certified subset. Its unexplained-edit list is also truncated to six entries. Workers can mistake omitted or retained code for approved code.  
+   **Replacement:** “This packet is a bounded summary, not a per-edit certificate. Inspect the complete report and trusted base. Retained code remains unverified unless covered by the required certificate. Explain or remove unexplained edits, then obtain fresh certification of the resulting target against the trusted base.”
+
+2. **[BLOCKING] Stack instructions remain contradictory, especially for Melee.** §1.1 leaves the stack technique intact, including Melee’s explicit `PAD_STACK` prescription at `prompt.ts:57`. §4 bans padding probes but also instructs workers to fix frame residuals. SMS’s existing frame-manipulation prohibitions at `prompt.ts:89` must survive deduplication. The claim that the gate rejects probes also fails for Melee, where it is off.  
+   **Replacement:** “SMS: diagnose frame differences, never manipulate the frame, and stop on runner-confirmed frame-only results. Melee: recover evidence-backed slot owners, lifetimes or inline boundaries; artificial padding is prohibited. Probe retention is prohibited in both games, regardless of gate availability.”
+
+3. **[BLOCKING] The general method conflicts with retained tool restrictions and lacks fallbacks.** §4 mandates capture for every hypothesis; `prompt.ts:521` prohibits allocator diagnostics outside register-only residuals. Scheduling capture is deferred, while the method requires an explanation now. Types and struct layout lose the explicit `type_layout_lookup`/`type_oracle_lookup` guidance at `prompt.ts:498`. The `../mwcc` placement is promised only for SMS.  
+   **Replacement:** “Classify the residual, then use evidence appropriate to it: compiler decisions where captured; assembly and dependencies for scheduling/control flow; type and layout tools for signedness, ownership and offsets; relocations and bytes for data identity. Report unsupported observations as unknown.” Update the retained restriction and provide game-specific compiler paths and availability.
+
+4. **[BLOCKING] The replacement done definition omits independent acceptance requirements.** §1.2/§4 reduce completion to instruction matching plus SMS certification. Existing `prompt.ts:194`–201 also require relocation/data-aware matching, no neighbor/TU regression and review gates. Steering certification cannot replace these checks.  
+   **Replacement:** “Done requires runner-confirmed strict instruction, relocation and data matching, all applicable review gates, and no local regression caused by your edits. SMS additionally requires trusted-base steering certification. Frame-only is a reported stop condition, never an exact claim.”
+
+5. **[NON-BLOCKING] The prompt assumes `compiler_delta` is present and authoritative.** §4 says to start at step 5, while §4.1 explicitly permits delivery before the post-gate job finishes. Stored deltas also describe earlier source.  
+   **Replacement:** “Use `compiler_delta` only after checking its function, compiler/options and source revisions. If absent or stale, capture the identified variants yourself or continue from measured instruction differences. Missing compiler data is not evidence that a construct is absent.”
+
+9 blocking findings.
+

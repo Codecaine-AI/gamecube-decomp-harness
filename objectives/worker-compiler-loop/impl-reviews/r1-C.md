@@ -1,0 +1,9 @@
+1. [BLOCKING] Missing certification data admits hypotheses as evidence. `toolpacks/gamecube-decomp/_impl/gamecube/tools/evidence_search.py:950` and `steering_diagnose.py:315`. Missing/corrupt SMS certification data becomes `ungated`; both predicates accept 100% ungated siblings into `results` and `sibling_uses`. A malformed gated snapshot without `unverified` also certifies everyone. Fix: distinguish unknown certification from confirmed gate-off, validate required fields, and keep unknown siblings under hypotheses. Add missing/corrupt snapshot regressions through usage and probe fitting.
+
+2. [BLOCKING] Later certification incorrectly certifies older source. `apps/server/src/core/harness-runtime/run-state/unverified-matches-evidence.ts:58`. If a sibling is unverified at A and certified at B, a queued job provisioned at A after B exports no hold and labels A’s unverified body certified. `options.revision` does not affect selection. Fix: include cleared history and retain holds unless `clearedRev` is an ancestor of the sandbox revision. Test snapshots at both A and B.
+
+3. [BLOCKING] UNUSED output bounding can produce invalid JSON. `apps/server/src/core/tools/wrappers/unused-stub-test.ts:88`. Six populated overload checks with twelve changed functions and twelve callers each exceed the 24,000-character cap. Reproduction produced 49,915 characters; final text truncation made JSON parsing fail. Fix: apply structural character bounding after row normalization, preserving the aggregate verdict and omission counts. Test the final serialized response.
+
+Server typecheck passes. Focused wrapper, bounds, and knowledge tests: 13 pass, 1 skip. Filesystem permissions blocked temporary-file tests.
+
+3 blocking findings.
