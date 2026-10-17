@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { buildRegressionReport } from "@server/core/validation/objdiff/report.js";
 import { UNKNOWN_COMPLETION_INDEX } from "./candidates.js";
+import { withUnitKeys } from "@server/core/harness-runtime/run-state/unit-key.js";
 import {
   completionIndexAt,
   withholdUnverifiedMeasures,
@@ -136,7 +137,7 @@ describe("withholdUnverifiedRegression", () => {
     expect(view.newMatches.map((entry) => entry.itemName)).toEqual(["done"]);
     expect(view.summary).toMatchObject({ matchedCodePercentTo: 16, matchedCodeBytesTo: 16, matchedCodeBytesDelta: 16, matchedCodeBytesFrom: 0 });
     expect(view.markdown).toContain("**Matched code**: 16.00%");
-    expect(view.markdown).toContain("**100% unverified**: 1 function(s), 24 bytes");
+    expect(view.markdown).toContain("**100% but unverified**: 1 function(s), 24 bytes");
   });
 
   test.each([
@@ -212,5 +213,33 @@ describe("completionIndexAt", () => {
     expect(completionIndexAt(source, null)).toBe(held);
     expect(asked).toEqual(["abc", null]);
     expect(completionIndexAt(undefined, "abc")).toBeUndefined();
+  });
+});
+
+describe("module-prefixed report units (SMS)", () => {
+  // objdiff names the unit `mario/a`; the steering hold names it `a`.
+  const prefixed = () => {
+    const raw = report({ ...full, total_units: 2, complete_units: 1, complete_code: "40", complete_code_percent: 40 }, { measures: { total_code: "40", complete_code: "40", complete_units: 1, total_units: 1 } });
+    raw.units[0]!.name = "mario/a";
+    return raw;
+  };
+
+  test("a held function loses its matched, fuzzy and complete-unit credit under a tagged short-unit index", () => {
+    const withheld = withholdUnverifiedReport(prefixed(), withUnitKeys(new Set(["a::f"]), "sms"));
+    expect(withheld.measures).toMatchObject({ matched_code: 16, matched_functions: 1, fuzzy_match_percent: 46, complete_units: 0, unverified_functions: 1, unverified_targets: 1 });
+    expect(withheld.units.get("mario/a")).toMatchObject({ complete_units: 0, unverified_functions: 1 });
+
+    const changes = {
+      from: { total_code: "100", matched_code: "0", matched_code_percent: 0 },
+      to: { total_code: "100", matched_code: "24", matched_code_percent: 24 },
+      units: [{ name: "mario/a", functions: [{ name: "f", from: { fuzzy_match_percent: 50, size: "24" }, to: { fuzzy_match_percent: 100, size: "24" } }] }],
+    };
+    const view = withholdUnverifiedRegression(buildRegressionReport(changes, "Epoch", 50), withUnitKeys(new Set(["a::f"]), "sms"));
+    expect(view.newMatches).toEqual([]);
+    expect(view.summary.matchedCodeBytesDelta).toBe(0);
+  });
+
+  test("Melee (no module prefixes) withholds nothing for a differently spelled unit", () => {
+    expect(withholdUnverifiedReport(prefixed(), withUnitKeys(new Set(["a::f"]), "melee")).measures).toMatchObject({ matched_code: "40", unverified_targets: 0 });
   });
 });

@@ -1,5 +1,6 @@
 import type { TargetCandidate } from "@server/core/shared/types/index.js";
 import { isRecordedStackOnly } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
+import { unitKeyedHas, unitKeyNormalizer } from "@server/core/harness-runtime/run-state/unit-key.js";
 import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./json.js";
 
 /** `unit::symbol` -> recorded score of functions done up to the stack frame (stop_at_frame games only). */
@@ -22,15 +23,27 @@ export function completionIndexUnknown(index: UnverifiedIndex | undefined): bool
   return Boolean(index && (index as unknown as Record<symbol, unknown>)[UNKNOWN_COMPLETION] === true);
 }
 
+/** `key` (report or steering spelling of `unit::symbol`) is held; an index tagged by `withUnitKeys` canonicalises it. */
 export function isUnverifiedTarget(index: UnverifiedIndex | undefined, key: string): boolean {
-  return completionIndexUnknown(index) || Boolean(index?.has(key));
+  return completionIndexUnknown(index) || unitKeyedHas(index, key);
 }
 
-/** Unverified candidates first, each group in its own order: they are close, so they are admitted before untouched targets. */
-export function rankUnverifiedFirst(candidates: TargetCandidate[]): TargetCandidate[] {
+/**
+ * Unverified candidates first, each group in its own order: they are close, so they are admitted before untouched targets.
+ * `singleChange` (`unit::symbol`, plan 3.4.3): unverified targets whose compiler delta is one measured change lead their group.
+ * Candidate units are report units (module-prefixed), single-change keys steering units: the set's own `withUnitKeys`
+ * tag, else the same game's `unverified` index tag, canonicalises the candidate key.
+ */
+export function rankUnverifiedFirst(candidates: TargetCandidate[], singleChange?: ReadonlySet<string>, unverifiedIndex?: UnverifiedIndex): TargetCandidate[] {
   if (!candidates.some((candidate) => candidate.verification === "unverified_match")) return candidates;
+  const unverified = candidates.filter((candidate) => candidate.verification === "unverified_match");
+  const normalize = unitKeyNormalizer(singleChange) ?? unitKeyNormalizer(unverifiedIndex);
+  const single = (candidate: TargetCandidate) => {
+    const key = `${candidate.unit}::${candidate.symbol}`;
+    return unitKeyedHas(singleChange, key) || Boolean(normalize && singleChange?.has(normalize(key)));
+  };
   return [
-    ...candidates.filter((candidate) => candidate.verification === "unverified_match"),
+    ...(singleChange && singleChange.size > 0 ? [...unverified.filter(single), ...unverified.filter((candidate) => !single(candidate))] : unverified),
     ...candidates.filter((candidate) => candidate.verification !== "unverified_match"),
   ];
 }

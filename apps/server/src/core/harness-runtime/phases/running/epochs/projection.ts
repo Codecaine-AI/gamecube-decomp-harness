@@ -57,7 +57,7 @@ function compactMeasures(measures: RunningEpochJsonObject): RunningEpochJsonObje
     complete_units: numberValue(measures.complete_units, NaN),
     total_units: numberValue(measures.total_units, NaN),
     unmatched_targets: unmatchedTargetsValue(measures),
-    // Steering-gated games: the "100% unverified" figures and the unknown-completion marker, only when present.
+    // Steering-gated games: the "100% but unverified" figures and the unknown-completion marker, only when present.
     ...Object.fromEntries(Object.entries(measures).filter(([key]) => key.startsWith("unverified_"))),
   };
 }

@@ -572,6 +572,37 @@ describe("sharded steering backfill --apply", () => {
     });
   });
 
+  test("a shard whose revert leaves a unit uncompilable is refused (named, checkout unchanged); nothing is rebuilt or re-checked for it", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, base, head } = checkout();
+      const removable = { id: `${SRC_A}@0.0`, file: SRC_A, line: 1, status: "removable", units: [UNIT_A], cosmetic: false, shapes: ["temp_alias"], cand_lines: ["int t = g();"], base_lines: ["return g();"] };
+      const reports = writeReports(dir, [
+        shard(base, head, { unit: UNIT_A, source: SRC_A, functions: [fn(UNIT_A, "f__a", "steering_located", [`${SRC_A}@0.0`])], groups: [removable] }),
+        shard(base, head, { unit: UNIT_B, source: SRC_B, functions: [fn(UNIT_B, "f__b", "pass")] }),
+      ]);
+      const runners = fakeRunners(repo);
+      const before = readFileSync(join(repo, SRC_A), "utf8");
+      const failure = { unit: UNIT_A, object: "build/GMSJ01/src/Enemy/a.o", output: "error: undefined identifier 't'" };
+      const inner = runners.runner;
+      const verifies: unknown[] = [];
+      const runner: typeof inner = async (args, where, call) => {
+        if (args[0] !== "apply") return inner(args, where, call);
+        verifies.push(call?.verify);
+        return { exitCode: 4, stdout: "", stderr: "apply refused", compile: { ok: false, changed: [SRC_A], objects: [failure.object], failures: [failure], unowned: [] } };
+      };
+      const result = await sharded(repo, base, head, store, dir, { ...runners, runner }, reports, { record: false, apply: true });
+      expect(verifies).toHaveLength(1);
+      expect((verifies[0] as { owners: Record<string, unknown> }).owners[SRC_A]).toEqual([{ unit: UNIT_A, object: "build/GMSJ01/src/Enemy/a.o" }]);
+      expect(result.applied).toBe(false);
+      expect(result.applyRefusals).toEqual([{ ok: false, changed: [SRC_A], objects: [failure.object], failures: [failure], unowned: [], report: reports[0] }]);
+      expect(result.problems.join("; ")).toContain(`apply refused: 1 unit(s) no longer compile after the revert: ${UNIT_A}`);
+      expect(readFileSync(join(repo, SRC_A), "utf8")).toBe(before);
+      expect(runners.builds).toEqual([]);
+      expect(runners.calls.filter((args) => args[0] === "check")).toEqual([]);
+      expect(result.nextSteps.join(" ")).toContain("Refused applies left the checkout unchanged");
+    });
+  });
+
   test("--dry-run passes --dry-run to every apply and writes nothing", async () => {
     await withStore(async (store, dir) => {
       const { repo, base, head } = checkout();

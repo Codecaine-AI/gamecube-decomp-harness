@@ -23,7 +23,15 @@ import { Database } from "bun:sqlite";
 import { createOrchestratorStateOrm } from "@server/core/orchestrator-state";
 import { branchSteeringHolds, type SteeringPrHold } from "./checkpoint/steering-holds.js";
 import { unverifiedMatchKey } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { canonicalUnit, targetKey, unitKeyedGet, withUnitKeys, type UnitKeyGame } from "@server/core/harness-runtime/run-state/unit-key.js";
 import { steeringGateActive } from "@server/core/tools/steering-gate.js";
+import type { StateStore } from "@server/core/orchestrator-state";
+import {
+  CERTIFIED_REPAIR_HOLD_REASON,
+  setAsideReason,
+  verificationJudgements,
+  type VerificationJudgement,
+} from "@server/core/harness-runtime/phases/running/epochs/certified-regression.js";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -229,16 +237,34 @@ function withoutExtension(file: string): string {
  * A unit maps to the source paths its report rows name, else to the shipped
  * file at `src/<unit>` or `src/<unit without its root>` (any extension).
  */
-function heldShippedFiles(holds: SteeringPrHold[], report: RegressionReport, files: string[]): Map<string, string[]> {
+/**
+ * Broken matches and fuzzy regressions that are certification-lane repairs
+ * (a certified result below the upstream score it replaced): upstream sees a
+ * real regression, so PR readiness keeps them as blockers, named with
+ * `CERTIFIED_REPAIR_HOLD_REASON` rather than as an unexplained regression.
+ */
+function certifiedRepairRows(report: RegressionReport, judgements: ReadonlyMap<string, VerificationJudgement>) {
+  return [...report.brokenMatches, ...report.fuzzyRegressions].flatMap((entry) => {
+    // Report (module-prefixed) units against canonical certification keys: `verificationJudgements` tags its map.
+    const judgement = unitKeyedGet(judgements, unverifiedMatchKey(entry.unitName, entry.itemName));
+    return judgement?.kind === "certified" && setAsideReason(entry, judgement)
+      ? [{ entry, certifiedScore: judgement.score }]
+      : [];
+  });
+}
+
+function heldShippedFiles(holds: SteeringPrHold[], report: RegressionReport, files: string[], game?: UnitKeyGame): Map<string, string[]> {
+  // Report units carry the module prefix, hold units may not: both are keyed canonically.
   const unitPaths = new Map<string, Set<string>>();
   for (const entry of [...report.newMatches, ...report.improvements ?? [], ...report.brokenMatches, ...report.fuzzyRegressions]) {
     if (!entry.sourcePath) continue;
-    unitPaths.set(entry.unitName, (unitPaths.get(entry.unitName) ?? new Set()).add(entry.sourcePath));
+    const unit = canonicalUnit(game, entry.unitName);
+    unitPaths.set(unit, (unitPaths.get(unit) ?? new Set()).add(entry.sourcePath));
   }
   const shipped = new Set(files);
   const heldFiles = new Map<string, string[]>();
   for (const hold of holds) {
-    const named = unitPaths.get(hold.unit);
+    const named = unitPaths.get(canonicalUnit(game, hold.unit));
     const stems = new Set([`src/${hold.unit}`, `src/${hold.unit.split("/").slice(1).join("/")}`]);
     const candidates = named ? [...named] : files.filter((file) => stems.has(withoutExtension(file)));
     for (const file of candidates) {
@@ -284,6 +310,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       return {
         credit: { newMatches: report.newMatches.length, matchedCodeBytesDelta: report.summary.matchedCodeBytesDelta, steering: undefined },
         heldFiles: new Map<string, string[]>(),
+        certifiedRepairs: new Map<string, VerificationJudgement>(),
       };
     }
     if (!game.gameId) throw new Error("Steering-gated PR verification requires a gameId.");
@@ -292,7 +319,17 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     // fails closed rather than silently treating every raw 100% as certified.
     const db = new Database(path, { readonly: true });
     let holds: SteeringPrHold[];
+    let certifiedRepairs: Map<string, VerificationJudgement>;
     try {
+      // Labels only (the rows stay blockers): landings proven to be in the shipped source ref.
+      certifiedRepairs = await verificationJudgements({
+        store: { db } as unknown as StateStore,
+        gameId: game.gameId,
+        scope: "upstream",
+        measuredRev: sourceRef || null,
+        isAncestor: async (ancestor, descendant) => !ancestor.startsWith("-") && !descendant.startsWith("-")
+          && (await runGit(paths.repoRoot, ["merge-base", "--is-ancestor", ancestor, descendant], { check: false })).exitCode === 0,
+      });
       holds = await branchSteeringHolds(
         { db, orm: createOrchestratorStateOrm(db), path, stateDir: paths.stateDir },
         { gameId: game.gameId, steeringGate },
@@ -302,9 +339,10 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     } finally {
       db.close();
     }
-    const byTarget = new Map(holds.map((hold) => [unverifiedMatchKey(hold.unit, hold.symbol), hold]));
+    // Canonical keys on both sides: holds may name the unit without the report's module prefix.
+    const byTarget = withUnitKeys(new Map(holds.map((hold) => [targetKey(game.gameId, hold.unit, hold.symbol), hold])), game.gameId);
     const held = report.newMatches.flatMap((entry) => {
-      const hold = byTarget.get(unverifiedMatchKey(entry.unitName, entry.itemName));
+      const hold = unitKeyedGet(byTarget, unverifiedMatchKey(entry.unitName, entry.itemName));
       return hold ? [{ entry, hold }] : [];
     });
     return {
@@ -321,7 +359,8 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
           rawMatchedCodeBytesDelta: report.summary.matchedCodeBytesDelta,
         },
       },
-      heldFiles: heldShippedFiles(holds, report, files),
+      heldFiles: heldShippedFiles(holds, report, files, game.gameId),
+      certifiedRepairs,
     };
   }
 
@@ -495,7 +534,8 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
         await runCli(["git", "clean", "-fd", "--", "src", "include", "config"], worktreeDir);
       }
 
-      const { credit, heldFiles } = await steeringReview(paths, report, stringValue(options.sourceRef), pathspecs);
+      const { credit, heldFiles, certifiedRepairs } = await steeringReview(paths, report, stringValue(options.sourceRef), pathspecs);
+      const repairs = new Map(certifiedRepairRows(report, certifiedRepairs).map((row) => [row.entry, row.certifiedScore]));
       const clean =
         report.regressions.length === 0 && report.brokenMatches.length === 0 && report.fuzzyRegressions.length === 0 && issues.status === "clean"
         && heldFiles.size === 0;
@@ -517,7 +557,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
           patchPath,
           checkedAt: new Date().toISOString(),
         };
-        const holdCounts = credit.steering ? `, ${credit.steering.unverifiedMatches} 100% unverified, ${credit.steering.heldMatches} steering holds` : "";
+        const holdCounts = credit.steering ? `, ${credit.steering.unverifiedMatches} 100% but unverified, ${credit.steering.heldMatches} steering holds` : "";
         uiLog("ui", `ship-set verification: ${status.status} (${status.newMatches} confirmed matches${holdCounts}, ${droppedFiles.size} file(s) dropped for rework)`);
         return writeStatus(status);
       }
@@ -536,7 +576,10 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
         for (const reason of reasons) note(file, reason);
       }
       for (const entry of [...report.brokenMatches, ...report.fuzzyRegressions]) {
-        note(entry.sourcePath || sourcePathFromUnit(entry.unitName), `${entry.itemName} ${entry.fromPercent.toFixed(2)} -> ${entry.toPercent.toFixed(2)}`);
+        const certified = repairs.get(entry);
+        note(entry.sourcePath || sourcePathFromUnit(entry.unitName), certified === undefined
+          ? `${entry.itemName} ${entry.fromPercent.toFixed(2)} -> ${entry.toPercent.toFixed(2)}`
+          : `${CERTIFIED_REPAIR_HOLD_REASON}: ${entry.itemName} ${entry.fromPercent.toFixed(2)} -> ${entry.toPercent.toFixed(2)} (certified ${certified.toFixed(2)})`);
       }
       for (const change of report.regressions) {
         note(sourcePathFromUnit(stringValue((change as unknown as JsonObject).name)), `metric ${stringValue((change as unknown as JsonObject).name)}`);
@@ -706,7 +749,10 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
 
   /** `files` is the slice's shipped manifest; a held function's edit in any of them rejects the slice. */
   async function sliceValidationSummary(report: RegressionReport, issues: CodeIssuesResult, paths: Context, sourceRef = "", files: string[] = []): Promise<JsonObject> {
-    const { credit, heldFiles } = await steeringReview(paths, report, sourceRef, files);
+    const { credit, heldFiles, certifiedRepairs } = await steeringReview(paths, report, sourceRef, files);
+    const repairs = certifiedRepairRows(report, certifiedRepairs).map(({ entry, certifiedScore }) => ({
+      target: `${entry.unitName}::${entry.itemName}`, fromPercent: entry.fromPercent, toPercent: entry.toPercent, certifiedScore, reason: CERTIFIED_REPAIR_HOLD_REASON,
+    }));
     const regressions = report.regressions.length + report.brokenMatches.length + report.fuzzyRegressions.length;
     const status = regressions > 0 || issues.status === "issues" || heldFiles.size > 0
       ? "failed"
@@ -723,7 +769,7 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
       fuzzyRegressions: report.fuzzyRegressions.length,
       metricRegressions: report.regressions.length,
       matchedCodeBytesDelta: credit.matchedCodeBytesDelta,
-      ...(credit.steering ? { steeringHeldFiles: Object.fromEntries(heldFiles) } : {}),
+      ...(credit.steering ? { steeringHeldFiles: Object.fromEntries(heldFiles), certifiedRepairs: repairs } : {}),
       issuesCheck: issues.status,
       issuesFiles: issues.files,
       issuesOutput: issues.status === "clean" ? "" : outputTail(issues.output, 1200),
@@ -736,8 +782,13 @@ export function createPrWorktreeService<Context extends PrWorktreeGameContext>(d
     if (heldFiles.length > 0) {
       throw new Error(`Slice ${branch} is not locally ready: its patch ships held steering edits in ${heldFiles.join(", ")}; move the held functions out or certify them first.`);
     }
+    const repairs = Array.isArray(validation.certifiedRepairs) ? validation.certifiedRepairs.map(asObject) : [];
+    if (repairs.length > 0) {
+      throw new Error(`Slice ${branch} is not locally ready: ${repairs.length} ${CERTIFIED_REPAIR_HOLD_REASON} (${
+        repairs.map((row) => `${stringValue(row.target)} ${numberValue(row.toPercent)}%`).join(", ")}).`);
+    }
     if (stringValue(validation.status) === "nothing_to_ship") {
-      throw new Error(`Slice ${branch} is not locally ready: nothing to ship (${numberValue(validation.unverifiedMatches)} 100% unverified, ${numberValue(validation.heldMatches)} steering holds).`);
+      throw new Error(`Slice ${branch} is not locally ready: nothing to ship (${numberValue(validation.unverifiedMatches)} 100% but unverified, ${numberValue(validation.heldMatches)} steering holds).`);
     }
     throw new Error(
       `Slice ${branch} is not locally ready: ${numberValue(validation.brokenMatches)} broken · ${numberValue(validation.fuzzyRegressions)} fuzzy · ${numberValue(validation.metricRegressions)} metric · ${stringValue(validation.issuesCheck)} issues.`,

@@ -26,6 +26,8 @@ import {
 } from "@server/core/validation/edit-scope/unused-evidence.js";
 import { REJECTED_OUT_OF_SCOPE_DISPOSITION } from "@server/core/harness-runtime/run-state/worker-output-integration.js";
 import { activeUnverifiedMatch, clearUnverifiedMatchIfCertified, integrationClearedBy } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { CERTIFIED_INPUTS_KEY, compileInputsFresh } from "@server/core/validation/steering/certified-inputs.js";
+import { canonicalTargetKey, targetKey } from "@server/core/harness-runtime/run-state/unit-key.js";
 import {
   checkpointUnverifiedCertification,
   gitRevAncestry,
@@ -35,6 +37,11 @@ import {
   type UnverifiedMatchCertification,
 } from "@server/core/validation/steering/unverified-certification.js";
 import { rejectWorkerOutputIntegrationRecord } from "./reject-output.js";
+import {
+  EDIT_SCOPE_ATTESTATION_KEY,
+  verifyEditScopeAttestation,
+  type AttestationCheck,
+} from "./scope-attestation.js";
 import {
   addEvent,
   getRun,
@@ -400,10 +407,12 @@ function checkpointMetadata(store: StateStore, record: WorkerOutputIntegrationRe
  * established, leaves the row active although the patch applied. Nothing else clears it here (a validation pass alone, a skipped,
  * conflicting or rejected output). Never throws: the commit already landed.
  */
-/** The checkpoint's certification for this integration's own target, else null. */
+/** The checkpoint's certification for this integration's own target (either unit spelling), else null. */
 function integratedUnverifiedCertification(record: WorkerOutputIntegrationRecord, metadata: Record<string, unknown>): UnverifiedMatchCertification | null {
   const certification = checkpointUnverifiedCertification(metadata);
-  return certification && record.targetKey === `${certification.unit}::${certification.symbol}` ? certification : null;
+  if (!certification) return null;
+  const game = certification.game_id;
+  return record.targetKey !== null && canonicalTargetKey(game, record.targetKey) === targetKey(game, certification.unit, certification.symbol) ? certification : null;
 }
 
 /**
@@ -451,6 +460,23 @@ async function clearCertifiedUnverifiedMatch(params: {
     game_id: certification.game_id, unit: certification.unit, symbol: certification.symbol, base_rev: certification.base_rev,
     claim_base_rev: certification.claim_base_rev ?? null, pre_apply_rev: params.preApplyRev || null, checkpoint_id: record.workerCheckpointId,
   };
+  // The whole compile, not only the target source, must be what was certified: a header landed since keeps the hold.
+  let inputs: Awaited<ReturnType<typeof compileInputsFresh>>;
+  try {
+    inputs = await compileInputsFresh({
+      inputs: params.metadata[CERTIFIED_INPUTS_KEY],
+      claimBaseRev: certification.claim_base_rev ?? "",
+      preApplyRev: params.preApplyRev,
+      integratedRev: params.integratedRev,
+      repoRoot: params.repoRoot,
+      run: params.commandRunner,
+    });
+  } catch (error) {
+    inputs = { fresh: false, checked: 0, changed: [], reason: `compile-input freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+  if (!inputs.fresh) {
+    return { ...facts, cleared: false, refused: inputs.reason ?? "the certified build's compile inputs are not the landing's", compile_inputs_changed: inputs.changed };
+  }
   const git = (cwd: string, command: string[]) => params.commandRunner(cwd, command);
   try {
     const result = await clearUnverifiedMatchIfCertified(params.store, {
@@ -509,8 +535,42 @@ async function integrationContentBeforeApply(params: {
   }
 }
 
-/** A failed proof is metadata only: the patch already landed and must remain accepted. */
+/**
+ * A failed proof is metadata only: the patch already landed and must remain
+ * accepted. Fresh needs both the target source unchanged since the claim base
+ * and every compile input of the certified build (headers, generated
+ * includes, build configuration) to be what was certified
+ * (`compileInputsFresh`, from the checkpoint's `certified_inputs`); a missing
+ * or unknown input record is not fresh. `compile_inputs` lists what changed.
+ */
 async function integratedContentFreshness(params: {
+  beforeApply: IntegrationContentBeforeApply;
+  preApplyRev: string;
+  integratedRev: string;
+  commandRunner: CommandRunner;
+  repoRoot: string;
+  checkpointMetadata: Record<string, unknown>;
+}): Promise<Record<string, unknown>> {
+  const source = await integratedSourceFreshness(params);
+  if (source.fresh !== true) return source;
+  try {
+    const inputs = await compileInputsFresh({
+      inputs: params.checkpointMetadata[CERTIFIED_INPUTS_KEY],
+      claimBaseRev: String(params.beforeApply.claim_base_rev ?? ""),
+      preApplyRev: params.preApplyRev,
+      integratedRev: params.integratedRev,
+      repoRoot: params.repoRoot,
+      run: params.commandRunner,
+    });
+    return inputs.fresh
+      ? { ...source, compile_inputs: { checked: inputs.checked, changed: [] } }
+      : { ...source, fresh: false, reason: inputs.reason, compile_inputs: { checked: inputs.checked, changed: inputs.changed } };
+  } catch (error) {
+    return { ...source, fresh: false, reason: `compile-input freshness could not be checked: ${error instanceof Error ? error.message : String(error)}` };
+  }
+}
+
+async function integratedSourceFreshness(params: {
   beforeApply: IntegrationContentBeforeApply;
   preApplyRev: string;
   integratedRev: string;
@@ -637,6 +697,12 @@ async function handleApplyConflict(params: {
   );
   addEvent(params.store, params.record.runId, "worker_integration_conflict", "worker-output-integration", result);
   return result;
+}
+
+/** The record's target unit, as the scope checks name it (null when the target has none). */
+function integrationTargetUnit(store: StateStore, record: WorkerOutputIntegrationRecord): string | null {
+  const unit = targetSnapshot(store, record).unit;
+  return typeof unit === "string" && unit ? unit : null;
 }
 
 /** Integration-gate inputs for the order-and-scope fence (plan v3 section 5). */
@@ -897,12 +963,17 @@ async function rejectOutOfScope(params: {
   /** The checker run; null when the policy itself is unknown (`ordering_unresolved`). */
   check: IntegrationScopeCheck | null;
   problem: string;
+  /** Recorded beside the host verdict (the sandbox attestation comparison). */
+  extraMetadata?: Record<string, unknown>;
 }): Promise<WorkerOutputIntegrationApplyResult> {
   const stale = params.check ? staleUnusedFailures(params.check) : [];
   const reason = stale.length > 0
     ? `${params.problem}. ${UNUSED_RECERTIFY_INSTRUCTION}`
     : (params.check ? editScopeRejectionReason(params.check.result) : null) ?? params.problem;
-  const scope = params.check ? integrationScopeRecord(params.check) : { mode: "enforce", verdict: null, problem: params.problem, ordering_unresolved: params.problem };
+  const scope = {
+    ...(params.check ? integrationScopeRecord(params.check) : { mode: "enforce", verdict: null, problem: params.problem, ordering_unresolved: params.problem }),
+    ...params.extraMetadata,
+  };
   const { updated } = rejectWorkerOutputIntegrationRecord(params.store, {
     outcome: params.record,
     disposition: REJECTED_OUT_OF_SCOPE_DISPOSITION,
@@ -1086,6 +1157,7 @@ async function applyClaimedWorkerOutput(params: {
       return rejectOutOfScope({ store: params.store, record: params.record, artifacts, check: null, problem: unresolved });
     }
   } else if (ordering && orderingActive(ordering.mode)) {
+    // The host check always decides: a sandbox verdict is worker-forgeable (scope-attestation.ts).
     const check = await runIntegrationScopeGate({
       commandRunner: params.commandRunner,
       repoRoot: params.repoRoot,
@@ -1098,10 +1170,31 @@ async function applyClaimedWorkerOutput(params: {
       unusedChecks,
     });
     const problem = integrationScopeProblem(check);
-    if (problem && orderingEnforced(ordering.mode)) {
-      return rejectOutOfScope({ store: params.store, record: params.record, artifacts, check, problem });
+    // Only a host reject is compared with the sandbox's attested pass (git calls, not paid on a pass).
+    const attestation = integratedCheckpointMetadata[EDIT_SCOPE_ATTESTATION_KEY];
+    const attested: AttestationCheck | null = problem && attestation !== undefined
+      ? await verifyEditScopeAttestation({
+          attestation,
+          patchText,
+          patchPath: params.record.patchPath,
+          policy: ordering,
+          targetUnit: integrationTargetUnit(params.store, params.record),
+          commandRunner: params.commandRunner,
+          repoRoot: params.repoRoot,
+          dir: resolve(artifacts.artifactDir, "edit_scope_attestation"),
+        })
+      : null;
+    const sandboxAttestation = attested
+      ? (attested.ok ? { sandbox_attestation: "disagrees", sandbox_attestation_detail: "the sandbox attested a pass over the same patch, files and sources" }
+        : { sandbox_attestation: "not_comparable", sandbox_attestation_detail: attested.reason })
+      : {};
+    if (attested?.ok) {
+      console.warn(`[integration] ${params.record.id}: host edit-scope check rejected a patch the worker's sandbox attested as a pass over the same inputs (forged or broken sandbox checker)`);
     }
-    scopeRecord = integrationScopeRecord(check);
+    if (problem && orderingEnforced(ordering.mode)) {
+      return rejectOutOfScope({ store: params.store, record: params.record, artifacts, check, problem, extraMetadata: sandboxAttestation });
+    }
+    scopeRecord = { ...integrationScopeRecord(check), ...sandboxAttestation };
   }
 
   // Before anything touches the tree: is the target's source still the certified claim-base content?
@@ -1146,6 +1239,7 @@ async function applyClaimedWorkerOutput(params: {
   });
   const contentFreshness = await integratedContentFreshness({
     beforeApply: contentBeforeApply, ...revisions, commandRunner: params.commandRunner, repoRoot: params.repoRoot,
+    checkpointMetadata: integratedCheckpointMetadata,
   });
   const unverifiedCleared = await clearCertifiedUnverifiedMatch({
     store: params.store,

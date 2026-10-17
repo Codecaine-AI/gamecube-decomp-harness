@@ -75,6 +75,29 @@ export interface EditScopeReport {
   pr_size?: { units: number | null; files: number | null; changed_lines: number | null; warnings: string[] };
   /** `pr` only: "split suggested" warnings, never refusals. */
   same_pr_prerequisites?: unknown[];
+  /** What the verdict depends on besides readiness (integration re-verifies it to reuse a sandbox verdict). */
+  scope_inputs?: EditScopeInputs;
+}
+
+/** `edit_scope.py` `scope_inputs`: the checked files as git blob ids and the judged classes' owner sources. */
+export interface EditScopeInputs {
+  files: Array<{ path: string; before_blob: string | null; after_blob: string | null }>;
+  owner_sources: string[];
+}
+
+function parseScopeInputs(value: unknown): EditScopeInputs | null {
+  if (!isRecord(value) || !Array.isArray(value.files) || !Array.isArray(value.owner_sources)) return null;
+  const blob = (entry: unknown) => (entry === null || (typeof entry === "string" && /^[0-9a-f]{40}$/.test(entry)) ? entry : undefined);
+  const files: EditScopeInputs["files"] = [];
+  for (const row of value.files) {
+    if (!isRecord(row) || typeof row.path !== "string") return null;
+    const before = blob(row.before_blob);
+    const after = blob(row.after_blob);
+    if (before === undefined || after === undefined) return null;
+    files.push({ path: row.path, before_blob: before, after_blob: after });
+  }
+  if (value.owner_sources.some((source) => typeof source !== "string")) return null;
+  return { files, owner_sources: value.owner_sources as string[] };
 }
 
 /** One edit-scope gate run, as recorded on a validation, checkpoint or job. */
@@ -188,6 +211,7 @@ export function parseEditScopeReport(json: unknown): EditScopeReport | null {
   const identity = isRecord(json.identity) ? json.identity : {};
   const limits = isRecord(json.limits) ? json.limits : {};
   const prSize = isRecord(json.pr_size) ? json.pr_size : null;
+  const scopeInputs = parseScopeInputs(json.scope_inputs);
   return {
     identity: {
       base_rev: stringOrNull(identity.base_rev),
@@ -208,6 +232,7 @@ export function parseEditScopeReport(json: unknown): EditScopeReport | null {
       },
     } : {}),
     ...(Array.isArray(json.same_pr_prerequisites) ? { same_pr_prerequisites: json.same_pr_prerequisites } : {}),
+    ...(scopeInputs ? { scope_inputs: scopeInputs } : {}),
   };
 }
 

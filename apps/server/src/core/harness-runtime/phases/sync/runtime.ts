@@ -423,6 +423,7 @@ function syncLeaseContext(
     game: paths.game ? {
       baseRef: paths.game.baseRef,
       steeringGate: paths.game.matching?.steeringGate,
+      syncMergePolicy: paths.game.matching?.syncMergePolicy,
       reportPath: paths.game.validation?.reportPath,
       reportChangesPath: paths.game.validation?.reportChangesPath,
       qaTarget: paths.game.validation?.qaTarget,
@@ -496,6 +497,7 @@ function requestedSyncContext(
     game: paths.game ? {
       baseRef: paths.game.baseRef,
       steeringGate: paths.game.matching?.steeringGate,
+      syncMergePolicy: paths.game.matching?.syncMergePolicy,
       reportPath: paths.game.validation?.reportPath,
       reportChangesPath: paths.game.validation?.reportChangesPath,
       qaTarget: paths.game.validation?.qaTarget,

@@ -4,16 +4,18 @@ import { UNKNOWN_COMPLETION_INDEX, type UnverifiedIndex } from "@server/core/har
 import type { RevisionCompletionIndex } from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
 import {
   listUnverifiedMatches,
-  unverifiedMatchKey,
   type UnverifiedMatchIndex,
   type UnverifiedMatchRecord,
 } from "@server/core/harness-runtime/run-state/unverified-matches.js";
-import { branchSteeringHolds, steeringHoldLedger } from "./steering-holds.js";
+import { targetKey, unitKeyedGet, withUnitKeys } from "@server/core/harness-runtime/run-state/unit-key.js";
+import { branchSteeringHolds, steeringHoldLedger, type SteeringPrHoldReason } from "./steering-holds.js";
 
 /**
  * Targets with no completion credit at this checkout's HEAD: active
  * unverified matches and rollbacks without a later, landed gate certificate.
  * This is a progress index, not the active unverified-match record store.
+ * Keys are canonical (`targetKey`) and the set is tagged `withUnitKeys`, so a
+ * report (module-prefixed) key finds its hold through `unitKeyedHas`.
  */
 export async function steeringCompletionIndex(
   store: StateStore,
@@ -26,7 +28,7 @@ export async function steeringCompletionIndex(
     return Bun.spawnSync(["git", "-C", repoRoot, "merge-base", "--is-ancestor", rev, "HEAD"],
       { stdout: "ignore", stderr: "ignore" }).exitCode === 0;
   });
-  return new Set(holds.map((hold) => unverifiedMatchKey(hold.unit, hold.symbol)));
+  return withUnitKeys(new Set(holds.map((hold) => targetKey(game.gameId, hold.unit, hold.symbol))), game.gameId);
 }
 
 /**
@@ -39,15 +41,31 @@ export async function steeringCompletionIndex(
  * rev, a missing repository or ancestry git cannot establish clears no
  * rollback, so a later certificate on another revision never credits older
  * saved source. `active` keeps the active rows for labels and live counts.
+ * Every index is keyed canonically (`targetKey`) and tagged `withUnitKeys`.
  */
 export interface SteeringCompletionHolds extends RevisionCompletionIndex {
   readonly active: UnverifiedMatchIndex;
+  /**
+   * Why `key` (either unit spelling) is withheld from the figures saved at
+   * `rev`: an `unverified_match` (active, or cleared at a revision that is not
+   * an ancestor of `rev`) or an uncertified steering rollback; `unknown` when
+   * the state could not be read; null when it is not held.
+   */
+  reasonAt(rev: string | null | undefined, key: string): SteeringPrHoldReason | "unknown" | null;
 }
 
 const FULL_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const ANCESTRY_CACHE_LIMIT = 4096;
 /** Settled answers between two full commit shas only: those never change. */
 const ancestry = new Map<string, boolean>();
+
+/**
+ * `ancestor` is `descendant` or one of its ancestors in `repoRoot` (git);
+ * false when git cannot establish it. Settled answers between full shas are cached.
+ */
+export function revisionIsAncestor(repoRoot: string, ancestor: string, descendant: string): boolean {
+  return revIsAncestor(repoRoot, ancestor, descendant);
+}
 
 function revIsAncestor(repoRoot: string, ancestor: string, descendant: string): boolean {
   if (!repoRoot || !ancestor || !descendant || ancestor.startsWith("-") || descendant.startsWith("-")) return false;
@@ -81,40 +99,51 @@ export function steeringCompletionHolds(
   repoRoot: string | null | undefined,
 ): SteeringCompletionHolds | undefined {
   if (!game.gameId || !steeringGateActive(game.steeringGate)) return undefined;
-  const active = new Map<string, UnverifiedMatchRecord>();
+  const gameId = game.gameId;
+  const key = (unit: string, symbol: string) => targetKey(gameId, unit, symbol);
+  const active = withUnitKeys(new Map<string, UnverifiedMatchRecord>(), gameId);
   const cleared: UnverifiedMatchRecord[] = [];
-  for (const row of listUnverifiedMatches(store, game.gameId, { includeCleared: true })) {
-    if (row.clearedAt === null) active.set(unverifiedMatchKey(row.unit, row.symbol), row);
+  for (const row of listUnverifiedMatches(store, gameId, { includeCleared: true })) {
+    if (row.clearedAt === null) active.set(key(row.unit, row.symbol), row);
     else cleared.push(row);
   }
   const ledger = steeringHoldLedger(store, game);
   const rollbacks = ledger?.rollbacks ?? [];
-  const byRev = new Map<string, UnverifiedIndex>();
+  const byRev = new Map<string, { keys: UnverifiedIndex; reasons: ReadonlyMap<string, SteeringPrHoldReason> }>();
+  const holdsAt = (rev: string | null | undefined) => {
+    const saved = rev ?? "";
+    const cached = byRev.get(saved);
+    if (cached) return cached;
+    const keys = withUnitKeys(new Set(active.keys()), gameId);
+    const reasons = withUnitKeys(new Map<string, SteeringPrHoldReason>([...active.keys()].map((held) => [held, "unverified_match"])), gameId);
+    for (const row of cleared) {
+      const certified = Boolean(saved && row.clearedRev && (row.clearedRev === saved || revIsAncestor(repoRoot ?? "", row.clearedRev, saved)));
+      if (certified) continue;
+      keys.add(key(row.unit, row.symbol));
+      reasons.set(key(row.unit, row.symbol), "unverified_match");
+    }
+    for (const rollback of rollbacks) {
+      if (keys.has(rollback.key)) continue;
+      if (!saved || !rollback.revs.some((certified) => revIsAncestor(repoRoot ?? "", certified, saved))) {
+        keys.add(rollback.key);
+        reasons.set(rollback.key, "steering_rollback");
+      }
+    }
+    const entry = { keys, reasons };
+    byRev.set(saved, entry);
+    return entry;
+  };
   return {
     unknown: false,
     active,
-    at(rev) {
-      const saved = rev ?? "";
-      const cached = byRev.get(saved);
-      if (cached) return cached;
-      const keys = new Set(active.keys());
-      for (const row of cleared) {
-        const certified = Boolean(saved && row.clearedRev && (row.clearedRev === saved || revIsAncestor(repoRoot ?? "", row.clearedRev, saved)));
-        if (!certified) keys.add(unverifiedMatchKey(row.unit, row.symbol));
-      }
-      for (const rollback of rollbacks) {
-        if (keys.has(rollback.key)) continue;
-        if (!saved || !rollback.revs.some((certified) => revIsAncestor(repoRoot ?? "", certified, saved))) keys.add(rollback.key);
-      }
-      byRev.set(saved, keys);
-      return keys;
-    },
+    at: (rev) => holdsAt(rev).keys,
+    reasonAt: (rev, held) => unitKeyedGet(holdsAt(rev).reasons, held) ?? null,
   };
 }
 
 /** Holds of a game whose steering state could not be read: no labels, every completion figure unknown. */
 export function unknownCompletionHolds(): SteeringCompletionHolds {
-  return { unknown: true, active: new Map(), at: () => UNKNOWN_COMPLETION_INDEX };
+  return { unknown: true, active: new Map(), at: () => UNKNOWN_COMPLETION_INDEX, reasonAt: () => "unknown" };
 }
 
 /** The checkout's HEAD commit, or null when git cannot read it (`at(null)` clears nothing). */

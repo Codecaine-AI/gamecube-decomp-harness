@@ -240,7 +240,7 @@ export function describeHunk(hunk: StackHunkVerdict): string {
 }
 
 export const STACK_ONLY_PERTURBATION_INSTRUCTION =
-  "SMS bans edits whose only effect is the stack frame (padding or unused locals, operand swaps like `0 <= x`, alignment tricks, inlines chosen for frame size). Revert this edit. Then fix non-stack mismatches (instructions, registers, branches, relocations, data), or stop: a function whose only remaining difference from the target is the stack frame is done.";
+  "SMS bans edits whose only effect is the stack frame (padding or unused locals, operand swaps like `0 <= x`, alignment tricks, inlines chosen for frame size). Revert this edit. Then fix non-stack mismatches (instructions, registers, branches, relocations, data), or stop: when only the stack frame differs from the target, stop and report frame-only; it is never an exact claim.";
 
 export function stackOnlyPerturbationReason(params: { functions?: string[]; hunks?: StackHunkVerdict[] }): string {
   const what = params.hunks && params.hunks.length > 0

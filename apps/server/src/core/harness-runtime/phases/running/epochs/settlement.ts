@@ -1,6 +1,6 @@
 import { remoteBuildsEnabled, runBuildCommand } from "@server/core/validation/build/execution.js";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync } from "node:fs";
-import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { readRegressionReport, type RegressionReport, type ReportEntry } from "@server/core/validation/objdiff/report.js";
 import { orderingQaScanFiles, runQaScanDiff, type QaScanFinding, type QaScanInvocation } from "@server/core/validation/qa/scan-diff.js";
@@ -23,6 +23,9 @@ import { recordDashboardArtifact, type StateStore } from "@server/core/orchestra
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import { withholdUnverifiedRegression, withholdUnverifiedStoredMeasures } from "@server/core/harness-runtime/phases/running/board/unverified-measures.js";
 import { steeringCompletionIndex } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
+import { gitRevAncestry } from "@server/core/validation/steering/unverified-certification.js";
+import { judgeRegressionReport } from "./certified-regression.js";
 import { blockingWorkerOutputIntegrationCount } from "@server/core/harness-runtime/run-state";
 import { addEvent } from "@server/core/harness-runtime/run-state/events.js";
 import { activeLockedSourcePaths } from "@server/core/harness-runtime/run-state/targets.js";
@@ -447,7 +450,7 @@ function readJsonObject(path: string): Record<string, unknown> {
  * The epoch's progress view: the report's measures and regression report with
  * a steering-gated game's active unverified and rollback-held functions withheld (not
  * done: no matched, complete or fuzzy credit, no new match) plus the separate
- * "100% unverified" figure. The save point, board snapshot, trusted report,
+ * "100% but unverified" figure. The save point, board snapshot, trusted report,
  * events, summary and score delta record this view; the archived report.json
  * and report_changes.json and `reportMeasures` keep the raw evidence. A report
  * that cannot be re-read while rows are active leaves the score unknown.
@@ -527,6 +530,8 @@ async function probeWithoutCandidates(params: {
   toolPlatform: ToolPlatform;
   worktreeDir: string;
   revalidateLease: () => void;
+  /** Steering-gated games: judges open-verification targets against their certified baseline (`judgeRegressionReport`). */
+  judge?: (report: RegressionReport, reportChangesPath: string) => Promise<RegressionReport>;
 }): Promise<boolean> {
   const ordered = [...params.candidates].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   const removed: ConfirmationCandidate[] = [];
@@ -544,7 +549,8 @@ async function probeWithoutCandidates(params: {
     // probe to observe these uncommitted reverse-applies as well.
     await rm(params.reportPath, { force: true });
     await forceReportRun(params.worktreeDir, { reportPath: params.reportPath, reportChangesPath: params.reportChangesPath, resetBaseline: false, toolPlatform: params.toolPlatform });
-    const report = await readRegressionReport(params.reportChangesPath, `Confirmation probe for run ${params.runId}`, 50);
+    const raw = await readRegressionReport(params.reportChangesPath, `Confirmation probe for run ${params.runId}`, 50);
+    const report = params.judge ? await params.judge(raw, params.reportChangesPath) : raw;
     return isCleanGlobalRegression(report);
   } finally {
     await restoreProbePatches(params.worktreeDir, removed, params.revalidateLease);
@@ -1490,7 +1496,30 @@ async function runEpochSettlementInnerTracked(
     report_path: worktreeReportPath,
     report_changes_path: worktreeChangesPath,
   });
-  let regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint for run ${runId}`, 50);
+  // Steering-gated games: a target whose verification was open is judged
+  // against its certified baseline, never its uncertified score (an accepted
+  // certified repair is no regression; a drop below it still is). Every
+  // consumer below (confirmation, readmission, progress view) reads this.
+  const judgeRegressions = async (report: RegressionReport, changesPath: string): Promise<RegressionReport> => {
+    if (!options.gameId || !steeringGateActive(options.steeringGate ?? "off")) return report;
+    // The raw changes carry the sizes that attribute a unit, section or global drop to a repair (unreadable: nothing is attributed).
+    let raw: unknown = null;
+    try {
+      raw = JSON.parse(await readFile(changesPath, "utf8")) as unknown;
+    } catch {
+      raw = null;
+    }
+    return judgeRegressionReport(report, {
+      store,
+      gameId: options.gameId,
+      scope: "epoch",
+      sinceRev: baselineDecision.startHead,
+      // The commit the report measured (after a confirmation revert, the reverted head).
+      measuredRev: snapshot.commitSha,
+      isAncestor: gitRevAncestry(repoRoot),
+    }, raw);
+  };
+  let regressionReport = await judgeRegressions(await readRegressionReport(worktreeChangesPath, `Epoch checkpoint for run ${runId}`, 50), worktreeChangesPath);
   let measures = reportMeasures(worktreeReportPath);
   let matchedCodeValue = Number(measures.matched_code_percent);
   let matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
@@ -1545,6 +1574,7 @@ async function runEpochSettlementInnerTracked(
               toolPlatform,
               worktreeDir: options.worktreeDir,
               revalidateLease,
+              judge: judgeRegressions,
             }),
           revertLive: (candidate) => revertConfirmationCandidate(repoRoot, candidate, revalidateLease),
         },
@@ -1574,7 +1604,7 @@ async function runEpochSettlementInnerTracked(
         toolPlatform,
       });
       buildResult = { ...recheckBuild, steps: [...buildResult.steps, ...recheckBuild.steps] };
-      regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch confirmation recheck for run ${runId}`, 50);
+      regressionReport = await judgeRegressions(await readRegressionReport(worktreeChangesPath, `Epoch confirmation recheck for run ${runId}`, 50), worktreeChangesPath);
       measures = reportMeasures(worktreeReportPath);
       matchedCodeValue = Number(measures.matched_code_percent);
       matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;
@@ -1602,7 +1632,7 @@ async function runEpochSettlementInnerTracked(
         toolPlatform,
       });
       buildResult = { ...restoredBuild, steps: [...buildResult.steps, ...restoredBuild.steps] };
-      regressionReport = await readRegressionReport(worktreeChangesPath, `Epoch checkpoint restored after confirmation probes for run ${runId}`, 50);
+      regressionReport = await judgeRegressions(await readRegressionReport(worktreeChangesPath, `Epoch checkpoint restored after confirmation probes for run ${runId}`, 50), worktreeChangesPath);
       measures = reportMeasures(worktreeReportPath);
       matchedCodeValue = Number(measures.matched_code_percent);
       matchedCodePercent = Number.isFinite(matchedCodeValue) ? matchedCodeValue : null;

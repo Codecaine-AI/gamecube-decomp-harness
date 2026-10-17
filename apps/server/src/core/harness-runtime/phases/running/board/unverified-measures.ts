@@ -16,7 +16,7 @@ import { asArray, asObject, numberValue, stringValue, type JsonObject } from "./
  * - moves exact (100%) unverified functions out of the matched function and
  *   code counts, back into the unmatched targets;
  * - drops a complete unit holding any of them from the complete units and code/data;
- * - reports what it withheld as the separate "100% unverified" figure
+ * - reports what it withheld as the separate "100% but unverified" figure
  *   (`unverified_*` keys, zeros included).
  *
  * The `unverified_*` keys mark measures as adjusted. Stored measures are
@@ -57,11 +57,11 @@ export function completionIndexAt(source: CompletionIndexSource | null | undefin
 }
 
 export interface UnverifiedMeasures {
-  /** Exact unverified functions withheld from the matched counts: the "100% unverified" count. */
+  /** Exact unverified functions withheld from the matched counts: the "100% but unverified" count. */
   unverified_functions: number;
   /** Their bytes. */
   unverified_code: number;
-  /** Their share of the total code: the "100% unverified" figure next to matched code (null without a total). */
+  /** Their share of the total code: the "100% but unverified" figure next to matched code (null without a total). */
   unverified_code_percent: number | null;
   /** Every active unverified function in the report, any score. */
   unverified_targets: number;
@@ -363,7 +363,7 @@ export function withholdUnverifiedRegression<T extends RegressionReport>(
   const markdown = [
     renderRegressionMarkdown({ ...report, ...entries, summary, promotion }, title, options.maxRows ?? 50).trimEnd(),
     "",
-    `**100% unverified**: ${finite(options.toMeasures?.unverified_functions) ?? newWithheld.length} function(s), ` +
+    `**100% but unverified**: ${finite(options.toMeasures?.unverified_functions) ?? newWithheld.length} function(s), ` +
       `${finite(options.toMeasures?.unverified_code) ?? size(newWithheld)} bytes, not counted as matched until the steering gate certifies them.`,
     ...unverifiedRows.length > 0
       ? ["", ...unverifiedRows.map((entry) => `- \`${entry.unitName}\` \`${entry.itemName}\`: ${entry.fromPercent}% -> ${entry.toPercent}% (unverified)`)]

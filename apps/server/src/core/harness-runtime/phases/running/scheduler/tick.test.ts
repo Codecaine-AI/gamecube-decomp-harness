@@ -236,7 +236,7 @@ describe("runSchedulerTick", () => {
     }
   });
 
-  test("steering-gated game: a stored 100% unverified target is admitted and claimed before untouched ones and never retired as exact or stack-only", () => {
+  test("steering-gated game: a stored 100% but unverified target is admitted and claimed before untouched ones and never retired as exact or stack-only", () => {
     const value = admissionFixture();
     const unit = "sms/MapObj.o";
     // One unit: untouched (90), exact (100), unverified (100), unverified stack-only (99.5), plain stack-only (98).

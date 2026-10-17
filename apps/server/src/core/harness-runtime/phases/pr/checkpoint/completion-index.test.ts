@@ -11,7 +11,8 @@ import {
   recordUnverifiedMatch,
   restoreUnverifiedMatchesClearedBy,
 } from "@server/core/harness-runtime/run-state/unverified-matches.js";
-import { steeringCompletionHolds, unknownCompletionHolds } from "./completion-index.js";
+import { steeringCompletionHolds, steeringCompletionIndex, unknownCompletionHolds } from "./completion-index.js";
+import { unitKeyedHas } from "@server/core/harness-runtime/run-state/unit-key.js";
 
 const cleanup: string[] = [];
 const stores: StateStore[] = [];
@@ -136,5 +137,27 @@ describe("unknownCompletionHolds", () => {
     expect(holds.active.size).toBe(0);
     expect(completionIndexUnknown(holds.at("any-rev"))).toBe(true);
     expect(completionIndexUnknown(holds.at(null))).toBe(true);
+  });
+});
+
+describe("module-prefixed report keys (SMS)", () => {
+  test("short-unit holds are found under the report's prefixed key at every revision and at HEAD; Melee keys stay exact", async () => {
+    const f = fixture();
+    recordUnverifiedMatch(f.store, { gameId: "sms", unit: "Animal/AnimalBase", symbol: "held", analyzedRev: f.steered, match: { base: 90, candidate: 100, real_only: 90 }, reasons: [] });
+    recordSteeringRollback(f.store, {
+      gameId: "sms", unit: "Animal/AnimalBase", symbol: "rolled", analyzedRev: f.steered, baseRev: f.steered,
+      initialVerdict: "steering_located", finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+    });
+    const sms = { gameId: "sms", steeringGate: "enforce" };
+    const holds = steeringCompletionHolds(f.store, sms, f.repo)!;
+    expect(unitKeyedHas(holds.active, "mario/Animal/AnimalBase::held")).toBe(true);
+    for (const key of ["mario/Animal/AnimalBase::held", "mario/Animal/AnimalBase::rolled", "Animal/AnimalBase::rolled"]) {
+      expect(unitKeyedHas(holds.at(f.certified), key)).toBe(true);
+    }
+    const head = await steeringCompletionIndex(f.store, sms, f.repo);
+    expect([...head!].sort()).toEqual(["Animal/AnimalBase::held", "Animal/AnimalBase::rolled"]);
+    expect(unitKeyedHas(head, "mario/Animal/AnimalBase::rolled")).toBe(true);
+    // A game without module prefixes never strips a component.
+    expect(unitKeyedHas(steeringCompletionHolds(f.store, game, f.repo)!.at(f.certified), "mario/unit_a::active_fn")).toBe(false);
   });
 });

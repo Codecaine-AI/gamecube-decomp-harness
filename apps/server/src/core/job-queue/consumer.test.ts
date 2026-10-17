@@ -287,6 +287,32 @@ describe("startJobConsumer", () => {
     warning.mockRestore();
   });
 
+  test("keeps the lease alive while a dispatched task is still being built", async () => {
+    const kernel = kernelFor([job("queued-create")]);
+    let heartbeatsBeforeSubmit = -1;
+    const executor: WorkerExecutor = {
+      submit: mock(async () => {
+        heartbeatsBeforeSubmit = kernel.heartbeatJob.mock.calls.length;
+        return { executorId: "memory", handleId: "queued-create" };
+      }),
+      poll: mock(async () => ({ state: "exited" as const })),
+      collect: mock(async () => outcome()),
+      cancel: mock(async () => undefined),
+    };
+    const descriptor: JobKindDescriptor = {
+      kind: "worker", concurrencyLimit: 1, leaseMs: 60,
+      execution: { mode: "dispatched", buildTask: async (value) => {
+        // e.g. a sandbox create queued behind the provider quota
+        await Bun.sleep(80);
+        return { jobId: value.jobId, kind: value.kind, executionClass: value.executionClass, command: ["true"], env: {}, cwd: "/tmp", timeoutMs: null };
+      }, executor },
+    };
+    const stop = startJobConsumer(store, descriptor, kernel, { intervalMs: 1 });
+    await until(() => kernel.completeJob.mock.calls.length === 1, 2_000);
+    expect(heartbeatsBeforeSubmit).toBeGreaterThanOrEqual(2);
+    await stop.stop();
+  });
+
   test("does not heartbeat after an executor reports a dead task", async () => {
     const kernel = kernelFor([job("zombie")]);
     const executor: WorkerExecutor = {

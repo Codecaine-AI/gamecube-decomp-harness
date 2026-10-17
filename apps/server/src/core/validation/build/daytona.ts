@@ -11,7 +11,8 @@ import { buildSandboxRuntimeOptions, listGames, resolveGame, type ResolvedGame }
 import { DaytonaSandboxProvider, type SandboxHandle, type SandboxProvider } from "@server/core/job-queue/sandbox.js";
 import { ensureSandboxToolpack } from "@server/core/job-queue/provisioning.js";
 import { runCommand } from "@server/infrastructure/shell/run-command.js";
-import type { BuildTask } from "./execution.js";
+import { REMOTE_STEERING_INPUTS, type BuildTask } from "./execution.js";
+import { steeringGamePolicyError, steeringGamePolicyProblem } from "../steering/game-policy.js";
 import { GLOBAL_STANDARDS_SLICES_RELATIVE_PATH } from "../qa/scan-diff.js";
 
 const REMOTE_ORCHESTRATOR = "/opt/build-orchestrator";
@@ -117,13 +118,77 @@ async function uploadTree(sandbox: SandboxHandle, local: string, remote: string,
   }
 }
 
+const STEERING_LESSONS_DIR = "knowledge/sources/injectable/steering_lessons";
+const STEERING_LESSON_FILES = ["evidence_approvals.jsonl", "lessons.jsonl", "review_rulings.jsonl"];
+
+/**
+ * A `steering` task reads what the host split reads from the host: the game's
+ * `game.json` (link-map and stack-frame policy), its evidence approvals,
+ * lessons and the review rulings next to them. They go to
+ * `REMOTE_STEERING_INPUTS/games/<id>/` in the game-dir layout, so
+ * `ORCH_GAME_DIR` resolves them exactly as on the host. `uploads` adds
+ * per-call files (e.g. `apply --report`): `{remote path: host path}`, the
+ * remote under `REMOTE_STEERING_INPUTS` and outside the game dir. Returns the
+ * game env the worker gate passes too.
+ */
+async function uploadSteeringInputs(sandbox: SandboxHandle, game: ResolvedGame, uploads: unknown): Promise<Record<string, string>> {
+  const gameDir = `${REMOTE_STEERING_INPUTS}/games/${game.gameId}`;
+  // Validated before provisioning (steeringGamePolicyProblem): always present.
+  const files: Array<[string, string]> = [[game.descriptorPath, `${gameDir}/game.json`]];
+  for (const name of STEERING_LESSON_FILES) {
+    const local = resolve(game.gameDir, STEERING_LESSONS_DIR, name);
+    if (existsSync(local)) files.push([local, `${gameDir}/${STEERING_LESSONS_DIR}/${name}`]);
+  }
+  if (uploads !== undefined) {
+    if (!uploads || typeof uploads !== "object" || Array.isArray(uploads)) throw new Error("Invalid steering uploads");
+    for (const [remote, local] of Object.entries(uploads as Record<string, unknown>)) {
+      if (typeof local !== "string" || !isAbsolute(local) || !existsSync(local) || !(await lstat(local)).isFile()) throw new Error(`Invalid steering input: ${String(local)}`);
+      if (!within(REMOTE_STEERING_INPUTS, remote) || within(gameDir, remote)) throw new Error(`Invalid steering input destination: ${remote}`);
+      files.push([local, remote]);
+    }
+  }
+  for (const [local, remote] of files) {
+    const made = await sandbox.exec(["mkdir", "-p", dirname(remote)], { timeoutMs: 30_000 });
+    if (made.exitCode !== 0) throw new Error(`Daytona build setup failed (${made.exitCode}): ${made.stderr || made.stdout}`);
+    await sandbox.uploadFile(local, remote);
+  }
+  return { ORCH_GAME_ID: game.gameId, ORCH_GAME_DIR: gameDir };
+}
+
 interface BuildResponse { value?: unknown; failure?: { message: string; [key: string]: unknown }; artifacts: string[]; sourcePatch?: string }
-export interface BuildDependencies { provider?: SandboxProvider; game?: ResolvedGame; bundleWorker?: typeof buildWorker }
+export interface BuildDependencies {
+  provider?: SandboxProvider; game?: ResolvedGame; bundleWorker?: typeof buildWorker;
+  /**
+   * Abort: the build stops waiting at once and rejects; the `finally` deletes the sandbox, so the
+   * command running there dies with it. Absent (every caller but the explain consumer): unchanged.
+   */
+  signal?: AbortSignal;
+}
+
+function abortError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error(`Daytona build aborted${signal.reason ? `: ${String(signal.reason)}` : ""}`);
+}
+
+/** `work`, unless `signal` aborts first; an abandoned `work` settling later is ignored. */
+function abortable<T>(work: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return work;
+  if (signal.aborted) { work.catch(() => undefined); return Promise.reject(abortError(signal)); }
+  return new Promise<T>((resolveWork, rejectWork) => {
+    const onAbort = () => { work.catch(() => undefined); rejectWork(abortError(signal)); };
+    signal.addEventListener("abort", onAbort, { once: true });
+    work.then(resolveWork, rejectWork).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
 
 export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, dependencies: BuildDependencies = {}): Promise<T> {
   const repoRoot = resolve(checkout);
   const game = dependencies.game ?? await gameForCheckout(repoRoot);
   const profile = buildSandboxRuntimeOptions(game);
+  // A steering task's link-map and stack-frame rules come from game.json: without a valid one nothing is provisioned.
+  if (task.kind === "steering") {
+    const problem = steeringGamePolicyProblem(game.descriptorPath, game.gameId);
+    if (problem) throw new Error(steeringGamePolicyError(problem));
+  }
   if (!profile.snapshot_name) throw new Error(`No Daytona snapshot configured for ${game.gameId}; refusing local build fallback`);
   const source = await buildSourceIdentity(repoRoot);
   const id = `build-${randomUUID()}`;
@@ -139,8 +204,9 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
   const remoteLog = "/tmp/build-task-logs";
   const toRemote: Array<[string, string]> = [[repoRoot, remoteRoot], [game.orchestratorRoot, REMOTE_ORCHESTRATOR]];
   const toHost: Array<[string, string]> = [[remoteLog, resolve(evidenceDir, "logs")], [remoteRoot, repoRoot], [REMOTE_ORCHESTRATOR, game.orchestratorRoot]];
+  const signal = dependencies.signal;
   const exec = async (command: string[], timeoutMs = 600_000) => {
-    const result = await sandbox!.exec(command, { cwd: remoteRoot, timeoutMs });
+    const result = await abortable(sandbox!.exec(command, { cwd: remoteRoot, timeoutMs }), signal);
     if (result.exitCode !== 0) throw new Error(`Daytona build setup failed (${result.exitCode}): ${result.stderr || result.stdout}`);
     return result;
   };
@@ -152,6 +218,7 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     }, labels: { game_id: game.gameId, purpose: "harness-build", build_id: id }, ttlMinutes: 90, ephemeral: true });
     record.sandboxId = sandbox.sandboxId;
     await persist();
+    if (signal?.aborted) throw abortError(signal);
     const bundlePath = resolve(temp, "source.bundle");
     // The image clone is shallow at the baked revision, so a symbol-check
     // baseline below that boundary must travel in the bundle as its own head
@@ -229,6 +296,14 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
         task = { ...task, input: { ...task.input, diffFile: remote } };
       }
     }
+    // Steering tasks run the host's toolpack (stamp-checked, so a current image costs one read) against the host's policy inputs.
+    // `apply` (applyEdits) may edit source; the edit reaches the host only through the verified patch below.
+    const steeringApply = task.kind === "steering" && task.input.applyEdits === true;
+    let steeringEnv: Record<string, string> = {};
+    if (task.kind === "steering") {
+      await ensureSandboxToolpack(sandbox, { hostToolpackRoot: resolve(game.orchestratorRoot, "toolpacks/gamecube-decomp"), toolpackId: "gamecube-decomp" });
+      steeringEnv = await uploadSteeringInputs(sandbox, game, task.input.uploads);
+    }
     // Worker images predate the host task runner. Bootstrap its pinned Linux
     // runtime remotely; no native host binary or toolchain is transferred.
     const bunPath = `${REMOTE_ORCHESTRATOR}/bin/bun`;
@@ -246,6 +321,11 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     await exec(["mkdir", "-p", dirname(REMOTE_RUNNER)]);
     await sandbox.uploadFile(bundle, REMOTE_RUNNER);
     const input = mapBuildPaths(task.input, toRemote);
+    if (task.kind === "steering") {
+      delete input.uploads;
+      const options = (input.options && typeof input.options === "object" ? input.options : {}) as { env?: Record<string, string> };
+      input.options = { ...options, env: { ...options.env, ...steeringEnv } };
+    }
     const extraOutputs = new Map<string, string>();
     const keys = task.kind === "report-changes" ? ["baselinePath", "reportPath", "changesPath"] : task.kind === "report" ? ["baselinePath", "reportPath", "reportChangesPath"] : [];
     for (const key of keys) {
@@ -268,9 +348,9 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     await sandbox.writeFile("/tmp/build-request.json", JSON.stringify(request));
     record.status = "running"; await persist();
     console.error(`[build] ${task.kind} ${source.head.slice(0, 10)} -> Daytona ${sandbox.sandboxId}`);
-    const result = await sandbox.exec(["timeout", "--signal=TERM", "--kill-after=30", String(Math.ceil(timeoutMs / 1000)), bunPath, REMOTE_RUNNER, "/tmp/build-request.json"], {
+    const result = await abortable(sandbox.exec(["timeout", "--signal=TERM", "--kill-after=30", String(Math.ceil(timeoutMs / 1000)), bunPath, REMOTE_RUNNER, "/tmp/build-request.json"], {
       cwd: remoteRoot, timeoutMs: timeoutMs + 60_000, env: { ORCH_BUILD_EXECUTION: "local", ORCH_GLOBAL_COMPILE_SLOTS: String(profile.resource_class.cpu) },
-    });
+    }), signal);
     await writeFile(resolve(evidenceDir, "worker.stdout.log"), result.stdout);
     await writeFile(resolve(evidenceDir, "worker.stderr.log"), result.stderr);
     if (result.exitCode !== 0) throw new Error(`Daytona build runner failed (${result.exitCode}): ${result.stderr || result.stdout}`);
@@ -282,7 +362,7 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     // shared checkout meanwhile. It still never publishes into a moved checkout.
     const stale = checkoutMoved && task.kind !== "qa";
     // format-apply returns its diff in the value for the caller to apply on the host; the sandbox edit itself is expected.
-    const unexpectedEdit = !!response.sourcePatch?.trim() && !["autofix", "precommit", "format-apply"].includes(task.kind);
+    const unexpectedEdit = !!response.sourcePatch?.trim() && !["autofix", "precommit", "format-apply"].includes(task.kind) && !steeringApply;
     const value = response.value as { exitCode?: number; status?: string; ok?: boolean } | undefined;
     const failed = !!response.failure || stale || unexpectedEdit || (value?.exitCode !== undefined && value.exitCode !== 0) || value?.ok === false || ["error", "failed", "blocked"].includes(value?.status ?? "");
     const stagedArtifacts: Array<[string, string]> = [];
@@ -317,6 +397,12 @@ export async function executeDaytonaBuild<T>(checkout: string, task: BuildTask, 
     if (stale) throw new Error("Checkout changed during Daytona build; rejecting stale artifacts");
     if (unexpectedEdit) throw new Error("Build task changed source unexpectedly; refusing to publish tool edits");
     if (response.failure) throw Object.assign(new Error(response.failure.message), mapBuildPaths(response.failure, toHost));
+    // steering_check.py apply: a successful run on an unmoved checkout publishes its edit as a verified patch, never otherwise.
+    if (steeringApply && !failed && response.sourcePatch?.trim()) {
+      const patch = resolve(temp, "steering-apply.patch"); await writeFile(patch, response.sourcePatch);
+      await git(repoRoot, ["apply", "--check", patch]);
+      await git(repoRoot, ["apply", patch]);
+    }
     if (task.kind === "autofix" && response.sourcePatch?.trim()) {
       const patch = resolve(temp, "autofix.patch"); await writeFile(patch, response.sourcePatch);
       await git(repoRoot, ["apply", "--check", patch]);

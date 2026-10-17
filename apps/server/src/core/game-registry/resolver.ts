@@ -82,9 +82,41 @@ export type StackFramePolicy = (typeof STACK_FRAME_POLICIES)[number];
 export const STEERING_GATE_MODES = ["off", "shadow", "enforce"] as const;
 export type SteeringGateMode = (typeof STEERING_GATE_MODES)[number];
 
+/**
+ * What earns a worker a budget extension (+2 attempts). `score` (Melee): a
+ * raised match score. `certified` (SMS): only a raised certified high-water
+ * mark, or a certificate for a target that had none (closing an unverified
+ * match); resubmitted or reshuffled code earns nothing.
+ */
+export const BUDGET_EXTENSION_MODES = ["score", "certified"] as const;
+export type BudgetExtensionMode = (typeof BUDGET_EXTENSION_MODES)[number];
+export const DEFAULT_BUDGET_EXTENSION: BudgetExtensionMode = "score";
+
+/**
+ * How a boundary sync resolves a function both sides changed in a conflicting
+ * hunk. `score` (Melee): the higher report score wins. `certified` (SMS):
+ * upstream wins unless ours is gate-certified and scores strictly higher; an
+ * uncertified ours that scores higher is requeued as an open target. Applies
+ * only while the steering gate is active.
+ */
+export const GAME_SYNC_MERGE_POLICIES = ["score", "certified"] as const;
+export type GameSyncMergePolicy = (typeof GAME_SYNC_MERGE_POLICIES)[number];
+export const DEFAULT_GAME_SYNC_MERGE_POLICY: GameSyncMergePolicy = "score";
+
 export interface GameMatchingConfig {
   stackFramePolicy?: StackFramePolicy;
   steeringGate?: SteeringGateMode;
+  /** Unset = `score`; read through `matchingBudgetExtension`. */
+  budgetExtension?: BudgetExtensionMode;
+  /** Unset = `score`; read through `matchingSyncMergePolicy`. */
+  syncMergePolicy?: GameSyncMergePolicy;
+  /**
+   * objdiff module names that prefix report units but not the units steering
+   * state stores (SMS `["mario"]`: report `mario/Animal/AnimalBase`, steering
+   * `Animal/AnimalBase`). Unset = none (Melee): units compare as written.
+   * Read through `run-state/unit-key.ts`.
+   */
+  unitModulePrefixes?: string[];
 }
 
 /**
@@ -108,6 +140,11 @@ export interface GameOrderingConfig {
   /** Globs (fnmatch, `*` crosses `/`) of order-gated source paths such as registries. */
   gatedPaths: string[];
   scope?: GameOrderingScope;
+  /**
+   * Registry classes (SMS `MarNameRefGen`) whose name tables are filled in a
+   * fixed order; unset = none. Read through `orderingRegistries`.
+   */
+  registries?: string[];
 }
 
 export interface GameSandboxResourceClass {
@@ -210,7 +247,7 @@ export interface ResolvedGame {
   dashboard: Required<GameDashboardDefaults>;
   pr: Required<GamePrDefaults>;
   knowledge: Required<GameKnowledgeConfig>;
-  matching: Required<GameMatchingConfig>;
+  matching: ResolvedGameMatching;
   /** Present only when game.json configures `ordering`. */
   ordering?: GameOrderingConfig;
   sandbox: ResolvedSandboxConfig;
@@ -220,6 +257,24 @@ export interface ResolvedGame {
   descriptorPath: string;
   localOverridePath?: string;
   warnings: string[];
+}
+
+/** `budgetExtension` and `syncMergePolicy` stay unset for unconfigured games so their configuration fingerprint is stable. */
+export type ResolvedGameMatching = Required<Omit<GameMatchingConfig, "budgetExtension" | "syncMergePolicy" | "unitModulePrefixes">> & Pick<GameMatchingConfig, "budgetExtension" | "syncMergePolicy" | "unitModulePrefixes">;
+
+/** The game's budget-extension rule (`matching.budgetExtension`, default `score`). */
+export function matchingBudgetExtension(game: { matching?: Pick<GameMatchingConfig, "budgetExtension"> | null } | null | undefined): BudgetExtensionMode {
+  return game?.matching?.budgetExtension ?? DEFAULT_BUDGET_EXTENSION;
+}
+
+/** The game's boundary-sync conflict rule (`matching.syncMergePolicy`, default `score`). */
+export function matchingSyncMergePolicy(game: { matching?: Pick<GameMatchingConfig, "syncMergePolicy"> | null } | null | undefined): GameSyncMergePolicy {
+  return game?.matching?.syncMergePolicy ?? DEFAULT_GAME_SYNC_MERGE_POLICY;
+}
+
+/** The game's fixed-order registry classes (`ordering.registries`, default none). */
+export function orderingRegistries(game: { ordering?: Pick<GameOrderingConfig, "registries"> | null } | null | undefined): string[] {
+  return [...(game?.ordering?.registries ?? [])];
 }
 
 /** Optional keys stay unset for unconfigured games so their configuration fingerprint is stable. */
@@ -288,7 +343,7 @@ const defaultKnowledge: Required<GameKnowledgeConfig> = {
   gameSources: ["code_graph"],
 };
 
-const defaultMatching: Required<GameMatchingConfig> = {
+const defaultMatching: Required<Omit<GameMatchingConfig, "budgetExtension" | "syncMergePolicy" | "unitModulePrefixes">> = {
   stackFramePolicy: "match_frame",
   steeringGate: "off",
 };
@@ -450,13 +505,26 @@ function matchingFromObject(value: unknown): GameMatchingConfig | undefined {
   if (value.steeringGate !== undefined && (typeof value.steeringGate !== "string" || !(STEERING_GATE_MODES as readonly string[]).includes(value.steeringGate))) {
     throw new Error(`Invalid matching.steeringGate: ${String(value.steeringGate)}`);
   }
+  if (value.budgetExtension !== undefined && (typeof value.budgetExtension !== "string" || !(BUDGET_EXTENSION_MODES as readonly string[]).includes(value.budgetExtension))) {
+    throw new Error(`Invalid matching.budgetExtension: ${String(value.budgetExtension)} (expected score or certified)`);
+  }
+  if (value.syncMergePolicy !== undefined && (typeof value.syncMergePolicy !== "string" || !(GAME_SYNC_MERGE_POLICIES as readonly string[]).includes(value.syncMergePolicy))) {
+    throw new Error(`Invalid matching.syncMergePolicy: ${String(value.syncMergePolicy)} (expected score or certified)`);
+  }
+  if (value.unitModulePrefixes !== undefined && (!Array.isArray(value.unitModulePrefixes)
+    || !value.unitModulePrefixes.every((prefix) => typeof prefix === "string" && /^[A-Za-z0-9_.-]+$/.test(prefix)))) {
+    throw new Error(`Invalid matching.unitModulePrefixes: expected module names without "/"`);
+  }
   return {
     ...(policy === undefined ? {} : { stackFramePolicy: policy as StackFramePolicy }),
     ...(value.steeringGate === undefined ? {} : { steeringGate: value.steeringGate as SteeringGateMode }),
+    ...(value.budgetExtension === undefined ? {} : { budgetExtension: value.budgetExtension as BudgetExtensionMode }),
+    ...(value.syncMergePolicy === undefined ? {} : { syncMergePolicy: value.syncMergePolicy as GameSyncMergePolicy }),
+    ...(value.unitModulePrefixes === undefined ? {} : { unitModulePrefixes: [...value.unitModulePrefixes as string[]] }),
   };
 }
 
-const ORDERING_KEYS = new Set(["mode", "gatedPaths", "scope"]);
+const ORDERING_KEYS = new Set(["mode", "gatedPaths", "scope", "registries"]);
 const ORDERING_SCOPE_KEYS = new Set(["maxForeignHeaders", "maxForeignHeaderLines"]);
 
 /** Strict: unknown keys, bad modes, non-string globs and non-integer limits are errors. */
@@ -485,10 +553,15 @@ function orderingFromObject(value: unknown): GameOrderingConfig | undefined {
       scope[key as keyof GameOrderingScope] = limit;
     }
   }
+  const registries = value.registries;
+  if (registries !== undefined && (!Array.isArray(registries) || registries.some((name) => typeof name !== "string" || !/^[A-Za-z_]\w*$/.test(name)))) {
+    throw new Error("Invalid ordering.registries: expected an array of class names");
+  }
   return {
     mode: value.mode as OrderingMode,
     gatedPaths: [...(gatedPaths as string[])],
     ...(scope ? { scope } : {}),
+    ...(registries === undefined ? {} : { registries: [...(registries as string[])] }),
   };
 }
 
@@ -867,7 +940,14 @@ export function resolveGame(options: GameResolveOptions = {}): ResolvedGame {
     dashboard: requiredNested(defaultDashboard, merged.dashboard),
     pr: requiredNested(defaultPr, merged.pr),
     knowledge: requiredNested(defaultKnowledge, merged.knowledge),
-    matching: requiredNested(defaultMatching, merged.matching),
+    matching: {
+      stackFramePolicy: merged.matching?.stackFramePolicy ?? defaultMatching.stackFramePolicy,
+      steeringGate: merged.matching?.steeringGate ?? defaultMatching.steeringGate,
+      // Unset unless configured, so unconfigured games keep their configuration fingerprint.
+      ...(merged.matching?.budgetExtension === undefined ? {} : { budgetExtension: merged.matching.budgetExtension }),
+      ...(merged.matching?.syncMergePolicy === undefined ? {} : { syncMergePolicy: merged.matching.syncMergePolicy }),
+      ...(merged.matching?.unitModulePrefixes === undefined ? {} : { unitModulePrefixes: merged.matching.unitModulePrefixes }),
+    },
     ...(merged.ordering ? { ordering: merged.ordering } : {}),
     sandbox: requiredSandbox(merged.sandbox),
     orchestratorRoot: root,

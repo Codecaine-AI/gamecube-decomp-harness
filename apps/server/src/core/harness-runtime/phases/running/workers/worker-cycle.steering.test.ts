@@ -128,7 +128,7 @@ describe("steering repair request", () => {
     const shadow = steeringRejected("shadow");
     expect(workerSteeringRepairFields(shadow)).toEqual({});
     const passed = workerRepairInstruction({ runnerValidation: shadow, latestCheckpoint: null, repairReasons: [], scoreText: " at 100%", stopAtFrame: false });
-    expect(passed).toBe("Your last submission was validated and checkpointed at 100%. Continue toward exact from the current source. Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.");
+    expect(passed).toBe("Your last submission was validated and checkpointed at 100%. Continue the method from the current source: classify the new residual, test one hypothesis at a time within the diagnostic allowance, and stop with your findings recorded when a stop condition in the definition of done applies. Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.");
     const gateFailedExact = workerRepairInstruction({
       runnerValidation: { status: "failed", reasons: ["qa"], qaLint: null },
       latestCheckpoint: { exactMatch: true, hardGatesPassed: false },

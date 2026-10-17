@@ -10,6 +10,8 @@ import { SYMBOL_BASELINE_DIR, runSymbolCheck, snapshotBaselineObjects, symbolChe
 import { runCommand } from "@server/infrastructure/shell/run-command.js";
 import { baseConfigureCommand, configureCommandWithWrapper } from "@server/core/game-registry/configure-command.js";
 import type { BuildTask } from "./execution.js";
+import { evaluateSandboxProbe, STEERING_CLANG_PROBE_PY, STEERING_NO_CLANG_REASON } from "../steering/clang-probe.js";
+import { applyCompileSummary, verifyApplyCompiles, type SteeringApplyVerify } from "../steering/apply-verify.js";
 
 function shellQuote(value: string): string {
   return /^[A-Za-z0-9_./:@%+=,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
@@ -76,6 +78,31 @@ try {
       break;
     case "report-changes": value = await runCommand(request.repoRoot, ["build/tools/objdiff-cli", "report", "changes", "-o", input.changesPath as string, input.baselinePath as string, input.reportPath as string]); break;
     case "command": value = await runCommand(request.repoRoot, input.command as string[], input.options as Parameters<typeof runCommand>[2]); break;
+    // The steering gate's IR oracle must be LLVM 21: probe first and never run steering_check.py on another clang.
+    case "steering": {
+      const options = input.options as Parameters<typeof runCommand>[2];
+      const probe = evaluateSandboxProbe(await runCommand(request.repoRoot, ["python3", "-c", STEERING_CLANG_PROBE_PY], { env: options?.env, timeoutMs: 60_000 }));
+      if (!probe.ok) {
+        value = { exitCode: 125, stdout: "", stderr: `steering build sandbox refused: ${STEERING_NO_CLANG_REASON} (${probe.reason})`, probe };
+        break;
+      }
+      const result = await runCommand(request.repoRoot, input.command as string[], options);
+      const verify = input.verify as SteeringApplyVerify | undefined;
+      if (result.exitCode !== 0 || !verify) {
+        value = { ...result, probe };
+        break;
+      }
+      // apply: every unit whose source or included header changed must still compile, or no patch leaves the sandbox.
+      const compile = await verifyApplyCompiles((command, commandOptions) => runCommand(request.repoRoot, command, commandOptions), request.sourceTree, verify, options?.timeoutMs);
+      if (compile.ok) {
+        value = { ...result, probe, compile };
+        break;
+      }
+      // Back to the verified input tree, untracked apply output included: the patch below comes out empty.
+      const reset = await runCommand(request.repoRoot, ["git", "read-tree", "--reset", "-u", request.sourceTree]);
+      value = { exitCode: 4, stdout: result.stdout, stderr: `${applyCompileSummary(compile)}${reset.exitCode !== 0 ? `; tree reset failed: ${reset.stderr}` : ""}`, probe, compile };
+      break;
+    }
     // The image bakes the game's pinned clang-format; both kinds report its version so callers can assert the pin.
     case "format-check": value = await runClangFormatCheck({ files: input.paths as string[], exec: (command, options) => runCommand(request.repoRoot, command, options) }); break;
     case "format-apply": value = await runClangFormatApply({ files: input.paths as string[], exec: (command, options) => runCommand(request.repoRoot, command, options) }); break;

@@ -7,12 +7,16 @@ export function remoteBuildsEnabled(): boolean {
   return mode === "daytona";
 }
 
-export type BuildTaskKind = "report" | "ci" | "precommit" | "autofix" | "object" | "unit-snapshot" | "qa" | "command" | "report-changes" | "format-check" | "format-apply" | "symbol-check";
+/** `steering`: one `steering_check.py` call (backfill, sandbox placement) behind the IR-oracle clang probe; see `daytona.ts`. */
+export type BuildTaskKind = "report" | "ci" | "precommit" | "autofix" | "object" | "unit-snapshot" | "qa" | "command" | "report-changes" | "format-check" | "format-apply" | "symbol-check" | "steering";
 export interface BuildTask { kind: BuildTaskKind; input: Record<string, unknown> }
+/** Where a `steering` task's host inputs land in the build sandbox: the game's policy and lessons, and per-call files (`input.uploads`). */
+export const REMOTE_STEERING_INPUTS = "/tmp/steering-inputs";
 
-export async function executeBuildTask<T>(repoRoot: string, task: BuildTask): Promise<T> {
+/** `options.signal` aborts the build: it rejects at once and its sandbox is deleted. */
+export async function executeBuildTask<T>(repoRoot: string, task: BuildTask, options: { signal?: AbortSignal } = {}): Promise<T> {
   const { executeDaytonaBuild } = await import("./daytona.js");
-  return executeDaytonaBuild<T>(repoRoot, task);
+  return executeDaytonaBuild<T>(repoRoot, task, options.signal ? { signal: options.signal } : {});
 }
 
 export async function runBuildCommand(repoRoot: string, command: string[], options: RunCommandOptions = {}): Promise<CommandResult> {

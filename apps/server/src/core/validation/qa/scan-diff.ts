@@ -77,7 +77,16 @@ export interface QaScanInvocation {
   /** Set when the tool itself failed (script missing, crash, bad JSON). */
   toolError: string | null;
   command: string[];
+  /**
+   * Where the scanner ran. Set only by the worker-sandbox runner and the
+   * placement router (`sandbox-scan.ts`); direct `runQaScanDiff` callers leave
+   * it unset, so their output is unchanged.
+   */
+  executionSurface?: QaScanExecutionSurface;
 }
+
+/** `worker_sandbox`: the attempt's own sandbox; `build_sandbox`: an ephemeral Daytona build sandbox; `host`: the local process. */
+export type QaScanExecutionSurface = "worker_sandbox" | "build_sandbox" | "host";
 
 export type QaScanProcessRunner = (repoRoot: string, command: string[], env?: Record<string, string>) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 
@@ -230,7 +239,7 @@ export function parseQaScanResult(stdout: string): QaScanResult | null {
   }
 }
 
-function cleanResultFromExitZero(options: RunQaScanDiffOptions, stderr: string): QaScanResult | null {
+function cleanResultFromExitZero(options: Pick<RunQaScanDiffOptions, "repoRoot" | "baseRef">, stderr: string): QaScanResult | null {
   if (stderr.trim() && !stderr.match(/review_lint scan_diff: passed \(0 error\(s\), 0 warning\(s\), \d+ scanned file\(s\)\)/)) return null;
   return {
     tool: "review_lint",
@@ -254,6 +263,21 @@ export const ORDERING_QA_SCAN_PATHS = ["src", "include", "libs"] as const;
  */
 export function orderingQaScanFiles(game: GameOrderingSource): { files?: string[] } {
   return orderingActive(gameOrdering(game)?.mode) ? { files: [...ORDERING_QA_SCAN_PATHS] } : {};
+}
+
+/** `scan_diff.py` arguments after the script path; `diffFile` and `repoRoot` are used as given. */
+export function qaScanArgs(options: Omit<RunQaScanDiffOptions, "orchestratorRoot">): string[] {
+  const args = ["--repo", options.repoRoot, "--json"];
+  if (options.gate !== false) args.push("--gate");
+  if (options.baseRef) args.push("--base", options.baseRef);
+  if (options.diffFile) args.push("--diff-file", options.diffFile);
+  if (options.includeWorktree) args.push("--include-worktree");
+  if (options.surface) args.push("--surface", options.surface);
+  if (options.addressNamedStaticDataAllowlist?.length) {
+    args.push("--address-named-static-data-allowlist", JSON.stringify(options.addressNamedStaticDataAllowlist));
+  }
+  for (const file of options.files ?? []) args.push("--path", file);
+  return args;
 }
 
 export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaScanInvocation> {
@@ -280,16 +304,7 @@ export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaSc
     "review_lint",
   );
   const scriptPath = resolve(resolved.apiRoot, "scan_diff.py");
-  const command = ["python3", scriptPath, "--repo", options.repoRoot, "--json"];
-  if (options.gate !== false) command.push("--gate");
-  if (options.baseRef) command.push("--base", options.baseRef);
-  if (options.diffFile) command.push("--diff-file", options.diffFile);
-  if (options.includeWorktree) command.push("--include-worktree");
-  if (options.surface) command.push("--surface", options.surface);
-  if (options.addressNamedStaticDataAllowlist?.length) {
-    command.push("--address-named-static-data-allowlist", JSON.stringify(options.addressNamedStaticDataAllowlist));
-  }
-  for (const file of options.files ?? []) command.push("--path", file);
+  const command = ["python3", scriptPath, ...qaScanArgs(options)];
   if (!existsSync(scriptPath)) {
     return {
       exitCode: -1,
@@ -302,6 +317,18 @@ export async function runQaScanDiff(options: RunQaScanDiffOptions): Promise<QaSc
   }
   const env = qaScanEnv({ orchestratorRoot: options.orchestratorRoot, gameId: resolved.gameId, toolEnv: resolved.env });
   const result = await (options.processRunner ?? runProcess)(options.repoRoot, command, env);
+  return qaScanInvocationFromProcess(options, result, command);
+}
+
+/**
+ * The one `scan_diff.py --gate` result contract (exit 0/1/2, JSON stdout, a
+ * clean exit 0 with an empty stdout) shared by every place the scanner runs.
+ */
+export function qaScanInvocationFromProcess(
+  options: Pick<RunQaScanDiffOptions, "repoRoot" | "baseRef">,
+  result: { exitCode: number; stdout: string; stderr: string },
+  command: string[],
+): QaScanInvocation {
   const parsed = parseQaScanResult(result.stdout) ?? (result.exitCode === 0 && result.stdout.trim() === "" ? cleanResultFromExitZero(options, result.stderr) : null);
   const toolError =
     parsed === null

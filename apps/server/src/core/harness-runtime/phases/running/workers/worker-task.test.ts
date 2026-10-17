@@ -45,6 +45,10 @@ import {
   type WorkerCycleResult,
   type WorkerTaskRuntimeDeps,
 } from "./worker-cycle.js";
+import { useHostReportPlacement } from "@server/core/agent-catalog/agents/running/worker/host-report-placement.test-support.js";
+
+// Fake workspaces here serve whole objdiff reports and symbols.txt: explicit host report placement.
+useHostReportPlacement();
 
 const tempDirs: string[] = [];
 
@@ -382,6 +386,8 @@ describe("claimed worker task reconstruction", () => {
     };
     provider.scriptExec(
       { exitCode: 0, stdout: "", stderr: "" },
+      // The compiler source link restored on re-attach (provisioning.ensureSandboxCompilerSourceLink).
+      { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: "", stderr: "" },
       { exitCode: 0, stdout: "build/tools/dtk\n", stderr: "" },
       (call) => writeRemoteDiff(call, ""),
@@ -450,6 +456,8 @@ describe("claimed worker task reconstruction", () => {
       });
       expect(typeof capturedRunnerOptions?.toolContext?.requestWriteSetWidening).toBe("function");
       expect(provider.execCalls.filter((call) => call.command[2]?.includes("mwcceppc_debug.exe"))).toHaveLength(1);
+      // Re-attaching restores <checkout>/../mwcc -> /opt/mwcc right after the workspace liveness check.
+      expect(provider.execCalls[1]?.command.slice(3)).toEqual(["--", "/opt/mwcc", "/workspace/mwcc"]);
       expect(capturedRunnerOptions?.prompt.kernelContext?.renderedContext).not.toContain(
         'relative_path="build/tools/dtk"',
       );

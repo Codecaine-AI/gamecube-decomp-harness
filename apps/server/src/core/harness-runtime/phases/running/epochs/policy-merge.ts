@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { EXACT_SCORE, objdiffRowScore } from "@server/core/validation/objdiff/constants.js";
+import type { CertifiedFunctionDecision } from "./certified-merge.js";
 
 export type PolicyMergeSide = "ours" | "upstream";
 
@@ -105,6 +106,10 @@ export interface PolicyMergeFileLog {
   upstreamReportFallbackReason: string | null;
   /** Set when a non-C contested file was resolved by a line-based three-way merge. */
   textMergeReason?: string | null;
+  /** Set by the certified rule (`matching.syncMergePolicy: "certified"`): its per-function decisions for this file. */
+  certified?: { hunks: number; decisions: CertifiedFunctionDecision[] };
+  /** Certified rule, file left unmerged for an operator: the certification of its differing functions. */
+  operatorCertification?: string;
 }
 
 export interface ApplyScoreMergePolicyInput {
@@ -1060,7 +1065,7 @@ export function functionScoresForUnit(report: unknown, unitName: string): Record
   return scores;
 }
 
-function normalizeSourcePath(path: string): string {
+export function normalizeSourcePath(path: string): string {
   const normalized = path.trim().replaceAll("\\", "/").replace(/^\.\//, "");
   const sourceIndex = normalized.indexOf("src/");
   return sourceIndex >= 0 ? normalized.slice(sourceIndex) : normalized;
@@ -1111,7 +1116,7 @@ async function checkedPolicyGit(
   return result.stdout.trim();
 }
 
-async function gitFileText(
+export async function gitFileText(
   runGit: PolicyMergeGitRunner,
   worktreePath: string,
   revision: string,
@@ -1157,7 +1162,7 @@ export function policyMergeFileMessage(entry: Omit<PolicyMergeFileLog, "message"
   return `${entry.path}: ours=[${functions("ours")}] upstream=[${functions("upstream")}] strategy=${entry.result.strategy}${fallback}${fallbackDetail}${lostProtected}${droppedHelpers}${reportFallback}`;
 }
 
-async function takeUpstreamFileWhole(
+export async function takeUpstreamFileWhole(
   runGit: PolicyMergeGitRunner,
   worktreePath: string,
   upstreamRevision: string,
@@ -1189,7 +1194,7 @@ async function takeUpstreamFileWhole(
  * unmerged for the caller's operator review, and anything else throws so the
  * caller aborts the merge.
  */
-async function mergeNonCContestedFile(
+export async function mergeNonCContestedFile(
   input: ApplyScoreMergePolicyInput,
   path: string,
 ): Promise<{ entry: PolicyMergeFileLog; rewritten: boolean }> {

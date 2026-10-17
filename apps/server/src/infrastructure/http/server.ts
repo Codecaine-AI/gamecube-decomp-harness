@@ -62,6 +62,9 @@ import { createSyncRuntime } from "@server/core/harness-runtime/phases/sync/runt
 import { activateRun } from "@server/core/harness-runtime/phases/running/run-control";
 import { createValidationRuntime } from "@server/core/validation/runtime";
 import { handleValidationApiRoute } from "@server/api/routes/validation";
+import { handleEvidenceReviewsApiRoute } from "@server/api/routes/evidence-reviews";
+import { decideEvidenceReview, listEvidenceReviews } from "@server/core/harness-runtime/run-state/evidence-reviews";
+import { steeringApprovalsPath } from "@server/core/agent-catalog/agents/running/worker/steering-validation";
 import { createManagedProcessController, type ManagedProcessController } from "@server/infrastructure/process-control/managed-process-controller";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import { openState } from "@server/core/orchestrator-state";
@@ -802,6 +805,35 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
     runReportNow: validationRuntime.runReportNow,
   });
   if (validation) return validation;
+
+  const evidenceReviews = await handleEvidenceReviewsApiRoute(req, url, {
+    json,
+    listReviews: ({ url: requestUrl, gameId, status }) => {
+      const store = openState(gameContext.requestPaths(requestUrl, { useDefaultGame: false }).stateDir);
+      try {
+        return listEvidenceReviews(store, { gameId, status: status === "all" ? null : status });
+      } finally { store.db.close(); }
+    },
+    // An approval writes the game's site-bound approvals file and requeues the target only when no run process is live.
+    decideReview: async (body) => {
+      const paths = gameContext.resolveDashboardGame(body.raw, { useDefaultGame: false });
+      if (paths.game && paths.game.gameId !== body.gameId) throw Object.assign(new Error("The selected game does not match its resolved configuration"), { status: 409 });
+      const store = openState(paths.stateDir);
+      try {
+        return await decideEvidenceReview(store, {
+          gameId: body.gameId,
+          id: body.id,
+          decision: body.decision,
+          note: body.note,
+          revision: body.revision,
+          decidedBy: body.decidedBy,
+          approvalsPath: steeringApprovalsPath(paths.game, packageRoot),
+          requeueAllowed: !processController.hasActiveProcess(paths.stateDir).active,
+        });
+      } finally { store.db.close(); }
+    },
+  });
+  if (evidenceReviews) return evidenceReviews;
 
   return json({ error: "not found" }, { status: 404 });
 }

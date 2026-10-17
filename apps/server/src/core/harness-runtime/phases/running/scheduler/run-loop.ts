@@ -58,6 +58,11 @@ import {
   type SchedulerTickResult,
 } from "@server/core/harness-runtime/phases/running/scheduler/tick.js";
 import { resolveBaseRev, resolveWorkerAdvisoryMode } from "@server/core/harness-runtime/phases/running/workers/worker-cycle.js";
+import {
+  startSteeringExplainConsumer,
+  type SteeringExplainConsumerHandle,
+  type SteeringExplainConsumerParams,
+} from "@server/core/validation/jobs/steering-explain.js";
 import { startJobConsumer, type JobConsumerHandle } from "@server/core/job-queue/consumer.js";
 import { defaultConfigureCommand } from "@server/core/job-queue/executor.js";
 import { reconcileSandboxes } from "@server/core/job-queue/sandbox-lifecycle.js";
@@ -177,7 +182,12 @@ export interface RunLoopDeps {
   providerProbe?: () => Promise<ProviderProbeResult>;
   /** Test seam: the worker job's task executor and sandbox provisioning; production passes nothing. */
   workerJobDeps?: Pick<NonNullable<Parameters<typeof workerJobDescriptor>[1]>, "executor" | "provisionSandbox">;
+  /** Test seam: starts the background steering-explain consumer (default `startSteeringExplainConsumer`). */
+  steeringExplainConsumer?: (params: SteeringExplainConsumerParams) => SteeringExplainConsumerHandle;
 }
+
+/** How long shutdown waits for in-flight explain jobs; past it they are cancelled and requeued. */
+const STEERING_EXPLAIN_DRAIN_MS = 30_000;
 
 export function providerCircuitConfigFromArgs(args: Map<string, string | true>) {
   const positive = (flag: string, fallback: number): number => {
@@ -712,6 +722,7 @@ export async function runRunLoop(
   let workersStarted = 0;
   let integrationDrains = 0;
   let workerConsumerForCleanup: JobConsumerHandle | null = null;
+  let steeringExplainForCleanup: SteeringExplainConsumerHandle | null = null;
   let runLoopFailure: unknown = null;
   let fatalStateError: unknown = null;
   let abandonedBackgroundBorrowers = 0;
@@ -1005,6 +1016,16 @@ export async function runRunLoop(
       onJobSettled: handleWorkerJobSettled,
     });
     workerConsumerForCleanup = workerConsumer;
+    // Compiler-delta explain jobs (plan 3.4.1) drain in the background, in build sandboxes. Not worker
+    // work: boundaries, idle exit and iteration counts never look at it.
+    steeringExplainForCleanup = (deps.steeringExplainConsumer ?? startSteeringExplainConsumer)({
+      store: borrowedStore,
+      gameId,
+      steeringGate: globals.game?.matching?.steeringGate ?? null,
+      repoRoot: globals.repoRoot,
+      workDir: resolve(globals.stateDir, "steering-explain", "work"),
+      dryRun: globals.dryRunAgents,
+    });
     const syncSchedulerCondition = (fallback: "planning" | "dispatching" | "waiting"): void => {
       setRunSchedulerCondition(
         store,
@@ -1495,6 +1516,20 @@ export async function runRunLoop(
         await workerConsumerForCleanup.stop();
       } catch (cause) {
         console.error(`[run-loop] worker consumer cleanup failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+      }
+    }
+    // Before the store closes: stop claiming, wait for running explain jobs, and past the deadline abort
+    // them and hand their claims back (queued again); `close` then keeps any late completion off the store.
+    if (steeringExplainForCleanup) {
+      steeringExplainForCleanup.stop();
+      try {
+        if (!(await steeringExplainForCleanup.drain(STEERING_EXPLAIN_DRAIN_MS))) {
+          console.error(`[run-loop] steering-explain jobs still running after ${STEERING_EXPLAIN_DRAIN_MS} ms were cancelled and requeued`);
+        }
+      } catch (cause) {
+        console.error(`[run-loop] steering-explain drain failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+      } finally {
+        steeringExplainForCleanup.close();
       }
     }
     if (runningProviderProbe) await runningProviderProbe;

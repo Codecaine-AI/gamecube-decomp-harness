@@ -19,7 +19,7 @@ import { initializeHarnessState, transitionHarnessState } from "@server/core/har
 import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 import { clearUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { createRunCheckpoint, latestCheckpointSummary, recheckCheckpointPrCandidates } from "./checkpoint.js";
-import { branchSteeringHolds } from "./steering-holds.js";
+import { branchSteeringHolds, steeringPrHolds } from "./steering-holds.js";
 
 const tempDirs: string[] = [];
 
@@ -36,11 +36,12 @@ function tempState(): { dir: string; store: StateStore } {
 function exactCheckpoint(
   store: StateStore,
   validationState: "tentative" | "confirmed" | "regressed",
-  options: { metadata?: Record<string, unknown> } = {},
+  options: { metadata?: Record<string, unknown>; gameId?: string; unit?: string } = {},
 ) {
-  initializeHarnessState(store.db, { gameId: "test", worktree: store.stateDir, configurationRevision: "test-config", commandId: "initialize" });
-  transitionHarnessState(store.db, { gameId: "test", expectedRevision: 0, commandId: "accept", patch: { source: { head: "base-test" }, readiness: { build: "ready", evidence: "ready", sources: "ready", sandbox: "ready" } } });
-  const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "test" }, { baseRevision: "base-test" });
+  const gameId = options.gameId ?? "test";
+  initializeHarnessState(store.db, { gameId, worktree: store.stateDir, configurationRevision: "test-config", commandId: "initialize" });
+  transitionHarnessState(store.db, { gameId, expectedRevision: 0, commandId: "accept", patch: { source: { head: "base-test" }, readiness: { build: "ready", evidence: "ready", sources: "ready", sandbox: "ready" } } });
+  const run = createRun(store, "matched_code_percent", 100, 1, { gameId }, { baseRevision: "base-test" });
   const epoch = startSchedulerEpoch(store, run.id, {
     workerPoolSize: 1,
   });
@@ -50,7 +51,7 @@ function exactCheckpoint(
     candidates: [
       {
         kind: "function",
-        unit: "unit_a",
+        unit: options.unit ?? "unit_a",
         symbol: "exact_fn",
         sourcePath: "src/exact.c",
         size: 128,
@@ -178,9 +179,9 @@ function markUnverified(store: StateStore): void {
 }
 
 /** Rolls `exact_fn` back at `at`; the checkpoint was validated at `checkpointAt`. */
-function rollBack(store: StateStore, runId: string, at: string, checkpointAt: string): void {
+function rollBack(store: StateStore, runId: string, at: string, checkpointAt: string, target: { gameId?: string; unit?: string } = {}): void {
   const id = recordSteeringRollback(store, {
-    gameId: "test", unit: "unit_a", symbol: "exact_fn", analyzedRev: "steered-head", initialVerdict: "steering_located",
+    gameId: target.gameId ?? "test", unit: target.unit ?? "unit_a", symbol: "exact_fn", analyzedRev: "steered-head", initialVerdict: "steering_located",
     finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
   });
   store.db.query("UPDATE steering_rollbacks SET recorded_at = ?, updated_at = ? WHERE id = ?").run(at, at, id);
@@ -188,7 +189,7 @@ function rollBack(store: StateStore, runId: string, at: string, checkpointAt: st
 }
 
 /** The worker gate's enforce result: a whole-certificate pass of `exact_fn`, edited, its unit built and compared. */
-function enforcedPass(overrides: { mode?: string; units?: unknown[] } = {}): Record<string, unknown> {
+function enforcedPass(overrides: { mode?: string; units?: unknown[]; unit?: string } = {}): Record<string, unknown> {
   return {
     runner_validation: {
       status: "passed",
@@ -197,10 +198,10 @@ function enforcedPass(overrides: { mode?: string; units?: unknown[] } = {}): Rec
         decision: {
           attempt: "pass", reasons: [], removable_noncosmetic: [], probes: [], violations: [], unused_checks: [], order_checks: [],
           functions: [{
-            unit: "unit_a", name: "exact_fn", decision: "pass", semantic: "clean", analysis: "complete", audit_label: "clean",
+            unit: overrides.unit ?? "unit_a", name: "exact_fn", decision: "pass", semantic: "clean", analysis: "complete", audit_label: "clean",
             match: { base: 90, candidate: 100, real_only: 100 }, groups: ["g1"],
           }],
-          units: overrides.units ?? [{ unit: "unit_a", built: true, compared: true }],
+          units: overrides.units ?? [{ unit: overrides.unit ?? "unit_a", built: true, compared: true }],
         },
       },
     },
@@ -285,11 +286,11 @@ describe("steering holds on PR eligibility", () => {
 });
 
 /** Records the run's checkpoint integration as `status` with the given integration metadata. */
-function integrate(store: StateStore, runId: string, status: "applied" | "rejected", metadata: Record<string, unknown>): void {
+function integrate(store: StateStore, runId: string, status: "applied" | "rejected", metadata: Record<string, unknown>, targetKey = "unit_a::exact_fn"): void {
   const row = store.db.query("SELECT * FROM worker_checkpoints WHERE run_id = ?").get(runId) as Record<string, string>;
   const queued = enqueueWorkerOutputIntegration(store, {
     runId, epochId: row.epoch_id!, epochTargetId: row.epoch_target_id!, targetClaimId: row.target_claim_id!,
-    workerStateId: row.worker_state_id!, workerCheckpointId: row.id!, targetKey: "unit_a::exact_fn",
+    workerStateId: row.worker_state_id!, workerCheckpointId: row.id!, targetKey,
   });
   updateWorkerOutputIntegration(store, queued.id, { status, disposition: status === "applied" ? "clean_apply" : "confirmation_regressed_reverted", metadata });
 }
@@ -344,6 +345,94 @@ describe("branch steering holds after a rollback", () => {
       rollBack(store, run.id, "2026-10-02T00:00:00.000Z", "2026-10-01T00:00:00.000Z");
       integrate(store, run.id, "applied", landed());
       expect((await branchSteeringHolds(store, STEERING_GAME, ancestorOf(["integrated-rev"]))).map((hold) => hold.reason)).toEqual(["steering_rollback"]);
+    } finally {
+      store.db.close();
+    }
+  });
+});
+
+describe("module-prefixed worker units (SMS)", () => {
+  const SMS = { gameId: "sms", steeringGate: "enforce" } as const;
+  const REPORT_UNIT = "mario/Animal/AnimalBase";
+  const STEERING_UNIT = "Animal/AnimalBase";
+  const unverified = (store: StateStore, gameId: string, symbol: string) => recordUnverifiedMatch(store, {
+    gameId, unit: STEERING_UNIT, symbol, analyzedRev: "head-1", baseRev: "trusted-base",
+    match: { base: 90, candidate: 100, real_only: 92 }, reasons: ["unresolved group g1"],
+  });
+  const rollback = (store: StateStore, gameId: string, symbol: string) => recordSteeringRollback(store, {
+    gameId, unit: STEERING_UNIT, symbol, analyzedRev: "steered-head", initialVerdict: "steering_located",
+    finalVerdict: "pass", rules: ["steering"], report: {}, status: "reverified",
+  });
+
+  test("holdFor with the prefixed worker unit finds short-unit rows; a short-unit gate certificate clears the rollback", () => {
+    const { store } = tempState();
+    try {
+      unverified(store, "sms", "held");
+      rollback(store, "sms", "exact_fn");
+      const holds = steeringPrHolds(store, SMS);
+      expect(holds.holdFor(REPORT_UNIT, "held", null)?.reason).toBe("unverified_match");
+      expect(holds.holdFor(REPORT_UNIT, "exact_fn", null)?.reason).toBe("steering_rollback");
+      const certified = { validationTime: "2099-01-01T00:00:00.000Z", runnerValidation: (enforcedPass({ unit: STEERING_UNIT }).runner_validation as Record<string, unknown>) };
+      expect(holds.holdFor(REPORT_UNIT, "exact_fn", certified)).toBeNull();
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("Melee (no module prefixes) never strips a path component", () => {
+    const { store } = tempState();
+    try {
+      unverified(store, "melee", "held");
+      const holds = steeringPrHolds(store, { gameId: "melee", steeringGate: "enforce" });
+      expect(holds.holdFor(REPORT_UNIT, "held", null)).toBeNull();
+      expect(holds.holdFor(STEERING_UNIT, "held", null)?.reason).toBe("unverified_match");
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a prefixed exact checkpoint is held by a short-unit row, in the checkpoint and its recheck", () => {
+    const { dir, store } = tempState();
+    try {
+      const run = exactCheckpoint(store, "confirmed", { gameId: "sms", unit: REPORT_UNIT });
+      const written = createRunCheckpoint(store, run.id, { artifactDir: resolve(dir, "before"), ...SMS });
+      expect(written.counts.pr_candidate).toBe(1);
+      unverified(store, "sms", "exact_fn");
+      expect(createRunCheckpoint(store, run.id, { artifactDir: resolve(dir, "held"), ...SMS }).items[0]).toMatchObject({ disposition: "steering_hold", exactMatch: false });
+      expect(recheckCheckpointPrCandidates(store, written.checkpoint.id, SMS).held.map(({ hold }) => hold.reason)).toEqual(["unverified_match"]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a short-unit rollback is released by a certified integration under the prefixed report target key", async () => {
+    const { store } = tempState();
+    try {
+      const run = exactCheckpoint(store, "confirmed", { gameId: "sms", unit: REPORT_UNIT, metadata: enforcedPass({ unit: STEERING_UNIT }) });
+      rollBack(store, run.id, "2026-10-01T00:00:00.000Z", "2026-10-02T00:00:00.000Z", { gameId: "sms", unit: STEERING_UNIT });
+      integrate(store, run.id, "applied", landed({ target_key: `${REPORT_UNIT}::exact_fn` }), `${REPORT_UNIT}::exact_fn`);
+      expect(await branchSteeringHolds(store, SMS, async (rev) => rev === "integrated-rev")).toEqual([]);
+      expect((await branchSteeringHolds(store, SMS, async () => false)).map((hold) => `${hold.reason}:${hold.unit}::${hold.symbol}`))
+        .toEqual([`steering_rollback:${STEERING_UNIT}::exact_fn`]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a cleared unverified_match holds published source its certifying revision is not an ancestor of", async () => {
+    const { store } = tempState();
+    try {
+      for (const symbol of ["certified", "unrecorded"]) unverified(store, "sms", symbol);
+      clearUnverifiedMatch(store, { gameId: "sms", unit: REPORT_UNIT, symbol: "certified", clearedBy: "integration:i1", clearedRev: "repair-rev" });
+      clearUnverifiedMatch(store, { gameId: "sms", unit: STEERING_UNIT, symbol: "unrecorded", clearedBy: "backfill" });
+      const holds = async (heads: string[]) => (await branchSteeringHolds(store, SMS, async (rev) => heads.includes(rev)))
+        .map((hold) => `${hold.reason}:${hold.unit}::${hold.symbol}`);
+      // Older source (the repair is not its ancestor) does not inherit the later clearance.
+      expect(await holds([])).toEqual([`unverified_match:${STEERING_UNIT}::certified`, `unverified_match:${STEERING_UNIT}::unrecorded`]);
+      // Source that contains the repair is certified; a clear without a revision never is.
+      expect(await holds(["repair-rev"])).toEqual([`unverified_match:${STEERING_UNIT}::unrecorded`]);
+      // Melee-style games without an active gate read nothing.
+      expect(await branchSteeringHolds(store, { gameId: "melee", steeringGate: "off" }, async () => false)).toEqual([]);
     } finally {
       store.db.close();
     }

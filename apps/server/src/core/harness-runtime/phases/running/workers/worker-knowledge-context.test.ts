@@ -138,3 +138,49 @@ describe("buildWorkerKnowledgeContext knowledge-v2 injection", () => {
     }
   });
 });
+
+describe("buildWorkerKnowledgeContext steering overlay", () => {
+  function completeFileGraph(unit: string): string {
+    const graphDb = join(tempRoot("worker-file-card-sms-"), "graph.sqlite");
+    const store = openKnowledgeGraph(graphDb);
+    const source = "src/MarioUtil/Foo.cpp";
+    const fileId = fileEntityId(source);
+    const sourceVersionId = "source-version:worker-file-card";
+    insertGraphRecords(store, {
+      sourceVersion: { id: sourceVersionId, sourceId: "code_graph", contentHash: "fixture", sourcePaths: ["fixture"] },
+      entities: [{ id: fileId, entityType: "source_file", stableKey: source, payload: { source_path: source } }],
+      facts: [
+        {
+          id: "fact:file:worker-file-card", entityId: fileId, factType: "file_match_status",
+          payload: {
+            units: [unit], function_count: 1, matched_function_count: 1, unmatched_function_count: 0,
+            functions: [{ unit, symbol: "Steered__3FooFv", fuzzy: 100 }],
+          },
+          confidence: 1, trustTier: "canonical", evidenceRef: "fixture", sourceVersionId,
+        },
+        {
+          id: "fact:editability:worker-file-card", entityId: fileId, factType: "editability",
+          payload: { mode: "read_only_complete", reason: "Every function matches." },
+          confidence: 1, trustTier: "canonical", evidenceRef: "fixture", sourceVersionId,
+        },
+      ],
+      edges: [],
+      chunks: [],
+    });
+    store.db.close();
+    return graphDb;
+  }
+
+  test("SMS: a short-unit hold keeps the worker's module-prefixed file editable; Melee compares units as written", () => {
+    const graphDb = completeFileGraph("mario/MarioUtil/Foo");
+    // Steering rows name the unit without the objdiff module prefix.
+    const unverifiedMatches = [{ unit: "MarioUtil/Foo", symbol: "Steered__3FooFv" }];
+    const mode = (gameId?: string) => {
+      const result = buildWorkerKnowledgeContext("src/MarioUtil/Foo.cpp", graphDb, { gameId, unverifiedMatches });
+      return (result.file_card as { editability: { mode: string } }).editability.mode;
+    };
+    expect(mode("sms")).toBe("editable");
+    expect(mode("melee")).toBe("read_only_complete");
+    expect(mode(undefined)).toBe("read_only_complete");
+  });
+});

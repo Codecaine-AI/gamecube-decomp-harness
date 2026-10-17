@@ -10,7 +10,9 @@ import { seedRunHarness } from "../../../run-state/test-harness.js";
 import { createRun } from "@server/core/harness-runtime/run-state";
 import { blockingWorkerOutputIntegrationCount, enqueueWorkerOutputIntegration } from "@server/core/harness-runtime/run-state/worker-output-integration.js";
 import { runCommand } from "@server/infrastructure/shell";
+import { createHash } from "node:crypto";
 import { integrationCommitMessage, processWorkerOutputIntegrationQueue } from "./worker-output-queue.js";
+import { EDIT_SCOPE_ATTESTATION_KEY, buildEditScopeAttestation } from "./scope-attestation.js";
 import { unitInputsSha256 } from "@server/core/validation/edit-scope/unused-evidence.js";
 import { activeUnverifiedMatch, clearUnverifiedMatch, listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { runConfirmationPass, type ConfirmationPassDeps } from "../epochs/confirmation-pass.js";
@@ -95,6 +97,22 @@ function insertQueued(
     targetKey: "unit::symbol",
     metadata: { scoped_checks_passed: true },
   }).id;
+}
+
+/**
+ * The worker's compile-input record for a candidate whose only input is
+ * `src/a.c` as the worker patch leaves it (HEAD's copy with `value = 0` ->
+ * `value = 1`), plus `extraDeps` (path -> content at HEAD).
+ */
+function candidateInputs(repo: string, extraDeps: string[] = []): Record<string, unknown> {
+  const at = (path: string) => Bun.spawnSync(["git", "-C", repo, "show", `HEAD:${path}`], { stdout: "pipe" }).stdout.toString();
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+  return {
+    kind: "depfile",
+    unit: "unit",
+    deps: Object.fromEntries([["src/a.c", sha(at("src/a.c").replace("value = 0", "value = 1"))], ...extraDeps.map((path) => [path, sha(at(path))])]),
+    compile: { mw_version: "GC/1.2.5", cflags: "-O4", compiler_sha256: null },
+  };
 }
 
 function integration(store: StateStore, id = "integration-1"): Record<string, unknown> {
@@ -705,6 +723,95 @@ describe("integration order-and-scope gate", () => {
   });
 });
 
+describe("the worker's sandbox scope verdict is advisory (scope attestation)", () => {
+  function attestationFor(repo: string, patchPath: string) {
+    const blob = (text: string) => {
+      const result = Bun.spawnSync(["git", "-C", repo, "hash-object", "--stdin"], { stdin: Buffer.from(text), stdout: "pipe" });
+      return result.stdout.toString().trim();
+    };
+    return buildEditScopeAttestation({
+      result: {
+        mode: "enforce", error: null, durationMs: 1,
+        report: {
+          ...scopeReport("pass"),
+          identity: { base_rev: git(repo, ["rev-parse", "HEAD"]), patch_sha256: "p", readiness: {} },
+          scope_inputs: { files: [{ path: "src/a.c", before_blob: blob("int value = 0;\n"), after_blob: blob("int value = 1;\n") }], owner_sources: ["src/a.c"] },
+        } as never,
+      },
+      policy: ORDERING_ENFORCE, baseRev: git(repo, ["rev-parse", "HEAD"]), targetUnit: null, patchText: readFileSync(patchPath, "utf8"),
+    });
+  }
+
+  /** A checkpoint carrying a fresh attestation: a pass over exactly this patch and these files, as a poisoned sandbox readiness cache would produce. */
+  async function setupAttested(prefix: string) {
+    const ctx = await setupRun(prefix);
+    const patchPath = String((ctx.store.db.query("SELECT patch_path FROM worker_checkpoints WHERE id = 'checkpoint-integration-1'").get() as { patch_path: string }).patch_path);
+    const attestation = attestationFor(ctx.repo, patchPath);
+    expect(attestation).not.toBeNull();
+    // A steering run that certified nothing leaves an empty certificate list: still no certificates.
+    ctx.store.db.query("UPDATE worker_checkpoints SET metadata_json = ? WHERE id = 'checkpoint-integration-1'").run(JSON.stringify({ [EDIT_SCOPE_ATTESTATION_KEY]: attestation, unused_checks: [] }));
+    return ctx;
+  }
+
+  test("a forged pass never skips the host check: the host reject decides and the disagreement is recorded", async () => {
+    const { stateDir, store, repo, run, leaseId } = await setupAttested("worker-integration-attested-forged-");
+    try {
+      const head = git(repo, ["rev-parse", "HEAD"]);
+      const fake = fakeScopeRunner({ exitCode: 0, stdout: JSON.stringify(scopeReport("reject")) });
+
+      const result = await processWorkerOutputIntegrationQueue({
+        dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: ORDERING_ENFORCE, editScopeRunner: fake.runner,
+      });
+
+      expect(fake.calls).toHaveLength(1);
+      expect(result.processed[0]).toMatchObject({ status: "rejected", disposition: "rejected_out_of_scope" });
+      expect(git(repo, ["rev-parse", "HEAD"])).toBe(head);
+      expect(JSON.parse(String(integration(store).metadata_json)).edit_scope).toMatchObject({ verdict: "reject", sandbox_attestation: "disagrees" });
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("an attested patch the host check passes applies on the host verdict", async () => {
+    const { stateDir, store, repo, run, leaseId } = await setupAttested("worker-integration-attested-pass-");
+    try {
+      const fake = fakeScopeRunner({ exitCode: 0, stdout: JSON.stringify(scopeReport("pass")) });
+
+      const result = await processWorkerOutputIntegrationQueue({
+        dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: ORDERING_ENFORCE, editScopeRunner: fake.runner,
+      });
+
+      expect(fake.calls).toHaveLength(1);
+      expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+      const scope = JSON.parse(String(integration(store).metadata_json)).edit_scope;
+      expect(scope).toMatchObject({ verdict: "pass", problem: null });
+      expect(scope.source).toBeUndefined();
+    } finally {
+      store.db.close();
+    }
+  });
+
+  test("a stale attestation is not comparable; the host check still decides (fail closed)", async () => {
+    const { stateDir, store, repo, run, leaseId } = await setupAttested("worker-integration-attested-stale-");
+    try {
+      // A header changed after the claim base: the sandbox verdict may no longer hold.
+      writeFileSync(join(repo, "src/a.h"), "extern int value;\nextern int other;\n");
+      git(repo, ["commit", "-qam", "header moved"]);
+      const fake = fakeScopeRunner({ exitCode: 0, stdout: JSON.stringify(scopeReport("reject")) });
+
+      const result = await processWorkerOutputIntegrationQueue({
+        dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: ORDERING_ENFORCE, editScopeRunner: fake.runner,
+      });
+
+      expect(fake.calls).toHaveLength(1);
+      expect(result.processed[0]).toMatchObject({ status: "rejected", disposition: "rejected_out_of_scope" });
+      expect(JSON.parse(String(integration(store).metadata_json)).edit_scope).toMatchObject({ sandbox_attestation: "not_comparable" });
+    } finally {
+      store.db.close();
+    }
+  });
+});
+
 describe("integration UNUSED certificates bind to unit content", () => {
   const PAD = Array.from({ length: 8 }, (_, index) => `/* pad ${index} */`);
   const baseText = ["int value = 0;", ...PAD, "int caller(void) { return 1; }", ""].join("\n");
@@ -899,7 +1006,8 @@ describe("integration records landed content freshness for rollback-only targets
     });
     store.db.query("UPDATE steering_rollbacks SET recorded_at = ?, updated_at = ? WHERE id = ?")
       .run("2026-08-10T00:00:00.000Z", "2026-08-10T00:00:00.000Z", rollbackId);
-    store.db.query("UPDATE worker_checkpoints SET new_score = 100, exact_match = 1 WHERE id = 'checkpoint-integration-1'").run();
+    store.db.query("UPDATE worker_checkpoints SET new_score = 100, exact_match = 1, metadata_json = json_set(metadata_json, '$.certified_inputs', json(?)) WHERE id = 'checkpoint-integration-1'")
+      .run(JSON.stringify(candidateInputs(repo)));
     return { ...ctx, claimBaseRev };
   }
 
@@ -925,7 +1033,7 @@ describe("integration records landed content freshness for rollback-only targets
         expect(metadata.steering_content_freshness).toEqual({
           fresh, target_key: "unit::symbol", source_path: "src/a.c", claim_base_rev: claimBaseRev,
           pre_apply_rev: preApplyRev, integrated_rev: head,
-          ...(!fresh ? { reason: "src/a.c differs from the claim base before the apply" } : {}),
+          ...(!fresh ? { reason: "src/a.c differs from the claim base before the apply" } : { compile_inputs: { checked: 1, changed: [] } }),
         });
         expect(metadata).toMatchObject({ pre_apply_rev: preApplyRev, integrated_rev: head });
         expect(checkpointRow(store).new_score).toBe(100);
@@ -993,9 +1101,13 @@ describe("integration clears a certified unverified_match", () => {
   }
 
   // The checkpoint's certification, with what the worker recorded about its claim (`claim_base_rev`).
-  function certify(store: StateStore, extra: Record<string, unknown>): void {
+  // With the compile-input record of the certified build (`certified_inputs`), taken at the claim base.
+  function certify(store: StateStore, repo: string, extra: Record<string, unknown>, extraDeps: string[] = []): void {
     store.db.query("UPDATE worker_checkpoints SET metadata_json = ? WHERE id = 'checkpoint-integration-1'")
-      .run(JSON.stringify({ [UNVERIFIED_MATCH_CERTIFICATION_KEY]: { ...certified[UNVERIFIED_MATCH_CERTIFICATION_KEY], ...extra } }));
+      .run(JSON.stringify({
+        [UNVERIFIED_MATCH_CERTIFICATION_KEY]: { ...certified[UNVERIFIED_MATCH_CERTIFICATION_KEY], ...extra },
+        certified_inputs: candidateInputs(repo, extraDeps),
+      }));
   }
 
   function unverifiedRow(store: StateStore): Record<string, unknown> {
@@ -1039,7 +1151,7 @@ describe("integration clears a certified unverified_match", () => {
     const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-", certified);
     try {
       markUnverified(store);
-      certify(store, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+      certify(store, repo, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
       const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
       expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
       expect(activeUnverifiedMatch(store, target)).toBeNull();
@@ -1050,6 +1162,97 @@ describe("integration clears a certified unverified_match", () => {
       store.db.close();
     }
   });
+
+  test("SMS: a certification naming the report's mario/ unit clears the gate-named row of the same target, never another", async () => {
+    for (const { unit, cleared } of [{ unit: "mario/unit", cleared: true }, { unit: "mario/other", cleared: false }]) {
+      const smsCertified = { [UNVERIFIED_MATCH_CERTIFICATION_KEY]: { ...certified[UNVERIFIED_MATCH_CERTIFICATION_KEY], game_id: "sms", unit } };
+      const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-sms-", smsCertified, { gameId: "sms" });
+      try {
+        // The steering row carries the gate's unit; the integration's target key is `unit::symbol`.
+        recordUnverifiedMatch(store, { ...target, gameId: "sms", analyzedRev: "analyzed", baseRev: "base-test", sourcePath: "src/a.c", match: { base: 96, candidate: 100, real_only: 98 }, reasons: ["why"] });
+        store.db.query("UPDATE worker_checkpoints SET metadata_json = ? WHERE id = 'checkpoint-integration-1'")
+          .run(JSON.stringify({
+            [UNVERIFIED_MATCH_CERTIFICATION_KEY]: { ...smsCertified[UNVERIFIED_MATCH_CERTIFICATION_KEY], claim_base_rev: git(repo, ["rev-parse", "HEAD"]) },
+            certified_inputs: candidateInputs(repo),
+          }));
+        const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+        expect(result.processed[0]).toMatchObject({ status: "applied" });
+        expect(activeUnverifiedMatch(store, { ...target, gameId: "sms" }) === null).toBe(cleared);
+      } finally {
+        store.db.close();
+      }
+    }
+  });
+
+  test("a header the certified build read, changed by another landing since the claim base, keeps the hold and makes the landing stale", async () => {
+    for (const change of ["none", "dependency header", "shadowing header", "build configuration", "no input record", "generator of a generated input", "unbound generated input"] as const) {
+      const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-inputs-", certified);
+      try {
+        markUnverified(store);
+        const claimBaseRev = git(repo, ["rev-parse", "HEAD"]);
+        // The certified build compiled src/a.c and read src/a.h (H0).
+        certify(store, repo, { claim_base_rev: claimBaseRev }, ["src/a.h"]);
+        if (change === "no input record") {
+          store.db.query("UPDATE worker_checkpoints SET metadata_json = json_remove(metadata_json, '$.certified_inputs') WHERE id = 'checkpoint-integration-1'").run();
+        }
+        if (change === "generator of a generated input" || change === "unbound generated input") {
+          // The build also read a generated header, generated from src/gen.def (recorded in the sandbox at gate time).
+          writeFileSync(join(repo, "src/gen.def"), "VALUE 1\n");
+          git(repo, ["add", "src/gen.def"]);
+          git(repo, ["commit", "-qm", "generator source"]);
+          const inputs = candidateInputs(repo, ["src/a.h"]) as { deps: Record<string, string> };
+          inputs.deps["build/gen/a_gen.h"] = createHash("sha256").update("generated").digest("hex");
+          const generated = change === "unbound generated input"
+            ? {}
+            : { "build/gen/a_gen.h": { generators: { "src/gen.def": createHash("sha256").update("VALUE 1\n").digest("hex") } } };
+          store.db.query("UPDATE worker_checkpoints SET metadata_json = json_set(metadata_json, '$.certified_inputs', json(?)) WHERE id = 'checkpoint-integration-1'")
+            .run(JSON.stringify({ ...inputs, generated }));
+          if (change === "generator of a generated input") writeFileSync(join(repo, "src/gen.def"), "VALUE 2\n");
+        }
+        // Another worker lands an allowed edit between gating and this integration.
+        if (change === "dependency header") writeFileSync(join(repo, "src/a.h"), "extern int value;\nextern int added;\n");
+        if (change === "shadowing header") {
+          mkdirSync(join(repo, "include"), { recursive: true });
+          writeFileSync(join(repo, "include/a.h"), "extern int shadow;\n");
+        }
+        if (change === "build configuration") {
+          mkdirSync(join(repo, "config"), { recursive: true });
+          writeFileSync(join(repo, "config/flags.yml"), "cflags: -O3\n");
+        }
+        if (change !== "none" && change !== "no input record" && change !== "unbound generated input") {
+          git(repo, ["add", "-A"]);
+          git(repo, ["commit", "-qm", `landed: ${change}`]);
+        }
+        store.db.query(`INSERT INTO epoch_targets (id, epoch_id, run_id, target_key, unit, symbol, source_path, size, baseline_score, priority, admission_index, status, admitted_at)
+          VALUES ('target-1', 'epoch-1', ?, 'unit::symbol', 'unit', 'symbol', 'src/a.c', 16, 90, 1, 0, 'claimed', 'then')`).run(run.id);
+        store.db.query(`INSERT INTO target_claims (id, run_id, epoch_id, epoch_target_id, worker_id, base_rev, status, claimed_at)
+          VALUES ('claim-1', ?, 'epoch-1', 'target-1', 'worker-1', ?, 'active', 'then')`).run(run.id, claimBaseRev);
+
+        const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
+        expect(result.processed[0]).toMatchObject({ status: "applied", disposition: "clean_apply" });
+        const metadata = JSON.parse(String(integration(store).metadata_json));
+        const fresh = change === "none";
+        expect({ change, fresh: metadata.steering_content_freshness.fresh, cleared: activeUnverifiedMatch(store, target) === null })
+          .toEqual({ change, fresh, cleared: fresh });
+        const changed = {
+          "dependency header": ["src/a.h"], "shadowing header": ["include/a.h"], "build configuration": ["config/flags.yml"],
+          "generator of a generated input": ["src/gen.def"],
+        } as Record<string, string[]>;
+        if (changed[change]) {
+          // The generator of the generated header is checked like a tracked input (src/a.c, src/a.h, src/gen.def).
+          const checked = change === "generator of a generated input" ? 3 : 2;
+          expect(metadata.steering_content_freshness.compile_inputs).toEqual({ checked, changed: changed[change] });
+          expect(metadata.unverified_match).toMatchObject({ cleared: false, compile_inputs_changed: changed[change] });
+        }
+        if (change === "no input record") expect(metadata.steering_content_freshness.reason).toBe("no compile-input record for the certified build");
+        if (change === "unbound generated input") {
+          expect(metadata.steering_content_freshness).toMatchObject({ compile_inputs: { checked: 0, changed: ["build/gen/a_gen.h"] } });
+        }
+      } finally {
+        store.db.close();
+      }
+    }
+  }, 30_000);
 
   test("the clear holds only while the certification's base is the row's current trusted base or an ancestor of it", async () => {
     const cases = [
@@ -1072,7 +1275,7 @@ describe("integration clears a certified unverified_match", () => {
           revs[rev] = git(repo, ["rev-parse", "HEAD"]);
         }
         // The worker claimed at H; only the trusted base its target-only run used varies.
-        certify(store, { base_rev: revs[certifiedAt], claim_base_rev: revs.H });
+        certify(store, repo, { base_rev: revs[certifiedAt], claim_base_rev: revs.H });
         recordUnverifiedMatch(store, { ...target, analyzedRev: revs.H!, baseRev: revs[rowAt], sourcePath: "src/a.c", match: { base: 96, candidate: 100, real_only: 98 }, reasons: ["IR oracle failed for the unit"] });
         const result = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
         outcomes.push({
@@ -1111,7 +1314,7 @@ describe("integration clears a certified unverified_match", () => {
         git(repo, ["commit", "-qam", "claim base"]);
         writeFileSync(join(stateDir, "worker.patch"), contextPatch);
         markUnverified(store);
-        certify(store, change === "no-claim-base" ? {} : { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+        certify(store, repo, change === "no-claim-base" ? {} : { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
         if (change !== "none" && change !== "no-claim-base") writeFileSync(join(repo, "src/a.c"), newerF);
         if (change === "staged") git(repo, ["add", "src/a.c"]);
         if (change === "commit") {
@@ -1160,7 +1363,7 @@ describe("integration clears a certified unverified_match", () => {
     const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-revert-", certified);
     try {
       markUnverified(store);
-      certify(store, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+      certify(store, repo, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
       const recorded = unverifiedRow(store);
       const applied = await processWorkerOutputIntegrationQueue({ dryRun: false, leaseId, repoRoot: repo, runId: run.id, stateDir, store, ordering: null });
       const integrationId = applied.processed[0]!.id;
@@ -1186,7 +1389,7 @@ describe("integration clears a certified unverified_match", () => {
     const { stateDir, store, repo, run, leaseId } = await setupRun("worker-integration-unverified-revert-scope-", certified);
     try {
       markUnverified(store);
-      certify(store, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
+      certify(store, repo, { claim_base_rev: git(repo, ["rev-parse", "HEAD"]) });
       const other = { ...target, symbol: "other" };
       recordUnverifiedMatch(store, { ...other, analyzedRev: "analyzed", match: { base: 50, candidate: 100, real_only: null }, reasons: ["no steering located"] });
       expect(clearUnverifiedMatch(store, { ...other, clearedBy: "integration:another-integration" })).toBeTrue();
