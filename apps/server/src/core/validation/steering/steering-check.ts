@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, isAbsolute, resolve } from "node:path";
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
+import { sandboxCpuCount, scaleTimeout, toolTimeoutScale } from "@server/core/tools/timeout-scale.js";
 import { SANDBOX_TOOLPACK_ROOT } from "@server/core/tools/wrappers/workspace-tool-exec.js";
 import { runCommand, type CommandResult, type WorkspaceExec } from "@server/infrastructure/shell";
 
@@ -18,10 +19,24 @@ import { runCommand, type CommandResult, type WorkspaceExec } from "@server/infr
 export const STEERING_CHECK_TOOLPACK_PATH = "_impl/gamecube/tools/steering_check.py";
 export const SANDBOX_STEERING_CHECK_SCRIPT = `${SANDBOX_TOOLPACK_ROOT}/gamecube-decomp/${STEERING_CHECK_TOOLPACK_PATH}`;
 export const STEERING_GATE_BUDGET_MS = 240_000;
-/** Per-call ceiling the runners bake in; the gate budget usually ends a step first. */
+/** The host runner's default per-call ceiling; the worker gate passes its remaining budget instead. */
 export const STEERING_STEP_TIMEOUT_MS = STEERING_GATE_BUDGET_MS;
 /** Upper bound handed to `reduce --budget-seconds`. */
 export const STEERING_REDUCE_BUDGET_SECONDS = 120;
+/** Most MWCC compiles `mwcc --jobs` runs at once. */
+const STEERING_MWCC_MAX_JOBS = 3;
+/** Headroom `mwcc --mwcc-budget-seconds` leaves for the gate to read its output. */
+const STEERING_MWCC_BUDGET_SLACK_SECONDS = 5;
+
+/** The worker gate budget, scaled by the claimed sandbox profile's `timeout_scale`. */
+export function steeringGateBudgetMs(scale = toolTimeoutScale()): number {
+  return scaleTimeout(STEERING_GATE_BUDGET_MS, scale);
+}
+
+/** `mwcc --jobs` for the sandbox: one compile per CPU, at most 3 (3 when the CPU count is unknown). */
+export function steeringMwccJobs(cpus = sandboxCpuCount()): number {
+  return Math.max(1, Math.min(STEERING_MWCC_MAX_JOBS, cpus ?? STEERING_MWCC_MAX_JOBS));
+}
 
 /** `rule_violation`: the attempt would pass but breaks a matching rule (today: a dead UNUSED body). */
 export type SteeringDecisionKind = "pass" | "steering_located" | "unresolved" | "rule_violation";
@@ -209,10 +224,17 @@ export interface WorkerSteeringResult {
 /**
  * Runs one `steering_check.py` subcommand. `uploadToSandbox` writes a file
  * into the sandbox workspace (path relative to the workspace root) so a
- * sandbox step can read a host-produced report (`mwcc --attribute`).
+ * sandbox step can read a host-produced report (`mwcc --attribute`). A
+ * per-call `timeoutMs` overrides the runner's own ceiling, so the command is
+ * killed when the gate budget runs out.
  */
-export type SteeringRunner = ((args: string[], where: "sandbox" | "host") => Promise<CommandResult>) & {
-  uploadToSandbox?: (workspacePath: string, content: string) => Promise<void>;
+export interface SteeringCallOptions {
+  timeoutMs?: number;
+  /** Absolute (`Date.now()`) deadline for a multi-command upload; no command starts past it. */
+  deadlineMs?: number;
+}
+export type SteeringRunner = ((args: string[], where: "sandbox" | "host", call?: SteeringCallOptions) => Promise<CommandResult>) & {
+  uploadToSandbox?: (workspacePath: string, content: string, call?: SteeringCallOptions) => Promise<void>;
 };
 
 /** Where the worker gate puts the host `reduce` report inside the sandbox workspace for `mwcc --attribute`. */
@@ -229,15 +251,23 @@ const SANDBOX_SHA256_PY = "import hashlib,sys\nprint(hashlib.sha256(open(sys.arg
 /**
  * Writes `content` to `workspacePath` through `exec` alone (WorkspaceExec has
  * no file API): base64 chunks appended by python3, then a sha256 read-back.
+ * `timeoutMs` bounds each exec; with `deadlineMs` each exec gets at most what
+ * is left and the upload throws once it has passed.
  */
-export async function uploadThroughExec(exec: WorkspaceExec, workspacePath: string, content: string, timeoutMs = 60_000): Promise<void> {
+export async function uploadThroughExec(exec: WorkspaceExec, workspacePath: string, content: string, timeoutMs = 60_000, deadlineMs?: number): Promise<void> {
+  const execTimeout = (): number => {
+    if (deadlineMs === undefined) return timeoutMs;
+    const left = deadlineMs - Date.now();
+    if (left <= 0) throw new Error(`upload of ${workspacePath} ran past its deadline`);
+    return Math.min(timeoutMs, left);
+  };
   const bytes = Buffer.from(content, "utf8");
   for (let offset = 0, first = true; first || offset < bytes.length; offset += SANDBOX_UPLOAD_CHUNK_BYTES, first = false) {
     const chunk = bytes.subarray(offset, offset + SANDBOX_UPLOAD_CHUNK_BYTES).toString("base64");
-    const result = await exec.exec(["python3", "-c", SANDBOX_WRITE_CHUNK_PY, workspacePath, first ? "wb" : "ab", chunk], { timeoutMs });
+    const result = await exec.exec(["python3", "-c", SANDBOX_WRITE_CHUNK_PY, workspacePath, first ? "wb" : "ab", chunk], { timeoutMs: execTimeout() });
     if (result.exitCode !== 0) throw new Error(`upload of ${workspacePath} failed: ${result.stderr.trim().slice(-300)}`);
   }
-  const check = await exec.exec(["python3", "-c", SANDBOX_SHA256_PY, workspacePath], { timeoutMs });
+  const check = await exec.exec(["python3", "-c", SANDBOX_SHA256_PY, workspacePath], { timeoutMs: execTimeout() });
   const expected = createHash("sha256").update(bytes).digest("hex");
   if (check.exitCode !== 0 || check.stdout.trim() !== expected) {
     throw new Error(`upload of ${workspacePath} did not verify (sha256 ${check.stdout.trim() || "unreadable"} != ${expected})`);
@@ -264,7 +294,8 @@ function steeringEnv(mode: SteeringGateMode, extra: Record<string, string> = {})
 /**
  * Worker gate runner: sandbox steps run the toolpack copy synced into the
  * worker sandbox from the workspace root; host steps run the host toolpack
- * copy (`hostScript`) from `hostCwd`.
+ * copy (`hostScript`) from `hostCwd`. The default per-call ceiling is the
+ * scaled gate budget.
  */
 export function workspaceSteeringRunner(
   exec: WorkspaceExec,
@@ -272,9 +303,10 @@ export function workspaceSteeringRunner(
   hostCwd: string,
   options: { timeoutMs?: number; mode?: SteeringGateMode; hostEnv?: Record<string, string> } = {},
 ): SteeringRunner {
-  const timeoutMs = options.timeoutMs ?? STEERING_STEP_TIMEOUT_MS;
+  const defaultTimeoutMs = options.timeoutMs ?? steeringGateBudgetMs();
   const mode = options.mode ?? "shadow";
-  const runner: SteeringRunner = async (args, where) => {
+  const runner: SteeringRunner = async (args, where, call) => {
+    const timeoutMs = call?.timeoutMs ?? defaultTimeoutMs;
     try {
       if (where === "sandbox") {
         return await exec.exec(["python3", SANDBOX_STEERING_CHECK_SCRIPT, ...args], { timeoutMs, env: steeringEnv(mode) });
@@ -284,7 +316,11 @@ export function workspaceSteeringRunner(
       return failedResult(error);
     }
   };
-  runner.uploadToSandbox = (workspacePath, content) => uploadThroughExec(exec, workspacePath, content);
+  // A per-call timeout bounds the whole upload, not each of its commands.
+  runner.uploadToSandbox = (workspacePath, content, call) => uploadThroughExec(
+    exec, workspacePath, content, call?.timeoutMs,
+    call?.deadlineMs ?? (call?.timeoutMs === undefined ? undefined : Date.now() + call.timeoutMs),
+  );
   return runner;
 }
 
@@ -294,11 +330,11 @@ export function hostSteeringRunner(
   cwd: string,
   options: { timeoutMs?: number; mode?: SteeringGateMode; env?: Record<string, string> } = {},
 ): SteeringRunner {
-  const timeoutMs = options.timeoutMs ?? STEERING_STEP_TIMEOUT_MS;
+  const defaultTimeoutMs = options.timeoutMs ?? STEERING_STEP_TIMEOUT_MS;
   const mode = options.mode ?? "shadow";
-  const runner: SteeringRunner = async (args) => {
+  const runner: SteeringRunner = async (args, _where, call) => {
     try {
-      return await runCommand(cwd, ["python3", scriptPath, ...args], { timeoutMs, env: steeringEnv(mode, options.env) });
+      return await runCommand(cwd, ["python3", scriptPath, ...args], { timeoutMs: call?.timeoutMs ?? defaultTimeoutMs, env: steeringEnv(mode, options.env) });
     } catch (error) {
       return failedResult(error);
     }
@@ -688,7 +724,8 @@ export function removableEditIds(reduce: unknown): string[] {
  * The worker gate: edits(sandbox) -> reduce(host) -> mwcc(sandbox) ->
  * decide(host). Writes `attempt-N.steering.json` (plus the step outputs) to
  * `outputDir`. Never throws: tool failures, malformed output and the budget
- * all land in `error` with `decision: null`.
+ * all land in `error` with `decision: null`. Each runner call gets the
+ * remaining budget as its timeout, so a step the budget ends is killed.
  */
 export async function runWorkerSteeringGate(params: {
   baseRev: string;
@@ -700,11 +737,13 @@ export async function runWorkerSteeringGate(params: {
   mode: SteeringGateMode;
   runner: SteeringRunner;
   budgetMs?: number;
+  /** `mwcc --jobs`; defaults to the sandbox CPU count, capped at 3. */
+  mwccJobs?: number;
   approvalsPath?: string;
   lessonsPath?: string;
 }): Promise<WorkerSteeringResult> {
   const started = Date.now();
-  const budgetMs = params.budgetMs ?? STEERING_GATE_BUDGET_MS;
+  const budgetMs = params.budgetMs ?? steeringGateBudgetMs();
   const deadline = started + budgetMs;
   const prefix = `attempt-${params.attemptIndex}.steering`;
   const path = (step: string) => resolve(params.outputDir, `${prefix}.${step}.json`);
@@ -713,9 +752,14 @@ export async function runWorkerSteeringGate(params: {
   let error: string | null = null;
   let certificate: SteeringCertificateContext | undefined;
 
-  const withBudget = async <T>(name: string, work: Promise<T>): Promise<T> => {
+  /** What is left of the budget, at least 1 s: the per-call timeout handed to the runner. */
+  const remainingMs = () => Math.max(1_000, deadline - Date.now());
+
+  /** Starts `start` only once the budget check passes, so no work runs unraced (and unhandled). */
+  const withBudget = async <T>(name: string, start: () => Promise<T>): Promise<T> => {
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new SteeringBudgetExceeded(`steering gate budget of ${Math.round(budgetMs / 1000)}s exceeded before ${name}`);
+    const work = Promise.resolve().then(start);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(
@@ -732,7 +776,7 @@ export async function runWorkerSteeringGate(params: {
 
   const step = async (name: string, args: string[], where: "sandbox" | "host"): Promise<CommandResult> => {
     const stepStart = Date.now();
-    const result = await withBudget(name, Promise.resolve().then(() => params.runner(args, where)));
+    const result = await withBudget(name, () => params.runner(args, where, { timeoutMs: remainingMs() }));
     steps[name] = { where, exit_code: result.exitCode, duration_ms: Date.now() - stepStart };
     if (result.exitCode !== 0) throw new Error(invocationError(result, name));
     return result;
@@ -772,9 +816,10 @@ export async function runWorkerSteeringGate(params: {
     certificate = steeringCertificateContext({ decision: null, reduce, edits });
 
     // mwcc runs attribution and the map-call / data-order evidence checks from the host reduction.
-    if (!params.runner.uploadToSandbox) throw new Error("steering runner cannot upload the reduce report for mwcc --attribute");
+    const upload = params.runner.uploadToSandbox;
+    if (!upload) throw new Error("steering runner cannot upload the reduce report for mwcc --attribute");
     const attributePath = sandboxAttributePath(params.attemptIndex);
-    await withBudget("attribute upload", params.runner.uploadToSandbox(attributePath, JSON.stringify(reduce)));
+    await withBudget("attribute upload", () => upload(attributePath, JSON.stringify(reduce), { timeoutMs: remainingMs(), deadlineMs: deadline }));
     steps["attribute upload"] = { where: "sandbox", path: attributePath };
 
     const mwccResult = await step("mwcc", [
@@ -782,7 +827,9 @@ export async function runWorkerSteeringGate(params: {
       "--revert-edits", removableEditIds(reduce).join(","),
       "--attribute", attributePath,
       ...(params.functions.length > 0 ? ["--functions", params.functions.join(",")] : []),
-      "--jobs", "3", "--json",
+      "--jobs", String(params.mwccJobs ?? steeringMwccJobs()),
+      "--mwcc-budget-seconds", String(Math.max(1, Math.floor(remainingMs() / 1000) - STEERING_MWCC_BUDGET_SLACK_SECONDS)),
+      "--json",
     ], "sandbox");
     const mwcc = parseJson(mwccResult.stdout);
     if (!isRecord(mwcc) || !Array.isArray(mwcc.functions)) throw new Error("steering_check.py mwcc did not return the expected JSON");

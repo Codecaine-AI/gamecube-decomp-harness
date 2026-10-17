@@ -445,6 +445,8 @@ describe("worker job kind", () => {
         execution_class: "sandbox",
       });
       expect(spec.worktree_path).toBeUndefined();
+      // MWCC --jobs sizing reads the claimed CPU count, not the reconfigured one.
+      expect(task.env?.ORCH_SANDBOX_CPUS).toBe("4");
       expect(getJob(f.store, result.job.jobId)?.payload.sandbox_id).toBe("sandbox-worker-1");
       expect(f.store.db.query("SELECT worktree_path FROM target_claims WHERE id = ?").get(String(result.job.payload.target_claim_id))).toEqual({ worktree_path: "/opt/melee-test" });
       expect(f.store.db.query("SELECT worktree_path FROM worker_state WHERE id = ?").get(String(result.job.payload.worker_state_id))).toEqual({ worktree_path: "/opt/melee-test" });

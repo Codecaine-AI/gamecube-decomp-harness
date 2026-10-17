@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { scaleTimeout, TOOL_TIMEOUT_SCALE_ENV, toolTimeoutScale } from "./timeout-scale.js";
+import { SANDBOX_CPUS_ENV, sandboxCpuCount, scaleTimeout, TOOL_TIMEOUT_SCALE_ENV, toolTimeoutScale } from "./timeout-scale.js";
 import { workspaceToolTimeoutMs } from "./wrappers/workspace-tool-exec.js";
 
-const previous = process.env[TOOL_TIMEOUT_SCALE_ENV];
+const previous = { [TOOL_TIMEOUT_SCALE_ENV]: process.env[TOOL_TIMEOUT_SCALE_ENV], [SANDBOX_CPUS_ENV]: process.env[SANDBOX_CPUS_ENV] };
 afterEach(() => {
-  if (previous === undefined) delete process.env[TOOL_TIMEOUT_SCALE_ENV];
-  else process.env[TOOL_TIMEOUT_SCALE_ENV] = previous;
+  for (const [name, value] of Object.entries(previous)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
 });
 
 describe("tool timeout scale", () => {
@@ -18,6 +20,17 @@ describe("tool timeout scale", () => {
     expect(toolTimeoutScale({ timeoutScale: 0 })).toBe(2.5);
     process.env[TOOL_TIMEOUT_SCALE_ENV] = "-1";
     expect(toolTimeoutScale()).toBe(1);
+  });
+
+  test("reads the sandbox CPU count as a positive integer, else undefined", () => {
+    delete process.env[SANDBOX_CPUS_ENV];
+    expect(sandboxCpuCount()).toBeUndefined();
+    process.env[SANDBOX_CPUS_ENV] = "1";
+    expect(sandboxCpuCount()).toBe(1);
+    for (const invalid of ["0", "-2", "1.5", "two", " "]) {
+      process.env[SANDBOX_CPUS_ENV] = invalid;
+      expect(sandboxCpuCount()).toBeUndefined();
+    }
   });
 
   test("scales defaults without exceeding the cap", () => {

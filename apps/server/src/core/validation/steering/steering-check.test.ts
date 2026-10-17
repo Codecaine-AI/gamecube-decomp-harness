@@ -1,7 +1,9 @@
-import { afterAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, spyOn, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SANDBOX_CPUS_ENV, TOOL_TIMEOUT_SCALE_ENV } from "@server/core/tools/timeout-scale.js";
+import * as shell from "@server/infrastructure/shell";
 import type { CommandResult } from "@server/infrastructure/shell";
 import {
   OUT_OF_ORDER_INSTRUCTION,
@@ -15,6 +17,8 @@ import {
   runWorkerSteeringGate,
   steeringRejectionReason,
   steeringRepairInstruction,
+  workspaceSteeringRunner,
+  type SteeringCallOptions,
   type SteeringRunner,
   type WorkerSteeringResult,
 } from "./steering-check.js";
@@ -180,6 +184,171 @@ describe("runWorkerSteeringGate", () => {
       throw new Error("sandbox gone");
     });
     expect(result.error).toBe("sandbox gone");
+  });
+});
+
+describe("sandbox profile sizing", () => {
+  const previous = { scale: process.env[TOOL_TIMEOUT_SCALE_ENV], cpus: process.env[SANDBOX_CPUS_ENV] };
+  afterEach(() => {
+    for (const [name, value] of [[TOOL_TIMEOUT_SCALE_ENV, previous.scale], [SANDBOX_CPUS_ENV, previous.cpus]] as const) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  /** fakeRunner, also recording each call's per-call timeout. */
+  function timedRunner() {
+    const { runner: inner, calls } = fakeRunner();
+    const timeouts: Array<{ step: string; timeoutMs: number | undefined; deadlineMs?: number }> = [];
+    const runner: SteeringRunner = (args, where, call?: SteeringCallOptions) => {
+      timeouts.push({ step: args[0]!, timeoutMs: call?.timeoutMs });
+      return inner(args, where);
+    };
+    runner.uploadToSandbox = (path, content, call) => {
+      timeouts.push({ step: "upload", timeoutMs: call?.timeoutMs, deadlineMs: call?.deadlineMs });
+      return inner.uploadToSandbox!(path, content);
+    };
+    return { runner, calls, timeouts };
+  }
+  const flag = (args: string[], name: string) => args[args.indexOf(name) + 1];
+
+  test("the default budget scales with the profile's timeout_scale; an explicit budget wins", async () => {
+    process.env[TOOL_TIMEOUT_SCALE_ENV] = "2";
+    const scaled = await gate(fakeRunner().runner);
+    expect(JSON.parse(readFileSync(scaled.artifactPath!, "utf8")).budget_ms).toBe(480_000);
+    const explicit = await gate(fakeRunner().runner, { budgetMs: 90_000 });
+    expect(JSON.parse(readFileSync(explicit.artifactPath!, "utf8")).budget_ms).toBe(90_000);
+  });
+
+  test("an upload whose startup outlives the budget still rejects inside the race (never unhandled)", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const { runner } = fakeRunner();
+      runner.uploadToSandbox = () => {
+        const until = Date.now() + 400;
+        while (Date.now() < until) { /* synchronous startup past the 300 ms budget */ }
+        return Promise.reject(new Error("upload ran past its deadline"));
+      };
+      const result = await gate(runner, { budgetMs: 300 });
+      await new Promise((settle) => setTimeout(settle, 20));
+      expect(result.decision).toBeNull();
+      expect(result.error).toBe("upload ran past its deadline");
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
+  test("mwcc --jobs follows the sandbox CPU count, capped at 3; an explicit mwccJobs wins", async () => {
+    const jobs = async (cpus: string | undefined, extra: Partial<Parameters<typeof runWorkerSteeringGate>[0]> = {}) => {
+      if (cpus === undefined) delete process.env[SANDBOX_CPUS_ENV];
+      else process.env[SANDBOX_CPUS_ENV] = cpus;
+      const { runner, calls } = fakeRunner();
+      expect((await gate(runner, extra)).error).toBeNull();
+      return flag(calls.find((call) => call.step === "mwcc")!.args, "--jobs");
+    };
+    expect(await jobs("1")).toBe("1");
+    expect(await jobs(undefined)).toBe("3");
+    expect(await jobs("8")).toBe("3");
+    expect(await jobs("junk")).toBe("3");
+    expect(await jobs("1", { mwccJobs: 2 })).toBe("2");
+  });
+
+  test("every runner call and the upload get the remaining budget as their timeout; mwcc's own budget fits inside it", async () => {
+    const { runner, calls, timeouts } = timedRunner();
+    const started = Date.now();
+    expect((await gate(runner, { budgetMs: 60_000 })).error).toBeNull();
+    // The upload also gets the gate's absolute deadline, so its later chunks cannot outlive the gate.
+    const uploadDeadline = timeouts.find(({ step }) => step === "upload")!.deadlineMs!;
+    expect(uploadDeadline).toBeGreaterThanOrEqual(started + 60_000);
+    expect(uploadDeadline).toBeLessThanOrEqual(Date.now() + 60_000);
+    expect(timeouts.map(({ step }) => step)).toEqual(["edits", "reduce", "upload", "mwcc", "decide"]);
+    for (const { timeoutMs } of timeouts) {
+      expect(timeoutMs).toBeGreaterThan(50_000);
+      expect(timeoutMs).toBeLessThanOrEqual(60_000);
+    }
+    const mwccBudget = Number(flag(calls.find((call) => call.step === "mwcc")!.args, "--mwcc-budget-seconds"));
+    expect(mwccBudget).toBeGreaterThan(45);
+    expect(mwccBudget * 1000).toBeLessThanOrEqual(timeouts.find(({ step }) => step === "mwcc")!.timeoutMs! - 5_000);
+  });
+
+  test("with little budget left the per-call timeout floors at 1 s and mwcc's budget at 1 s", async () => {
+    const { runner, calls, timeouts } = timedRunner();
+    expect((await gate(runner, { budgetMs: 2_000 })).error).toBeNull();
+    for (const { timeoutMs } of timeouts) {
+      expect(timeoutMs).toBeGreaterThanOrEqual(1_000);
+      expect(timeoutMs).toBeLessThanOrEqual(2_000);
+    }
+    expect(flag(calls.find((call) => call.step === "mwcc")!.args, "--mwcc-budget-seconds")).toBe("1");
+  });
+
+  test("the workspace runner defaults to the scaled gate budget and honours a per-call timeout, upload included", async () => {
+    process.env[TOOL_TIMEOUT_SCALE_ENV] = "2";
+    const seen: Array<number | undefined> = [];
+    const exec = {
+      exec: async (_command: string[], options?: { timeoutMs?: number }) => {
+        seen.push(options?.timeoutMs);
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      captureGitDiff: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+    };
+    const runner = workspaceSteeringRunner(exec, "/host/steering_check.py", "/host");
+    await runner(["edits"], "sandbox");
+    await runner(["edits"], "sandbox", { timeoutMs: 7_000 });
+    expect(seen).toEqual([480_000, 7_000]);
+    // The fake exec never writes, so the sha256 read-back fails; only the timeouts matter here.
+    await runner.uploadToSandbox!("build/a.json", "x", { timeoutMs: 9_000 }).catch(() => undefined);
+    expect(seen).toHaveLength(4);
+    for (const timeoutMs of seen.slice(2)) {
+      expect(timeoutMs).toBeGreaterThan(8_000);
+      expect(timeoutMs).toBeLessThanOrEqual(9_000);
+    }
+  });
+
+  test("the host runner keeps its 240 s default under a timeout scale; a per-call timeout overrides it", async () => {
+    process.env[TOOL_TIMEOUT_SCALE_ENV] = "2";
+    const run = spyOn(shell, "runCommand").mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" });
+    try {
+      const runner = hostSteeringRunner("/host/steering_check.py", "/host");
+      await runner(["edits"], "host");
+      await runner(["edits"], "host", { timeoutMs: 7_000 });
+      expect(run.mock.calls.map((call) => call[2]?.timeoutMs)).toEqual([240_000, 7_000]);
+    } finally {
+      run.mockRestore();
+    }
+  });
+
+  test("a per-call timeout kills the host runner's command", async () => {
+    const dir = tempDir();
+    const script = join(dir, "hang.py");
+    writeFileSync(script, "import time\ntime.sleep(30)\n");
+    const started = Date.now();
+    const result = await hostSteeringRunner(script, dir)(["edits"], "host", { timeoutMs: 300 });
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(result.exitCode).toBe(124);
+  });
+
+  test("an upload with a deadline starts no command past it, however many chunks remain", async () => {
+    const starts: number[] = [];
+    const timeouts: number[] = [];
+    const exec = {
+      exec: async (_command: string[], options?: { timeoutMs?: number }) => {
+        starts.push(Date.now());
+        timeouts.push(options!.timeoutMs!);
+        await Bun.sleep(120);
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
+      captureGitDiff: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+    };
+    const deadline = Date.now() + 300;
+    // Three chunks plus the sha256 read-back: four commands, ~480 ms at 120 ms each.
+    await expect(uploadThroughExec(exec, "build/a.json", "x".repeat(150_000), 60_000, deadline)).rejects.toThrow("ran past its deadline");
+    expect(starts.length).toBeGreaterThan(0);
+    expect(starts.length).toBeLessThan(4);
+    for (const start of starts) expect(start).toBeLessThan(deadline);
+    for (const timeoutMs of timeouts) expect(timeoutMs).toBeLessThanOrEqual(300);
   });
 });
 

@@ -122,6 +122,64 @@ def log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
 
+def _cpu_quota(quota: str, period: str) -> Optional[int]:
+    """ceil(quota/period) CPUs; None when unlimited (v2 "max", v1 -1) or malformed."""
+    try:
+        q, per = int(quota), int(period)
+    except ValueError:
+        return None
+    return -(-q // per) if q > 0 and per > 0 else None
+
+
+def _cgroup_dirs(base: Path, rel: str) -> list[Path]:
+    """`base/rel` and each ancestor up to `base` (a host path not visible in a container
+    namespace simply does not exist, leaving the mount root)."""
+    parts = [x for x in rel.strip("/").split("/") if x and x != ".."]
+    return [base.joinpath(*parts[:i]) for i in range(len(parts), -1, -1)]
+
+
+def cgroup_cpu_limit(root: Path = Path("/sys/fs/cgroup"),
+                     proc_cgroup: Path = Path("/proc/self/cgroup")) -> Optional[int]:
+    """Whole CPUs this process's cgroup may use: the smallest finite quota on its cgroup
+    or any ancestor (cgroup v2 `cpu.max`, else v1 `cfs_quota_us`/`cfs_period_us`),
+    rounded up; None when unlimited or unreadable."""
+    v2_path = v1_path = "/"
+    try:
+        for line in proc_cgroup.read_text().splitlines():
+            hid, controllers, path = line.split(":", 2)
+            if hid == "0" and not controllers:
+                v2_path = path
+            elif "cpu" in controllers.split(","):
+                v1_path = path
+    except (OSError, ValueError):
+        pass
+    v2 = False
+    limits: list[Optional[int]] = []
+    for d in _cgroup_dirs(root, v2_path):
+        try:
+            parts = (d / "cpu.max").read_text().split()
+        except OSError:
+            continue
+        v2 = True
+        if len(parts) == 2:
+            limits.append(_cpu_quota(*parts))
+    if not v2:
+        for mount in ("cpu", "cpu,cpuacct", "cpuacct,cpu", ""):
+            for d in _cgroup_dirs(root / mount if mount else root, v1_path):
+                try:
+                    limits.append(_cpu_quota((d / "cpu.cfs_quota_us").read_text().strip(),
+                                             (d / "cpu.cfs_period_us").read_text().strip()))
+                except OSError:
+                    continue
+    finite = [n for n in limits if n is not None]
+    return min(finite) if finite else None
+
+
+def clamp_jobs(jobs: int) -> int:
+    """Parallel compiles: at most MAX_JOBS and at most the cgroup's CPU quota, at least 1."""
+    return max(1, min(jobs, MAX_JOBS, cgroup_cpu_limit() or MAX_JOBS))
+
+
 def sha256_bytes(data: Optional[bytes]) -> Optional[str]:
     return None if data is None else hashlib.sha256(data).hexdigest()
 
@@ -686,7 +744,7 @@ class Reducer:
         self.oracle_info = oracle_info
         self.budget = budget_seconds
         self.max_groups = max_groups
-        self.jobs = max(1, min(jobs, MAX_JOBS))
+        self.jobs = clamp_jobs(jobs)
         self.approvals = approvals or []
         self.evidence_repo = evidence_repo
         self.symbols_text = symbols_text
@@ -1321,7 +1379,7 @@ class ShadowCompiler:
 
         self.sc = stack_check
         self.repo = repo
-        self.jobs = max(1, min(jobs, MAX_JOBS))
+        self.jobs = clamp_jobs(jobs)
         parent = Path(tmp) if tmp else short_tmp_root()
         parent.mkdir(parents=True, exist_ok=True)
         self.parent_owned = not tmp
@@ -1347,7 +1405,8 @@ class ShadowCompiler:
             except OSError:
                 pass
 
-    def compile(self, unit_name: str, texts: dict[str, Optional[bytes]], label: str):
+    def compile(self, unit_name: str, texts: dict[str, Optional[bytes]], label: str,
+                timeout: Optional[float] = None):
         unit = self.repo.units[unit_name]
         with self.lock:
             self.counter += 1
@@ -1356,7 +1415,7 @@ class ShadowCompiler:
         try:
             for rel, content in texts.items():
                 self.sc.write_file(root, rel, content)
-            return self.sc.compile_in(self.repo, root, unit, out)
+            return self.sc.compile_in(self.repo, root, unit, out, timeout=timeout)
         finally:
             self.free.put(root)
 
@@ -1389,10 +1448,17 @@ class RepoBackend:
         self.deadline = deadline
 
     def compile(self, unit, texts: dict[str, Optional[bytes]], label: str) -> tuple[bool, Optional[Path], str]:
-        if self.deadline is not None and time.time() > self.deadline:
-            return False, None, "mwcc budget exceeded: not built (analysis incomplete)"
+        import stack_check
+
+        timeout: Optional[float] = None
+        if self.deadline is not None:
+            remaining = self.deadline - time.time()
+            if remaining < 0:
+                return False, None, "mwcc budget exceeded: not built (analysis incomplete)"
+            # A compile started near the deadline is killed at it, not left to run past the budget.
+            timeout = max(1.0, min(stack_check.compile_timeout(), remaining))
         t0 = time.time()
-        res = self.pool.compile(unit.name, texts, label)
+        res = self.pool.compile(unit.name, texts, label, timeout=timeout)
         took = time.time() - t0
         with self._progress_lock:
             self.compiles += 1
@@ -3818,7 +3884,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     if hasattr(args, "jobs"):
-        args.jobs = max(1, min(args.jobs, MAX_JOBS))
+        args.jobs = clamp_jobs(args.jobs)
     try:
         return args.func(args)
     except ToolFailure as e:

@@ -13,7 +13,7 @@ import {
 import { recoverActiveClaims } from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
 import { captureSandboxProvenance, readSandboxProvenance } from "@server/core/game-registry/sandbox-provenance.js";
 import { sandboxTimeoutScale } from "@server/core/game-registry/resolver.js";
-import { TOOL_TIMEOUT_SCALE_ENV } from "@server/core/tools/timeout-scale.js";
+import { SANDBOX_CPUS_ENV, TOOL_TIMEOUT_SCALE_ENV } from "@server/core/tools/timeout-scale.js";
 import type { AdvisoryAdjudicationMode, GlobalArgs, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
 import { immediateTransaction, type StateStore } from "@server/core/orchestrator-state";
 import {
@@ -340,6 +340,9 @@ export function buildWorkerTask(
           ...Object.fromEntries(Object.entries(workerProcessEnv(ctx.globals)).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
           // The claimed profile's CPU-sensitive tool timeout multiplier, read by core/tools/timeout-scale.ts.
           [TOOL_TIMEOUT_SCALE_ENV]: String(sandboxTimeoutScale(ctx.globals.game, sandbox.profile)),
+          // The CPU count comes from the claim's captured provenance (the scale above is re-resolved
+          // from config by profile name); steering-check.ts sizes the MWCC --jobs from it.
+          [SANDBOX_CPUS_ENV]: String(sandbox.resource_class.cpu),
         },
         cwd: packageRoot(),
         timeoutMs: Math.max(60_000, ctx.ttlSeconds * 1000),

@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openState } from "@server/core/orchestrator-state";
 import { latestSteeringProbe } from "@server/core/harness-runtime/run-state/steering.js";
+import { TOOL_TIMEOUT_SCALE_ENV } from "@server/core/tools/timeout-scale.js";
 import type { CommandResult, WorkspaceExec } from "@server/infrastructure/shell";
 import type { StackCheckRunner } from "@server/core/validation/stack/stack-check.js";
 import { STEERING_LOCATED_INSTRUCTION, UNUSED_BODY_INSTRUCTION, type SteeringRunner } from "@server/core/validation/steering/steering-check.js";
@@ -101,7 +102,7 @@ function steeringRunner(answers: {
   fail?: "edits" | "reduce" | "mwcc" | "decide";
   hang?: boolean;
 } = {}) {
-  const calls: Array<{ step: string; where: string; args: string[] }> = [];
+  const calls: Array<{ step: string; where: string; args: string[]; timeoutMs?: number }> = [];
   const uploads: string[] = [];
   const outputs: Record<string, unknown> = {
     edits: {
@@ -113,9 +114,9 @@ function steeringRunner(answers: {
     decide: answers.decide ?? decision("pass", [{ name: SYMBOL, decision: "pass" }]),
   };
   let base = "";
-  const runner: SteeringRunner = async (args, where) => {
+  const runner: SteeringRunner = async (args, where, call) => {
     const step = args[0]!;
-    calls.push({ step, where, args });
+    calls.push({ step, where, args, timeoutMs: call?.timeoutMs });
     if (step === "edits") base = args[args.indexOf("--base-ref") + 1] ?? "";
     if (step === "decide" && answers.decideByBase?.[base] !== undefined) outputs.decide = answers.decideByBase[base];
     else if (step === "decide") outputs.decide = answers.decide ?? decision("pass", [{ name: SYMBOL, decision: "pass" }]);
@@ -493,6 +494,26 @@ describe("validateWorkerChange on an unverified_match target (enforce)", () => {
     const uncertified = await attempt({ mode: "enforce", runner: steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: unresolved } }), unverifiedTarget, ...improved });
     expect(uncertified.validation.status).toBe("passed");
     expect(certification(uncertified.validation)).toBeNull();
+  });
+
+  test("the trusted-base run gets what the claim-base run left of the scaled budget, and every call is bounded by it", async () => {
+    const previous = process.env[TOOL_TIMEOUT_SCALE_ENV];
+    process.env[TOOL_TIMEOUT_SCALE_ENV] = "2";
+    try {
+      const runner = steeringRunner({ decide: ownPass, decideByBase: { [TRUSTED]: ownPass } });
+      const { validation } = await attempt({ mode: "enforce", runner, unverifiedTarget, ...exactAgain });
+      expect(validation.status).toBe("passed");
+      const claimBase = JSON.parse(readFileSync(validation.steering!.artifactPath!, "utf8"));
+      const trusted = JSON.parse(readFileSync(validation.unverifiedTarget!.baseline!.artifactPath!, "utf8"));
+      expect(claimBase.budget_ms).toBe(480_000);
+      expect(trusted.budget_ms).toBe(480_000 - claimBase.duration_ms);
+      const trustedCalls = runner.calls.slice(runner.calls.map((call) => call.step).lastIndexOf("edits"));
+      expect(trustedCalls.map((call) => call.step)).toEqual(["edits", "reduce", "mwcc", "decide"]);
+      for (const call of trustedCalls) expect(call.timeoutMs).toBeLessThanOrEqual(trusted.budget_ms);
+    } finally {
+      if (previous === undefined) delete process.env[TOOL_TIMEOUT_SCALE_ENV];
+      else process.env[TOOL_TIMEOUT_SCALE_ENV] = previous;
+    }
   });
 
   test("shadow never runs the trusted-base gate, certifies or rejects for the unverified state", async () => {

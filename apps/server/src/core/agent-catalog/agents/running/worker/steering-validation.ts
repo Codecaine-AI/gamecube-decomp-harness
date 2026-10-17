@@ -10,7 +10,7 @@ import { steeringGateActive, steeringGateEnforced } from "@server/core/tools/ste
 import { stackOnlyPerturbationReason, stopsAtFrame } from "@server/core/validation/stack/stack-check.js";
 import {
   runWorkerSteeringGate,
-  STEERING_GATE_BUDGET_MS,
+  steeringGateBudgetMs,
   steeringRejectionReason,
   type SteeringProbe,
   type SteeringRunner,
@@ -142,7 +142,7 @@ async function unverifiedBaselineEvidence(params: {
   if (!attemptEditsUnverifiedTarget(params.claimBase, target)) {
     return { ...evidence, baseline: null, skipped: "the claim-base steering gate did not pass an edit of this function" };
   }
-  const budgetMs = (options.budgetMs ?? STEERING_GATE_BUDGET_MS) - (params.claimBase?.durationMs ?? 0);
+  const budgetMs = (options.budgetMs ?? steeringGateBudgetMs()) - (params.claimBase?.durationMs ?? 0);
   if (budgetMs <= 0) return { ...evidence, baseline: null, skipped: "the steering gate budget was spent by the claim-base run" };
   const baseline = await runWorkerSteeringGate({
     baseRev: evidence.trustedBaseRev,
