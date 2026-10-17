@@ -1,8 +1,8 @@
 import { gameConfigurationRevision } from "../game-registry/config-revision.js";
 import { afterEach, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { resolveGame } from "../game-registry/resolver.js";
 import { openState, type StateStore } from "../orchestrator-state/index.js";
 import { FakeSandboxProvider } from "../job-queue/sandbox.js";
@@ -50,6 +50,25 @@ test("real provisioning plus matching reports satisfies readiness and preserves 
   expect(f.provider.deletedSandboxes).toHaveLength(1);
   expect(f.provider.createdSandboxes[0]?.params.snapshot).toBe("fixture-image");
   expect(getHarnessTimeline(f.store.db, "test").at(-1)?.kind).toBe("initial_sync_accepted");
+  // The provenance and comparison fields the live load-test gate requires (scale/load-test.ts liveAdmissionEvidence).
+  const evidence = JSON.parse(await readFile(result.evidencePath, "utf8"));
+  // The evidence file lives under its operation id's directory.
+  expect(basename(dirname(result.evidencePath))).toBe(evidence.operation);
+  expect(evidence.synthetic).toBeUndefined();
+  expect(evidence).toMatchObject({
+    status: "passed",
+    operation: expect.stringMatching(/^sandbox-validation-[0-9a-f-]{36}$/),
+    head: expect.stringMatching(/^[0-9a-f]{40}$/),
+    sandbox: { snapshot_name: "fixture-image", snapshot_baked_rev: expect.stringMatching(/^[0-9a-f]{40}$/) },
+    sandbox_id: expect.any(String),
+    build: { exitCode: 0 },
+    host_report_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+    sandbox_report_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+    report_comparison: "projection_equal",
+    report_projection_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+    started_at: expect.any(String),
+    completed_at: expect.any(String),
+  });
 });
 test("report mismatch blocks readiness and releases sandbox and dispatch", async () => {
   const f = await fixture(report.replace("70", "71"));
