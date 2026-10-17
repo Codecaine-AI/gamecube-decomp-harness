@@ -617,20 +617,17 @@ def test_a_hung_compile_is_a_failed_build(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("ORCH_MWCC_COMPILE_TIMEOUT", "7")
     assert stack_check.compile_timeout() == 7.0
 
+    hang = tmp_path / "hang.sh"
+    hang.write_text("#!/bin/sh\nsleep 30\n")
+    hang.chmod(0o755)
+
     class Repo:
         root = tmp_path
-        runner = "/bin/sh"
+        runner = str(hang)
         edges = {"o.o": type("E", (), {"rule": "mwcc", "src": "a.c", "mw_version": "x", "cflags": "", "extab_padding": None})()}
 
     unit = stack_check.Unit("u", "o.o", "t.o", "a.c")
-    real_run = subprocess.run
-
-    def fake_run(cmd, **kw):
-        raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
-
-    monkeypatch.setattr(stack_check.subprocess, "run", fake_run)
     res = stack_check.compile_in(Repo(), tmp_path, unit, tmp_path / "out.o", timeout=1)
-    monkeypatch.setattr(stack_check.subprocess, "run", real_run)
     assert res.ok is False and "timed out" in res.error
 
 

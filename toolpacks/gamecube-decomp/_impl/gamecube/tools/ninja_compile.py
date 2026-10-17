@@ -5,7 +5,7 @@ Compile a single melee translation unit using the exact MWCC command that
 
 Extracted from checkdiff.py so the permuter (permute.py) and checkdiff.py
 share one faithful, ninja-coupled compile path. Parsed build edges and report
-symbols are cached under `build/.ninja_compile_cache`. Compilation invokes
+symbols are cached under `build/.ninja_compile_cache` (or $NINJA_COMPILE_CACHE_DIR). Compilation invokes
 `<runner> [sjiswrap] mwcceppc.exe <cflags> -c <src> -o <tmp.o>` (plus `dtk
 extab clean` for extab rules), writing the object to a throwaway temp dir.
 For SJIS rules, sjiswrap is omitted only when a retained depfile proves the TU
@@ -33,12 +33,14 @@ import stat
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # Project checkout root: explicit override, then Claude Code's project dir,
 # then assume this script lives at <melee>/tools/.
+from bounded_run import DEFAULT_OUTPUT_CAP, BoundedRun, run_bounded  # noqa: F401
 from project_root import resolve_root
 from project_layout import get_project_layout
 
@@ -46,11 +48,20 @@ ROOT = resolve_root()
 LAYOUT = get_project_layout(ROOT)
 REPORT_PATH = LAYOUT.report_path
 BUILD_SUBDIR = LAYOUT.path_label(REPORT_PATH.parent).as_posix()
-BUILD_INDEX_CACHE_NAME = f"build-edge-index-v2-{hashlib.sha256(BUILD_SUBDIR.encode()).hexdigest()[:12]}.json"
+BUILD_INDEX_CACHE_NAME = f"build-edge-index-v3-{hashlib.sha256(BUILD_SUBDIR.encode()).hexdigest()[:12]}.json"
 SRC_ROOT = ROOT / "src"
 
 MWCC_RULES = {"mwcc", "mwcc_sjis", "mwcc_extab", "mwcc_sjis_extab"}
-_CACHE_DIR = ROOT / "build/.ninja_compile_cache"
+# Precompiled-header edges (SMS: `include/SMS.pch` -> `build/<ver>/include/SMS.mch`,
+# used by TUs through `-prefix SMS.mch`). See fresh_pch_flags().
+PCH_RULES = {"mwcc_pch", "mwcc_pch_sjis"}
+# NINJA_COMPILE_CACHE_DIR moves every cache (parsed metadata, SJIS verdicts,
+# extab-clean objects) out of the checkout, e.g. for tools that must not write it.
+_CACHE_DIR = (
+    Path(os.environ["NINJA_COMPILE_CACHE_DIR"]).expanduser()
+    if os.environ.get("NINJA_COMPILE_CACHE_DIR")
+    else ROOT / "build/.ninja_compile_cache"
+)
 _METADATA_CACHE_VERSION = 1
 _SJIS_VERDICT_CACHE_VERSION = 1
 _CLEAN_OBJECT_CACHE_VERSION = 1
@@ -226,25 +237,28 @@ def _atomic_copy_file(source: Path, destination: Path) -> bool:
 
 
 def _run_extab_clean(
-    obj: Path, dtk: Path, padding: str, *, quiet: bool
+    obj: Path, dtk: Path, padding: str, *, quiet: bool,
+    timeout: Optional[float] = None, output_cap: Optional[int] = None,
 ) -> bool:
-    """Clean obj via DTK, reusing a content-addressed, atomically-written result."""
+    """Clean obj via DTK, reusing a content-addressed, atomically-written result.
+
+    `timeout` (seconds left of the caller's deadline) and `output_cap` bound DTK
+    like the compile itself: a stalled cleaner is killed with its process group
+    and the clean fails. Without either, DTK runs unbounded as before.
+    """
+    bounded = timeout is not None or output_cap is not None
+    if bounded and timeout is not None and timeout <= 0:
+        return False
 
     def run(input_path: Path, output_path: Path) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [
-                str(dtk),
-                "extab",
-                "clean",
-                "--padding",
-                padding,
-                str(input_path),
-                str(output_path),
-            ],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-        )
+        command = [str(dtk), "extab", "clean", "--padding", padding, str(input_path), str(output_path)]
+        if bounded:
+            result = run_bounded(command, cwd=ROOT, timeout=timeout,
+                                 output_cap=output_cap or DEFAULT_OUTPUT_CAP)
+            stderr = result.stderr + (f"\ndtk extab clean timed out after {timeout:g}s (killed)" if result.timed_out else "")
+            return subprocess.CompletedProcess(command, -1 if result.returncode is None else result.returncode,
+                                               result.stdout, stderr)
+        return subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
 
     cache_path = _clean_object_cache_path(obj, dtk, padding)
     if cache_path is not None and cache_path.is_file():
@@ -366,6 +380,8 @@ def _parse_build_index(path: Path) -> Dict[str, Any]:
     cflag_indexes: Dict[str, int] = {}
     edges: Dict[str, List[Any]] = {}
     errors: Dict[str, str] = {}
+    # .mch basename -> [output as written, rule, source, mw_version, cflags index]
+    pch: Dict[str, List[Any]] = {}
 
     for block in re.split(r"^build ", text, flags=re.M):
         lines = block.splitlines()
@@ -374,6 +390,7 @@ def _parse_build_index(path: Path) -> Dict[str, Any]:
         build_line = lines[0]
         match = re.match(r"(\S+\.o)\s*:\s*(\S+)\s+(.+)", build_line)
         if match is None:
+            _parse_pch_edge(block, build_line, cflags, cflag_indexes, pch)
             continue
         obj_path, rule, raw_inputs = match.groups()
         explicit_inputs = re.split(r"\s+\|\|?\s+", raw_inputs, maxsplit=1)[0]
@@ -413,7 +430,39 @@ def _parse_build_index(path: Path) -> Dict[str, Any]:
             variables.get("extab_padding"),
         ]
 
-    return {"cflags": cflags, "edges": edges, "errors": errors}
+    return {"cflags": cflags, "edges": edges, "errors": errors, "pch": pch}
+
+
+def _parse_pch_edge(
+    block: str,
+    build_line: str,
+    cflags: List[str],
+    cflag_indexes: Dict[str, int],
+    pch: Dict[str, List[Any]],
+) -> None:
+    """Record a `build <out>.mch: mwcc_pch[_sjis] <in>.pch` edge (configure.py
+    writes its output as an absolute path on a continuation line)."""
+    match = re.match(r"\s*(\S+\.mch)\s*:\s*(\S+)\s+(.+)", build_line)
+    if match is None or match.group(2) not in PCH_RULES:
+        return
+    output, rule, raw_inputs = match.groups()
+    try:
+        inputs = shlex.split(re.split(r"\s+\|\|?\s+", raw_inputs, maxsplit=1)[0])
+    except ValueError:
+        return
+    variables = {
+        variable.group(1): variable.group(2).strip()
+        for variable in re.finditer(r"^\s+([A-Za-z_][A-Za-z0-9_]*) = (.*)$", block, re.M)
+    }
+    if not inputs or "mw_version" not in variables or "cflags" not in variables:
+        return
+    flags = variables["cflags"]
+    flags_index = cflag_indexes.get(flags)
+    if flags_index is None:
+        flags_index = len(cflags)
+        cflag_indexes[flags] = flags_index
+        cflags.append(flags)
+    pch[Path(output).name] = [output, rule, inputs[0], variables["mw_version"], flags_index]
 
 
 def _valid_build_index(value: Any) -> bool:
@@ -425,6 +474,17 @@ def _valid_build_index(value: Any) -> bool:
     if not isinstance(cflags, list) or not all(isinstance(flag, str) for flag in cflags):
         return False
     if not isinstance(edges, dict) or not isinstance(errors, dict):
+        return False
+    pch = value.get("pch")
+    if not isinstance(pch, dict) or not all(
+        isinstance(name, str)
+        and isinstance(edge, list)
+        and len(edge) == 5
+        and all(isinstance(item, str) for item in edge[:4])
+        and isinstance(edge[4], int)
+        and 0 <= edge[4] < len(cflags)
+        for name, edge in pch.items()
+    ):
         return False
     if not all(isinstance(key, str) and isinstance(error, str) for key, error in errors.items()):
         return False
@@ -471,6 +531,407 @@ def _root_rel(p: Path) -> str:
         return str(p.relative_to(ROOT))
     except ValueError:
         return str(p)
+
+
+# --------------------------------------------------------------------------
+# Fresh precompiled headers
+#
+# A TU compiled with `-prefix SMS.mch` reads whatever SMS.mch the include path
+# finds first: normally `build/<ver>/include/SMS.mch`, ninja's PCH edge output.
+# Ninja rebuilds that PCH before any TU whenever a header it read changed; a
+# direct compile does not, so it used a stale PCH after header changes (SMS:
+# `macro 'RAD_TO_DEG' redefined` once RAD_TO_DEG moved from math.h to
+# macros.h) and ignored shadow-root edits to headers inside the PCH. Instead
+# every direct compile builds the PCH from the tree it compiles (the edge's
+# exact command, cwd = that tree) into a content-addressed cache entry and
+# puts that entry's directory on the include path just before the PCH's
+# build directory. An entry is reused while every input its depfile listed
+# still has the same content. NINJA_COMPILE_FRESH_PCH=0 restores the old
+# behaviour (use the build tree's PCH as is).
+# --------------------------------------------------------------------------
+
+_PCH_CACHE_VERSION = 2
+_PCH_ENTRY_LIMIT = 16
+_PCH_PRUNE_AGE_S = 3600.0
+_PCH_HASH_MEMORY: Dict[str, Tuple[Tuple[int, int, int, int, int], str]] = {}
+_INCLUDE_FLAGS = ("-i", "-I")
+
+
+@dataclass
+class PchEdge:
+    output: str  # as written in build.ninja (configure.py writes it absolute)
+    rule: str
+    src: str
+    mw_version: str
+    cflags: str
+
+
+@dataclass
+class FreshPch:
+    """`flags` with the fresh PCH's directory on the include path. `mch` is
+    None when the TU uses no generated PCH; `deps` maps every input the PCH
+    read (root-relative POSIX path, or `external:<abs>`) to its sha256."""
+
+    flags: List[str]
+    mch: Optional[Path] = None
+    include_dir: Optional[str] = None
+    deps: Dict[str, str] = field(default_factory=dict)
+    built: bool = False
+    error: Optional[str] = None
+
+
+def pch_edges() -> Dict[str, PchEdge]:
+    """PCH build edges of build.ninja, by .mch basename."""
+    index = _load_metadata(
+        BUILD_INDEX_CACHE_NAME, ROOT / "build.ninja", _parse_build_index, _valid_build_index
+    )
+    return {
+        name: PchEdge(output, rule, src, mw_version, index["cflags"][flags_index])
+        for name, (output, rule, src, mw_version, flags_index) in index.get("pch", {}).items()
+    }
+
+
+def prefix_name(flags: List[str]) -> Optional[str]:
+    """The `-prefix <file>` argument of an MWCC command line, if any."""
+    for index, token in enumerate(flags[:-1]):
+        if token == "-prefix":
+            return flags[index + 1]
+    return None
+
+
+def _memo_sha256(path: Path) -> Optional[str]:
+    absolute = _absolute_path(path)
+    try:
+        identity = _file_identity(absolute.stat())
+    except OSError:
+        return None
+    cached = _PCH_HASH_MEMORY.get(str(absolute))
+    if cached is not None and cached[0] == identity:
+        return cached[1]
+    stable = _stable_sha256(absolute)
+    if stable is None:
+        return None
+    _PCH_HASH_MEMORY[str(absolute)] = stable
+    return stable[1]
+
+
+def _dep_file(root: Path, key: str) -> Path:
+    return Path(key[len("external:"):]) if key.startswith("external:") else root / key
+
+
+def _depfile_keys(root: Path, text: str) -> Tuple[List[str], List[str]]:
+    """MWCC depfile -> (dependency keys, problems). Keys are `root`-relative
+    POSIX paths or `external:<abs>`; wine/wibo report host paths on Z:."""
+    lines = text.replace("\r", "").split("\n")
+    tokens: List[str] = []
+    for index, line in enumerate(lines):
+        body = line.rstrip()
+        if body.endswith("\\"):
+            body = body[:-1]
+        if index == 0:
+            if ": " not in body:  # the target has a drive colon; the separator is ": "
+                return [], ["depfile has no target line"]
+            body = body.split(": ", 1)[1]
+        tokens += [token for token in body.split() if token]
+    roots = [str(_absolute_path(root))]
+    real = os.path.realpath(root)
+    if real not in roots:
+        roots.append(real)
+    keys: List[str] = []
+    problems: List[str] = []
+    for token in tokens:
+        path = token.replace("\\", "/")
+        drive = re.match(r"^([A-Za-z]):/", path)
+        if drive:
+            if drive.group(1).lower() != "z":
+                problems.append(f"unresolvable dependency path {token}")
+                continue
+            path = os.path.normpath(path[2:])
+        elif not path.startswith("/"):
+            path = os.path.normpath(path)
+        key = path
+        if path.startswith("/"):
+            rel = next(
+                (os.path.relpath(path, r) for r in roots if path == r or path.startswith(r.rstrip("/") + "/")),
+                None,
+            )
+            key = rel if rel is not None else f"external:{path}"
+        if key not in keys:
+            keys.append(key)
+    if not keys:
+        problems.append("depfile lists no inputs")
+    return keys, problems
+
+
+def _include_dir_arg(directory: Path, root: Path) -> str:
+    """`directory` as the compile (cwd `root`) should name it: ROOT-relative
+    when that also resolves from `root` (shadow roots symlink build/), else
+    absolute."""
+    try:
+        rel = _absolute_path(directory).relative_to(_absolute_path(ROOT))
+    except ValueError:
+        return str(_absolute_path(directory))
+    try:
+        if (root / rel).resolve() == directory.resolve():
+            return rel.as_posix()
+    except OSError:
+        pass
+    return str(_absolute_path(directory))
+
+
+def _insert_include_dir(flags: List[str], directory: str, before: Optional[str]) -> List[str]:
+    """Insert `-i directory` just before the include flag naming `before` (the
+    PCH's build directory), else before the first include flag, else last."""
+    position = None
+    first = None
+    for index, token in enumerate(flags[:-1]):
+        if token not in _INCLUDE_FLAGS or flags[index + 1].startswith("-"):
+            continue
+        if first is None:
+            first = index
+        if before is not None and os.path.normpath(flags[index + 1]) == before:
+            position = index
+            break
+    if position is None:
+        position = first if first is not None else len(flags)
+    return flags[:position] + ["-i", directory] + flags[position:]
+
+
+def _pch_output_dir(edge: PchEdge) -> Optional[str]:
+    """The PCH edge's output directory as the TU's include flags name it."""
+    parent = os.path.normpath(os.path.dirname(edge.output))
+    if not os.path.isabs(parent):
+        return parent
+    for path in (parent, os.path.realpath(parent)):
+        for base in (str(_absolute_path(ROOT)), os.path.realpath(ROOT)):
+            if path == base or path.startswith(base.rstrip("/") + "/"):
+                return os.path.normpath(os.path.relpath(path, base))
+    return parent
+
+
+def _include_search_dirs(cflags: str) -> List[str]:
+    """The `-i`/`-I` directories of a command, in search order."""
+    tokens = shlex.split(cflags)
+    return [
+        os.path.normpath(tokens[index + 1])
+        for index, token in enumerate(tokens[:-1])
+        if token in _INCLUDE_FLAGS and not tokens[index + 1].startswith("-")
+    ]
+
+
+def _shadow_candidates(root: Path, cflags: str, keys: List[str]) -> List[str]:
+    """Files that could take over an include the PCH resolved.
+
+    A PCH dependency is reached by a name relative to the search directory it
+    sits in (`JSystem/J3DJoint.hpp` under libs/JSystem/include). A file with
+    that name in any other search directory, or beside another dependency (for
+    quote includes), changes resolution once it exists, although no dependency's
+    hash changes. The cache stores which of these exist and rebuilds when that
+    set differs."""
+    dirs = _include_search_dirs(cflags)
+    local = [key for key in keys if not key.startswith("external:")]
+    search = list(dict.fromkeys([*dirs, *(os.path.dirname(key) for key in local)]))
+    found = set()
+    for key in local:
+        names = {key[len(d) + 1:] for d in dirs if d not in ("", ".") and key.startswith(d.rstrip("/") + "/")}
+        for name in names or {os.path.basename(key)}:
+            for directory in search:
+                candidate = os.path.normpath(os.path.join(directory, name))
+                if candidate != key and (root / candidate).is_file():
+                    found.add(candidate)
+    return sorted(found)
+
+
+def _pch_entry_matches(entry: Path, name: str, root: Path, cflags: Optional[str] = None) -> Optional[Dict[str, str]]:
+    record = _read_json_cache(entry / "deps.json")
+    if (
+        record is None
+        or record.get("version") != _PCH_CACHE_VERSION
+        or not isinstance(record.get("deps"), dict)
+        or not record["deps"]
+        or not (entry / name).is_file()
+    ):
+        return None
+    deps: Dict[str, str] = record["deps"]
+    for key, digest in deps.items():
+        if _memo_sha256(_dep_file(root, key)) != digest:
+            return None
+    if cflags is not None and record.get("shadows") != _shadow_candidates(root, cflags, list(deps)):
+        return None  # a header now shadows (or no longer shadows) one the PCH read
+    return deps
+
+
+def _prune_pch_entries(edge_dir: Path, keep: Path) -> None:
+    try:
+        entries = [p for p in edge_dir.iterdir() if p.is_dir() and not p.name.startswith(".")]
+    except OSError:
+        return
+    if len(entries) <= _PCH_ENTRY_LIMIT:
+        return
+    now = time.time()
+
+    def mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    for entry in sorted(entries, key=mtime)[: len(entries) - _PCH_ENTRY_LIMIT]:
+        if entry != keep and now - mtime(entry) > _PCH_PRUNE_AGE_S:
+            shutil.rmtree(entry, ignore_errors=True)
+
+
+def fresh_pch_flags(
+    flags: List[str],
+    *,
+    root: Optional[Path] = None,
+    compiler_override: Optional[Path] = None,
+    timeout: Optional[float] = None,
+    output_cap: Optional[int] = DEFAULT_OUTPUT_CAP,
+) -> FreshPch:
+    """Make a TU's `-prefix <name>.mch` read a PCH built from `root`'s current
+    sources (see the section comment). `flags` are the TU's cflags tokens; the
+    PCH is built with `compiler_override` when given (the compiler the TU uses),
+    else the PCH edge's stock compiler, and shares the caller's `timeout`.
+    Flags without a generated PCH come back unchanged."""
+    root = Path(root) if root is not None else ROOT
+    name = prefix_name(flags)
+    if name is None or os.environ.get("NINJA_COMPILE_FRESH_PCH") == "0":
+        return FreshPch(list(flags))
+    edge = pch_edges().get(Path(name).name)
+    if edge is None or Path(name).name != name:
+        return FreshPch(list(flags))
+
+    compiler = Path(compiler_override) if compiler_override else ROOT / "build/compilers" / edge.mw_version / "mwcceppc.exe"
+    sjiswrap = ROOT / "build/tools/sjiswrap.exe"
+    use_sjiswrap = "sjis" in edge.rule
+    runner = _runner_command()
+    if runner is None:
+        return FreshPch(list(flags), error="no MWCC runner (wibo/wine) to build the precompiled header")
+    compiler_sha = _memo_sha256(compiler)
+    sjiswrap_sha = _memo_sha256(sjiswrap) if use_sjiswrap else ""
+    if compiler_sha is None or sjiswrap_sha is None:
+        missing = compiler if compiler_sha is None else sjiswrap
+        return FreshPch(list(flags), error=f"missing build prerequisite for the precompiled header: {missing}")
+
+    edge_key = hashlib.sha256(
+        json.dumps(
+            [_PCH_CACHE_VERSION, name, edge.rule, edge.src, edge.cflags, compiler_sha, sjiswrap_sha],
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+    edge_dir = _CACHE_DIR / "pch" / edge_key
+    before = _pch_output_dir(edge)
+
+    def result(entry: Path, deps: Dict[str, str], built: bool) -> FreshPch:
+        include_dir = _include_dir_arg(entry, root)
+        return FreshPch(
+            _insert_include_dir(list(flags), include_dir, before),
+            mch=entry / name,
+            include_dir=include_dir,
+            deps=dict(deps),
+            built=built,
+        )
+
+    try:
+        candidates = sorted(
+            (p for p in edge_dir.iterdir() if p.is_dir() and not p.name.startswith(".")),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        candidates = []
+    for entry in candidates[:_PCH_ENTRY_LIMIT]:
+        deps = _pch_entry_matches(entry, name, root, edge.cflags)
+        if deps is not None:
+            try:
+                os.utime(entry)
+            except OSError:
+                pass
+            return result(entry, deps, False)
+
+    try:
+        edge_dir.mkdir(parents=True, exist_ok=True)
+        build_dir = Path(tempfile.mkdtemp(prefix=".build-", dir=str(edge_dir)))
+    except OSError as error:
+        return FreshPch(list(flags), error=f"cannot create the precompiled header cache {edge_dir}: {error}")
+    published = False
+    try:
+        command = [str(runner[1])]
+        if use_sjiswrap:
+            command.append(str(sjiswrap))
+        command += [str(compiler), *shlex.split(edge.cflags), "-MD", "-c", edge.src,
+                    "-o", str(build_dir), "-precompile", name]
+        # A traced compiler stays silent while building the PCH.
+        run = run_bounded(command, cwd=root, env={"MWCC_TRACE_OUT": ""}, timeout=timeout,
+                          output_cap=output_cap)
+        mch = build_dir / name
+        if run.timed_out:
+            return FreshPch(list(flags), error=f"precompiled header {name} timed out after {timeout:g}s (killed)")
+        if run.returncode != 0 or not mch.is_file():
+            detail = ((run.stdout or "") + "\n" + (run.stderr or "")).strip()
+            return FreshPch(list(flags), error=f"precompiled header {edge.src} -> {name} failed:\n{detail}")
+        depfiles = list(build_dir.glob("*.d"))
+        if len(depfiles) != 1:
+            return FreshPch(list(flags), error=f"precompiled header {name}: expected one depfile, found {len(depfiles)}")
+        keys, problems = _depfile_keys(root, depfiles[0].read_text(errors="replace"))
+        depfiles[0].unlink()
+        deps: Dict[str, str] = {}
+        for key in keys:
+            digest = _memo_sha256(_dep_file(root, key))
+            if digest is None:
+                problems.append(f"dependency {key} unreadable")
+            else:
+                deps[key] = digest
+        if problems:
+            return FreshPch(list(flags), error=f"precompiled header {name}: " + "; ".join(problems[:4]))
+        shadows = _shadow_candidates(root, edge.cflags, list(deps))
+        _atomic_write_json(build_dir / "deps.json", {"version": _PCH_CACHE_VERSION, "edge": edge.output,
+                                                     "src": edge.src, "deps": deps, "shadows": shadows})
+        if not (build_dir / "deps.json").is_file():
+            return FreshPch(list(flags), error=f"precompiled header {name}: cannot write its cache record")
+        entry = edge_dir / hashlib.sha256(
+            json.dumps([sorted(deps.items()), shadows], separators=(",", ":")).encode("utf-8")
+        ).hexdigest()[:16]
+        try:
+            os.rename(build_dir, entry)
+            published = True
+        except OSError:
+            if _pch_entry_matches(entry, name, root, edge.cflags) is None:
+                # Not a concurrent twin: keep this build out of the cache's way.
+                shutil.rmtree(entry, ignore_errors=True)
+                try:
+                    os.rename(build_dir, entry)
+                    published = True
+                except OSError as error:
+                    return FreshPch(list(flags), error=f"precompiled header {name}: cannot publish {entry}: {error}")
+        _prune_pch_entries(edge_dir, entry)
+        return result(entry, deps, True)
+    finally:
+        if not published:
+            shutil.rmtree(build_dir, ignore_errors=True)
+
+
+def tu_flags(
+    cflags: str,
+    *,
+    root: Optional[Path] = None,
+    compiler_override: Optional[Path] = None,
+    timeout: Optional[float] = None,
+    output_cap: Optional[int] = DEFAULT_OUTPUT_CAP,
+    quiet: bool = True,
+) -> Optional[List[str]]:
+    """The TU's cflags tokens for a direct compile (fresh PCH applied), or
+    None (reported unless `quiet`) when its precompiled header cannot be built."""
+    fresh = fresh_pch_flags(
+        shlex.split(cflags), root=root, compiler_override=compiler_override,
+        timeout=timeout, output_cap=output_cap,
+    )
+    if fresh.error is not None:
+        if not quiet:
+            print(fresh.error, file=sys.stderr)
+        return None
+    return fresh.flags
 
 
 def _runner_command() -> tuple[str, Path | str] | None:
@@ -832,12 +1293,14 @@ def _can_bypass_sjiswrap(
 
 
 def _compiler_prefix(
-    block: BuildBlock, *, obj_path: str, sources: List[str], quiet: bool
+    block: BuildBlock, *, obj_path: str, sources: List[str], quiet: bool,
+    compiler_override: Optional[Path] = None,
 ) -> Optional[list]:
     """[runner, (sjiswrap,) mwcceppc.exe] for this TU's rule, or None if a
-    prerequisite is missing."""
+    prerequisite is missing. `compiler_override` replaces the stock
+    mwcceppc.exe (e.g. the traced build of the same version)."""
     sjiswrap = ROOT / "build/tools/sjiswrap.exe"
-    compiler = ROOT / "build" / "compilers" / block.mw_version / "mwcceppc.exe"
+    compiler = compiler_override or ROOT / "build" / "compilers" / block.mw_version / "mwcceppc.exe"
     runner = _runner_command()
     use_sjiswrap = "sjis" in block.rule and not _can_bypass_sjiswrap(
         obj_path, block, sources
@@ -869,6 +1332,10 @@ def direct_compile(
     src_override: Optional[str] = None,
     quiet: bool = False,
     prefix: Optional[str] = None,
+    compiler_override: Optional[Path] = None,
+    extra_env: Optional[Dict[str, str]] = None,
+    timeout: Optional[float] = None,
+    output_cap: Optional[int] = DEFAULT_OUTPUT_CAP,
 ) -> Optional[CompiledObject]:
     """Compile one TU directly from its build.ninja MWCC settings.
 
@@ -880,6 +1347,11 @@ def direct_compile(
 
     `quiet=True` suppresses all diagnostic prints (the permuter expects many
     candidates to fail to compile; that is normal, not noteworthy).
+
+    `compiler_override` swaps in another mwcceppc.exe, `extra_env` is merged
+    over the environment, `timeout` kills the compile's process group after
+    that many seconds (None: no deadline) and `output_cap` bounds captured
+    output (see run_bounded).
     """
     try:
         block = find_build_block(obj_path)
@@ -895,7 +1367,8 @@ def direct_compile(
 
     src = src_override if src_override is not None else block.src
     cmd_prefix = _compiler_prefix(
-        block, obj_path=obj_path, sources=[src], quiet=quiet
+        block, obj_path=obj_path, sources=[src], quiet=quiet,
+        compiler_override=compiler_override,
     )
     if cmd_prefix is None:
         return None
@@ -908,10 +1381,23 @@ def direct_compile(
 
     build_tmp = ROOT / "build"
     build_tmp.mkdir(exist_ok=True)
+    started = time.monotonic()
+    flags = tu_flags(
+        block.cflags, compiler_override=compiler_override, timeout=timeout,
+        output_cap=output_cap, quiet=quiet,
+    )
+    if flags is None:
+        return None
+    if timeout is not None:
+        timeout = timeout - (time.monotonic() - started)
+        if timeout <= 0:
+            if not quiet:
+                print("direct compile timed out building its precompiled header", file=sys.stderr)
+            return None
     tmpdir = tempfile.TemporaryDirectory(prefix="ninja-compile-", dir=build_tmp)
     tmp_obj = Path(tmpdir.name) / f"{Path(obj_path).name}.o"
 
-    cmd = list(cmd_prefix) + shlex.split(block.cflags)
+    cmd = list(cmd_prefix) + flags
     if prefix is not None:
         # Inject a precompiled header onto the source (mwcc -prefix). The arg is
         # resolved like an #include (relative to the source dir, due to
@@ -919,7 +1405,15 @@ def direct_compile(
         cmd += ["-prefix", prefix]
     cmd += ["-c", src, "-o", str(tmp_obj)]
 
-    result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    started = time.monotonic()
+    result = run_bounded(
+        cmd, cwd=ROOT, env=extra_env, timeout=timeout, output_cap=output_cap
+    )
+    if result.timed_out:
+        if not quiet:
+            print(f"direct compile timed out after {timeout:g}s (killed)", file=sys.stderr)
+        tmpdir.cleanup()
+        return None
     if result.returncode != 0:
         if not quiet:
             print("direct compile failed:", file=sys.stderr)
@@ -940,7 +1434,9 @@ def direct_compile(
 
     if "extab" in block.rule:
         padding = block.extab_padding or ""
-        if not _run_extab_clean(tmp_obj, dtk, padding, quiet=quiet):
+        left = None if timeout is None else timeout - (time.monotonic() - started)
+        bounds = {} if timeout is None and output_cap == DEFAULT_OUTPUT_CAP else {"timeout": left, "output_cap": output_cap}
+        if not _run_extab_clean(tmp_obj, dtk, padding, quiet=quiet, **bounds):
             tmpdir.cleanup()
             return None
 
@@ -1067,12 +1563,22 @@ def compile_batch(
             _TEMP_CANDIDATES.discard(path)
         return none, []
 
+    flags = tu_flags(block.cflags, quiet=quiet)
+    if flags is None:
+        for path in cfiles:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+            _TEMP_CANDIDATES.discard(path)
+        return none, []
+
     build_tmp = ROOT / "build"
     build_tmp.mkdir(exist_ok=True)
     outdir = tempfile.TemporaryDirectory(prefix="ninja-batch-", dir=build_tmp)
     cleanups: List = [outdir]
 
-    cmd = list(cmd_prefix) + shlex.split(block.cflags)
+    cmd = list(cmd_prefix) + flags
     if prefix_pch is not None:
         cmd += ["-prefix", prefix_pch.name]
     # -o <dir> writes each input's object as <dir>/<source-stem>.o
@@ -1207,9 +1713,12 @@ def build_pch(
         )
         if cmd_prefix is None:
             return None
+        flags = tu_flags(block.cflags, quiet=quiet)
+        if flags is None:
+            return None
         cmd = (
             list(cmd_prefix)
-            + shlex.split(block.cflags)
+            + flags
             + ["-precompile", _root_rel(mch_path), "-c", _root_rel(pch_c_path)]
         )
         result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)

@@ -473,7 +473,7 @@ def order_units_resolver(units: dict[str, str]):
         rows = [{"unit": n, "source": src, "object": "o", "target": "t", "flags": ["cc"]} for n, src in units.items()]
         return "V1", rows, {}
     return resolve
-VOLATILE = ("edits_hash", "base_rev", "elapsed_s", "compiles")
+VOLATILE = ("edits_hash", "base_rev", "elapsed_s", "compiles", "input_hash")  # input_hash covers base_rev
 
 
 def split_pipeline(repo: Path, tmp: Path, target: str, unused: Optional[dict] = None,

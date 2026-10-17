@@ -449,6 +449,37 @@ def patch_sha256(files: list[dict]) -> str:
                                                                                            "surrogatepass")).hexdigest()
 
 
+def git_blob_id(text: Optional[str]) -> Optional[str]:
+    """`git hash-object` of a text's original bytes (None: the file does not exist)."""
+    if text is None:
+        return None
+    data = se.encode(text)
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def scope_inputs(state: "_State", files: list[dict]) -> dict:
+    """What a verdict over `files` depends on besides the readiness revision, for a
+    caller that reuses it at a later revision (integration re-verifies these
+    instead of re-running the check): the changed files as git blob ids, and
+    the owner-unit sources (owners and constructor owners) of every class the
+    check looked up. Header and namespace drift is the caller's to check."""
+    owners = getattr(state.r, "owners", None) or {}
+    units: set[str] = set()
+    for name, st in state.cache.items():
+        if st.get("owner_unit"):
+            units.add(st["owner_unit"])
+        o = owners.get(st.get("class") or name) or owners.get(name) or {}
+        if o.get("owner"):
+            units.add(o["owner"])
+        for c in o.get("ctors") or []:
+            if isinstance(c, (list, tuple)) and len(c) > 3 and c[3]:
+                units.add(c[3])
+    sources = sorted({src for src in (state.source_of(u) for u in units) if src})
+    return {"files": [{"path": f["path"], "before_blob": git_blob_id(f.get("before")),
+                       "after_blob": git_blob_id(f.get("after"))} for f in sorted(files, key=lambda f: f["path"])],
+            "owner_sources": sources}
+
+
 def _rev_eq(a: Optional[str], b: Optional[str]) -> bool:
     if not a or not b:
         return False
@@ -869,6 +900,7 @@ def _run(repo: Optional[Path], base_rev: str, files: list[dict], *, targets_for:
         "hunks": hunks,
         "warnings": warnings,
         "limits": limits,
+        "scope_inputs": scope_inputs(state, files),
     }
     return result, ctx
 

@@ -22,14 +22,31 @@ current attempt:
       libs/*/include/ (class-body definitions and out-of-class inline or
       template definitions).
 
-  usage --inline I [--unit U] [--min-percent 100]
+  usage --inline I [--unit U] [--min-percent 100] [--unverified-json F]
       Source functions whose body calls I (text match on the member name)
       and that already match at --min-percent in build/<ver>/report.json.
+      Each sibling carries `certification` (certified | unverified |
+      ungated | unknown) and `revision`; `results` lists the matched ones
+      (100% and certified or ungated), `hypotheses` the rest. Certification
+      comes from the orchestrator's hold list at the sandbox revision
+      (--unverified-json, else $ORCH_UNVERIFIED_MATCHES_JSON, else
+      build/steering/unverified-matches.json in the checkout); without a
+      valid list every sibling is `unknown` (a hypothesis) unless the gate is
+      confirmed off (ORCH_STEERING_GATE, or game.json in ORCH_GAME_DIR).
 
   jsystem --query Q [--game tp|tww|all]
       Literal search over the pinned Twilight Princess / Wind Waker JSystem
-      sources under $ORCH_GAME_STATE_DIR/refs/jsystem (fetched by
-      fetch_jsystem_refs.sh, commits in refs.lock.json).
+      sources under --refs-root, else $ORCH_JSYSTEM_REFS_ROOT, else the
+      sandbox image's /opt/refs/jsystem, else $ORCH_GAME_STATE_DIR/refs/jsystem
+      (fetched by fetch_jsystem_refs.sh, commits in refs.lock.json).
+
+  compiler --query Q [--path P] [--context N]
+      Literal search over the pinned MWCC compiler source (rayanht/mwcc):
+      /opt/mwcc in sandboxes, else <checkout>/../mwcc, else
+      $ORCH_GAME_STATE_DIR/refs/mwcc (fetch_mwcc_ref.sh, commit in
+      mwcc_ref.lock.json). file:line hits, src/ first, at most 5 per file
+      unless --path narrows it to a file name, directory prefix or glob. See
+      compiler_ref.py.
 
 All subcommands take --json. Exit 0 = analysis produced (including
 "unavailable" and "not found" answers), 2 = tool failure. --repo defaults to
@@ -47,6 +64,7 @@ import importlib.util
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -57,6 +75,7 @@ if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
 import project_layout  # noqa: E402
+import compiler_ref  # noqa: E402
 
 PARSER_VERSION = 1
 DEMANGLER_PATH = TOOLS_DIR.parent / "m2c" / "m2c" / "demangle_codewarrior.py"
@@ -869,6 +888,214 @@ def inlines(repo: Path, type_name: str, member: Optional[str] = None, limit: int
 
 
 # --------------------------------------------------------------------------
+# certification: the steering gate's verdict on matched siblings
+# --------------------------------------------------------------------------
+
+UNVERIFIED_SCHEMA = "orch-unverified-matches-v1"
+UNVERIFIED_ENV = "ORCH_UNVERIFIED_MATCHES_JSON"
+UNVERIFIED_DEFAULT = Path("build") / "steering" / "unverified-matches.json"
+GATE_MODES = ("off", "shadow", "enforce")
+# Siblings with these statuses are evidence at 100%; `unverified` and `unknown` never are.
+EVIDENCE_CERTIFICATIONS = ("certified", "ungated")
+UNKNOWN_NOTE = (
+    "Certification is unknown: {why}. Every sibling is `unknown` and listed as a hypothesis, never as "
+    "evidence: on a steering-gated game (SMS) a 100% sibling may be a \"100% but unverified\" match."
+)
+
+
+class Certification:
+    """The orchestrator's per-revision hold list for one game, as the server wrote it.
+
+    File (`orch-unverified-matches-v1`, written at sandbox provisioning by
+    `unverifiedMatchesEvidence`): `{schema, game_id, gate, gate_active,
+    revision, generated_at, unverified: [{unit, symbol, analyzed_rev, base_rev, reason}]}`,
+    derived at the sandbox's exact `revision`. Statuses:
+
+    - `unverified`: listed (an unverified match, one cleared only after
+      `revision`, or a steering rollback not certified at `revision`);
+    - `certified`: a gated game's sibling that is not listed, at `revision`,
+      whose source file in the checkout is byte-identical to that file at
+      `revision` (`source_at_revision`); an edited file is `unknown`;
+    - `ungated`: the gate is confirmed off (the file says so, or with no file
+      ORCH_STEERING_GATE / the game's game.json does);
+    - `unknown`: anything else (no file and no confirmed gate state, a missing
+      or malformed file). Unknown never counts as evidence.
+    """
+
+    def __init__(self, status: str, source: Optional[str], revision: Optional[str],
+                 unverified: Iterable[Dict[str, Any]], note: Optional[str] = None,
+                 fallback_revision: Optional[str] = None) -> None:
+        self.status = status  # gated | ungated | unknown
+        self.source = source
+        self.revision = revision
+        self.note = note
+        self.fallback_revision = fallback_revision
+        self._source_state: Dict[str, bool] = {}
+        self._by_symbol: Dict[str, List[Dict[str, Any]]] = {}
+        for row in unverified:
+            self._by_symbol.setdefault(row["symbol"], []).append(row)
+
+    @property
+    def gated(self) -> bool:
+        return self.status == "gated"
+
+    def classify(self, unit: str, symbol: str) -> Tuple[str, Optional[str]]:
+        """(certification, revision) for one sibling."""
+        if self.status != "gated":
+            return self.status, self.revision or self.fallback_revision
+        rows = self._by_symbol.get(symbol) or []
+        # Same unit first; a symbol listed under another unit name still counts (fail toward unverified).
+        row = next((r for r in rows if r.get("unit") == unit), rows[0] if rows else None)
+        if row is not None:
+            rev = row.get("analyzed_rev")
+            return "unverified", rev if isinstance(rev, str) and rev else self.revision
+        return "certified", self.revision
+
+    def source_at_revision(self, repo: Path, rel_path: str) -> bool:
+        """The checkout's `rel_path` is the file the certification describes: identical to `<revision>:<rel_path>`.
+
+        Any doubt (no revision, git failure, a file absent at the revision or
+        in the checkout) is False, so the sibling cannot be certified.
+        """
+        if not self.revision:
+            return False
+        if rel_path not in self._source_state:
+            try:
+                current = (Path(repo) / rel_path).read_bytes()
+            except OSError:
+                current = None
+            shown = _git(repo, "show", f"{self.revision}:{rel_path}")
+            self._source_state[rel_path] = current is not None and shown is not None and shown.returncode == 0 \
+                and shown.stdout == current
+        return self._source_state[rel_path]
+
+    def summary(self) -> Dict[str, Any]:
+        out: Dict[str, Any] = {"status": self.status, "source": self.source, "gated": self.gated, "revision": self.revision,
+                               "unverified_count": sum(len(v) for v in self._by_symbol.values())}
+        if self.note:
+            out["note"] = self.note
+        return out
+
+
+def _nonempty(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _validated(data: Any) -> Tuple[Optional[Dict[str, Any]], str]:
+    """The file's content when every required field is well formed, else (None, why)."""
+    if not isinstance(data, dict):
+        return None, "not a JSON object"
+    if data.get("schema") != UNVERIFIED_SCHEMA:
+        return None, f"schema is not {UNVERIFIED_SCHEMA}"
+    if not _nonempty(data.get("game_id")):
+        return None, "game_id missing"
+    gate = data.get("gate")
+    if gate not in GATE_MODES:
+        return None, f"gate {gate!r} is not one of {', '.join(GATE_MODES)}"
+    if not isinstance(data.get("gate_active"), bool) or data["gate_active"] != (gate != "off"):
+        return None, "gate_active missing or inconsistent with gate"
+    rows = data.get("unverified")
+    if not isinstance(rows, list):
+        return None, "unverified list missing"
+    for row in rows:
+        if not isinstance(row, dict) or not _nonempty(row.get("unit")) or not _nonempty(row.get("symbol")):
+            return None, "an unverified row lacks unit or symbol"
+        if row.get("analyzed_rev") is not None and not isinstance(row.get("analyzed_rev"), str):
+            return None, "an unverified row has a non-string analyzed_rev"
+    if data["gate_active"] and not _nonempty(data.get("revision")):
+        return None, "revision missing (the list is only valid at the revision it was derived for)"
+    return data, ""
+
+
+def _git(repo: Path, *args: str) -> Optional["subprocess.CompletedProcess[bytes]"]:
+    try:
+        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, timeout=20, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def binding_problem(repo: Path, data: Dict[str, Any], env: Optional[Dict[str, str]] = None) -> Optional[str]:
+    """Why a gated list does not describe this checkout, or None: the game must match ORCH_GAME_ID (when
+    set) and `revision` must be a commit that is the checkout HEAD or one of its ancestors."""
+    env = os.environ if env is None else env
+    game = (env.get("ORCH_GAME_ID") or "").strip()
+    if game and game != data["game_id"]:
+        return f"the list is for game {data['game_id']}, this checkout is {game}"
+    revision = data["revision"]
+    if revision.startswith("-"):
+        return f"revision {revision!r} is not a commit"
+    result = _git(repo, "merge-base", "--is-ancestor", revision, "HEAD")
+    if result is None or result.returncode != 0:
+        return f"revision {revision} is not the checkout HEAD or an ancestor of it (or git is unavailable)"
+    return None
+
+
+def confirmed_gate(env: Optional[Dict[str, str]] = None) -> Optional[str]:
+    """The game's gate mode when it is actually known (ORCH_STEERING_GATE, else game.json in ORCH_GAME_DIR), else None."""
+    env = os.environ if env is None else env
+    explicit = (env.get("ORCH_STEERING_GATE") or "").strip()
+    if explicit in GATE_MODES:
+        return explicit
+    game_dir = (env.get("ORCH_GAME_DIR") or "").strip()
+    if not game_dir:
+        return None
+    try:
+        data = json.loads((Path(game_dir) / "game.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    matching = data.get("matching") if isinstance(data.get("matching"), dict) else {}
+    mode = matching.get("steeringGate", "off")  # the registry default
+    return mode if mode in GATE_MODES else None
+
+
+def load_certification(repo: Optional[Path] = None, path: Optional[Path] = None) -> Certification:
+    """--unverified-json, else $ORCH_UNVERIFIED_MATCHES_JSON, else the checkout default; never certifies on doubt."""
+    head = _git_head(Path(repo) / ".git") if repo is not None else None
+
+    def unknown(why: str, source: Optional[Path] = None) -> Certification:
+        return Certification("unknown", str(source) if source else None, None, [], UNKNOWN_NOTE.format(why=why),
+                             fallback_revision=head)
+
+    env = os.environ.get(UNVERIFIED_ENV)
+    explicit = Path(path) if path is not None else (Path(env) if env else None)
+    candidate = explicit if explicit is not None else (Path(repo) / UNVERIFIED_DEFAULT if repo is not None else None)
+    if candidate is not None and not candidate.is_absolute() and repo is not None:
+        candidate = Path(repo) / candidate
+    if candidate is None or not candidate.is_file():
+        if explicit is not None:
+            return unknown(f"certification file not found: {candidate}", candidate)
+        gate = confirmed_gate()
+        if gate == "off":
+            return Certification("ungated", None, None, [], "the steering gate is off for this game: siblings are `ungated`",
+                                 fallback_revision=head)
+        return unknown("no certification file (--unverified-json, $ORCH_UNVERIFIED_MATCHES_JSON, "
+                       f"{UNVERIFIED_DEFAULT}) and the steering gate is {gate or 'not known to be off'}")
+    try:
+        data = json.loads(candidate.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return unknown(f"certification file {candidate} is unreadable ({error})", candidate)
+    valid, why = _validated(data)
+    if valid is None:
+        return unknown(f"certification file {candidate} is malformed: {why}", candidate)
+    if not valid["gate_active"]:
+        return Certification("ungated", str(candidate), valid.get("revision") if _nonempty(valid.get("revision")) else None, [],
+                             "the steering gate is off for this game: siblings are `ungated`", fallback_revision=head)
+    if repo is not None:
+        problem = binding_problem(Path(repo), valid)
+        if problem:
+            return unknown(f"certification file {candidate} does not describe this checkout: {problem}", candidate)
+    return Certification("gated", str(candidate), valid["revision"], valid["unverified"], fallback_revision=head)
+
+
+def sibling_matched(row: Dict[str, Any]) -> bool:
+    """Evidence only at 100% with a certification that admits it (certified, or a confirmed ungated game)."""
+    percent = row.get("match_percent")
+    return isinstance(percent, (int, float)) and percent >= 100.0 and row.get("certification") in EVIDENCE_CERTIFICATIONS
+
+
+# --------------------------------------------------------------------------
 # usage: source callers that already match
 # --------------------------------------------------------------------------
 
@@ -936,8 +1163,13 @@ def usage(
     unit: Optional[str] = None,
     min_percent: float = 100.0,
     limit: int = 50,
+    certification: Optional[Certification] = None,
 ) -> List[Dict[str, Any]]:
-    """Report-matched functions whose source body calls `inline_name`."""
+    """Report-matched functions whose source body calls `inline_name`.
+
+    Every row carries `certification`, `revision` and `matched`
+    (`sibling_matched`); `certification` defaults to `load_certification(repo)`.
+    """
     repo = Path(repo)
     owner, member = _inline_query(inline_name)
     if not member:
@@ -954,6 +1186,8 @@ def usage(
         call_re = re.compile(rf"(?:\.|->|::|\b){re.escape(member)}\s*(?:<[^;{{}}()]*>)?\s*\(")
     if call_re is None:
         raise EvidenceUnavailable("usage cannot text-search operator calls; search for a named member")
+    if certification is None:
+        certification = load_certification(repo)
     unit_filter = None
     if unit:
         try:
@@ -999,17 +1233,26 @@ def usage(
                 if percent < min_percent:
                     continue
                 readable, _ = demangle(mangled)
-                results.append({
+                status, revision = certification.classify(name, mangled)
+                if status == "certified" and not certification.source_at_revision(repo, source.as_posix()):
+                    # The certificate is for the file at `revision`; an edit since then is unproven.
+                    status = "unknown"
+
+                row = {
                     "function": readable,
                     "mangled": mangled,
                     "unit": name,
                     "match_percent": percent,
+                    "certification": status,
+                    "revision": revision,
                     "file": source.as_posix(),
                     "line": line,
                     "call": text.splitlines()[line - 1].strip()[:200],
                     "owner_mentioned": bool(owner and owner in text[open_index:close + 1]),
-                })
-    results.sort(key=lambda r: (not r["owner_mentioned"], -r["match_percent"]))
+                }
+                row["matched"] = sibling_matched(row)
+                results.append(row)
+    results.sort(key=lambda r: (not r["matched"], not r["owner_mentioned"], -r["match_percent"]))
     return results[:limit]
 
 
@@ -1018,7 +1261,18 @@ def usage(
 # --------------------------------------------------------------------------
 
 
+REFS_ROOT_ENV = "ORCH_JSYSTEM_REFS_ROOT"
+# Baked into the worker sandbox image (sandbox-image/Dockerfile).
+SANDBOX_REFS_ROOT = Path("/opt/refs/jsystem")
+
+
 def default_refs_root() -> Optional[Path]:
+    """$ORCH_JSYSTEM_REFS_ROOT, else the sandbox image's /opt/refs/jsystem when present, else $ORCH_GAME_STATE_DIR/refs/jsystem."""
+    explicit = os.environ.get(REFS_ROOT_ENV)
+    if explicit:
+        return Path(explicit)
+    if SANDBOX_REFS_ROOT.is_dir():
+        return SANDBOX_REFS_ROOT
     state = os.environ.get("ORCH_GAME_STATE_DIR")
     return Path(state) / "refs" / "jsystem" if state else None
 
@@ -1156,11 +1410,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--inline", dest="inline_name", required=True)
     p.add_argument("--unit")
     p.add_argument("--min-percent", type=float, default=100.0)
+    p.add_argument("--unverified-json", type=Path,
+                   help=f"Unverified-match list ({UNVERIFIED_SCHEMA}; default ${UNVERIFIED_ENV}, then {UNVERIFIED_DEFAULT}).")
     p = sub.add_parser("jsystem", parents=[common])
     p.add_argument("--query", required=True)
     p.add_argument("--game", choices=("tp", "tww", "all"), default="all")
     p.add_argument("--refs-root", type=Path)
     p.add_argument("--context", type=int, default=2)
+    p = sub.add_parser("compiler", parents=[common])
+    p.add_argument("--query", required=True)
+    p.add_argument("--path", help="File name (Coloring.c), directory prefix (src/backend) or glob under the source root.")
+    p.add_argument("--compiler-root", type=Path, help="Compiler source root (default: see compiler_ref.py).")
+    p.add_argument("--context", type=int, default=0)
     return parser
 
 
@@ -1174,6 +1435,14 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     command = args.command
     if command == "jsystem":
         result = jsystem(args.query, args.game, _bounded(args.limit, 20), args.refs_root, max(0, min(10, args.context)))
+        return {"status": "ok" if result["available"] else "unavailable", "command": command, **result}
+    if command == "compiler":
+        # The checkout is optional here: it only adds <checkout>/../mwcc as a root.
+        checkout = args.repo or default_repo()
+        result = compiler_ref.search(
+            args.query, root=args.compiler_root, repo=Path(checkout) if checkout else None, path=args.path,
+            limit=_bounded(args.limit, 20, 100), context=max(0, min(8, args.context)),
+        )
         return {"status": "ok" if result["available"] else "unavailable", "command": command, **result}
     repo = args.repo or default_repo()
     if repo is None:
@@ -1196,14 +1465,22 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         return {"status": "ok", **base, "type": args.type_name, "member": args.member, "results": rows, "count": len(rows),
                 **({} if rows else {"note": "no inline definitions found in include/ or libs/*/include/"})}
     elif command == "usage":
+        certification = load_certification(repo, args.unverified_json)
         try:
-            rows = usage(repo, args.inline_name, args.unit, args.min_percent, 100000)
+            rows = usage(repo, args.inline_name, args.unit, args.min_percent, 100000, certification)
         except EvidenceUnavailable as error:
             return {"status": "unavailable", **base, "reason": str(error)}
-        shown = rows[:_bounded(args.limit, 30)]
+        limit = _bounded(args.limit, 30)
+        matched = [r for r in rows if r["matched"]]
+        hypotheses = [r for r in rows if not r["matched"]]
+        shown = matched[:limit]
         return {"status": "ok", **base, "inline": args.inline_name, "min_percent": args.min_percent, "results": shown,
-                "count": len(shown), "total": len(rows),
-                "note": "Text match on the member name inside matched functions; overloads and same-named members of other types are not distinguished."}
+                "count": len(shown), "total": len(matched),
+                "hypotheses": hypotheses[:limit], "hypotheses_total": len(hypotheses),
+                "certification": certification.summary(),
+                "note": "Text match on the member name inside matched functions; overloads and same-named members of other types are not distinguished. "
+                        "`results` are matched siblings (100%, certified or on a game without the gate); `hypotheses` are below 100%, "
+                        "unverified or of unknown certification and prove nothing about the original code."}
     else:  # pragma: no cover - argparse restricts commands
         raise ValueError(command)
     if not result.get("available", True):

@@ -141,3 +141,58 @@ def test_committed_sms_rulings_reach_the_probe(monkeypatch) -> None:
     p = sd.build_probe(FUNCTION, [group("g1", "removable", ["accessor_swap"])], None, prefetch=False)
     assert [r["pr"] for r in p["rulings"]] == ["330"]
     assert "fakematch" in p["rulings"][0]["quote"]
+
+
+def test_sibling_certification_survives_fit(monkeypatch) -> None:
+    """A mixed certified/unverified usage result keeps the distinction after the 3 KB cap."""
+    import evidence_search
+
+    siblings = [
+        {"function": f"TCertified{i}::run()", "match_percent": 100.0, "certification": "certified", "revision": "c" * 40}
+        for i in range(4)
+    ] + [
+        {"function": f"TUnverified{i}::run()", "match_percent": 100.0, "certification": "unverified", "revision": "u" * 40}
+        for i in range(4)
+    ] + [{"function": "TUngated::run()", "match_percent": 100.0, "certification": "ungated", "revision": None}]
+    monkeypatch.setattr(evidence_search, "map_calls", lambda *a, **k: {"callees": []})
+    monkeypatch.setattr(evidence_search, "map_unit", lambda *a, **k: {"functions": []})
+    monkeypatch.setattr(evidence_search, "inlines", lambda *a, **k: [])
+    monkeypatch.setattr(evidence_search, "usage", lambda repo, member: siblings)
+    monkeypatch.setattr(evidence_search, "jsystem", lambda q, limit=20: {"hits": []})
+    long = "x" * 600
+    # Big enough that fit() caps the evidence lists, not so big that it drops evidence entirely.
+    groups = [group(f"g{i}", "removable", ["accessor_swap"], new_calls=["getX"], delta_lines=(long,), cand=(long,))
+              for i in range(6)]
+    p = sd.build_probe(FUNCTION, groups, None, evidence_repo=Path("/repo"))
+    assert len(json.dumps(p, separators=(",", ":"))) <= sd.PROBE_LIMIT
+    ev = p["evidence"]
+    assert ev["sibling_uses"] and ev["sibling_hypotheses"], ev
+    assert len(ev["sibling_uses"]) < 5  # capped
+    assert {s["certification"] for s in ev["sibling_uses"]} <= {"certified", "ungated"}
+    assert {s["certification"] for s in ev["sibling_hypotheses"]} == {"unverified"}
+    assert all(s["revision"] == "c" * 12 for s in ev["sibling_uses"] if s["certification"] == "certified")
+    assert all(s["function"].startswith("TUnverified") for s in ev["sibling_hypotheses"])
+
+
+def test_truncated_probe_keeps_the_mangled_symbol() -> None:
+    long = "x" * 4000
+    huge = dict(FUNCTION, match={"base": 1.0, "candidate": 2.0, "real_only": 1.0, "pad": long})
+    p = sd.build_probe(huge, [], None, prefetch=False)
+    assert p["truncated"] is True and p["symbol"] == FUNCTION["name"]
+
+
+def test_unknown_or_missing_certification_is_never_sibling_evidence(monkeypatch) -> None:
+    import evidence_search
+
+    rows = [{"function": "TUnknown::run()", "match_percent": 100.0, "certification": "unknown", "revision": None},
+            {"function": "TLegacy::run()", "match_percent": 100.0},  # no certification field at all
+            {"function": "TCertified::run()", "match_percent": 100.0, "certification": "certified", "revision": "r"}]
+    for name in ("map_calls", "map_unit"):
+        monkeypatch.setattr(evidence_search, name, lambda *a, **k: {})
+    monkeypatch.setattr(evidence_search, "inlines", lambda *a, **k: [])
+    monkeypatch.setattr(evidence_search, "usage", lambda repo, member: rows)
+    monkeypatch.setattr(evidence_search, "jsystem", lambda q, limit=20: {"hits": []})
+    ev = sd.prefetch_evidence(Path("/repo"), "s", "u", "T", "run")
+    assert [s["function"] for s in ev["sibling_uses"]] == ["TCertified::run()"]
+    assert [(s["function"], s["certification"]) for s in ev["sibling_hypotheses"]] == [
+        ("TUnknown::run()", "unknown"), ("TLegacy::run()", "unknown")]

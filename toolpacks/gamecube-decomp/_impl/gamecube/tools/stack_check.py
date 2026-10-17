@@ -73,6 +73,7 @@ if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
 import agent_comments  # noqa: E402
+import bounded_run  # noqa: E402
 import game_policy  # noqa: E402
 import stack_compare as sc  # noqa: E402
 
@@ -359,6 +360,88 @@ class CompileResult:
     ok: bool
     obj: Optional[Path]
     error: str = ""
+    # compile_in(depfile=True): every input the compile read -> sha256 (root-relative path, or
+    # `external:<abs>` outside the root), hashed before the root is reused; None with `depfile_error`.
+    deps: Optional[dict[str, str]] = None
+    depfile_error: Optional[str] = None
+
+
+DEPFILE_FLAG = "-MD"  # all includes, system ones too (the build's -MMD omits them); does not change the object
+
+
+def _depfile_path(line: str) -> Optional[str]:
+    """One depfile token (`Z:\\tmp\\...\\a.h`, `src\\x\\t.c`) as a POSIX path: absolute, or relative to `root`."""
+    token = line.strip().replace("\\", "/")
+    if not token:
+        return None
+    drive = re.match(r"^([A-Za-z]):/", token)
+    if drive:
+        if drive.group(1).lower() != "z":  # wine maps the host root at Z:; another drive is not resolvable here
+            return f"unresolved:{token}"
+        return os.path.normpath(token[2:])
+    return token if token.startswith("/") else os.path.normpath(token)
+
+
+def parse_depfile(root: Path, text: str) -> tuple[dict[str, str], list[str]]:
+    """MWCC `-MD` output -> ({dependency key: sha256}, problems). Keys are `root`-relative POSIX paths
+    (read through the root, so a shadow root's symlinked dirs resolve) or `external:<abs>`."""
+    lines = text.replace("\r", "").split("\n")
+    tokens: list[str] = []
+    for index, line in enumerate(lines):
+        body = line.rstrip()
+        if body.endswith("\\"):
+            body = body[:-1]
+        if index == 0:
+            if ": " not in body:  # the target (`Z:\...\x.o`) has a drive colon; the separator is ": "
+                return {}, ["depfile has no target line"]
+            body = body.split(": ", 1)[1]
+        tokens += [t for t in body.split() if t]
+    roots = [str(root)]
+    real = os.path.realpath(root)
+    if real not in roots:
+        roots.append(real)
+    deps: dict[str, str] = {}
+    problems: list[str] = []
+    for token in tokens:
+        path = _depfile_path(token)
+        if path is None:
+            continue
+        if path.startswith("unresolved:"):
+            problems.append(f"unresolvable dependency path {path[len('unresolved:'):]}")
+            continue
+        key, file = path, root / path
+        if path.startswith("/"):
+            rel = next((os.path.relpath(path, r) for r in roots if path == r or path.startswith(r.rstrip("/") + "/")), None)
+            key, file = (rel, root / rel) if rel is not None else (f"external:{path}", Path(path))
+        if key in deps:
+            continue
+        try:
+            deps[key] = hashlib.sha256(file.read_bytes()).hexdigest()
+        except OSError as error:
+            problems.append(f"dependency {key} unreadable: {error.strerror or error}")
+    if not deps:
+        problems.append("depfile lists no inputs")
+    return deps, problems
+
+
+def _depfile_candidates(root: Path, src: str) -> list[Path]:
+    return [root / (Path(src).stem + ".d")]
+
+
+def _take_depfile(root: Path, src: str, started: float) -> tuple[Optional[dict[str, str]], Optional[str]]:
+    """Read and delete the depfile MWCC wrote into the compile's cwd (`<stem>.d`, or the one new `.d`)."""
+    path = next((p for p in _depfile_candidates(root, src) if p.is_file() and not p.is_symlink()), None)
+    if path is None:
+        fresh = [p for p in root.glob("*.d") if p.is_file() and not p.is_symlink() and p.stat().st_mtime >= started - 1]
+        path = fresh[0] if len(fresh) == 1 else None
+    if path is None:
+        return None, "depfile not written"
+    try:
+        text = path.read_text(errors="replace")
+    finally:
+        path.unlink(missing_ok=True)
+    deps, problems = parse_depfile(root, text)
+    return (deps, "; ".join(problems[:4])) if problems else (deps, None)
 
 
 def write_file(root: Path, rel: str, content: Optional[bytes]) -> None:
@@ -389,6 +472,17 @@ def make_shadow_root(repo_root: Path, root: Path) -> None:
             os.symlink(entry, root / entry.name)
 
 
+def _is_fresh_pch(root: Path, key: str, mch: Path) -> bool:
+    """Whether depfile key `key` names the fresh PCH `mch` compile_in supplied."""
+    if Path(key).name != mch.name:
+        return False
+    path = Path(key[len("external:"):]) if key.startswith("external:") else root / key
+    try:
+        return os.path.samefile(path, mch)
+    except OSError:
+        return False
+
+
 def compile_timeout() -> float:
     """Seconds one MWCC compile may take (ORCH_MWCC_COMPILE_TIMEOUT, default 300)."""
     try:
@@ -397,30 +491,83 @@ def compile_timeout() -> float:
         return 300.0
 
 
-def compile_in(repo: Repo, root: Path, unit: Unit, out: Path, timeout: Optional[float] = None) -> CompileResult:
+def compile_in(repo: Repo, root: Path, unit: Unit, out: Path, timeout: Optional[float] = None,
+               compiler: Optional[Path] = None, env: Optional[dict[str, str]] = None,
+               output_cap: Optional[int] = None,
+               file_caps: Optional[list[tuple[Path, int]]] = None,
+               depfile: bool = False) -> CompileResult:
     """The TU's exact build.ninja MWCC command, run with cwd = `root`. A compile that
-    exceeds `timeout` (default compile_timeout()) is killed and reported as failed."""
+    exceeds `timeout` (default compile_timeout()) is killed with its process group and
+    reported as failed. `compiler` replaces the stock mwcceppc.exe (the traced build),
+    `env` is merged over the environment, `output_cap` bounds captured output and
+    `file_caps` kills the compile when a watched file (a trace) outgrows its cap.
+
+    `depfile`: adds DEPFILE_FLAG and returns `deps`, the sha256 of every input this
+    compile read (generated includes and the PCH included), from the fresh depfile
+    MWCC writes into `root`, hashed before the root is reused and then deleted. A
+    checkout depfile or `.ninja_deps` is never read.
+
+    A TU that reads a generated precompiled header (`-prefix SMS.mch`) gets one
+    built from `root`'s own sources (ninja_compile.fresh_pch_flags), so header
+    edits inside the PCH count and a stale build-tree PCH is never used; with
+    `depfile` the PCH's inputs replace the cached .mch in `deps`."""
     edge = repo.edges[unit.obj]
     cmd = [repo.runner]
     if "sjis" in edge.rule:
         cmd.append(str(repo.root / "build/tools/sjiswrap.exe"))
-    cmd.append(str(repo.root / "build/compilers" / edge.mw_version / "mwcceppc.exe"))
-    cmd += shlex.split(edge.cflags) + ["-c", edge.src, "-o", str(out)]
+    cmd.append(str(compiler or repo.root / "build/compilers" / edge.mw_version / "mwcceppc.exe"))
     limit = timeout if timeout is not None else compile_timeout()
-    try:
-        result = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, errors="replace",
-                                stdin=subprocess.DEVNULL, timeout=limit)
-    except subprocess.TimeoutExpired:
+    clock = time.monotonic()
+    flags = shlex.split(edge.cflags)
+    pch = None
+    nc = getattr(repo, "nc", None)
+    if "-prefix" in flags and nc is not None and hasattr(nc, "fresh_pch_flags"):
+        pch = nc.fresh_pch_flags(flags, root=root, compiler_override=compiler, timeout=limit,
+                                 output_cap=output_cap or bounded_run.DEFAULT_OUTPUT_CAP)
+        if pch.error is not None:
+            out.unlink(missing_ok=True)
+            return CompileResult(False, None, truncate(pch.error))
+        flags = pch.flags
+        limit = limit - (time.monotonic() - clock)
+        if limit <= 0:
+            out.unlink(missing_ok=True)
+            return CompileResult(False, None, f"MWCC compile of {unit.source} timed out building its precompiled header")
+    cmd += flags + ([DEPFILE_FLAG] if depfile else []) + ["-c", edge.src, "-o", str(out)]
+    if depfile:
+        for stale in _depfile_candidates(root, edge.src):
+            if stale.is_file() and not stale.is_symlink():
+                stale.unlink()
+    started = time.time()
+    clock = time.monotonic()
+    result = bounded_run.run_bounded(cmd, cwd=root, env=env, timeout=limit,
+                                     output_cap=output_cap or bounded_run.DEFAULT_OUTPUT_CAP, file_caps=file_caps)
+    if depfile:
+        deps, depfile_error = _take_depfile(root, edge.src, started)
+        if deps is not None and pch is not None and pch.mch is not None:
+            # The cached .mch is an artifact of these inputs; record them instead.
+            deps = {k: v for k, v in deps.items() if not _is_fresh_pch(root, k, pch.mch)}
+            deps.update(pch.deps)
+    else:
+        deps, depfile_error = None, None
+    if result.timed_out:
         out.unlink(missing_ok=True)
         return CompileResult(False, None, f"MWCC compile of {unit.source} timed out after {limit:g}s (killed)")
+    if result.limit_exceeded:
+        out.unlink(missing_ok=True)
+        return CompileResult(False, None, f"MWCC compile of {unit.source} killed: {result.limit_exceeded}")
     if result.returncode != 0 or not out.is_file():
         out.unlink(missing_ok=True)
         return CompileResult(False, None, truncate((result.stdout or "") + "\n" + (result.stderr or "")))
     if "extab" in edge.rule:
         dtk = repo.root / "build/tools/dtk"
-        if not repo.nc._run_extab_clean(out, dtk, edge.extab_padding or "", quiet=True):
+        # The cleaner shares the compile's deadline and output cap.
+        left = limit - (time.monotonic() - clock)
+        if not repo.nc._run_extab_clean(out, dtk, edge.extab_padding or "", quiet=True, timeout=left,
+                                        output_cap=output_cap or bounded_run.DEFAULT_OUTPUT_CAP):
             out.unlink(missing_ok=True)
-            return CompileResult(False, None, "dtk extab clean failed")
+            return CompileResult(False, None, f"dtk extab clean failed or exceeded the {limit:g}s compile deadline")
+    if depfile:
+        return CompileResult(True, out, deps=deps if depfile_error is None else None, depfile_error=depfile_error)
     return CompileResult(True, out)
 
 

@@ -140,7 +140,8 @@ def resolve(type_str: str, typedefs: dict[str, str], depth: int = 0) -> tuple[st
     if type_name in _BUILTIN:
         kind, size = _BUILTIN[type_name]
         return (kind, size, count)
-    if type_name.startswith(("struct ", "union ")):
+    # "class " appears only in C++ dumps (SMS); C dumps (Melee) never contain it.
+    if type_name.startswith(("struct ", "union ", "class ")):
         return (f"rec:{type_name}", 0, count)
     if type_name in typedefs:
         kind, size, nested_count = resolve(typedefs[type_name], typedefs, depth + 1)
@@ -184,17 +185,133 @@ def pad_fraction(rec: Record, typedefs: dict[str, str]) -> float:
     return padding / rec.size
 
 
-def make_dump(ctx: Path, clang: str = "clang") -> str:
-    result = subprocess.run(
-        [clang, "-target", "powerpc-unknown-eabi", "-std=gnu99", "-fsyntax-only",
-         "-Wno-everything", "-Xclang", "-fdump-record-layouts-complete", str(ctx)],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"clang failed with exit code {result.returncode}: {result.stderr[:500]}")
-    if not result.stdout.strip():
-        raise RuntimeError(f"clang produced no layouts: {result.stderr[:500]}")
-    return result.stdout
+MWCC_CXX_PRELUDE = Path(__file__).resolve().parent / "mwcc_prelude.hpp"
+DUMP_LANGS = ("c", "c++")
+# clang lays C++ classes out by the Itanium ABI; MWCC does not reuse a non-POD
+# base's tail padding and places a secondary base's vtable pointer differently,
+# so a polymorphic class with members after such a base can be offset by a few
+# bytes. Plain structs and single-vptr classes match (TVec3, Quaternion, JKRHeap).
+CXX_ABI_NOTE = ("C++ layouts follow clang's Itanium ABI; MWCC differs after a non-POD base "
+                "(no tail-padding reuse, secondary vtable pointers), so offsets in polymorphic "
+                "classes past such a base can be off by a few bytes. Check against the header's offset comments.")
+_MAX_DUMP_ERRORS = 5
+
+
+def dump_command(ctx: Path, clang: str = "clang", lang: str = "c") -> list[str]:
+    """The clang record-layout dump command. C (Melee) is the vendored command,
+    unchanged; C++ (SMS) parses the ctx as GNU C++11 (decomp sources use
+    nullptr) with MWCC's __declspec and the intrinsic prelude."""
+    if lang == "c":
+        return [clang, "-target", "powerpc-unknown-eabi", "-std=gnu99", "-fsyntax-only",
+                "-Wno-everything", "-Xclang", "-fdump-record-layouts-complete", str(ctx)]
+    if lang == "c++":
+        return [clang, "-target", "powerpc-unknown-eabi", "-x", "c++", "-std=gnu++11", "-fdeclspec",
+                "-fsyntax-only", "-Wno-everything", "-ferror-limit=0", "-include", str(MWCC_CXX_PRELUDE),
+                "-Xclang", "-fdump-record-layouts-complete", str(ctx)]
+    raise ValueError(f"unsupported dump language: {lang}")
+
+
+_BASE_SUFFIX = re.compile(r"\s+\((primary base|virtual base|base)\)$")
+_VPTR = re.compile(r"^\(.* vtable pointer\)$")
+
+
+def _record_for_type(index: dict[str, Any], type_str: str) -> str | None:
+    """The indexed record a field or base type names (by value), or None."""
+    name = _BASE_SUFFIX.sub("", type_str.replace("const ", "").strip())
+    if name.endswith("*") or "(*)" in name or "&" in name:
+        return None
+    name = re.sub(r"(\[\d*\])+$", "", name).strip()
+    records = index["records"]
+    for candidate in (name, f"struct {name}", f"class {name}", f"union {name}"):
+        if candidate in records:
+            return candidate
+    target = index.get("typedefs", {}).get(name)
+    return target if target in records else None
+
+
+def mark_abi_uncertainty(index: dict[str, Any]) -> None:
+    """For a C++ index: flag every record whose layout can differ from MWCC's.
+
+    clang lays C++ out by the Itanium ABI. MWCC differs when a class reuses a
+    non-POD base's tail padding, has a virtual base or a polymorphic secondary
+    base (secondary vtable pointers), or adds a vtable pointer over a
+    non-polymorphic base; several plain (non-polymorphic) bases lay out the
+    same under both. A
+    record holding such a record by value (as a member or a base) inherits the
+    doubt. Sets `abi_uncertain`, `abi_reason` and `abi_divergence_offset`
+    (bytes; offsets at or past it are unreliable) on each affected record.
+    """
+    records = index["records"]
+    polymorphic = {name for name, record in records.items() if any(_VPTR.match(field[2]) for field in record["fields"])}
+    own: dict[str, tuple[int, str]] = {}
+    contains: dict[str, list[tuple[int, str]]] = {}
+    for name, record in records.items():
+        direct = [field for field in record["fields"] if field[1] == 1]
+        bases = [(field[0] // 8, field[2]) for field in direct if _BASE_SUFFIX.search(field[2])]
+        members = [(field[0] // 8, field[2]) for field in direct if not _BASE_SUFFIX.search(field[2]) and not _VPTR.match(field[2])]
+        reasons: list[tuple[int, str]] = []
+        if any("(virtual base)" in base for _, base in bases):
+            reasons.append((0, "virtual base"))
+        for offset, base in bases[1:]:
+            if _record_for_type(index, base) in polymorphic:
+                reasons.append((offset, f"polymorphic secondary base {_BASE_SUFFIX.sub('', base)} (vtable pointer placement)"))
+        if bases and any(_VPTR.match(field[2]) for field in direct):
+            reasons.append((0, "vtable pointer added over a non-polymorphic base"))
+        for offset, base in bases:
+            base_record = _record_for_type(index, base)
+            end = offset + records[base_record]["size"] if base_record else offset
+            reused = sorted(member for member, _ in members if offset <= member < end)
+            if reused:
+                reasons.append((reused[0], f"tail padding of base {_BASE_SUFFIX.sub('', base)} reused"))
+        if reasons:
+            own[name] = min(reasons)
+        contains[name] = [
+            (field[0] // 8, child)
+            for field in direct
+            if (child := _record_for_type(index, field[2])) is not None and child != name
+        ]
+    # Containment by value (members and bases) propagates the doubt, transitively:
+    # the container diverges where the contained record does.
+    uncertain = dict(own)
+    changed = True
+    while changed:
+        changed = False
+        for name in sorted(records):
+            for offset, child in contains[name]:
+                if child not in uncertain:
+                    continue
+                at = offset + uncertain[child][0]
+                if name not in uncertain or at < uncertain[name][0]:
+                    uncertain[name] = (at, f"contains {child}, whose layout is uncertain")
+                    changed = True
+    for name, (offset, reason) in uncertain.items():
+        records[name]["abi_uncertain"] = True
+        records[name]["abi_reason"] = reason
+        records[name]["abi_divergence_offset"] = offset
+
+
+def make_dump_result(ctx: Path, clang: str = "clang", lang: str = "c") -> tuple[str, dict[str, Any]]:
+    """Run the dump; keep every emitted layout even when clang reports errors
+    (MWCC-only constructs in function bodies), failing only when none came out.
+    Returns the dump text and its diagnostics (exit code, error count, the
+    first errors), which are deterministic for a given ctx and clang."""
+    result = subprocess.run(dump_command(ctx, clang, lang), capture_output=True, text=True)
+    if "Dumping AST Record Layout" not in result.stdout:
+        raise RuntimeError(f"clang produced no layouts (exit code {result.returncode}): {result.stderr[:500]}")
+    errors = [line.strip() for line in result.stderr.splitlines() if ": error: " in line or line.startswith("error: ")]
+    diagnostics: dict[str, Any] = {
+        "lang": lang,
+        "exit_code": result.returncode,
+        "error_count": len(errors),
+        "errors": errors[:_MAX_DUMP_ERRORS],
+    }
+    if lang == "c++":
+        diagnostics["abi_note"] = CXX_ABI_NOTE
+    return result.stdout, diagnostics
+
+
+def make_dump(ctx: Path, clang: str = "clang", lang: str = "c") -> str:
+    return make_dump_result(ctx, clang, lang)[0]
 
 
 def resolve_anon_aliases(records: dict[str, Record], typedefs: dict[str, str]) -> dict[str, str]:
@@ -265,7 +382,7 @@ def prefix_pairs(index: dict[str, Any], min_leaves: int = 4) -> list[tuple[str, 
 
 def find_record(index: dict[str, Any], name: str) -> str:
     records = index["records"]
-    for candidate in (name, f"struct {name}", f"union {name}"):
+    for candidate in (name, f"struct {name}", f"union {name}", f"class {name}"):
         if candidate in records:
             return candidate
     typedef = index.get("typedefs", {}).get(name)

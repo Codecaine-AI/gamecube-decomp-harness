@@ -273,18 +273,19 @@ def test_evidence_review_and_approval(monkeypatch) -> None:
     base = fn(["v = foo->mX NEUTRAL;"])
     cand = fn(["v = foo->getX() NEUTRAL ACCESSOR;"])
     m = manifest({"src/a.c": (base, cand)})
-    red = reduce(m, evidence_repo=Path("/nonexistent"))
+    red = reduce(m, evidence_repo=Path("/nonexistent"), game="sms")
     g = red["groups"][0]
     assert g["status"] == "unresolved" and g["evidence"]["kind"] == "evidence_review"
-    approvals = [{"symbol": "getX__4TFooFv", "function": "f", "provenance": "TP source", "approved_by": "human"}]
-    red = reduce(m, evidence_repo=Path("/nonexistent"), approvals=approvals)
+    approvals = [site_approval(g)]
+    red = reduce(m, evidence_repo=Path("/nonexistent"), approvals=approvals, game="sms")
     assert red["groups"][0]["status"] == "real" and red["groups"][0]["evidence"]["kind"] == "approved"
     red = reduce(m)  # no evidence repo: plain steering
     assert red["groups"][0]["status"] == "removable"
-    # the approval is bound to symbol AND function
-    for bad in ({"symbol": "getX__4TFooFv", "function": "other"}, {"symbol": "getX__4TFooFv"},
-                {"symbol": "getY__4TFooFv", "function": "f"}):
-        red = reduce(m, evidence_repo=Path("/nonexistent"), approvals=[bad])
+    # legacy rows (symbol + function) and rows missing any site field never certify
+    for bad in ({"symbol": "getX__4TFooFv", "function": "f", "approved_by": "human"},
+                {**approvals[0], "symbol": "getY__4TFooFv"}, {**approvals[0], "target": "other__Fv"},
+                {k: v for k, v in approvals[0].items() if k != "base_rev"}):
+        red = reduce(m, evidence_repo=Path("/nonexistent"), approvals=[bad], game="sms")
         assert red["groups"][0]["status"] == "unresolved", bad
 
 
@@ -296,8 +297,9 @@ def test_approval_never_covers_a_mixed_group(monkeypatch) -> None:
         "functions": [{"name": "TFoo::getX(void)", "mangled": "getX__4TFooFv", "kind": "weak"}]})
     base = fn(["use(foo->mX) NEUTRAL;"])
     cand = fn(["int t = foo->getX() NEUTRAL ACCESSOR STEER;", "use(t) NEUTRAL;"])
-    approvals = [{"symbol": "getX__4TFooFv", "function": "f", "provenance": "TP", "approved_by": "human"}]
-    red = reduce(manifest({"src/a.c": (base, cand)}), evidence_repo=Path("/nonexistent"), approvals=approvals)
+    m = manifest({"src/a.c": (base, cand)})
+    approvals = [site_approval(reduce(m, evidence_repo=Path("/nonexistent"), game="sms")["groups"][0])]
+    red = reduce(m, evidence_repo=Path("/nonexistent"), approvals=approvals, game="sms")
     g = red["groups"][0]
     assert len(red["groups"]) == 1 and g["status"] == "unresolved"
     assert g["evidence"]["kind"] == "approved_mixed" and "temp_alias" in g["reason"]
@@ -341,6 +343,15 @@ def mw_doc(functions: list[dict], policy: str = "stop_at_frame", **kw) -> dict:
     coverage = kw.pop("coverage", [{"unit": "u1", "built": FULL, "compared": True}])
     return {"edits_hash": "h", "stack_frame_policy": policy, "functions": functions, "coverage": coverage,
             "errors": kw.pop("errors", []), **kw}
+
+
+def site_approval(g: dict, target: str = "f__Fv") -> dict:
+    """The site-bound approval an operator writes for evidence-review group `g` (steering_approvals)."""
+    site = g["evidence"]["site"]
+    return {"schema": "steering-approval-v2", "game": site["game"], "unit": site["units"][0], "target": target,
+            "base_rev": site["base_rev"], "site_file": site["file"], "site_lines": site["lines"],
+            "group_digest": site["digest"], "callee": g["evidence"]["callee"], "symbol": g["evidence"]["symbol"],
+            "approved_by": "human", "provenance": "TP source"}
 
 
 def decide(groups, functions, **kw):
@@ -908,10 +919,13 @@ def test_default_group_cap_is_generous() -> None:
 
 def test_approval_symbol_must_match_exactly() -> None:
     # map says the introduced callee is TBar::getX (getX__4TBarFv)
+    site = {"game": "sms", "units": ["u1"], "functions": ["f"], "base_rev": "rev", "file": "src/a.c", "lines": [3, 3],
+            "digest": "d", "callee": "getX", "symbol": "getX__4TBarFv"}
+    base = {"game": "sms", "unit": "u1", "target": "f__Fv", "base_rev": "rev", "site_file": "src/a.c",
+            "site_lines": [3, 3], "group_digest": "d", "callee": "getX", "approved_by": "human"}
     for sym, ok in (("getX__4TBarFv", True), ("TBar::getX", True), ("TFoo::getX", False), ("getX", False),
                     ("getX__4TFooFv", False), ("Outer::TBar::getX", False)):
-        row = {"symbol": sym, "function": "f", "approved_by": "human"}
-        assert (sc._find_approval([row], "getX", "getX__4TBarFv", ["f"]) is not None) == ok, sym
+        assert (sc._find_approval([{**base, "symbol": sym}], site) is not None) == ok, sym
 
 
 
