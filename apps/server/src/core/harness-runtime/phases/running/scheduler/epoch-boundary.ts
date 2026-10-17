@@ -27,6 +27,9 @@ import { mergedPullRequestNumbers } from "@server/core/harness-runtime/phases/sy
 import { runBoundarySync as runBoundarySyncDefault, type BoundarySyncResult } from "@server/core/harness-runtime/phases/running/epochs/boundary-sync.js";
 import { recordBoundaryRecovery, reportRecoveryTargets } from "../epochs/boundary-recovery.js";
 import { runMasterBreakageGate as runMasterBreakageGateDefault, type MasterBreakageGateResult } from "@server/core/harness-runtime/phases/running/epochs/breakage-gate.js";
+import { judgeMasterBreakageGate } from "@server/core/harness-runtime/phases/running/epochs/certified-regression.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
+import { gitRevAncestry } from "@server/core/validation/steering/unverified-certification.js";
 import { reconcilePendingIntegrationAttempt as reconcilePendingIntegrationAttemptDefault } from "@server/core/harness-state";
 import {
   runEpochSettlement as runEpochSettlementDefault,
@@ -70,6 +73,8 @@ import {
   refreshReadinessArtifact as refreshReadinessArtifactDefault,
 } from "./tick.js";
 import type { GlobalArgs, SyncMergePolicy, WriteSetIntegrationFlags } from "@server/core/game-registry/runtime-options.js";
+import { matchingSyncMergePolicy } from "@server/core/game-registry/resolver.js";
+import { syncCertificationReader } from "@server/core/harness-runtime/phases/running/epochs/sync-certification.js";
 
 export type KnowledgeProgressReporter = (
   store: StateStore,
@@ -361,6 +366,9 @@ async function productionBoundarySync(
     })),
     buildFixerEnabled: params.config.boundaryBuildFixerEnabled,
     mergePolicy: params.config.syncMergePolicy ?? "score",
+    // The certified conflict rule needs gate evidence: without an active steering gate the score rule stays.
+    conflictRule: steeringGateActive(params.globals.game?.matching?.steeringGate) ? matchingSyncMergePolicy(params.globals.game) : "score",
+    loadCertification: (oursRevision) => syncCertificationReader(params.store, { gameId, steeringGate: params.globals.game?.matching?.steeringGate }, params.globals.repoRoot, { oursRevision }),
     prepareMergeReport: async () => {
       await forceReportRun(params.globals.repoRoot, { ...reportRunOptionsForGame(params.globals.game), resetBaseline: false, generateChanges: false });
     },
@@ -381,6 +389,13 @@ async function productionBoundarySync(
           reason: decision.reason,
         })) ?? [],
         fallback: entry.result?.fallback ?? null,
+        certified_decisions: entry.certified?.decisions.filter((decision) => decision.reason !== "outside_conflict").map((decision) => ({
+          function: decision.function,
+          result: decision.result,
+          reason: decision.reason,
+          displaced: decision.displaced,
+          symbols: decision.symbols.map((symbol) => ({ symbol: symbol.symbol, ours: symbol.oursScore, upstream: symbol.upstreamScore, certification: symbol.certification.status })),
+        })) ?? null,
         whole_file_fallback_reason: entry.wholeFileFallbackReason,
         upstream_report_fallback_reason: entry.upstreamReportFallbackReason,
         created_by: "epoch-cycle",
@@ -490,7 +505,7 @@ async function productionBoundarySync(
         finally { knowledge.close(); }
       },
       requeueTarget: (item) => {
-        console.error(`[run-loop] boundary sync: ${item.targetKey} displaced by upstream; deferring to next-epoch admission`);
+        console.error(`[run-loop] boundary sync: ${item.targetKey} displaced by upstream${item.reason ? ` (${item.reason})` : ""}; deferring to next-epoch admission`);
       },
       rebuildKnowledgeGraph: async () => {
         await runKnowledgeGraphRebuild(params.globals, new Map([
@@ -875,6 +890,15 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             changesOutPath: resolve(globals.stateDir, `${label}-master-breakage-changes.json`),
             prSyncFallbackReportPath: latestSavePointByTrigger(store, "pr_sync")?.reportPath ?? null,
           });
+          // Steering-gated games: open-verification targets are judged against their certified baseline.
+          breakageGate = await judgeMasterBreakageGate(breakageGate, {
+            store,
+            gameId: globals.game?.gameId ?? globals.gameId,
+            steeringGateActive: steeringGateActive(globals.game?.matching?.steeringGate),
+            // The published report: the Sync merge when this attempt synced, else the settled epoch commit.
+            measuredRev: boundarySync?.headSha ?? retained.completed.commitSha,
+            isAncestor: gitRevAncestry(globals.repoRoot),
+          });
           addEvent(store, runId, "boundary_breakage_gate", "run-loop", {
             epoch: epochOrdinal, epoch_id: retained.completed.epochId, boundary_attempt: boundaryAttempt, status: breakageGate.status,
             baseline_kind: breakageGate.baselineKind, baseline_sha: breakageGate.baselineSha,
@@ -1132,6 +1156,15 @@ export async function runEpochBoundary(params: EpochBoundaryParams): Promise<Epo
             reportRelPath,
             changesOutPath: resolve(result.artifactDir, "master_breakage_changes.json"),
             prSyncFallbackReportPath: latestSavePointByTrigger(store, "pr_sync")?.reportPath ?? null,
+          });
+          // Steering-gated games: open-verification targets are judged against their certified baseline.
+          breakageGate = await judgeMasterBreakageGate(breakageGate, {
+            store,
+            gameId: globals.game?.gameId ?? globals.gameId,
+            steeringGateActive: steeringGateActive(globals.game?.matching?.steeringGate),
+            // The report the gate read: the Sync merge's when it changed source, else the epoch commit's.
+            measuredRev: boundarySync?.changed ? boundarySync.headSha : result.commitSha,
+            isAncestor: gitRevAncestry(globals.repoRoot),
           });
           addEvent(store, runId, "boundary_breakage_gate", "run-loop", {
             epoch: epochOrdinal,

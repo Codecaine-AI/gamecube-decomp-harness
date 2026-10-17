@@ -1556,7 +1556,8 @@ async function main(): Promise<void> {
   assertSmoke("dashboard kernel agents endpoint renders all migrated agents", kernelAgents.length === 5);
   assertSmoke("dashboard kernel agents endpoint has no warnings", (kernelAgentsPayload.warnings ?? []).length === 0);
   assertSmoke("dashboard kernel worker catalog entry exists", Boolean(kernelWorker));
-  assertSmoke("dashboard kernel worker catalog exposes attached tools out of prompt", (kernelWorker?.tools ?? []).length === defaultWorkerToolProfile.length);
+  // The selected game's list: the static profile plus its game-gated tools (steering gate, code graph).
+  assertSmoke("dashboard kernel worker catalog exposes attached tools out of prompt", defaultWorkerToolProfile.every((toolId) => (kernelWorker?.tools ?? []).includes(toolId)));
   assertSmoke(
     "dashboard kernel worker catalog has no raw placeholders",
     !kernelWorkerJson.includes("{{"),

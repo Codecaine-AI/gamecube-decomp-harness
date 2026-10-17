@@ -264,6 +264,32 @@ def test_patch_sha256_canonical():
     assert es.patch_sha256(a) == es.patch_sha256(list(reversed(a)))
     assert es.patch_sha256(a) != es.patch_sha256([dict(a[0], after="w"), a[1]])
 
+def test_scope_inputs_bind_blobs_and_owner_sources(tmp_path: Path):
+    """Integration reuses a sandbox verdict only while these inputs are unchanged."""
+    before, after = KOOPA_CPP, KOOPA_CPP + "void TKoopa::walk() { TKuribo* k = 0; }\n"
+    hdr = "class TKuribo { int mY; };\n"
+    res = run({"src/Enemy/Koopa.cpp": (before, after),
+               "include/Enemy/Kuribo.hpp": ("class TKuribo { int mX; };\n", hdr),
+               "include/Enemy/New.hpp": (None, "class TShared { int z; };\n")})
+    inputs = res["scope_inputs"]
+    blob = lambda text: subprocess.run(["git", "hash-object", "--stdin"], input=text.encode(), capture_output=True,
+                                       check=True).stdout.decode().strip()
+    rows = {r["path"]: r for r in inputs["files"]}
+    assert list(rows) == sorted(rows)
+    assert rows["src/Enemy/Koopa.cpp"] == {"path": "src/Enemy/Koopa.cpp", "before_blob": blob(before), "after_blob": blob(after)}
+    assert rows["include/Enemy/New.hpp"]["before_blob"] is None
+    assert rows["include/Enemy/Kuribo.hpp"]["after_blob"] == blob(hdr)
+    # owners of the classes the check judged (shared classes have none)
+    assert "src/Enemy/Kuribo.cpp" in inputs["owner_sources"]
+    assert "src/Enemy/Koopa.cpp" in inputs["owner_sources"]
+    assert all(src in UNITS.values() for src in inputs["owner_sources"])
+    # non-UTF-8 bytes round-trip to the same blob id git computes
+    raw = b"// \x83\x7d\x83\x8a\x83\x49\nint x;\n"
+    text = raw.decode("utf-8", "surrogateescape")
+    assert es.git_blob_id(text) == subprocess.run(["git", "hash-object", "--stdin"], input=raw, capture_output=True,
+                                                  check=True).stdout.decode().strip()
+
+
 # --------------------------------------------------------------------------
 # Order-gated files
 # --------------------------------------------------------------------------

@@ -108,6 +108,9 @@ export async function validateHarnessSandbox(input: {
     await writeFile(resolve(evidencePath, "../sandbox-report.json"), remoteText);
     evidence.sandbox_report_sha256 = digest(remoteText);
     if (sandboxReportProjection(remoteText) !== projection) throw new Error("Sandbox report differs from accepted host build");
+    // The comparison's own result, so a consumer (the live load-test gate) need not infer it from `status`.
+    evidence.report_comparison = "projection_equal";
+    evidence.report_projection_sha256 = digest(projection);
     await verifyHost();
     await provider.delete(sandboxId, "settlement");
     emitSandboxDeletedEvent(store, { gameId, sandboxId, correlationId: operation, causationId: operation, traceId, reason: "settlement" });

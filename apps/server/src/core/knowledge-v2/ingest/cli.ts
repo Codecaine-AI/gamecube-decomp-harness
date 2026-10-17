@@ -210,7 +210,7 @@ export async function kg2Ingest(globals: GlobalArgs, args: Map<string, string | 
       else skip("wiki", paths.wikiDataRoot);
     }
     if (selected("attempts")) {
-      if (existsSync(paths.orchestratorDbPath)) results.attempts = importAttempts(store, { orchestratorDbPath: paths.orchestratorDbPath, dryRun });
+      if (existsSync(paths.orchestratorDbPath)) results.attempts = importAttempts(store, { orchestratorDbPath: paths.orchestratorDbPath, gameId, repoRoot: paths.checkoutRoot, dryRun });
       else skip("attempts", paths.orchestratorDbPath);
     }
     console.log(JSON.stringify({ lane, dryRun, results }, null, 2));

@@ -1,0 +1,191 @@
+diff --git a/src/frontend/CInline.c b/src/frontend/CInline.c
+index fa9ac96..d7c9fe0 100644
+--- a/src/frontend/CInline.c
++++ b/src/frontend/CInline.c
+@@ -52,6 +52,7 @@
+ #include "driver/CWPluginsPrivate.h"
+ #include "driver/Files.h"
+ #include <string.h>
++#include "compiler/MwccTrace.h"
+ 
+ #include "compiler/ENode.h"
+ 
+@@ -1537,6 +1538,92 @@ void fn_005129f0(ENode *expr)
+     return;
+ }
+ 
++/* (decision trace: see compiler/MwccTrace.h; the verdict repeats the checks below without acting on them) */
++static void trace_save_locals(CInlineInfo *body)
++{
++    ObjectList *list;
++    int index;
++
++    index = 0;
++    for (list = locals; list != NULL; list = list->next) {
++        if (list->object->datatype == DLOCAL)
++            MwccTrace_NoteSavedLocal(body, index++, list->object);
++    }
++}
++
++static void trace_rebuilt_locals(CInlineInfo *body)
++{
++    ObjectList *list;
++    int index;
++
++    index = 0;
++    for (list = locals; list != NULL; list = list->next)
++        MwccTrace_NoteRebuiltLocal(body, index++, list->object);
++}
++
++static SInt32 trace_statement_line;
++
++static void trace_inline_site(ENode *funcref, int statement_level, int inlined_statement)
++{
++    Object *callee;
++    CInlineInfo *info;
++    const char *verdict;
++    const char *reason;
++    int qualified;
++
++    callee = funcref->data.objref;
++    if (callee == NULL || callee->type == NULL || callee->type->type != TYPEFUNC)
++        return;
++    qualified = (callee->qual & Q_INLINE) || (TYPE_METHOD(callee->type)->flags & FUNC_IS_CTOR);
++    /* (u.func.u is inline information only for an inline function: intrinsics keep other data there) */
++    info = qualified && (callee->datatype == DFUNC || callee->datatype == DVFUNC) ? callee->u.func.u : NULL;
++    verdict = "called";
++    if (statement_level) {
++        if (inlined_statement) {
++            verdict = "inlined";
++            reason = "statement";
++        } else {
++            reason = "statement_form";
++        }
++    } else if (!can_inline(funcref)) {
++        if (!qualified)
++            reason = "not_inline";
++        else if (!(callee->datatype == DFUNC || (callee->datatype == DVFUNC && (funcref->flags & ENODE_FLAG_80))))
++            reason = "virtual_or_not_function";
++        else if (info == NULL)
++            reason = "no_body";
++        else
++            reason = "statement_count_limit";
++    } else if (info == NULL) {
++        reason = "no_body";
++    } else if (info->kind < 6) {
++        if (inline_statement_mode != 0 && inline_call_count < 16 && info->kind == 3) {
++            verdict = "inlined";
++            reason = "statement_expansion";
++        } else {
++            reason = "body_not_expression";
++        }
++    } else {
++        verdict = "inlined";
++        reason = "expression";
++    }
++    MwccTrace_Begin("inline", data_00582468, MWCC_TRACE_CLS_NONE);
++    MwccTrace_Site("site", MwccTrace_SiteFile(function_fileinfo.file), trace_statement_line);
++    MwccTrace_Str("callee", (callee->datatype == DFUNC || callee->datatype == DVFUNC) && callee->u.func.linkname != NULL
++                                ? callee->u.func.linkname->name
++                                : (callee->name != NULL ? callee->name->name : NULL));
++    MwccTrace_Name("callee_display", callee->name);
++    MwccTrace_Int("pass_index", data_00582468);
++    if (info != NULL)
++        MwccTrace_Int("stmt_count", inline_statement_count(info));
++    else
++        MwccTrace_Null("stmt_count");
++    MwccTrace_Str("verdict", verdict);
++    MwccTrace_Str("reason", reason);
++    MwccTrace_Bool("auto_inline", !(callee->qual & Q_INLINE) && qualified);
++    MwccTrace_End();
++}
++
+ ENode *inline_call_expression(ENode *expr)
+ {
+     ENode *source;
+@@ -1722,6 +1809,8 @@ ENode *inline_expression(ENode *node)
+                 for (p = node->data.funccall.args; p != NULL; p = p->next)
+                     p->node = inline_expression(p->node);
+             }
++            if (mwcc_trace_on && node->data.funccall.funcref->type == EOBJREF)
++                trace_inline_site(node->data.funccall.funcref, 0, 0);
+             if (node->data.funccall.funcref->type == EOBJREF && can_inline(node->data.funccall.funcref))
+                 node = inline_call_expression(node);
+             break;
+@@ -2184,6 +2273,8 @@ Statement *inline_statement(Statement *statement)
+     Statement *result;
+     Statement *split;
+     char changed;
++    if (mwcc_trace_on)
++        trace_statement_line = statement->sourceoffset;
+     do {
+         changed = 0;
+         if (statement->type == ST_EXPRESSION && ((ENode *)statement->expr)->type == 4 &&
+@@ -2207,6 +2298,8 @@ Statement *inline_statement(Statement *statement)
+     if (((expression = (ENode *)statement->expr)->type == 54 || expression->type == EFUNCCALLP) &&
+         ((ENode *)expression->data.diadic.left)->type == 56 && can_inline(expression->data.diadic.left) != 0) {
+         result = try_inline_statement(statement, &changed);
++        if (mwcc_trace_on && changed != 0)
++            trace_inline_site(expression->data.diadic.left, 1, 1);
+         statement = result;
+         if (changed != 0) {
+             data_00582467 = 1;
+@@ -2673,6 +2766,8 @@ void CInline_SaveInfo(CInlineInfo *out, Statement *list, Object *function)
+         data_00582462 = out->localinfo;
+         memclrw(out->localinfo, nlocals * sizeof(CInlineVar));
+         CInline_SaveVars(locals, &savedVar, 0, out->localinfo);
++        if (mwcc_trace_enabled)
++            trace_save_locals(out);
+     }
+     count = 0;
+     for (statement = list->next; statement != NULL; statement = statement->next)
+@@ -2838,6 +2933,8 @@ void CInline_ReconstructFunction(Object *function, CInlineInfo *rec, Statement *
+             obj->u.var.info->deftoken.tokenoffset = rec->tokenoffset;
+         }
+     }
++    if (mwcc_trace_enabled && rec->nlocals > 0)
++        trace_rebuilt_locals(rec);
+ 
+     fixup_list = NULL;
+     table = (CLabel **)lalloc((SInt16)rec->nstmts * sizeof(*table));
+@@ -2951,6 +3048,7 @@ void generate_inline_code(Object *object, CInlineInfo *input, char mode)
+     if (input == NULL) {
+         return;
+     }
++    MwccTrace_SetFunction(object);
+     fn_0048b2c0();
+     CScope_SetFunctionScope(object, &savedScope);
+     CFunc_FuncGenSetup(&statement, object);
+@@ -2966,6 +3064,7 @@ void generate_inline_code(Object *object, CInlineInfo *input, char mode)
+         }
+         CodeGen_Generator(&statement, object, mode, 0);
+     }
++    MwccTrace_ClearFunction();
+     CScope_RestoreScope(&savedScope);
+     copts.filesyminfo = savedFlag;
+ }
+@@ -3337,6 +3436,8 @@ void fn_0050ee60(Statement *stmt, Object *func, Boolean flag)
+ 
+     TYPE_FUNC(func->type)->flags |= FUNC_DEFINED;
+     isInline = autoInline = 0;
++    MwccTrace_NoteFunctionFile(func, function_fileinfo.file, function_tokenoffset);
++    MwccTrace_SetFunction(func);
+ 
+     if (!(func->qual & Q_INLINE)) {
+         if (copts.auto_inline && !copts.dontinline && fn_00511180(func, stmt->next) &&
+@@ -3354,6 +3455,7 @@ void fn_0050ee60(Statement *stmt, Object *func, Boolean flag)
+         CInline_SaveInfo(tmp, stmt, func);
+         func->u.func.u = tmp;
+         if (!autoInline && !(func->flags & 2)) {
++            MwccTrace_ClearFunction();
+             if (dispatching_deferred_node) {
+                 undefined_function_objects = NULL;
+                 CInline_Cleanup(stmt);
+@@ -3388,6 +3490,7 @@ void fn_0050ee60(Statement *stmt, Object *func, Boolean flag)
+         if (!anyerrors)
+             CodeGen_Generator(stmt, func, flag, 0);
+     }
++    MwccTrace_ClearFunction();
+ }
+ 
+ void make_auto_generated_method(Object *func)

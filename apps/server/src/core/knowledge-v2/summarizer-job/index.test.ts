@@ -146,6 +146,64 @@ describe("worker summary handler", () => {
     } finally { knowledge.close(); }
   });
 
+  test("live summary never credits a restoration's 100 as the match without a later gate-pass certificate", async () => {
+    const f = fixture();
+    seedWorker(f.state);
+    seedCheckpoint(f.state, "worker-1", 1, 100, JSON.stringify({ certification: { certified: true, kind: "restoration", unit: "unit", symbol: "Func", score: 100 } }));
+    seedTarget(f.knowledgeRoot);
+    const job = enqueueWorkerSummaryForWorker(f.state, "worker-1");
+    const deps = {
+      globals: f.globals,
+      openKnowledgeStore: injectedStore(f.knowledgeRoot),
+      runPiAgent: () => modelResult({ run: { summary: "restored" }, submissions: [
+        { submission_id: "run:worker-1:sub:1", approach: "restore", outcome_reasoning: "identity proof" },
+      ], notable_observations: [] }),
+    };
+    await handleWorkerSummaryJob(f.state, job, deps);
+    const knowledge = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    try {
+      expect(knowledge.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: "improvement" });
+      // A run summarized as a match before is re-judged on the next summary.
+      knowledge.db.query("UPDATE worker_run SET final_outcome = 'match'").run();
+      await handleWorkerSummaryJob(f.state, job, deps);
+      expect(knowledge.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: "improvement" });
+    } finally { knowledge.close(); }
+  });
+
+  test.each([
+    { label: "the job's game", globalsGame: "sms" as string | undefined },
+    { label: "the run's game", globalsGame: undefined },
+  ])("SMS: live summary withholds a prefixed target's 100 held under its short steering unit ($label)", async (scenario) => {
+    const f = fixture();
+    if (scenario.globalsGame) f.globals.gameId = scenario.globalsGame;
+    else delete (f.globals as { gameId?: string }).gameId;
+    f.state.db.query("UPDATE runs SET game_id = 'sms'").run();
+    seedWorker(f.state, "worker-1", "mario/Animal/AnimalBase::Func");
+    seedCheckpoint(f.state, "worker-1", 1, 100);
+    f.state.db.query("UPDATE worker_checkpoints SET hard_gates_passed = 1, validation_state = 'confirmed'").run();
+    // The gate's spelling: no `mario/` module prefix.
+    f.state.db.query(`INSERT INTO steering_unverified_matches (game_id, unit, symbol, analyzed_rev, base_rev, recorded_at)
+      VALUES ('sms', 'Animal/AnimalBase', 'Func', 'head', 'base', '2026-08-21T00:00:00Z')`).run();
+    const knowledge = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    insertEntitiesIfMissing(knowledge, [{ id: "entity:translation_unit:src/Animal/AnimalBase.cpp", kind: "translation_unit", locator: "src/Animal/AnimalBase.cpp" }]);
+    insertTargets(knowledge, [
+      { id: "target:function:mario/Animal/AnimalBase:Func", kind: "function", unit: "mario/Animal/AnimalBase", unitEntityId: "entity:translation_unit:src/Animal/AnimalBase.cpp", symbol: "Func", stableKey: "mario/Animal/AnimalBase:Func", address: "0x80000000", identityStatus: "current", reportRevision: "r1" },
+    ]);
+    knowledge.close();
+    const job = enqueueWorkerSummaryForWorker(f.state, "worker-1");
+    await handleWorkerSummaryJob(f.state, job, {
+      globals: f.globals,
+      openKnowledgeStore: injectedStore(f.knowledgeRoot),
+      runPiAgent: () => modelResult({ run: { summary: "attempt" }, submissions: [
+        { submission_id: "run:worker-1:sub:1", approach: "repair", outcome_reasoning: "measured" },
+      ], notable_observations: [] }),
+    });
+    const result = openKnowledgeStore({ knowledgeRoot: f.knowledgeRoot });
+    try {
+      expect(result.db.query("SELECT final_outcome FROM worker_run").get()).toEqual({ final_outcome: "improvement" });
+    } finally { result.close(); }
+  });
+
   test.each([
     // The checkpoint (validated 00:01) predates the rollback: its 100 is not the code the branch now holds.
     { label: "historical", rollbackAt: "2026-08-20T00:05:00.000Z", expected: "improvement" },

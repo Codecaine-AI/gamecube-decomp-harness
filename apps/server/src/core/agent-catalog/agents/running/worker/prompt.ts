@@ -12,10 +12,17 @@ import type { OrderingMode, StackFramePolicy } from "@server/core/game-registry/
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import type { PiPromptBundle } from "@server/core/shared/types";
 import { orderingActive } from "@server/core/tools/ordering.js";
-import { steeringGateActive } from "@server/core/tools/steering-gate.js";
+import { steeringGateEnforced } from "@server/core/tools/steering-gate.js";
+import { tracePointAvailabilityLines } from "./compiler-capabilities.js";
 import {
   buildWorkerKernelContext,
+  workerBaseRef,
+  workerCompilerCapabilities,
+  workerGameDisplayName,
+  workerGameId,
   workerOrdering,
+  workerPromptToolIds,
+  workerRegistries,
   workerStackFramePolicy,
   workerSteeringGate,
   type WorkerPromptOptions,
@@ -35,95 +42,274 @@ function promptFilePath(): string {
   return fileURLToPath(new URL("./prompt.ts", import.meta.url));
 }
 
-// `off` keeps today's submission text byte for byte; shadow and enforce add the
-// `kept_advisories` note field that advisory adjudication reads.
+/**
+ * Everything the function prompt varies on. `sms` is the game's steering gate
+ * enforced: §4's `[SMS]` lines render only then, `[Melee]` lines only with the
+ * gate off, and a shadow gate renders neither. Untagged lines hold for both.
+ * Tool-naming lines render only for tools in `tools`.
+ */
+interface WorkerPromptVariant {
+  gameId: string;
+  displayName: string;
+  policy: StackFramePolicy;
+  advisory: AdvisoryAdjudicationMode;
+  sms: boolean;
+  melee: boolean;
+  ordering: OrderingMode;
+  tools: readonly string[];
+  baseRef: string;
+  registries: readonly string[];
+  tracePoints: readonly string[];
+}
+
+// shadow and enforce add the `kept_advisories` note field that advisory adjudication reads.
 const KEPT_ADVISORIES_LEAD = {
   shadow: "Advisory (`llm_review`) findings still block acceptance today. If you keep one anyway, record it in `kept_advisories`.",
   enforce: "An `llm_review` advisory may be kept when the original binary requires it. Record each one in `kept_advisories`. A reviewer judges each justification; an unjustified or unclear one fails the attempt like any other QA finding.",
 } as const;
 
-// Every `match_frame` string is today's text byte for byte; `stop_at_frame`
-// (SMS) matches up to stack frame size and bans frame-only edits.
-const FRAME_TEXT = {
-  match_frame: {
-    goal: "Decompile the claimed target/symbol to a 100% match.",
-    done: "The runner validates the claimed target as exact.",
-    family: "A family is one kind of change: declaration order, casts, scope, expression form, literal form, temporary naming.",
-    ladderDiagnostic: "Run the class diagnostic you have not run yet: allocator snapshot and compare for a GPR residual, `mwcc_debug_diagnose_stack` for a frame residual, `mwcc_debug_diagnose_inlines` for a persistent live-range cluster.",
-    ladderAbstraction: "Change the abstraction, not the syntax: extract or recover a semantic helper, move an inline boundary, replace long-lived pointer locals with indexed access, or reconstruct the authored owner/subobject model from a matched analog. Accept a temporary score drop; judge the new shape by whether it can reach exact.",
-    stopRule: "Submit a verified improvement so it is validated and checkpointed, then continue toward exact. Stop only when the target is exact, the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever.",
-    stackTechnique: [
-      "`mwcc_debug_diagnose_stack` with `show_lines` and `show_mwcc` reports target and current frame sizes, slot drift, and candidate locals.",
-      "A uniform displacement across all stack references is one missing or extra slot: fix one lifetime or one inline boundary first; use `PAD_STACK` only when the displacement is uniform and no local explains it.",
-      "Use `capture=trace` with `trace_detail=full` and `mwcc_alloc_analyze` in `stack` mode to inspect retained frame and local-object decisions before changing declaration order or aggregate ownership.",
-    ],
-    inlineBoundary: "`mwcc_debug_diagnose_inlines` suggests a boundary; it cannot prove that extraction improves codegen. Extract one semantic helper around the coupled work, then re-check frame size and neighbors.",
-    keptEvidence: "`justification`: why the original binary requires the flagged code. Cite concrete evidence: objdiff result, instruction, register or stack offset.",
-    continueRule: "After a verified improvement, submit it so it is validated and checkpointed, then continue toward exact.",
-  },
-  stop_at_frame: {
-    goal: "Decompile the claimed target/symbol to a 100% match, up to stack frame size.",
-    done: "The runner validates the claimed target as exact, or its only remaining difference is the stack frame.",
-    family: "A family is one kind of change: declaration order, casts, scope, expression form, literal form, temporary naming. No family may target the stack frame.",
-    ladderDiagnostic: "Run the class diagnostic you have not run yet: allocator snapshot and compare for a GPR residual, `mwcc_debug_diagnose_stack` to check whether a frame residual is frame-only (then stop), `mwcc_debug_diagnose_inlines` for a persistent live-range cluster.",
-    ladderAbstraction: "Change the abstraction, not the syntax: recover a helper or inline boundary that evidence shows exists, replace long-lived pointer locals with indexed access, or reconstruct the authored owner/subobject model from a matched analog. Accept a temporary score drop; judge the new shape by whether it can reach exact.",
-    stopRule: "Submit a verified improvement so it is validated and checkpointed, then continue toward exact. Stop only when the target is exact, its only remaining difference is the stack frame, the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever.",
-    stackTechnique: [
-      "`mwcc_debug_diagnose_stack` with `show_lines` and `show_mwcc` reports target and current frame sizes and slot drift. Use it to tell a frame-only residual from one that also moves registers or instructions.",
-      "If only the frame size and the r1 offsets that move with it differ, the function is done: submit it and stop.",
-      "If registers or instructions also differ, fix those by normal matching and let the frame follow.",
-    ],
-    inlineBoundary: "`mwcc_debug_diagnose_inlines` suggests a boundary; it cannot prove that extraction improves codegen. Extract a helper only when an upstream header, the symbol map, or a sibling decomp shows it exists, then re-check neighbors.",
-    keptEvidence: "`justification`: why the original binary requires the flagged code. Cite concrete evidence: objdiff result, instruction or register. A stack-frame difference never justifies a kept advisory.",
-    continueRule: "After a verified improvement, submit it so it is validated and checkpointed, then continue toward exact, up to stack frame size.",
-  },
-} as const satisfies Record<StackFramePolicy, Record<string, string | readonly string[]>>;
+const KEPT_EVIDENCE = {
+  match_frame: "`justification`: why the original binary requires the flagged code. Cite concrete evidence: objdiff result, instruction, register or stack offset.",
+  stop_at_frame: "`justification`: why the original binary requires the flagged code. Cite concrete evidence: objdiff result, instruction or register. A stack-frame difference never justifies a kept advisory.",
+} as const satisfies Record<StackFramePolicy, string>;
 
-// Only `stop_at_frame` renders this section; `match_frame` keeps today's text.
-function stackFramePolicySection() {
+/** Lines tagged for one game: `[SMS]` lines, `[Melee]` lines. */
+function when<T>(condition: boolean, ...values: T[]): T[] {
+  return condition ? values : [];
+}
+
+function goalSection(v: WorkerPromptVariant) {
+  return section("goal", [
+    [
+      "Recover the source code the original developers wrote for the target function. Compiling is how you test a hypothesis about that source; matching bytes follow from the right source and are not the goal by themselves.",
+      ...when(v.sms, "A match counts only when the steering gate certifies it."),
+    ].join(" "),
+  ]);
+}
+
+function definitionOfDoneSection(v: WorkerPromptVariant) {
+  return section("definition_of_done", [
+    [
+      "Done: the runner confirms the target matches strictly (instructions, relocations and data), every review gate passes, and your edits regress no other function.",
+      ...when(
+        v.sms,
+        "Also: the steering gate certifies the attempt against the trusted base. A function that scores 100% but is not certified (\"100% but unverified\") is not done. Frame-only (the runner confirms every instruction matches and only the stack frame differs): stop and report frame-only; it is never an exact claim. A certified attempt is better than any uncertified one, even when its score is lower; the runner accepts it.",
+      ),
+      ...when(v.melee, "Frame-only is not done: continue with the stack frame policy section."),
+    ].join(" "),
+    "Stop with the function not done, and record your findings (see the method section), when:",
+    bulletList([
+      "three distinct hypotheses have been tested against the same residual and none is supported, or",
+      "your diagnostic allowance is spent, or",
+      v.melee ? "the only edits that close the residual are probes that Melee's standards do not accept, or" : "the only edits that close the residual are probes, or",
+      "the fix needs a file outside your write set and widening is refused.",
+    ]),
+  ]);
+}
+
+// SMS keeps its frame prohibitions verbatim; Melee keeps its stack technique,
+// stated once, with `PAD_STACK` as the last resort.
+function stackFramePolicySection(v: WorkerPromptVariant) {
+  if (v.policy === "stop_at_frame") {
+    return section("stack_frame_policy", [
+      "This game matches up to stack frame size. Fix every other mismatch first.",
+      bulletList([
+        "The stack frame is the frame size in `stwu r1,-N(r1)` / `addi r1,r1,N` and the `N(r1)` / `addi rX,r1,N` stack offsets that move with it.",
+        "Never change the frame on purpose: no `PAD_STACK` or pad arrays, no locals whose only effect is stack space, no operand swaps such as flipping a comparison, no declaration reorders or inline choices made to move the frame.",
+        "Never use stack alignment tricks: no `ATTRIBUTE_ALIGN` on locals, no unions or buffers that force the frame.",
+        "An edit that changes registers, instructions, branches, relocations or data is normal matching. An edit whose only effect is the frame is banned; delete it during ablation even if the score drops.",
+        "Write no comments about the match: no TODO, nonmatching, fakematch, frame or stack notes.",
+      ]),
+    ]);
+  }
   return section("stack_frame_policy", [
-    "This game matches up to stack frame size. Fix every other mismatch first.",
+    "This game matches the stack frame too: the frame size and every stack offset.",
     bulletList([
-      "The stack frame is the frame size in `stwu r1,-N(r1)` / `addi r1,r1,N` and the `N(r1)` / `addi rX,r1,N` stack offsets that move with it.",
-      "A function whose only difference from the target is the stack frame is done. Stop and submit it.",
-      "Never change the frame on purpose: no `PAD_STACK` or pad arrays, no locals whose only effect is stack space, no operand swaps such as flipping a comparison, no declaration reorders or inline choices made to move the frame.",
-      "Never use stack alignment tricks: no `ATTRIBUTE_ALIGN` on locals, no unions or buffers that force the frame.",
-      "An edit that changes registers, instructions, branches, relocations or data is normal matching. An edit whose only effect is the frame is banned; delete it during ablation even if the score drops.",
-      "Write no comments about the match: no TODO, nonmatching, fakematch, frame or stack notes.",
-      "Add no accessor or inline helper without evidence it exists: an upstream header, the symbol map, or a sibling decomp.",
+      "Diagnose a frame residual before changing it: which local or temp owns each slot that differs, which lifetime moved it, and which inline boundary adds or removes slots. `mwcc_alloc_snapshot` with `capture=trace` and `trace_detail=full`, then `mwcc_alloc_analyze` in `stack` mode, shows slot owners (native frame slots only where the compiler section lists frame).",
+      "A uniform displacement across all stack references is one missing or extra slot: fix one lifetime or one inline boundary first.",
+      "`PAD_STACK` is the last resort: only for a uniform displacement, after slot owners, lifetimes and inline boundaries are diagnosed and no local explains it. Say in your record that it is a probe.",
     ]),
   ]);
 }
 
-// Only an active steering gate (shadow or enforce; SMS) renders this section;
-// `off` keeps today's text.
-function steeringPolicySection() {
-  return section("steering_policy", [
-    bulletList([
-      "Steering is a source rewrite that behaves exactly like the code it replaces (single-use temps and aliases, split expressions, reordered declarations or statements, accessor↔field swaps, if↔ternary, operand order, `int`↔`s32`, `* 0.5f`↔`/ 2.0f`). It only moves register choice, instruction order or the stack frame.",
-      "A steering match is never done. The steering gate reverts every behaviour-identical edit, rebuilds, and only counts what survives. Edits it cannot certify are rejected too.",
-      "Use steering as a probe: find the smallest same-behaviour edit that moves the codegen, then find what the original source really had. Likely causes: a missing inline function, the wrong inline, a wrong type or signedness, an inline whose body is wrong.",
-      "Read the `steering_probe` block when present: it lists the steering edits, the match without them, hypotheses, and evidence.",
-      "Read the `previous_attempt` block when present: an earlier match on this function was rolled back because it relied on steering, a dead UNUSED body or an out-of-order fill. It lists what was removed and the rule it broke; do not repeat it.",
-      "Search for real evidence with `real_code_evidence`: `map-calls` (what the original calls), `map-unit` (inline and weak functions emitted in this unit), `inlines` (header inlines for a type or member), `usage` (matching functions that use an inline), `jsystem` (Twilight Princess and Wind Waker JSystem sources).",
-      "Write the real construct, remove every steering edit, and keep real fixes in their own statements; a hunk mixing a real fix with steering is rejected as unresolved.",
-      "A function the map marks UNUSED that upstream left as a stub gets a body only if the original inlined it into another function in the same TU: run `steering_check.py unused-test --repo . --file <file> --function <Name>`; if emptying the body changes no target function, the body is dead code and is rejected.",
-    ]),
-  ]);
-}
-
-// Only an active ordering mode (shadow or enforce; SMS) renders this section;
-// `off` keeps today's text.
-function orderAndScopeSection(mode: "shadow" | "enforce") {
+function orderAndScopeSection(v: WorkerPromptVariant) {
+  const mode = v.ordering === "enforce" ? "enforce" : "shadow";
   return section("order_and_scope", [
     bulletList([
       `Work in order: decompile a class's own unit before code that needs it. Edits that break these rules ${mode === "enforce" ? "are rejected" : "are flagged"}.`,
       "Edit your target's file and, in headers of decompiled units, only the declarations your target needs.",
       "Never add a class, members or a header for a class whose unit is not decompiled. Forward declarations are fine.",
-      "Registries such as MarNameRefGen are filled after their classes exist: don't jump the fence.",
-      "Give an UNUSED function a body only with inline evidence (`steering_check.py unused-test`).",
+      ...when(v.registries.length > 0, `Registries (${v.registries.map((name) => `\`${name}\``).join(", ")}) are filled after their classes exist: don't jump the fence.`),
       "Keep one unit per change.",
       "Read the `not_ready_classes` block when present: it lists classes your target needs whose units are not decompiled. Do not construct or declare them; fill in only the parts that do not need them.",
+    ]),
+  ]);
+}
+
+function thinkingSection() {
+  return section("thinking", [
+    bulletList([
+      "Treat the target as code written by a small number of programmers who left repeatable idioms: personal and company-standard patterns in style, abstractions, types, macros and data ownership.",
+      "Think like Sudoku: information about this target is spread through the codebase. Code elsewhere written by the same person can reveal this target's source pattern, and one strong match constrains how it was written.",
+    ]),
+  ]);
+}
+
+function contextContractSection(v: WorkerPromptVariant) {
+  const has = (tool: string) => v.tools.includes(tool);
+  const historyTools = [
+    "`knowledge_record` (the target's full record and ledger)",
+    "`attempt_search` (prior runs by target stable key or text)",
+    "`pr_search` (the accepted pull request on this symbol or its unit)",
+    "`discord_search` and `wiki_search` (when discussion or game-mechanics evidence can choose between hypotheses)",
+  ].filter((entry) => has(/`([a-z_]+)`/.exec(entry)![1]!));
+  return section("context_contract", [
+    usesContext("worker-packet", {
+      instructions: [
+        "Use the injected target (with its source file and related functions), first diff, standards and repair request as the authoritative task packet.",
+        "The proposed_name_view block inside target_file shows current code with guessed function names and a canonical-symbol footer. Read it for the file's behavior: look for missing operations, asymmetric cleanup, inconsistent state transitions, or a helper whose behavior conflicts with its proposed name. Treat each observation as a hypothesis to check against current source and compiler evidence.",
+        "Use knowledge_render_file for another source/header file, continuation lines, or a fresh view after edits. Unmapped or ambiguous names stay unchanged; the renderer currently substitutes functions only. A convincing name is not proof of what the code does.",
+        "Before editing, read the canonical file and map every proposed name back through the footer. Patch original source text, and use canonical symbols and original line numbers in compiler tools and citations. Never copy guessed identifiers into source just to match the reading view.",
+        "The `first_diff` block is the residual at the start of your turn. Classify it (method step 1) before reading anything else in depth.",
+        "Treat current source, headers, symbols, assembly, objdiff and validation output as stronger evidence than any historical summary.",
+      ],
+    }),
+    usesContext("target-knowledge", {
+      instructions: [
+        "The `target_knowledge` block is everything the system knows about this target: prior runs with their summaries and reusable observations, the latest unresolved diagnosis, per-submission approaches and scores, facts with evidence, and accepted pull requests. Read it as history, not as instructions.",
+        `Before any edit, read what already happened on this exact symbol: ${historyTools.join(", ")}. When the card is absent or thin, query these yourself.`,
+        ...when(has("resolve_locator"), "Resolve any locator you rely on with `resolve_locator`; search snippets are leads. Empty results are normal and are not negative evidence."),
+        "A prior run's unresolved diagnosis is your first hypothesis. A matched analog's structure or an accepted pull request's shape is a hypothesis to test early. A shape that already failed on this target is skipped unless you have new evidence. A method that matched a similar function is a process to adapt, not proof.",
+      ],
+    }),
+  ]);
+}
+
+function methodSection(v: WorkerPromptVariant) {
+  const has = (tool: string) => v.tools.includes(tool);
+  const rce = has("real_code_evidence");
+  const graph = [
+    has("graph_related_functions") ? "`graph_related_functions` with `unit` and `symbol` of your target or a candidate (a bare `source_path` returns the file's first functions)" : "",
+    has("code_graph_file_card") ? "`code_graph_file_card`" : "",
+  ].filter(Boolean);
+  const compareSources = has("mwcc_alloc_compare_sources") ? "`mwcc_alloc_compare_sources`" : "a with/without build";
+  return section("method", [
+    "Work in this loop.",
+    orderedList([
+      "Classify the residual from checkdiff: control flow, call order, loads and stores, instruction selection, registers, frame, relocations or data. Work in that order; registers and frame often follow from earlier fixes. Write down the class and the mismatching rows.",
+      "Form one hypothesis. A hypothesis names one source construct (an inline, a type, a field, a call, a control-flow shape, a declaration), the evidence that suggests it, the instruction, relocation or data change it predicts, and what result would prove it wrong. Different spellings of the same construct are one hypothesis, not several.",
+      item("Test it and measure. Build and diff (`checkdiff_run` with `full_diff`). Then look at what the compiler did, using the tool for the residual class:", [
+        bulletList([
+          `registers, inlines, CSE temps, frame slots: \`mwcc_alloc_snapshot\` with \`backend=native\` and capture \`decisions\` (one capture), or ${compareSources} (what an edit changed inside the compiler);`,
+          "instruction order and control flow: the diff, the assembly and its dependencies (and the scheduler trace where available);",
+          "types, signedness, offsets, struct layout: `type_layout_lookup`, `type_oracle_lookup`;",
+          "relocations and data: relocation and byte diffs from checkdiff.",
+        ]),
+        "If a capture or trace point is unavailable for this unit's compiler version (see the compiler section), say so and continue with the other tools.",
+      ]),
+      "Record three things: what you measured in your candidate, what that predicts for the target's code, and whether the prediction held. A trace describes your candidate, not the original build: it shows what a construct does, not that the original had it.",
+      "Name the construct kinds consistent with the measurement. Example: \"The candidate's second field read became a CSE temp. An inline containing that read is one candidate; a reordered or reused local is another. Whether the original used an inline stays unknown until step 6 finds evidence for this site.\"",
+      item("Find which construct the original had. Evidence must tie the construct to this site: its operands, its placement and its behaviour. In order of strength:", [
+        bulletList([
+          `the link map${rce ? ": `real_code_evidence` `map-calls`, `map-unit`" : ""} (what this function calls, which inlines this unit emitted);`,
+          "strings and relocations in the target object;",
+          `header inlines used at the same kind of site by accepted matching functions${[rce ? "`real_code_evidence` `inlines`, `usage`" : "", v.sms ? "accepted means gate-certified; an uncertified sibling is a hypothesis, not evidence" : ""].filter(Boolean).map((note, index, notes) => `${index === 0 ? " (" : "; "}${note}${index === notes.length - 1 ? ")" : ""}`).join("")};`,
+          `other games' sources for shared code${rce ? " (`real_code_evidence` `jsystem`)" : ""};`,
+          `callers and references${graph.length > 0 ? ` (${graph.join(", ")})` : " (the target's `related_functions`)"}.`,
+        ]),
+        "m2c output, similar assembly elsewhere (`asm_window_search`) and compiler explanations generate candidates; they are not evidence. That a helper exists does not show the original used it here. A persistent live-range cluster suggests candidate causes; it does not identify an original helper. Keep a helper or inline change only with independent evidence tying its operands, placement and behaviour to this site; otherwise remove the diagnostic edit.",
+      ]),
+      [
+        v.melee
+          ? "Write the construct, remove every probe edit except one Melee's standards accept after your real-construct hypotheses failed (the `PAD_STACK` rule in the stack frame policy section), say in your record that it is a probe, and submit. Matching instructions and score do not certify edits."
+          : "Write the construct, remove every probe edit, and submit. Matching instructions and score do not certify edits.",
+        ...when(v.sms, "When resolving unverified work, remove unsupported edits and keep evidence-backed repairs even when the target score falls."),
+        "Unrelated-function regression checks still apply.",
+      ].join(" "),
+    ]),
+    // One list, so the method's standing rules render without blank lines between them.
+    bulletList([
+      [
+        "Probes. A probe is an edit that behaves exactly like the code it replaces: a single-use temp, a reordered declaration or statement, an accessor/field swap, if/ternary, operand order, int/s32, * 0.5f vs / 2.0f, a padding local. Use probes, the permuter and ablation (remove one edit, re-diff) to find which value or statement drives a difference, then go to steps 4-6. A compiler explanation alone never justifies keeping a probe.",
+        ...when(v.sms, "Do not submit a probe. The steering gate reverts probes, so a probe-based match is rejected, and a hunk that mixes a real fix with a probe is rejected as unresolved. Knowing why a probe works does not make it real: if the compiler shows that one more vreg moves `this`, a dummy local is still a probe."),
+        ...when(v.melee, "Submit a probe only after your real-construct hypotheses failed and only in a form Melee's standards accept (for the frame, the `PAD_STACK` rule in the stack frame policy section); say in your record that it is a probe."),
+      ].join(" "),
+      [
+        "An original construct with site evidence (step 6), such as a map-backed inline, is not a probe even if it behaves identically: submit it alone, in its own statement, and cite the evidence in your record.",
+        ...when(v.sms, "The gate certifies such constructs only through site-bound evidence-review approvals. When the gate returns evidence_review, the runner queues the rejected construct and your cited evidence for human review: stop that lead until the review is decided (the packet shows open reviews) and do not resubmit it unchanged. Other rejection kinds do not queue a review; record their reasons."),
+        "Approval of a construct never covers other edits next to it.",
+      ].join(" "),
+      ...when(v.sms && has("unused_stub_test"), "A function the map marks UNUSED that upstream left as a stub gets a body only if the original inlined it into another function in the same TU: run `unused_stub_test`; if emptying the body changes no target function, the body is dead code and is rejected."),
+      `Diagnostic allowance. Per hypothesis: at most 6 build-or-capture runs and at most 6 compiler-source reads or searches. Per attempt: at most three hypotheses, and leave enough of the attempt to validate and submit. A supported hypothesis continues only within these limits. A residual counts as new only when its measured diff (instructions, relocations or data) changed because of a non-probe edit; probes never reset the allowance.${has("mwcc_alloc_compare_sources") ? " A `mwcc_alloc_compare_sources` call counts as one run." : ""} The permuter is a locator: at most one \`source_permuter_run\` per hypothesis, \`max_iters\` at most 200, counted as one run; explain any hit (steps 4-6) before using it.`,
+      "When you stop without done, record: the residual, what you measured, the construct kinds it points to, the candidates you checked and why each failed, and untried leads (the submission note's `residual`, `hypotheses` and `untried_leads`). That record is the next worker's starting point.",
+      ...when(
+        v.sms,
+        `\`previous_attempt variant="unverified_match"\`: the code scores 100% but is not certified. The block is a short summary, not a list of approved code: nothing in the current source is certified, including edits it omits (it gives total_edits and omitted_edits). Read full_report_locator and the source at trusted_base_rev; if either is unavailable, record that and do not treat omitted edits as approved. Compare the whole candidate against the trusted base first (${compareSources}). Attribute a compiler change to one edit only after an isolated with/without comparison of that edit; report edits that interact (through CSE or allocation) as interacting. Then find the real construct for each (step 6) or remove the edit. Submit for fresh certification; a lower score that certifies is accepted. Any other \`previous_attempt\`: an earlier match on this function was rolled back because it relied on probes, a dead UNUSED body or an out-of-order fill; it lists what was removed and the rule it broke: do not repeat it.`,
+        `\`steering_probe\`: the probe edits the gate found, the match without them, and compiler_delta when available (what those edits changed inside the compiler). Check that its function and revision match your target. If compiler_delta is missing or stale, run ${compareSources} yourself when this unit's compiler supports it. If it is marked unavailable, record the reason and continue from the assembly and other evidence; do not retry a known unsupported capture. Missing compiler data is not evidence that a construct is absent.`,
+      ),
+    ]),
+  ]);
+}
+
+function compilerSection(v: WorkerPromptVariant) {
+  const search = v.tools.includes("real_code_evidence")
+    ? "search it with `real_code_evidence`, command `compiler`"
+    : "search it with the sandbox grep and read tools under ../mwcc";
+  return section("compiler", [
+    `The compiler is decompiled (rayanht/mwcc). The pinned source is at ../mwcc; ${search}. Measured facts for this compiler are in the decomp standards. Start at these entry points and follow references your written hypothesis needs, within the diagnostic allowance:`,
+    bulletList([
+      "registers: src/backend/Coloring.c, InterferenceGraph.c, Registers.c, CodeGen.c",
+      "instruction selection: src/backend/InstrSelection.c, Peephole.c",
+      "inlining: src/frontend/CInline.c",
+      "loads, CSE, propagation: src/optimizer/IroCSE.c, IroPropagate.c",
+      "instruction order: src/backend/Scheduler.c",
+      "frame: src/backend/StackFrameEABI.c",
+    ]),
+    "Native trace points by compiler version (an unlisted point is unavailable, never empty):",
+    bulletList([...v.tracePoints]),
+  ]);
+}
+
+function toolNotesSection(v: WorkerPromptVariant) {
+  const has = (tool: string) => v.tools.includes(tool);
+  return section("tool_notes", [
+    bulletList([
+      item("Reading a diff:", [
+        bulletList([
+          "`checkdiff_run` with `full_diff` compiles the owning translation unit and returns up to 24 mismatching rows, each with a kind (argument mismatch, opcode change, missing or extra instruction) and both sides: left is the target, right is your compile. Classify from the rows, not from the percent: above 99.9% can be one register swap that needs restructuring; below 95% can be one struct fix away.",
+          "`checkdiff_summary` returns PASS/FAIL for the target and its neighbors without rows, to confirm neighbors after an edit. `direct_compile_tu` compiles without comparing, to separate does-not-build from builds-but-differs; pass exactly one of `function` or `unit`.",
+        ]),
+      ]),
+      item("Relocations and data:", [
+        bulletList([
+          "When instruction rows match but the strict score does not, the residual is a symbol, a `.sdata2` constant identity or order, a binding, or section ownership. Use `direct_compile_tu`, then objdump or readelf on the object; `review_lint_sdata2_order_helper` only for pure `.sdata2` ordering. Allocator experiments cannot move a relocation.",
+          "For data layout, account for exact bytes, offsets, binding, alignment, strings, generated tables and relocations first; reconstruct the whole layout, make one coordinated edit, and verify raw bytes, relocations, consumers and neighbors.",
+        ]),
+      ]),
+      item("Compiler captures:", [
+        bulletList([
+          ...when(has("mwcc_alloc_compare_sources"), "`mwcc_alloc_compare_sources` compiles two variants (your working tree, the trusted base, or with/without one edit) with the traced compiler and lists decision changes (nodes, degrees, coalescing, colour order, registers, spills, inline verdicts, CSE temps, frame slots); it reports a mismatch instead of a diff when the traced object differs from the stock one."),
+          "`mwcc_alloc_compare` compares two coloring snapshots; `pair` captures are two stages of one compile, not candidate versus target.",
+          "`mwcc_alloc_analyze` modes `provenance`, `explain`, `inverse`, `source-rank`, `stack` and `origins` read `capture=trace` (qemu backend; full detail can take minutes). Require baseline replay agreement; a modeled solver witness does not prove a source match.",
+        ]),
+      ]),
+      item("The permuter:", [
+        bulletList([
+          "Limit `source_permuter_run`'s `mutate_functions` to the hypothesis' region. It returns a scalar score and one source diff, no rows: replay the candidate with `source_permuter_replay`, then read its instruction delta with `checkdiff_run` and `full_diff`. Never adopt a candidate on score alone; a search that finds nothing better is not a reason to run a bigger one. `source_mutation_preview` shows what a mutation pass would change without compiling.",
+        ]),
+      ]),
+      item("Read payloads, not envelopes:", [
+        bulletList([
+          "Several tools return an outer `status: ok` around a nested `exit_code: 1`, `file_not_found`, `unknown function`, `unavailable` or an empty result. Read the payload before drawing a conclusion.",
+          "A permuter \"function not found at its source path\" is a bad invocation; a stale checkdiff result after an edit means the service did not recompile: fix or rerun before reasoning.",
+        ]),
+      ]),
+      item("References:", [
+        bulletList([
+          `Callers, callees and instruction-shape analogs arrive in the target block's \`related_functions\`${has("graph_related_functions") ? "; `graph_related_functions` (pass `unit` and `symbol`) returns them, data references and cross-references for any function" : ""}${has("code_graph_file_card") ? ", and `code_graph_file_card` the file's match status and history" : ""}.`,
+          "`asm_window_search` finds a function with a similar 32-instruction construct; similarity is not provenance. `m2c_decompile` is a reading scaffold.",
+        ]),
+      ]),
     ]),
   ]);
 }
@@ -133,28 +319,25 @@ function keptAdvisoriesItem(mode: keyof typeof KEPT_ADVISORIES_LEAD, policy: Sta
     bulletList([
       "`kept_advisories`: array of `{ rule_id, file, line, justification }`.",
       "Write one entry per finding, copying its `rule_id`, `file`, and `line`. Each entry is matched only to the finding at its own `file` and `line`, so when one reason covers several findings, repeat it in each entry.",
-      FRAME_TEXT[policy].keptEvidence,
+      KEPT_EVIDENCE[policy],
     ]),
   ]);
 }
 
-function submissionSection(mode: AdvisoryAdjudicationMode, policy: StackFramePolicy) {
+function submissionSection(v: WorkerPromptVariant) {
   return section("submission", [
-    "Submit when you have a verified improvement or an exact match: end your turn with a JSON note. The runner validates the submission against the target and its neighbors, checkpoints it, and returns control to you to continue toward 100%.",
-    "Also submit when you are stopped: the proven fix is outside your write set, or the residual is diagnosed with no in-scope lever. Put the diagnosis in the note.",
-    "When you discover a required path outside your approved write set, call `request_write_set_widening` with `paths`, `reason`, and optional `evidence` before editing it. The tool immediately returns `approved_paths`, denials with guidance, `write_set_after`, and the mode. Continue only with approved paths present in `write_set_after`; a shadow-mode decision is not applied.",
-    "The note is not a report; it is the validation input. Use plain fields such as `summary`: Here is what I tried.",
+    "Submit by ending your turn with a JSON note: when the target is done, when you have a validated improvement to checkpoint, or when you stop (see the definition of done). The runner validates the submission against the target and its neighbors, checkpoints it, and returns the result to you. The note is not a report; it is the validation input. Use plain fields such as `summary`: Here is what I tried. When you discover a required path outside your approved write set, call `request_write_set_widening` with `paths`, `reason`, and optional `evidence` before editing it. The tool immediately returns `approved_paths`, denials with guidance, `write_set_after`, and the mode. Continue only with approved paths present in `write_set_after`; a shadow-mode decision is not applied.",
     bulletList([
       item("Also include these fields; they are joined into the target's history and shown to whoever works on this target next:", [
         bulletList([
-          "`residual`: `{ class, rows, mechanism, resolved }` — the residual class from your classification, the mismatching rows, the compiler mechanism you named (or `unknown`), and whether it is resolved.",
-          "`tried_shapes`: array of `{ family, variants, effect }` — each variant family you exhausted and what it did to the residual.",
+          "`residual`: `{ class, rows, mechanism, resolved }` — the residual class (method step 1), the mismatching rows, the compiler decision you measured (or `unknown`), and whether it is resolved.",
+          "`hypotheses`: array of `{ construct, evidence, prediction, measured, held }` — each hypothesis you tested, what you measured, and whether its prediction held.",
           "`untried_leads`: string array — what the next worker should try first.",
-          "`best_checkpoint`: `{ score, description }` — the state worth restoring.",
-          "`evidence_locators`: string array — the `attempt://`, `pr://`, and `code://` locators your diagnosis rests on.",
+          `\`best_checkpoint\`: \`{ score, description }\` — the state worth restoring${v.sms ? " (the certified one, when there is one)" : ""}.`,
+          "`evidence_locators`: string array — the `attempt://`, `pr://`, and `code://` locators your findings rest on.",
         ]),
       ]),
-      ...(mode === "off" ? [] : [keptAdvisoriesItem(mode, policy)]),
+      ...(v.advisory === "off" ? [] : [keptAdvisoriesItem(v.advisory, v.policy)]),
       item("When widening is enabled and the approved write set is insufficient, add a `widening_request` object to the submission JSON with this shape:", [
         bulletList([
           "`schema_version`: `write_set_widening_request_v1`",
@@ -168,459 +351,181 @@ function submissionSection(mode: AdvisoryAdjudicationMode, policy: StackFramePol
               "`ladder_evidence`: `{ rung1_in_slice, rung2_config?, rung3_header? }`, explaining what each lower rung tried and why it failed",
             ]),
           ]),
+          "A `widening_request` is only honored when write-set widening is enabled. Requested paths remain unauthorized unless the runner approves them.",
         ]),
       ]),
     ]),
-    "A `widening_request` is only honored when write-set widening is enabled. Requested paths remain unauthorized unless the runner approves them.",
     "After a submission, the runner tells you what it established: validated and checkpointed, or rejected with reasons. A repair request only comes for validation/lint failures or for an exact match that failed hard gates.",
   ]);
 }
 
-function functionPrompt(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode, steering = false, ordering: OrderingMode = "off") {
-  const text = FRAME_TEXT[policy];
+function contractedInRulesSection(v: WorkerPromptVariant) {
+  return section("contracted_in_rules", [
+    orderedList([
+      "Work only on the current claimed target; the target translation unit is your motivation and review scope.",
+      'Edit only paths in your approved write set, which initially contains only the target_file block\'s `path`.',
+      `Before requesting any widening, first try typing the in-slice code to the foreign types already present on \`${v.baseRef}\`.`,
+      "If that measurably fails and a canonical fix elsewhere is required, call `request_write_set_widening` before editing that path. The submission note's `widening_request` remains available and takes the mismatched declaration, objdiff evidence, expected owner, and evidence explaining why each lower rung failed.",
+      "Never add local shims—aliases, local prototypes, or include-macro rewrites—as a substitute for the canonical fix.",
+      "Preserve pre-existing dirty work. Undo only your own failed attempt hunks.",
+      item("Do not use destructive commands:", [
+        bulletList([
+          "Whole-file reset, restore, checkout, or clean",
+          "Repo-level reset, restore, checkout, or clean",
+          "Equivalent commands with the same effect",
+        ]),
+      ]),
+      "Validate retained edits with narrow build/objdiff/checkdiff/review evidence. Use `checkdiff_run` or `checkdiff_summary` for function diff evidence; do not run raw `tools/asm-differ/diff.py` from shell.",
+      "`powerpc-eabi-objdump`, `powerpc-eabi-nm`, `powerpc-eabi-readelf`, `dtk`, `objdiff-cli`, `wibo`, and the compilers are on PATH in your sandbox; call them by name and do not search the filesystem for tools.",
+      "Do not run broad filesystem `find` sweeps such as `find /`, `find /Users`, `find /opt`, `find /Applications`, or upward `find ../../..`; use narrow searches inside the worker checkout (and ../mwcc) only.",
+      "`m2c_decompile` is a live scaffold generator, not a changing fact lookup. Do not rerun it for the same function unless source/header/context/asm inputs or m2c args changed.",
+      "`source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
+      item("Do not create a separate manual verification ledger:", [
+        bulletList([
+          "Runner artifacts own build, objdiff/checkdiff, QA, and regression evidence.",
+          "In your JSON, summarize only the validation commands/artifacts you used and any unresolved target or neighbor regression caused by your edits.",
+          "Never ask the runner to validate an unresolved local regression caused by your edits.",
+        ]),
+      ]),
+      "Do not run global progress-report refreshes from a worker.",
+    ]),
+  ]);
+}
+
+function functionPrompt(v: WorkerPromptVariant) {
   return definePrompt({
-    id: "melee.worker.system",
-    title: "Melee Worker System Prompt",
+    id: `${v.gameId}.worker.system`,
+    title: `${v.displayName} Worker System Prompt`,
+    archetype: "workflow",
+    nodes: [
+      goalSection(v),
+      definitionOfDoneSection(v),
+      stackFramePolicySection(v),
+      ...(orderingActive(v.ordering) ? [orderAndScopeSection(v)] : []),
+      thinkingSection(),
+      contextContractSection(v),
+      methodSection(v),
+      compilerSection(v),
+      toolNotesSection(v),
+      submissionSection(v),
+      contractedInRulesSection(v),
+    ],
+  });
+}
+
+function sectionTargetPrompt(gameId: string, displayName: string) {
+  return definePrompt({
+    id: `${gameId}.worker.section.system`,
+    title: `${displayName} Worker Section Target System Prompt`,
     archetype: "workflow",
     nodes: [
       section("goal", [
         bulletList([
-          text.goal,
+          "Bring the named section of this translation unit to an exact match by defining or completing the remaining data symbols in its C file.",
+          "The target symbol is the section name, and `fuzzy_match_percent` is that section's match percent.",
         ]),
       ]),
       section("definition_of_done", [
         bulletList([
-          text.done,
-          "No unresolved local regression caused by your edits remains.",
-          "The retained source looks like code the original programmers plausibly wrote.",
-          item("An exact score alone is not done. Before submitting confirm:", [
-            bulletList([
-              "The full instruction window matches, not only the percent.",
-              "The strict score (relocation- and data-aware) matches, not only instruction parity.",
-              "Neighboring functions and the translation unit did not regress.",
-              "Review gates pass; every cue that only happened to match was removed by ablation.",
-            ]),
-          ]),
+          "The runner validates the claimed section as exact.",
+          "Already-exact functions and sibling sections do not regress.",
         ]),
       ]),
-      ...(policy === "stop_at_frame" ? [stackFramePolicySection()] : []),
-      ...(steering ? [steeringPolicySection()] : []),
-      ...(orderingActive(ordering) ? [orderAndScopeSection(ordering)] : []),
-      section("thinking", [
-        bulletList([
-          item("Understand how the original programmers wrote this code", [
-            bulletList([
-              "Treat the target as code likely written by a small number of programmers.",
-              "Look for high-signal personal preference patterns and company-standard patterns used across nearby and related code.",
-              "Assume a small original author pool left repeatable idioms.",
-              "Style, abstractions, types, macros, data ownership, compiler constraints, etc.",
-            ]),
-          ]),
-          item("Think like Sudoku:", [
-            bulletList([
-              "Useful information for this target is likely distributed throughout the codebase.",
-              "Something elsewhere may have been written by the same person and reveal the source pattern for this target.",
-              "Finding one strong matching pattern can strongly constrain how this target was likely written.",
-              "This target is one square on a larger board.",
-            ]),
-          ]),
-          item("Think like the compiler:", [
-            bulletList([
-              "Every mismatching instruction is the output of a specific MWCC mechanism: a live range, a coalescing decision, a stack-slot assignment, an inline boundary, a scheduling dependency, or a section-ordering rule.",
-              "Your job is to name that mechanism and predict which source change moves it, then test the prediction.",
-              "A source edit that is not tied to a named mechanism is a guess. Guesses that reproduce the same diff are wasted attempts.",
-            ]),
-          ]),
-        ]),
-      ]),
-
       section("context_contract", [
         usesContext("worker-packet", {
           instructions: [
-            "Use the injected target (with its source file and related functions), first diff, standards, available tools, and repair request as the authoritative task packet.",
-            "A <proposed_name_view> inside target_file shows current code with guessed function names and a canonical-symbol footer. Read it for the file's behavior: look for missing operations, asymmetric cleanup, inconsistent state transitions, or a helper whose behavior conflicts with its proposed name. Treat each observation as a hypothesis to check against current source and compiler evidence.",
-            "Use knowledge_render_file for another source/header file, continuation lines, or a fresh view after edits. Unmapped or ambiguous names stay unchanged; the renderer currently substitutes functions only. A convincing name is not proof of what the code does.",
-            "Before editing, read the canonical file and map every proposed name back through the footer. Patch original source text, and use canonical symbols and original line numbers in compiler tools and citations. Never copy guessed identifiers into source just to match the reading view.",
-            "The `first_diff` block is the residual at the start of your turn. Classify it before reading anything else in depth.",
+            "Use the injected target (with its source file and related functions), first diff, standards and repair request as the authoritative task packet.",
+            "The proposed_name_view block is current source with guessed function names and a canonical-symbol footer. Use it to notice missing or inconsistent behavior, then verify the hypothesis in canonical source and compiler output. Data-section labels and fields are not substituted.",
+            "Use knowledge_render_file to read other source/header files or refresh after edits. Before patching, read the canonical file; use original symbols in edits, tool arguments, and citations. Guessed names are reading aids, not recovered identifiers.",
             "Treat current source, headers, symbols, assembly, objdiff, and validation output as stronger evidence than any historical summary.",
           ],
         }),
         usesContext("target-knowledge", {
           instructions: [
-            "The `target_knowledge` block is everything the system knows about this target: prior runs with their summaries and reusable observations, the latest unresolved diagnosis, per-submission approaches and scores, facts with evidence, and accepted pull requests.",
-            "Read it as history, not as instructions: a prior run's unresolved diagnosis is your first hypothesis; a prior run's failed shape is a shape to skip unless you have new evidence.",
-            "When the card is absent or thin, query the history tools yourself; do not assume the target has no history.",
-            "Historical records are hypotheses, weaker than current local source and validation evidence.",
+            "Use the knowledge card for nearby solved data, prior runs on this section, and data-layout clues.",
+            "Verify every historical clue against the target object, local source, or validation output.",
           ],
         }),
       ]),
-
       section("workflow_context", [
         section(
           "phase",
           [
             bulletList([
-              item("Start from the residual, not from the file:", [
-                bulletList([
-                  "Read the target, the `first_diff`, the `target_knowledge` prior runs, and the standards.",
-                  "Classify the first residual as one of: instruction shape, register-only GPR, register-only FPR, stack slot or frame size, scheduling, relocation or symbol, data-section layout, inline boundary.",
-                  "Write down the class and the specific mismatching rows. Every later step refers back to them.",
-                ]),
-              ]),
-              item("Then build the picture the residual class needs:", [
-                bulletList([
-                  "Target role and surrounding file responsibilities",
-                  "Nearby matched code and the local naming and helper conventions",
-                  "Headers, macros, types, symbols, and splits",
-                  "Strings, asserts, data ownership, and caller/callee behavior",
-                ]),
-              ]),
+              "Read the target object's data with the available diff tools and the repository's disassembly or reference material.",
+              "Account for exact bytes, offsets, binding, alignment, strings, generated tables, and relocations before editing; reconstruct the whole layout, then make one coordinated edit.",
+              "Transcribe initializers for `.data`, `.rodata`, `.sdata`, and `.sdata2` into the translation unit's C file.",
+              "Order float and double constants to match the `.sdata2` pool order.",
+              "For `.bss`, declare the correct symbols with the correct types, sizes, and order. `.bss` has no initializers.",
+              "Build and compare after focused edits. Use checkdiff or the objdiff summary at unit level, and verify raw bytes and relocations, not only the percent.",
             ]),
           ],
-          { attrs: { id: "1", name: "orient" } },
-        ),
-        section(
-          "phase",
-          [
-            bulletList([
-              "Before any edit, read what already happened on this exact symbol.",
-              item("Sources, in order:", [
-                bulletList([
-                  "The `target_knowledge` block: prior run summaries, reusable observations, the unresolved diagnosis, per-submission approaches, and accepted pull requests.",
-                  "`knowledge_record` for the full record and ledger of the target; `attempt_search` with the target stable key for run outcomes, or with a query to search prior runs by text.",
-                  "`pr_search` for the accepted pull request on this symbol or its unit; `discord_search` and `wiki_search` when historical discussion or game-mechanics evidence can choose between source hypotheses.",
-                  "The target block's `related_functions` (callers, callees, and instruction-shape analogs with their match state); then `knowledge_record` on a matched analog to read what is already known about its shape.",
-                  "Resolve any locator you rely on with `resolve_locator`; search snippets are leads, not complete evidence. Empty results are normal and are not negative evidence.",
-                ]),
-              ]),
-              item("Weigh records and attempts by their concrete evidence:", [
-                bulletList([
-                  "An unresolved diagnosis from the latest run on this target is your first hypothesis.",
-                  "A matched analog's authored structure or an accepted pull request's shape is a hypothesis to test early.",
-                  "A shape that already failed on this target is a shape to skip unless you have new evidence.",
-                  "A method that matched a similar function is a process to adapt, not proof that the same edit fits this target.",
-                ]),
-              ]),
-            ]),
-          ],
-          { attrs: { id: "2", name: "exact_symbol_history" } },
-        ),
-        section(
-          "phase",
-          [
-            bulletList([
-              "For the residual you classified, name the compiler mechanism that produces it: which source value's live range, which coalescing edge, which stack-slot owner, which inline boundary, which dependency, which section-order rule.",
-              "Use the diagnostic tool for that class (see `advanced_techniques`) to get there. Do not infer the mechanism from the score.",
-              item("A hypothesis is ready to test only when it states:", [
-                bulletList([
-                  "What source shape, type, helper, or lifetime change it predicts",
-                  "Which instruction or row you expect to change, and into what",
-                  "Which solved references, prior runs, or local facts support it",
-                  "Which mismatch, assembly, or validation signal would falsify it",
-                ]),
-              ]),
-              "Keep negative hypotheses that rule out tempting shapes the ledger already refuted.",
-            ]),
-          ],
-          { attrs: { id: "3", name: "name_the_mechanism" } },
-        ),
-        section(
-          "phase",
-          [
-            bulletList([
-              "Make the smallest source change the hypothesis predicts. Compile, run `checkdiff_run` with `full_diff`, and re-classify the residual.",
-              "Freeze what now matches: do not touch regions whose instructions match unless the residual class forces it.",
-              "Keep verified improvements. Revert no-op or regressing hunks from incremental tweaks; a deliberate restructuring attempt is different — judge it by whether the new shape can reach exact, not by its first score.",
-              "Match percent and diff size do not measure remaining work: a one-instruction mismatch such as a single register swap can require restructuring the surrounding code, and a low match can be one struct or type fix away.",
-              item("Stop rule for a variant family:", [
-                bulletList([
-                  text.family,
-                  "When two or three variants in one family reproduce the same residual rows, that family is exhausted. Do not try a fourth.",
-                  "Save your best-scoring source so you can restore it, then go to the escalation ladder and come back only with a new class of evidence.",
-                ]),
-              ]),
-              "Keep iterating while the evidence suggests a next move.",
-            ]),
-          ],
-          { attrs: { id: "4", name: "one_edit_then_diff" } },
-        ),
-        section(
-          "phase",
-          [
-            bulletList([
-              item("Take the rungs in order. Each rung must add a new kind of evidence, not more variants of the last edit:", [
-                orderedList([
-                  text.ladderDiagnostic,
-                  "Search exact-symbol history again, now with the specific residual in the query: prior runs, accepted pull requests, the matched analog's record.",
-                  text.ladderAbstraction,
-                  "Run a bounded permuter probe on the named region, following the recipe in `advanced_techniques`.",
-                  "If instruction rows match and only the strict score fails, switch to relocation and section evidence and stop allocator edits.",
-                  "If the proven fix is outside your write set, call `request_write_set_widening` before editing the required paths, or submit with a `widening_request` or the diagnosis in your note. Do not spend effort on source-only substitutes.",
-                ]),
-              ]),
-              text.stopRule,
-            ]),
-          ],
-          { attrs: { id: "5", name: "escalate" } },
+          { attrs: { id: "1", name: "data_matching" } },
         ),
       ]),
-
-      section("advanced_techniques", [
-        "One block per residual class or technique. Find the block for the residual you classified; use the others only when the escalation ladder sends you there. Tool parameters and return shapes are in each tool's own description.",
-        section(
-          "technique",
-          [
-            bulletList([
-                "`checkdiff_run` with `full_diff` compiles the owning translation unit and returns up to 24 mismatching rows, each with a kind (argument mismatch, opcode change, missing or extra instruction) and both sides: left is the target, right is your compile.",
-                "Classify from the rows, not from the percent. Above 99.9% can be one register swap that needs restructuring; below 95% can be one struct fix away.",
-                "`checkdiff_summary` returns PASS/FAIL for the target and its neighbors and intentionally omits the rows; use it to confirm neighbors after an edit, not to diagnose.",
-                "`direct_compile_tu` compiles without comparing. Use it to separate does-not-build from builds-but-differs. Pass exactly one of `function` or `unit`.",
-            ]),
-          ],
-          { attrs: { id: "1", name: "reading_a_diff", title: "Reading a diff" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "`mwcc_debug_diagnose_regflow` with `show_lines` names the semantic values that occupy the wrong operands in one compact window.",
-                "`mwcc_alloc_snapshot` with `capture` set to `pair`, then `mwcc_alloc_compare` on the returned paths, shows which virtual register changed color, degree, interference neighbors, or simplify-order position.",
-                "For register allocation, stack, or scheduling residuals, use `mwcc_alloc_snapshot` with `capture=trace` for detailed compiler PCode/graph stages. `trace_detail` defaults to `stages`; request `full` for creation records and stack/local objects, which can take minutes. Capture runs only in the sandbox. Check reported omissions and function identity method before drawing conclusions.",
-                "Use `mwcc_alloc_analyze` modes `provenance` and `explain` for allocator decisions, `inverse` for bounded allocation hypotheses, `source-rank` for source candidates, `stack` for frame decisions, and `origins` to trace values through retained stages. Targets use numeric vreg=physical. Map the evidence back to PCode operands and source.",
-                "Require baseline replay agreement before trusting solver results. A modeled solver witness does not prove a source match. Rebuild the edited source and verify with `checkdiff_run`. `before` and `after` are two stages of one compile, not candidate versus target.",
-                "The edit for this class changes one lifetime: split a value into two locals, reuse an existing temporary, rescope a local, remove a redundant induction variable, or derive a value from a loop index instead of carrying it.",
-            ]),
-          ],
-          { attrs: { id: "2", name: "register_only_residual_gpr", title: "Register-only residual, GPR" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "Legacy allocator coloring modes are GPR-only. `capture=trace` retains GPR/FPR coloring graphs when emitted, so use those graphs and detailed PCode to investigate float values. `source-rank` currently selects GPR snapshots; check each analysis mode and baseline replay before applying its results to FPRs.",
-                "Work from objdump and regflow, and probe one float lifetime at a time: distinct temporaries, promotion to function scope, literal form, reuse of an existing float temporary for a second comparison.",
-            ]),
-          ],
-          { attrs: { id: "3", name: "register_only_residual_fpr", title: "Register-only residual, FPR" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([...text.stackTechnique]),
-          ],
-          { attrs: { id: "4", name: "stack_slot_or_frame_size", title: "Stack slot or frame size" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "Read dependency order in the emitted sequence and detailed PCode stages from `capture=trace`. Use `mwcc_alloc_analyze` in `origins` mode to trace value definitions, plus `mwcc_debug_dump_function` when pass text is needed; use regflow for a compact register window.",
-                "The edit for this class changes one dependency: a pointer initialization, a post-increment store, a call placement, or a needless argument that forces an extra store.",
-            ]),
-          ],
-          { attrs: { id: "5", name: "scheduling", title: "Scheduling" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "When instruction rows match but the strict score does not, the residual is a symbol, a `.sdata2` constant identity or order, a binding, or section ownership.",
-                "Use `direct_compile_tu` and then objdump or readelf on the object to resolve the left and right symbols. Use `review_lint_sdata2_order_helper` only for pure `.sdata2` ordering.",
-                "Stop allocator experiments for this class; they cannot move a relocation.",
-            ]),
-          ],
-          { attrs: { id: "6", name: "relocation_or_symbol_identity", title: "Relocation or symbol identity" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "Account for exact bytes, offsets, binding, alignment, strings, generated tables, and relocations before editing; reconstruct the whole layout, then make one coordinated edit.",
-                "Verify raw bytes, relocations, consumers, and neighbors, not only the percent.",
-            ]),
-          ],
-          { attrs: { id: "7", name: "data_section_layout", title: "Data-section layout" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "A persistent live-range cluster that survives lifetime edits usually means the authored code had a helper or inline boundary you do not have.",
-                text.inlineBoundary,
-            ]),
-          ],
-          { attrs: { id: "8", name: "inline_boundary", title: "Inline boundary" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "Run `source_permuter_run` only after you have named the function and the bounded region or helper that owns the residual. Limit `mutate_functions` to that scope and keep `max_iters` in the hundreds.",
-                "The tool returns a scalar score and one source diff. It does not return instruction rows. Replay the interesting candidate with `source_permuter_replay`, then read its instruction delta with `checkdiff_run` and `full_diff`.",
-                "Treat the result as evidence about which source region controls the residual, then hand-write the final edit. Never adopt a candidate on score alone.",
-                "A broad search that finds nothing better confirms a local maximum. It is not a reason to run a bigger search.",
-                "`source_mutation_preview` shows what a mutation pass would change without compiling; use it to inspect a candidate shape before spending compile time.",
-            ]),
-          ],
-          { attrs: { id: "9", name: "permuter_as_a_probe_not_a_finder", title: "Permuter as a probe, not a finder" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "After any change that improves the score, remove each added cue one at a time and re-diff.",
-                "A cue whose removal changes nothing is noise; delete it before submitting. A cue whose removal regresses the score is the mechanism; keep it and name it in your note.",
-            ]),
-          ],
-          { attrs: { id: "10", name: "ablation", title: "Ablation" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "Several tools return an outer `status: ok` around a nested `exit_code: 1`, `file_not_found`, `unknown function`, or an empty result. Read the returned payload before drawing a conclusion.",
-                "If the permuter reports the function was not found at its source path, fix the invocation before concluding anything.",
-                "If an `mwcc_debug_*` tool reports an unhandled function or no pcdump output, the instrumented compiler is unavailable for this function; fall back to objdump and the allocator snapshot.",
-                "A stale checkdiff result after an edit means the service did not recompile; rerun it before reasoning about the rows.",
-            ]),
-          ],
-          { attrs: { id: "11", name: "read_payloads_not_envelopes", title: "Read payloads, not envelopes" } },
-        ),
-        section(
-          "technique",
-          [
-            bulletList([
-                "`knowledge_record` returns the full record, ledger, and prior runs for one target stable key or entity locator.",
-                "`attempt_search` lists prior runs and submissions by target stable key or by text query, with outcome filters.",
-                "`pr_search`, `discord_search`, and `wiki_search` search archived pull requests, chat, and wiki text; `resolve_locator` opens any hit to its bounded source material.",
-                "Callers, callees, and instruction-shape analogs for the target arrive in the target block's `related_functions`; there is no separate graph tool.",
-                "`asm_window_search` finds a donor function for one 32-instruction construct; similarity is not provenance.",
-                "`type_layout_lookup` and `type_oracle_lookup` check layouts and expression types before a type change; `m2c_decompile` is a reading scaffold, not evidence.",
-            ]),
-          ],
-          { attrs: { id: "12", name: "history_and_reference_tools", title: "History and reference tools" } },
-        ),
-      ]),
-
-      submissionSection(mode, policy),
       section("contracted_in_rules", [
         orderedList([
-          "Work only on the current claimed target; the target translation unit is your motivation and review scope.",
-          'Edit only paths in your approved write set, which initially contains only the `<target_file path="...">` path.',
-          "Before requesting any widening, first try typing the in-slice code to the foreign types already present on master.",
-          "If that measurably fails and a canonical fix elsewhere is required, call `request_write_set_widening` before editing that path. The submission note's `widening_request` remains available and takes the mismatched declaration, objdiff evidence, expected owner, and evidence explaining why each lower rung failed.",
-          "Never add local shims—aliases, local prototypes, or include-macro rewrites—as a substitute for the canonical fix.",
-          "Preserve pre-existing dirty work. Undo only your own failed attempt hunks.",
-          item("Do not use destructive commands:", [
-            bulletList([
-              "Whole-file reset, restore, checkout, or clean",
-              "Repo-level reset, restore, checkout, or clean",
-              "Equivalent commands with the same effect",
-            ]),
-          ]),
-          "Classify the residual before editing, and name the mechanism before testing a hypothesis. Do not run allocator or regflow diagnostics on a residual you have not classified as register-only.",
-          "Stop a variant family after two or three variants reproduce the same residual rows. Escalate to a new class of evidence before editing again.",
-          "Once instruction rows match, treat any remaining strict-score gap as relocation or data identity and stop allocator edits.",
-          "Validate retained edits with narrow build/objdiff/checkdiff/review evidence.",
-          "Use `checkdiff_run` or `checkdiff_summary` for function diff evidence; do not run raw `tools/asm-differ/diff.py` from shell.",
-          "`powerpc-eabi-objdump`, `powerpc-eabi-nm`, `powerpc-eabi-readelf`, `dtk`, `objdiff-cli`, `wibo`, and the compilers are on PATH in your sandbox; call them by name and do not search the filesystem for tools.",
-          "Do not run broad filesystem `find` sweeps such as `find /`, `find /Users`, `find /opt`, `find /Applications`, or upward `find ../../..`; use narrow searches inside the worker checkout only.",
-          "`m2c_decompile` is a live scaffold generator, not a changing fact lookup. Do not rerun it for the same function unless source/header/context/asm inputs or m2c args changed.",
-          "Use `source_permuter_run` only as a bounded probe on a named region after the residual is classified and the mechanism hypothesis is written down. Read candidate instruction deltas through replay and `checkdiff_run`; never adopt a candidate on score alone.",
-          "`source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue.",
-          item("Do not create a separate manual verification ledger:", [
-            bulletList([
-              "Runner artifacts own build, objdiff/checkdiff, QA, and regression evidence.",
-              "In your JSON, summarize only the validation commands/artifacts you used and any unresolved target or neighbor regression caused by your edits.",
-              "Never ask the runner to validate an unresolved local regression caused by your edits.",
-            ]),
-          ]),
-          "Do not run global progress-report refreshes from a worker.",
-          text.continueRule,
+          "Work only on the claimed section and edit only paths in the approved write set.",
+          "Do not regress already-exact functions or sibling sections.",
+          "Preserve storage class and qualifiers. Changing `static` versus global declarations can change section placement.",
+          "Do not use m2c decompile, the permuter, or the compiler allocator tools for section targets. Those tools are function-oriented.",
+          "Rely on direct file editing plus build-and-compare evidence from checkdiff or the objdiff summary at unit level.",
         ]),
       ]),
     ],
   });
 }
 
-export const prompt = functionPrompt("match_frame", "off");
+type VariantOptions = Pick<
+  WorkerPromptOptions,
+  "game" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering" | "toolIds" | "baseRef" | "registries" | "compilerCapabilities"
+>;
 
-const sectionTargetPrompt = definePrompt({
-  id: "melee.worker.section.system",
-  title: "Melee Worker Section Target System Prompt",
-  archetype: "workflow",
-  nodes: [
-    section("goal", [
-      bulletList([
-        "Bring the named section of this translation unit to an exact match by defining or completing the remaining data symbols in its C file.",
-        "The target symbol is the section name, and `fuzzy_match_percent` is that section's match percent.",
-      ]),
-    ]),
-    section("definition_of_done", [
-      bulletList([
-        "The runner validates the claimed section as exact.",
-        "Already-exact functions and sibling sections do not regress.",
-      ]),
-    ]),
-    section("context_contract", [
-      usesContext("worker-packet", {
-        instructions: [
-          "Use the injected target (with its source file and related functions), first diff, standards, available tools, and repair request as the authoritative task packet.",
-          "A <proposed_name_view> is current source with guessed function names and a canonical-symbol footer. Use it to notice missing or inconsistent behavior, then verify the hypothesis in canonical source and compiler output. Data-section labels and fields are not substituted.",
-          "Use knowledge_render_file to read other source/header files or refresh after edits. Before patching, read the canonical file; use original symbols in edits, tool arguments, and citations. Guessed names are reading aids, not recovered identifiers.",
-          "Treat current source, headers, symbols, assembly, objdiff, and validation output as stronger evidence than any historical summary.",
-        ],
-      }),
-      usesContext("target-knowledge", {
-        instructions: [
-          "Use the knowledge card for nearby solved data, prior runs on this section, and data-layout clues.",
-          "Verify every historical clue against the target object, local source, or validation output.",
-        ],
-      }),
-    ]),
-    section("workflow_context", [
-      section(
-        "phase",
-        [
-          bulletList([
-            "Read the target object's data with the available diff tools and the repository's disassembly or reference material.",
-            "Account for exact bytes, offsets, binding, alignment, strings, generated tables, and relocations before editing; reconstruct the whole layout, then make one coordinated edit.",
-            "Transcribe initializers for `.data`, `.rodata`, `.sdata`, and `.sdata2` into the translation unit's C file.",
-            "Order float and double constants to match the `.sdata2` pool order.",
-            "For `.bss`, declare the correct symbols with the correct types, sizes, and order. `.bss` has no initializers.",
-            "Build and compare after focused edits. Use checkdiff or the objdiff summary at unit level, and verify raw bytes and relocations, not only the percent.",
-          ]),
-        ],
-        { attrs: { id: "1", name: "data_matching" } },
-      ),
-    ]),
-    section("contracted_in_rules", [
-      orderedList([
-        "Work only on the claimed section and edit only paths in the approved write set.",
-        "Do not regress already-exact functions or sibling sections.",
-        "Preserve storage class and qualifiers. Changing `static` versus global declarations can change section placement.",
-        "Do not use m2c decompile, the permuter, or MWCC debug tools for section targets. Those tools are function-oriented.",
-        "Rely on direct file editing plus build-and-compare evidence from checkdiff or the objdiff summary at unit level.",
-      ]),
-    ]),
-  ],
-});
-
-export function renderSystemPrompt(): string {
-  return renderXmlMarkdown(prompt);
+function promptVariant(options: VariantOptions): WorkerPromptVariant {
+  const steering = workerSteeringGate(options);
+  return {
+    gameId: workerGameId(options),
+    displayName: workerGameDisplayName(options),
+    policy: workerStackFramePolicy(options),
+    advisory: options.advisoryAdjudication ?? "off",
+    sms: steeringGateEnforced(steering),
+    melee: steering === "off",
+    ordering: workerOrdering(options),
+    tools: workerPromptToolIds(options),
+    baseRef: workerBaseRef(options),
+    registries: workerRegistries(options),
+    tracePoints: tracePointAvailabilityLines(workerCompilerCapabilities(options)),
+  };
 }
 
-const functionPrompts = new Map<string, typeof prompt>([["match_frame:off:off", prompt]]);
+type WorkerPromptDocument = ReturnType<typeof functionPrompt>;
 
-function functionPromptFor(policy: StackFramePolicy, mode: AdvisoryAdjudicationMode, steering: boolean, ordering: OrderingMode): typeof prompt {
-  const key = `${policy}:${mode}:${steering ? "steering" : "off"}${orderingActive(ordering) ? `:ordering-${ordering}` : ""}`;
+const functionPrompts = new Map<string, WorkerPromptDocument>();
+const sectionPrompts = new Map<string, WorkerPromptDocument>();
+
+function functionPromptFor(options: VariantOptions): WorkerPromptDocument {
+  const variant = promptVariant(options);
+  const key = JSON.stringify(variant);
   let selected = functionPrompts.get(key);
   if (!selected) {
-    selected = functionPrompt(policy, mode, steering, ordering);
+    selected = functionPrompt(variant);
     functionPrompts.set(key, selected);
   }
   return selected;
 }
+
+function sectionPromptFor(options: Pick<WorkerPromptOptions, "game">): WorkerPromptDocument {
+  const gameId = workerGameId(options);
+  let selected = sectionPrompts.get(gameId);
+  if (!selected) {
+    selected = sectionTargetPrompt(gameId, workerGameDisplayName(options));
+    sectionPrompts.set(gameId, selected);
+  }
+  return selected;
+}
+
+/** The typed default: Melee's worker prompt (the catalog's game), resolved from its descriptor. */
+export const prompt = functionPromptFor({ game: { gameId: "melee" } });
 
 function isSectionTarget(packet: Record<string, unknown>): boolean {
   const target = packet.target;
@@ -631,22 +536,20 @@ function isSectionTarget(packet: Record<string, unknown>): boolean {
   return String(targetRecord.symbol ?? "").startsWith(".");
 }
 
+export function renderSystemPrompt(): string {
+  return renderXmlMarkdown(prompt);
+}
+
 /**
  * The system prompt document a worker gets: the section-target prompt, or the
- * function prompt for the game's stack frame policy, the advisory mode,
- * whether the game's steering gate is active, and its ordering mode.
+ * function prompt for the game's stack frame policy, the advisory mode, the
+ * game's steering gate and ordering modes, its tools, base ref, registries and
+ * the traced compiler's trace points.
  */
 export function workerSystemPromptDocument(
-  options: Pick<WorkerPromptOptions, "packet" | "game" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering">,
-): typeof prompt {
-  return isSectionTarget(options.packet)
-    ? sectionTargetPrompt
-    : functionPromptFor(
-        workerStackFramePolicy(options),
-        options.advisoryAdjudication ?? "off",
-        steeringGateActive(workerSteeringGate(options)),
-        workerOrdering(options),
-      );
+  options: Pick<WorkerPromptOptions, "packet"> & VariantOptions,
+): WorkerPromptDocument {
+  return isSectionTarget(options.packet) ? sectionPromptFor(options) : functionPromptFor(options);
 }
 
 export function workerPrompt(options: WorkerPromptOptions): PiPromptBundle {

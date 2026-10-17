@@ -159,7 +159,7 @@ export function ImprovedTable({ dashboard, mode, onSelectAgent }: ImprovedTableP
           {unverifiedCount ? (
             <span
               className={`min-w-0 shrink truncate text-[length:var(--ds-font-size-ui-2xs,var(--text-xs))] ${UNVERIFIED_TONE}`}
-              title="Done: this run's exact matches. 100% unverified: run targets whose code reaches 100% but the steering gate could not verify; claimable, not counted as done."
+              title="Done: this run's exact matches. 100% but unverified: run targets whose code reaches 100% but the steering gate could not verify; claimable, not counted as done."
             >
               {doneWithUnverifiedLabel(matchCount, unverifiedCount)}
             </span>

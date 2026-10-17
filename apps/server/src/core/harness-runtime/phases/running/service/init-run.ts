@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { loadKnowledgeBoardSnapshot, resourceGraphDbPath } from "@server/core/knowledge";
 import { createRun, openState } from "@server/core/harness-runtime/run-state";
 import { steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { singleChangeUnverifiedKeys } from "@server/core/harness-runtime/run-state/steering-explain.js";
 import { recordDashboardArtifact } from "@server/core/orchestrator-state";
 import { numberArg, gameMetadata, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameOrdering } from "@server/core/tools/ordering.js";
@@ -59,6 +60,7 @@ export async function initRun(globals: GlobalArgs, args: Map<string, string | tr
       graphDbPath,
       validation: globals.game?.validation,
       ...(unverified && unverified.size > 0 ? { unverified } : {}),
+      ...(unverified && unverified.size > 0 && (globals.game?.gameId ?? globals.gameId) ? { unverifiedSingleChange: singleChangeUnverifiedKeys(store, (globals.game?.gameId ?? globals.gameId)!) } : {}),
       ...(readiness ? { readiness } : {}),
     });
     // Games without an active gate (Melee) keep today's snapshot shape.

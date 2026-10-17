@@ -58,7 +58,7 @@ export function workerPacket(params: {
     },
     enabled_capabilities: ["context_packaging", "focused_source_editing", "duplicate_adaptation", "fact_research"],
     stop_rule:
-      "Understand the file, make scoped evidence-backed edits inside the write_set, evaluate concrete attempts with narrow validation/review feedback, retain only edits with no unresolved local regression, and keep working toward exact match. When you return, the runner will validate the current worktree and decide whether to continue or close the worker state.",
+      "Understand the file, make scoped evidence-backed edits inside the write_set, evaluate concrete attempts with narrow validation/review feedback, retain only edits with no unresolved local regression, and follow the system prompt's method and stop conditions. When you return, the runner will validate the current worktree and decide whether to continue or close the worker state.",
     runner_contract: {
       ownership: "target_claim",
       durable_state: "worker_state",

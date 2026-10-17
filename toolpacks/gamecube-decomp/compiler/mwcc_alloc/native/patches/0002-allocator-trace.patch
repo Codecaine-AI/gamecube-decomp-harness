@@ -1,0 +1,362 @@
+diff --git a/src/backend/Coloring.c b/src/backend/Coloring.c
+index 529a5ac..5aec205 100644
+--- a/src/backend/Coloring.c
++++ b/src/backend/Coloring.c
+@@ -19,6 +19,7 @@
+ #include "compiler/Scheduler.h"
+ #include "compiler/SpillCode.h"
+ #include "compiler/StackFrameEABI.h"
++#include "compiler/MwccTrace.h"
+ 
+ struct InterferenceNode **gInterferenceGraph;
+ 
+@@ -33,6 +34,185 @@ static int Coloring_IsPairedGPRObject(Object *object);
+ static void Coloring_BindObjects(ObjectList *item, int reg_class);
+ static void Coloring_DecrementNeighbors(InterferenceNode *node);
+ 
++/* (decision trace: see compiler/MwccTrace.h; nothing here changes the allocation) */
++static int trace_sweep;
++static int trace_order;
++
++static int trace_argument_index(Object *object)
++{
++    ObjectList *entry;
++    int index;
++
++    index = 0;
++    for (entry = arguments; entry != NULL; entry = entry->next) {
++        if (entry->object == object)
++            return index;
++        index++;
++    }
++    return -1;
++}
++
++static int trace_is_argument(Object *object)
++{
++    return trace_argument_index(object) >= 0;
++}
++
++static void trace_graph(int reg_class, int register_count)
++{
++    int pass;
++    int reg;
++    int index;
++    InterferenceNode *node;
++    Object *object;
++    VarInfo *info;
++    const char *name;
++
++    pass = MwccTrace_BeginAllocationPass(reg_class);
++    for (reg = 0; reg < register_count; reg++) {
++        node = gInterferenceGraph[reg];
++        object = node->object;
++        if (reg < 32 && object == NULL)
++            continue;
++        MwccTrace_Begin("vreg", pass, reg_class);
++        MwccTrace_Int("vreg", reg);
++        name = object != NULL && object->name != NULL ? object->name->name : NULL;
++        if (object == NULL) {
++            MwccTrace_Str("kind", "backend_temp");
++            MwccTrace_Null("object");
++        } else {
++            MwccTrace_Str("kind", trace_is_argument(object)                   ? "arg"
++                                  : name == NULL || name[0] == '@' || name[0] == '$' ? "temp"
++                                                                                     : "local");
++            MwccTrace_Str("object", name);
++            info = object->datatype == DLOCAL ? object->u.var.info : NULL;
++            /* (only a local's declaration token is its declaration: an argument's and a temporary's are wherever the
++             * parser was when their information was made) */
++            if (trace_is_argument(object)) {
++                MwccTrace_ArgumentDeclaration();
++                MwccTrace_Int("arg_index", trace_argument_index(object));
++            } else {
++                if (name == NULL || name[0] == '@' || name[0] == '$')
++                    MwccTrace_Declaration(NULL);
++                else
++                    MwccTrace_LocalDeclaration(object, info != NULL ? &info->deftoken : NULL);
++            }
++            if (info != NULL)
++                MwccTrace_Int("varnumber", info->varnumber);
++            MwccTrace_Str("origin", MwccTrace_Origin(object->name));
++            if ((node->flags & Interference_FirstOfPair) != 0)
++                MwccTrace_Str("pair", "first");
++            else if ((node->flags & Interference_SecondOfPair) != 0)
++                MwccTrace_Str("pair", "second");
++        }
++        MwccTrace_Null("web");
++        if (reg < 32)
++            MwccTrace_Bool("precolored", 1);
++        MwccTrace_End();
++    }
++    for (reg = 32; reg < register_count; reg++) {
++        node = gInterferenceGraph[reg];
++        MwccTrace_Begin("node", pass, reg_class);
++        MwccTrace_Int("vreg", reg);
++        MwccTrace_Int("degree", node->degree);
++        MwccTrace_ArrayBegin("neighbors");
++        for (index = 0; index < node->neighbor_count; index++)
++            MwccTrace_ArrayInt(node->neighbors[index]);
++        MwccTrace_ArrayEnd();
++        MwccTrace_Bool("coalesced", (node->flags & Interference_Coalesced) != 0);
++        if ((node->flags & Interference_Coalesced) != 0)
++            MwccTrace_Int("coalesced_into", node->physical_register);
++        MwccTrace_Null("spill_cost");
++        MwccTrace_End();
++    }
++}
++
++static void trace_spill_costs(int reg_class, int node_count)
++{
++    int reg;
++    InterferenceNode *node;
++
++    for (reg = 32; reg < node_count; reg++) {
++        node = gInterferenceGraph[reg];
++        if ((node->flags & 6) != 0)
++            continue;
++        MwccTrace_Begin("node_cost", MwccTrace_AllocationPass(reg_class), reg_class);
++        MwccTrace_Int("vreg", reg);
++        MwccTrace_Int("spill_cost", node->spill_cost);
++        MwccTrace_Int("degree", node->degree);
++        MwccTrace_End();
++    }
++}
++
++/* (the stall's cost is recomputed here: a double the caller keeps across this call would leave the x87 stack for
++ * memory and round, and the allocator's own comparisons of costs would change) */
++static void trace_push(int reg_class, InterferenceNode *node, int stalled)
++{
++    MwccTrace_Begin("push", MwccTrace_AllocationPass(reg_class), reg_class);
++    MwccTrace_Int("vreg", node->virtual_register);
++    MwccTrace_Int("sweep", trace_sweep);
++    MwccTrace_Bool("stalled", stalled);
++    if (stalled) {
++        if (node->virtual_register >= gColoringRegisterCount || node->degree == 0)
++            MwccTrace_Ratio("cost_ratio", 3.40282347e+38);
++        else
++            MwccTrace_Ratio("cost_ratio", (double)node->spill_cost / (double)node->degree);
++        MwccTrace_Int("spill_cost", node->spill_cost);
++        MwccTrace_Int("degree", node->degree);
++    }
++    MwccTrace_End();
++}
++
++static void trace_color(int reg_class, InterferenceNode *node)
++{
++    MwccTrace_Begin("color", MwccTrace_AllocationPass(reg_class), reg_class);
++    MwccTrace_Int("vreg", node->virtual_register);
++    MwccTrace_Int("color", (node->flags & Interference_Spilled) != 0 ? -1 : node->physical_register);
++    MwccTrace_Int("order", trace_order++);
++    MwccTrace_End();
++    if ((node->flags & Interference_Spilled) != 0) {
++        MwccTrace_Begin("spill", MwccTrace_AllocationPass(reg_class), reg_class);
++        MwccTrace_Int("vreg", node->virtual_register);
++        MwccTrace_End();
++    }
++}
++
++static void trace_commit(int reg_class, int register_count)
++{
++    int reg;
++    int color;
++    InterferenceNode *node;
++    char text[8];
++
++    for (reg = 32; reg < register_count; reg++) {
++        node = gInterferenceGraph[reg];
++        if ((node->flags & Interference_Spilled) != 0)
++            continue;
++        color = node->physical_register;
++        while (color >= 32) {
++            color = gInterferenceGraph[color]->physical_register;
++            if (color < 0)
++                break;
++        }
++        MwccTrace_Begin("commit", MwccTrace_AllocationPass(reg_class), reg_class);
++        MwccTrace_Int("vreg", reg);
++        if (color < 0 || color >= 32) {
++            MwccTrace_Null("reg");
++        } else {
++            text[0] = reg_class == 0 ? 'r' : reg_class == 1 ? 'f' : 'v';
++            if (color >= 10) {
++                text[1] = (char)('0' + color / 10);
++                text[2] = (char)('0' + color % 10);
++                text[3] = 0;
++            } else {
++                text[1] = (char)('0' + color);
++                text[2] = 0;
++            }
++            MwccTrace_Str("reg", text);
++        }
++        MwccTrace_End();
++    }
++}
++
+ void Coloring_SetupGPRs(void)
+ {
+     UInt32 reg;
+@@ -144,6 +324,8 @@ InterferenceNode *Coloring_SimplifyGraph(int allocation, int register_count, int
+     int removed;
+     int degree;
+     stack = NULL;
++    if (mwcc_trace_on)
++        trace_sweep = 0;
+     do {
+         remaining = NULL;
+         removed = 0;
+@@ -158,15 +340,21 @@ InterferenceNode *Coloring_SimplifyGraph(int allocation, int register_count, int
+                     node->next = stack;
+                     stack = node;
+                     removed = 1;
++                    if (mwcc_trace_on)
++                        trace_push(allocation, node, 0);
+                 } else {
+                     node->next = remaining;
+                     remaining = node;
+                 }
+             }
+         }
++        if (mwcc_trace_on)
++            trace_sweep++;
+     } while (removed != 0);
+     if (remaining != NULL) {
+         SpillCode_ComputeSpillCosts(allocation);
++        if (mwcc_trace_on)
++            trace_spill_costs(allocation, node_count);
+     }
+     while (remaining != NULL) {
+         float maxcost = 3.40282347e+38f;
+@@ -206,6 +394,8 @@ InterferenceNode *Coloring_SimplifyGraph(int allocation, int register_count, int
+         node->flags |= 2;
+         node->next = stack;
+         stack = node;
++        if (mwcc_trace_on)
++            trace_push(allocation, node, 1);
+         do {
+             remaining = NULL;
+             changed = 0;
+@@ -221,12 +411,16 @@ InterferenceNode *Coloring_SimplifyGraph(int allocation, int register_count, int
+                         changed = 1;
+                         next_node->next = stack;
+                         stack = next_node;
++                        if (mwcc_trace_on)
++                            trace_push(allocation, next_node, 0);
+                     } else {
+                         next_node->next = remaining;
+                         remaining = next_node;
+                     }
+                 }
+             }
++            if (mwcc_trace_on)
++                trace_sweep++;
+         } while (changed != 0);
+     }
+     return stack;
+@@ -258,6 +452,8 @@ int Coloring_SelectColors(int register_class, InterferenceNode *node)
+         initial_colors = Coloring_VRColorMask();
+     }
+     colors = initial_colors;
++    if (mwcc_trace_on)
++        trace_order = 0;
+     while (node != NULL) {
+         available_colors = colors;
+         neighbors = node->neighbors;
+@@ -294,6 +490,8 @@ int Coloring_SelectColors(int register_class, InterferenceNode *node)
+                 success = 0;
+             }
+         }
++        if (mwcc_trace_on)
++            trace_color(register_class, node);
+         node = node->next;
+     }
+     return success;
+@@ -365,6 +563,8 @@ void Coloring_CommitAssignments(int reg_class, int register_count)
+     unsigned int reg;
+     int color;
+ 
++    if (mwcc_trace_on)
++        trace_commit(reg_class, register_count);
+     for (block = gPCodeBlocks; block != NULL; block = block->next) {
+         for (instruction = block->instructions; instruction != NULL; instruction = instruction->next) {
+             PCodeOperand *operand;
+@@ -424,6 +624,8 @@ void Coloring_AllocateRegisters(Object *function)
+     while (spill && gUsedVirtualRegistersVR > 0x20) {
+         SpillCode_BuildInterference(function, 9, gUsedVirtualRegistersVR);
+         Coloring_SetupVRs();
++        if (mwcc_trace_on)
++            trace_graph(9, gUsedVirtualRegistersVR);
+         spill = 0;
+         if (Coloring_SelectColors(9, Coloring_SimplifyGraph(9, Registers_AvailableVRs(), gUsedVirtualRegistersVR)) == 0)
+             spill = 1;
+@@ -447,6 +649,8 @@ void Coloring_AllocateRegisters(Object *function)
+     while (spill && gUsedVirtualRegistersGPR > 0x20) {
+         SpillCode_BuildInterference(function, 0, gUsedVirtualRegistersGPR);
+         Coloring_SetupGPRs();
++        if (mwcc_trace_on)
++            trace_graph(0, gUsedVirtualRegistersGPR);
+         spill = 0;
+         if (Coloring_SelectColors(0, Coloring_SimplifyGraph(0, Registers_AvailableGPRs(), gUsedVirtualRegistersGPR)) ==
+             0)
+@@ -469,6 +673,8 @@ void Coloring_AllocateRegisters(Object *function)
+     while (spill && gUsedVirtualRegistersFPR > 0x20) {
+         SpillCode_BuildInterference(function, 1, gUsedVirtualRegistersFPR);
+         Coloring_SetupFPRs();
++        if (mwcc_trace_on)
++            trace_graph(1, gUsedVirtualRegistersFPR);
+         spill = 0;
+         if (Coloring_SelectColors(1, Coloring_SimplifyGraph(1, Registers_AvailableFPRs(), gUsedVirtualRegistersFPR)) ==
+             0)
+diff --git a/src/backend/InterferenceGraph.c b/src/backend/InterferenceGraph.c
+index 0aa0651..367dd94 100644
+--- a/src/backend/InterferenceGraph.c
++++ b/src/backend/InterferenceGraph.c
+@@ -24,6 +24,7 @@
+ #include "compiler/Registers.h"
+ #include "compiler/SpillCode.h"
+ #include "compiler/StackFrameEABI.h"
++#include "compiler/MwccTrace.h"
+ 
+ struct PCodeBlock *gPCodeBlocks;
+ short gGPRCoalesceFirst;
+@@ -36,6 +37,22 @@ static short *gCoalescedRegisters;
+ 
+ static void SC_Interfere(unsigned int a, unsigned int b);
+ 
++/* (decision trace: see compiler/MwccTrace.h) */
++static void trace_coalesce(int reg_class, int kept, int merged)
++{
++    MwccTrace_Begin("coalesce", MwccTrace_PendingAllocationPass(reg_class), reg_class);
++    MwccTrace_Int("a", kept);
++    MwccTrace_Int("b", merged);
++    MwccTrace_Str("reason", "copy");
++    MwccTrace_End();
++}
++
++static void trace_spill_slot(Object *object)
++{
++    MwccTrace_FrameSlot(object, object->u.var.uid, object->type->size,
++                        StackFrameEABI_GetTypeAlignment(object->type));
++}
++
+ static const char *SpillCode_RegisterFormat(int reg_class)
+ {
+     if (reg_class == 0) {
+@@ -550,6 +567,8 @@ void InterferenceGraph_SpillRegisters(int reg_class, int register_count)
+             }
+             if (node->object->datatype == DLOCAL && Registers_GetInfo(node->object)->in_param_area == 0) {
+                 StackFrameEABI_AllocateObjectSlot(node->object);
++                if (mwcc_trace_on)
++                    trace_spill_slot(node->object);
+             }
+             Registers_GetInfo(node->object)->reg = 0;
+         }
+@@ -718,6 +737,8 @@ void SpillCode_CoalesceCopies(SInt32 regclass, UInt32 numRegs)
+                 lowerReg = (sourceReg < destinationReg) ? sourceReg : destinationReg;
+                 upperReg = (sourceReg > destinationReg) ? sourceReg : destinationReg;
+                 gCoalescedRegisters[upperReg] = lowerReg;
++                if (mwcc_trace_on)
++                    trace_coalesce(regclass, lowerReg, upperReg);
+                 for (i = 0; i < numRegs; i++)
+                     if (Coalesce_Interferes(upperReg, i))
+                         Coalesce_AddInterference(lowerReg, i);

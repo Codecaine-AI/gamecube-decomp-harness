@@ -10,6 +10,7 @@ import {
 import { openKnowledgeGraph, readReportProvenance } from "@server/core/knowledge/graph";
 import { loadExactTargetKeys, loadStackOnlyTargetKeys } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
 import { stackOnlyIndexForGame } from "@server/core/harness-runtime/run-state/stack-only-functions.js";
+import { singleChangeUnverifiedKeys } from "@server/core/harness-runtime/run-state/steering-explain.js";
 import { steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import type { UnverifiedIndex } from "@server/core/harness-runtime/phases/running/board/candidates.js";
 import {
@@ -145,6 +146,7 @@ export function refreshReadinessArtifact(params: {
     validation: params.globals.game?.validation,
     ...(stackOnly ? { stackOnly } : {}),
     ...(unverified ? { unverified } : {}),
+    ...(unverified && gameId ? { unverifiedSingleChange: singleChangeUnverifiedKeys(params.store, gameId) } : {}),
     ...(readiness ? { readiness } : {}),
   });
   return recordReadinessArtifact(params.store, { runId: params.runId, gameId, board });
@@ -275,6 +277,7 @@ export function ensureSchedulerEpochFromBoard(params: EnsureSchedulerEpochParams
       validation: params.globals.game?.validation,
       ...(stackOnly ? { stackOnly } : {}),
       ...(unverified && unverified.size > 0 ? { unverified } : {}),
+      ...(unverified && unverified.size > 0 && gameId ? { unverifiedSingleChange: singleChangeUnverifiedKeys(params.store, gameId) } : {}),
       ...(readiness ? { readiness } : {}),
     });
     if (!progress || progress.admitted === 0) {

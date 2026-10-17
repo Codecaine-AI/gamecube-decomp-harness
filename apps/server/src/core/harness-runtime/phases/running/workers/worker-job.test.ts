@@ -25,7 +25,12 @@ import {
   workerKernelOps,
   type WorkerJobRunContext,
 } from "./worker-job.js";
-import { readWorkerTaskFile, runWorkerCycleFromTask, type WorkerCycleResult } from "./worker-cycle.js";
+import { readWorkerTaskFile, runWorkerCycleFromTask, workerAgentDeadlineMs, workerClaimGraceSeconds, type WorkerCycleResult } from "./worker-cycle.js";
+import { recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { UNVERIFIED_MATCHES_EVIDENCE_PATH } from "@server/core/harness-runtime/run-state/unverified-matches-evidence.js";
+import type { provisionSandboxWorkspace } from "@server/core/job-queue/provisioning.js";
+import { unverifiedReportLocator } from "@server/core/harness-runtime/run-state/unverified-report-locator.js";
+import { steeringPreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 
 const tempDirs: string[] = [];
 
@@ -327,6 +332,56 @@ describe("worker job kind", () => {
         sandbox_sleep_debounce_ms: 1_000,
       });
       expect(spec.worktree_path).toBeUndefined();
+    } finally { f.store.db.close(); }
+  });
+
+  test("a sandbox that queued in create admission still gives the agent its full budget, counted from dispatch", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      // A 10-minute agent inside a 15-minute claim TTL (5 minutes of grace).
+      f.ctx.ttlSeconds = 900;
+      f.ctx.globals.agentTimeoutSeconds = 600;
+      const result = claimSandboxJob(f);
+      const claimId = String(result.job.payload.target_claim_id);
+      const claimTtl = () => String((f.store.db.query("SELECT ttl FROM target_claims WHERE id = ?").get(claimId) as { ttl: string }).ttl);
+      const descriptor = workerJobDescriptor(f.ctx, {
+        sandboxProvider: new FakeSandboxProvider(),
+        // Provisioning queued 12 minutes behind a provider quota: the claim-time TTL has only ~3 minutes left.
+        provisionSandbox: async (input) => {
+          f.store.db.query("UPDATE target_claims SET ttl = ? WHERE id = ?").run(new Date(Date.parse(claimTtl()) - 720_000).toISOString(), claimId);
+          return { sandboxId: "sandbox-queued", workspaceRoot: input.workspaceRoot };
+        },
+      });
+      if (descriptor.execution.mode !== "dispatched") throw new Error("worker jobs are dispatched");
+      const dispatchedAt = Date.now();
+      await descriptor.execution.buildTask(result.job, { store: f.store, token: result.token });
+
+      // The worker child derives its agent deadline from the claim TTL: it gets the full 10 minutes from dispatch.
+      const agentDeadline = workerAgentDeadlineMs(Date.parse(claimTtl()), workerClaimGraceSeconds(900, 600))!;
+      expect(agentDeadline - dispatchedAt).toBeGreaterThanOrEqual(600_000 - 1_000);
+      expect(Date.parse(claimTtl()) - dispatchedAt).toBeGreaterThanOrEqual(900_000 - 1_000);
+      // The job payload's deadline moved with it.
+      expect(getJob(f.store, result.job.jobId)!.payload.ttl).toBe(claimTtl());
+    } finally { f.store.db.close(); }
+  });
+
+  test("the dispatch TTL extension is owner-fenced: a claim another worker took is not extended", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      const claimId = String(result.job.payload.target_claim_id);
+      const before = String((f.store.db.query("SELECT ttl FROM target_claims WHERE id = ?").get(claimId) as { ttl: string }).ttl);
+      const build = buildWorkerTask(f.ctx, {
+        sandboxProvider: new FakeSandboxProvider(),
+        provisionSandbox: async (input) => {
+          f.store.db.query("UPDATE target_claims SET worker_id = 'someone-else', ttl = ? WHERE id = ?").run(new Date(Date.parse(before) - 720_000).toISOString(), claimId);
+          return { sandboxId: "sandbox-stolen", workspaceRoot: input.workspaceRoot };
+        },
+      });
+      await expect(build(result.job, { store: f.store, token: result.token })).rejects.toThrow("now belongs to someone-else");
+      expect(String((f.store.db.query("SELECT ttl FROM target_claims WHERE id = ?").get(claimId) as { ttl: string }).ttl)).toBe(new Date(Date.parse(before) - 720_000).toISOString());
     } finally { f.store.db.close(); }
   });
 
@@ -1108,6 +1163,111 @@ describe("worker job kind", () => {
       } });
       expect(outcome.expiredClaimsRecovered).toBe(0);
       expect(calls).toHaveLength(0);
+    } finally { f.store.db.close(); }
+  });
+});
+
+describe("worker job sandbox inputs", () => {
+  test("passes the unverified target's trusted base and the unverified-matches list to provisioning", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const game = f.ctx.globals.game as unknown as Record<string, unknown>;
+      game.gameId = "test";
+      game.matching = { steeringGate: "enforce" };
+      recordUnverifiedMatch(f.store, {
+        gameId: "test", unit: "unit", symbol: "fn", analyzedRev: "analyzed-rev", baseRev: "trusted-base",
+        sourcePath: "src/a.c", match: { base: 90, candidate: 100, real_only: null }, reasons: ["unresolved"],
+      });
+      const result = claimSandboxJob(f);
+      const calls: Array<Parameters<typeof provisionSandboxWorkspace>[0]> = [];
+      await buildWorkerTask(f.ctx, {
+        sandboxProvider: new FakeSandboxProvider(),
+        provisionSandbox: async (input) => {
+          calls.push(input);
+          return { sandboxId: "sandbox-inputs", workspaceRoot: input.workspaceRoot };
+        },
+      })(result.job, { store: f.store, token: result.token });
+      expect(calls[0]?.requiredRevs).toEqual(["trusted-base"]);
+      // The game's asm-window index is synced for the in-sandbox search.
+      expect(calls[0]?.toolData?.map((tree) => ({ toolId: tree.toolId, files: tree.files }))).toEqual([{
+        toolId: "asm_window_search",
+        files: ["indexes/functions.jsonl", "indexes/windows.meta.jsonl", "indexes/windows.vec.bin", "indexes/manifest.json"],
+      }]);
+      expect(calls[0]?.toolData?.[0]?.hostRoot).toEndWith("/tool-data/asm_window_search");
+      const locator = unverifiedReportLocator({ unit: "unit", symbol: "fn", analyzedRev: "analyzed-rev" });
+      expect(calls[0]?.sandboxFiles?.map((file) => file.relativePath)).toEqual([UNVERIFIED_MATCHES_EVIDENCE_PATH, locator]);
+      // The full gate report at the packet's full_report_locator; the fixture repo is not a git checkout.
+      const report = JSON.parse(calls[0]!.sandboxFiles![1]!.content);
+      expect(report).toMatchObject({
+        schema: "orch-unverified-report-v1", unit: "unit", symbol: "fn", analyzed_rev: "analyzed-rev",
+        trusted_base_rev: "trusted-base", source_path: "src/a.c",
+        trusted_base_source: { rev: "trusted-base", path: "src/a.c", unavailable: expect.stringContaining("git show") },
+      });
+      const evidence = JSON.parse(calls[0]!.sandboxFiles![0]!.content);
+      expect(evidence).toMatchObject({
+        game_id: "test",
+        gate_active: true,
+        revision: "base-test",
+        unverified: [{ unit: "unit", symbol: "fn", analyzed_rev: "analyzed-rev", base_rev: "trusted-base" }],
+      });
+    } finally { f.store.db.close(); }
+  });
+
+  test("the packet names the report path this claim's provisioning delivered, even after the row is re-recorded", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const game = f.ctx.globals.game as unknown as Record<string, unknown>;
+      game.gameId = "test";
+      game.matching = { steeringGate: "enforce" };
+      const row = {
+        gameId: "test", unit: "unit", symbol: "fn", analyzedRev: "analyzed-rev", baseRev: "trusted-base",
+        sourcePath: "src/a.c", match: { base: 90, candidate: 100, real_only: null }, reasons: ["unresolved"],
+      };
+      recordUnverifiedMatch(f.store, row);
+      const result = claimSandboxJob(f);
+      let delivered = "";
+      const task = await buildWorkerTask(f.ctx, {
+        sandboxProvider: new FakeSandboxProvider(),
+        provisionSandbox: async (input) => {
+          delivered = input.sandboxFiles![1]!.relativePath;
+          return { sandboxId: "sandbox-locator", workspaceRoot: input.workspaceRoot };
+        },
+      })(result.job, { store: f.store, token: result.token });
+      expect(delivered).toBe(unverifiedReportLocator(row));
+      expect(getJob(f.store, result.job.jobId)?.payload.unverified_report_locator).toBe(delivered);
+
+      // A backfill re-records the row between provisioning and the claim-time packet lookup.
+      recordUnverifiedMatch(f.store, { ...row, analyzedRev: "reanalyzed-rev" });
+      expect(unverifiedReportLocator({ ...row, analyzedRev: "reanalyzed-rev" })).not.toBe(delivered);
+
+      const spec = await readWorkerTaskFile(new Map([["--task-file", task.command.at(-1)!]]));
+      expect(spec.unverified_report_locator).toBe(delivered);
+      const attempt = steeringPreviousAttempt(f.store, { gameId: "test", unit: "unit", symbol: "fn", fullReportLocator: spec.unverified_report_locator });
+      expect(attempt).toMatchObject({ variant: "unverified_match", analyzed_rev: "reanalyzed-rev", full_report_locator: delivered });
+      // Nothing delivered renders "unavailable".
+      expect(steeringPreviousAttempt(f.store, { gameId: "test", unit: "unit", symbol: "fn", fullReportLocator: null })).toMatchObject({ full_report_locator: null });
+    } finally { f.store.db.close(); }
+  });
+
+  test("skips required revisions for an ungated game and still writes the (empty) list", async () => {
+    const f = fixture();
+    try {
+      configureSandbox(f);
+      const result = claimSandboxJob(f);
+      const calls: Array<Parameters<typeof provisionSandboxWorkspace>[0]> = [];
+      await buildWorkerTask(f.ctx, {
+        sandboxProvider: new FakeSandboxProvider(),
+        provisionSandbox: async (input) => {
+          calls.push(input);
+          return { sandboxId: "sandbox-inputs", workspaceRoot: input.workspaceRoot };
+        },
+      })(result.job, { store: f.store, token: result.token });
+      expect(calls[0]?.requiredRevs).toEqual([]);
+      expect(calls[0]?.sandboxFiles).toHaveLength(1);
+      expect(getJob(f.store, result.job.jobId)?.payload.unverified_report_locator).toBeNull();
+      expect(JSON.parse(calls[0]!.sandboxFiles![0]!.content)).toMatchObject({ gate_active: false, unverified: [] });
     } finally { f.store.db.close(); }
   });
 });

@@ -12,6 +12,8 @@ export interface LoadKnowledgeBoardSnapshotOptions {
   stackOnly?: StackOnlyIndex;
   /** Steering-gated games: `unverified_match` functions (claimable at 100%, never done). */
   unverified?: UnverifiedIndex;
+  /** Unverified targets whose compiler delta is one measured change: ranked first among the unverified. */
+  unverifiedSingleChange?: ReadonlySet<string>;
   /** Ordering-active games: the epoch's class readiness (see `boardReadinessOptions`). */
   readiness?: BoardReadinessOptions;
 }
@@ -21,6 +23,7 @@ export function loadKnowledgeBoardSnapshot(repoRoot: string, options: LoadKnowle
     ...options.validation,
     ...(options.stackOnly ? { stackOnly: options.stackOnly } : {}),
     ...(options.unverified && options.unverified.size > 0 ? { unverified: options.unverified } : {}),
+    ...(options.unverifiedSingleChange && options.unverifiedSingleChange.size > 0 ? { unverifiedSingleChange: options.unverifiedSingleChange } : {}),
     ...(options.readiness ?? {}),
     // An explicit game report must never fall back to another game's index.
     ...(!options.validation?.reportPath ? { codeGraphFunctionsIndexPath: codeGraphFunctionsIndexPath() } : {}),

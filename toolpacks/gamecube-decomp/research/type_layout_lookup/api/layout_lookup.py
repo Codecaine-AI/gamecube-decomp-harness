@@ -71,9 +71,36 @@ def suggestions(index: dict[str, Any], record: str, limit: int = 10) -> list[str
     return difflib.get_close_matches(record, candidates, n=limit, cutoff=0.25)
 
 
+ABI_GUIDANCE = (
+    "clang's C++ layout can differ from MWCC's for this record: size and offsets at or past "
+    "divergence_offset may be wrong. Verify against the header's offset comments or the disassembly before relying on them."
+)
+
+
+def cxx_index(index: dict[str, Any]) -> bool:
+    dump = index.get("dump")
+    return isinstance(dump, dict) and dump.get("lang") == "c++"
+
+
+def abi_reliability(index: dict[str, Any], name: str) -> dict[str, Any]:
+    """Per-record offset reliability; empty for C indexes (their layouts are exact)."""
+    if not cxx_index(index):
+        return {}
+    record = index["records"][name]
+    if not record.get("abi_uncertain"):
+        return {"offsets_reliable": True}
+    return {
+        "offsets_reliable": False,
+        "abi_reason": record.get("abi_reason"),
+        "divergence_offset": record.get("abi_divergence_offset"),
+        "guidance": ABI_GUIDANCE,
+    }
+
+
 def record_summary(index: dict[str, Any], name: str) -> dict[str, Any]:
     record = index["records"][name]
     return {
+        **abi_reliability(index, name),
         "name": name,
         "display_name": typeidx.display_name(index, name),
         "size": record["size"],
@@ -94,11 +121,13 @@ def duplicate_group(index: dict[str, Any], name: str) -> list[str]:
 
 def format_dup_group(index: dict[str, Any], group: list[str]) -> dict[str, Any]:
     first = index["records"][group[0]]
+    unreliable = [name for name in group if abi_reliability(index, name).get("offsets_reliable") is False]
     return {
         "size": first["size"],
         "n_leaves": len(first["leaves"]),
         "records": list(group),
         "display_names": [typeidx.display_name(index, name) for name in group],
+        **({"offsets_unreliable": unreliable} if unreliable else {}),
     }
 
 
@@ -122,6 +151,8 @@ def provenance(index: dict[str, Any], index_path: Path) -> dict[str, Any]:
         "vendor_commit": index.get("vendor_commit"),
         "project": index.get("project"),
         "ctx": index.get("ctx"),
+        # Present only for C++ or partial dumps (SMS): how the layouts were produced and their caveat.
+        **({"dump": index["dump"]} if isinstance(index.get("dump"), dict) else {}),
     }
 
 
@@ -168,6 +199,8 @@ def record_payload(
     base: dict[str, Any] = {
         "status": "ok",
         "mode": mode,
+        # The queried record's reliability, top level so no consumer misses it.
+        **abi_reliability(index, name),
         "record": record_summary(index, name),
         "index": provenance(index, index_path),
     }

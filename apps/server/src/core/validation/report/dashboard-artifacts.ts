@@ -28,7 +28,7 @@ export interface PublishedReportRunResult extends ReportRunResult {
   /** The report's raw summary (evidence), set whenever completion is withheld by steering state. */
   reportSummary?: ReportRunSummary;
   /**
-   * The shared helper's `unverified_*` figures: the separate "100% unverified"
+   * The shared helper's `unverified_*` figures: the separate "100% but unverified"
    * count, code and percent, withheld fuzzy and complete units, and
    * `unverified_unbounded` when the report could not be read. Set with `reportSummary`.
    */
@@ -93,7 +93,7 @@ export function boardMeasuresFromReportSummary(summary: ReportRunSummary | undef
  * functions leave the matched counts, every unverified function's fuzzy
  * share and its complete unit are withheld); an unreadable report fails
  * closed to unknown (null) completion metrics. `reportSummary` keeps the raw
- * summary and `unverifiedMeasures` the separate "100% unverified" figures.
+ * summary and `unverifiedMeasures` the separate "100% but unverified" figures.
  * A rollback clears only when its certificate is an ancestor of this
  * checkout's HEAD. A missing checkout or revision clears no rollback;
  * unreadable steering state makes completion unknown. Games without an
@@ -159,7 +159,7 @@ export async function recordReportRunDashboardArtifacts(
     createdAt: input.result.timestamps.report ?? undefined,
   });
 
-  // The board carries the "100% unverified" figures (`unverified_*`) next to the withheld completion metrics.
+  // The board carries the "100% but unverified" figures (`unverified_*`) next to the withheld completion metrics.
   const measures = { ...boardMeasuresFromReportSummary(published.summary), ...(published.unverifiedMeasures ?? {}) };
   if (Object.keys(measures).length > 0) {
     const boardKey = input.boardKey ?? (input.result.resetBaseline ? "baseline" : "current");

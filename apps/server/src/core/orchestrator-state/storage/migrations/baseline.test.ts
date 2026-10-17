@@ -57,6 +57,9 @@ describe("squashed storage baseline", () => {
       { version: 13, name: "steering" },
       { version: 14, name: "steering_rollbacks" },
       { version: 15, name: "unverified_matches" },
+      { version: 16, name: "certification" },
+      { version: 17, name: "evidence_review" },
+      { version: 18, name: "compiler_delta" },
     ]);
     expect(db.query("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
     expect(db.query("PRAGMA foreign_key_check").all()).toEqual([]);
@@ -145,7 +148,7 @@ describe("squashed storage baseline", () => {
     ensureSchema(db);
     db.exec("ALTER TABLE epochs ADD COLUMN future_additive_value TEXT");
     db.query("INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)").run(
-      16,
+      19,
       "future_additive_migration",
       "2026-08-27T23:09:00.000Z",
     );
@@ -155,7 +158,7 @@ describe("squashed storage baseline", () => {
       runStorageMigrations(db);
 
       expect(warning).toHaveBeenCalledWith(
-        "schema is ahead of this process: applied through v16, this build knows v15",
+        "schema is ahead of this process: applied through v19, this build knows v18",
       );
       expect(
         db
@@ -180,7 +183,10 @@ describe("squashed storage baseline", () => {
         { version: 13, name: "steering" },
         { version: 14, name: "steering_rollbacks" },
         { version: 15, name: "unverified_matches" },
-        { version: 16, name: "future_additive_migration" },
+        { version: 16, name: "certification" },
+        { version: 17, name: "evidence_review" },
+        { version: 18, name: "compiler_delta" },
+        { version: 19, name: "future_additive_migration" },
       ]);
     } finally {
       warning.mockRestore();
@@ -262,6 +268,9 @@ describe("legacy epoch column migration", () => {
       { version: 13, name: "steering" },
       { version: 14, name: "steering_rollbacks" },
       { version: 15, name: "unverified_matches" },
+      { version: 16, name: "certification" },
+      { version: 17, name: "evidence_review" },
+      { version: 18, name: "compiler_delta" },
     ]);
   });
 
@@ -339,6 +348,9 @@ describe("legacy sync knowledge table migration", () => {
       { version: 13, name: "steering" },
       { version: 14, name: "steering_rollbacks" },
       { version: 15, name: "unverified_matches" },
+      { version: 16, name: "certification" },
+      { version: 17, name: "evidence_review" },
+      { version: 18, name: "compiler_delta" },
     ]);
   });
 

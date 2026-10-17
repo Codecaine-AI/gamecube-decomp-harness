@@ -9,6 +9,7 @@ import {
 import {
   fetchKernelAgents,
   type KernelAgentsPayload,
+  type KernelCompilerDeltaVariant,
   type KernelPreviousAttemptVariant,
 } from "@/lib/api";
 import type { FormState } from "@/lib/format";
@@ -28,7 +29,14 @@ const STACK_FRAME_POLICY_LABELS = {
 
 const PREVIOUS_ATTEMPT_OPTIONS: ReadonlyArray<{ id: KernelPreviousAttemptVariant; label: string; title: string }> = [
   { id: "rollback", label: "Rollback", title: "Worker sample: previous attempt rolled back by the steering gate" },
-  { id: "unverified_match", label: "100% unverified", title: "Worker sample: function at 100% the steering gate could not verify" },
+  { id: "unverified_match", label: "100% but unverified", title: "Worker sample: function at 100% the steering gate could not verify" },
+  { id: "none", label: "None", title: "Worker sample: no previous attempt; pending evidence reviews render on their own" },
+];
+
+const COMPILER_DELTA_OPTIONS: ReadonlyArray<{ id: KernelCompilerDeltaVariant; label: string; title: string }> = [
+  { id: "present", label: "Present", title: "Worker sample: steering_probe with a compiler_delta" },
+  { id: "unavailable", label: "Unavailable", title: "Worker sample: steering_probe with compiler_delta marked unavailable" },
+  { id: "absent", label: "Absent", title: "Worker sample: steering_probe without compiler_delta" },
 ];
 
 // The previous_attempt selector styles only with design-system tokens; each
@@ -93,6 +101,7 @@ export function AgentsPage({
   const [previewTarget, setPreviewTarget] = useState(previewTargetFromLocation);
   const [previewTargetDraft, setPreviewTargetDraft] = useState(previewTargetFromLocation);
   const [previousAttempt, setPreviousAttempt] = useState<KernelPreviousAttemptVariant>("rollback");
+  const [compilerDelta, setCompilerDelta] = useState<KernelCompilerDeltaVariant>("present");
   const [styleOpen, setStyleOpen] = useState(false);
   const [styleWidth, setStyleWidth] = useState(PROMPT_STYLE_SIDEBAR_DEFAULT_WIDTH);
   const {
@@ -115,6 +124,8 @@ export function AgentsPage({
           ...(previewTarget ? { target: previewTarget } : {}),
           // Default (rollback) keeps the request unchanged for games without a steering gate.
           ...(previousAttempt !== "rollback" ? { previousAttempt } : {}),
+          // Default (present) keeps the request unchanged unless a variant is chosen.
+          ...(compilerDelta !== "present" ? { compilerDelta } : {}),
         });
         if (cancelled) return;
         setPayload(nextPayload);
@@ -135,7 +146,7 @@ export function AgentsPage({
     return () => {
       cancelled = true;
     };
-  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget, previousAttempt]);
+  }, [form.graphDbPath, form.gameId, form.repoRoot, form.stateDir, form.usePathOverrides, previewTarget, previousAttempt, compilerDelta]);
 
   function applyPreviewTarget() {
     const target = previewTargetDraft.trim();
@@ -195,6 +206,32 @@ export function AgentsPage({
                       className={`${PREVIOUS_ATTEMPT_STYLES.cell} ${active ? PREVIOUS_ATTEMPT_STYLES.active : PREVIOUS_ATTEMPT_STYLES.idle}`}
                       key={option.id}
                       onClick={() => setPreviousAttempt(option.id)}
+                      role="radio"
+                      title={option.title}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {payload?.steeringGate === "enforce" ? (
+              <div
+                aria-label="Worker compiler_delta sample"
+                className={PREVIOUS_ATTEMPT_STYLES.group}
+                role="radiogroup"
+                title="Which compiler_delta variant the worker sample's steering_probe renders"
+              >
+                <span className={`${PREVIOUS_ATTEMPT_STYLES.cell} ${PREVIOUS_ATTEMPT_STYLES.muted}`}>compiler_delta</span>
+                {COMPILER_DELTA_OPTIONS.map((option) => {
+                  const active = (payload.compilerDelta ?? compilerDelta) === option.id;
+                  return (
+                    <button
+                      aria-checked={active}
+                      className={`${PREVIOUS_ATTEMPT_STYLES.cell} ${active ? PREVIOUS_ATTEMPT_STYLES.active : PREVIOUS_ATTEMPT_STYLES.idle}`}
+                      key={option.id}
+                      onClick={() => setCompilerDelta(option.id)}
                       role="radio"
                       title={option.title}
                       type="button"

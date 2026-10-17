@@ -1,0 +1,61 @@
+diff --git a/src/Player/WaterGun.cpp b/src/Player/WaterGun.cpp
+index 8aa326ad..8c4d297e 100644
+--- a/src/Player/WaterGun.cpp
++++ b/src/Player/WaterGun.cpp
+@@ -34,6 +34,8 @@
+ static const char cDirtyFileName[] = "/scene/map/pollution/H_ma_rak.bti";
+ static const char cDirtyTexName[]  = "H_ma_rak_dummy";
+ 
++// TODO: Retail .rodata has @2694 and @2696 before these asset paths.
++// Recover their original consumer; the path relocation addends still differ.
+ TNozzleBmdData nozzleBmdData = {
+ 	{
+ 	    {
+@@ -1069,23 +1071,7 @@ void TNozzleDeform::animation(int param)
+ 		if (!mactor->checkCurBckFromIndex(5))
+ 			mactor->setBckFromIndex(5);
+ 
+-		bool updateAnimation = false;
+-		if (mFludd->mCurrentWater == 0) {
+-			updateAnimation = false;
+-		} else if (mFludd->getNozzle(mFludd->mCurrentNozzle)->getNozzleKind()
+-		           == 1) {
+-			if (((TNozzleTrigger*)mFludd->getNozzle(mFludd->mCurrentNozzle))
+-			        ->unk385
+-			    == TNozzleTrigger::ACTIVE)
+-				updateAnimation = true;
+-			else
+-				updateAnimation = false;
+-		} else {
+-			if (mFludd->getNozzle(mFludd->mCurrentNozzle)->unk378 > 0.0f)
+-				updateAnimation = true;
+-			else
+-				updateAnimation = false;
+-		}
++		bool updateAnimation = mFludd->isEmitting();
+ 
+ 		if (!updateAnimation)
+ 			unk36C = 8;
+@@ -1097,21 +1083,7 @@ void TNozzleDeform::animation(int param)
+ 		if (!mactor->checkCurBckFromIndex(6))
+ 			mactor->setBckFromIndex(6);
+ 
+-		bool updateAnimation = false;
+-		if (mFludd->mCurrentWater == 0) {
+-			updateAnimation = false;
+-		} else if (mFludd->getCurrentNozzle()->getNozzleKind() == 1) {
+-			if (((TNozzleTrigger*)mFludd->getCurrentNozzle())->unk385
+-			    == TNozzleTrigger::ACTIVE)
+-				updateAnimation = true;
+-			else
+-				updateAnimation = false;
+-		} else {
+-			if (mFludd->getCurrentNozzle()->unk378 > 0.0f)
+-				updateAnimation = true;
+-			else
+-				updateAnimation = false;
+-		}
++		bool updateAnimation = mFludd->isEmitting();
+ 
+ 		if (updateAnimation == true)
+ 			unk36C = 2;

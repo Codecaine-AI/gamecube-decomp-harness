@@ -22,7 +22,7 @@ export async function reportRun(globals: GlobalArgs, args: Map<string, string | 
     store.db.close();
   }
   // `summary` is the published completion summary; with steering holds `reportSummary`
-  // keeps the report's own and `unverifiedMeasures` the separate "100% unverified" figures.
+  // keeps the report's own and `unverifiedMeasures` the separate "100% but unverified" figures.
   console.log(
     JSON.stringify(
       {

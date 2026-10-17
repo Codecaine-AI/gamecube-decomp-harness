@@ -231,6 +231,8 @@ describe("runKnowledgeIntake", () => {
         calls.push("attempts");
         expect(options).toEqual({
           orchestratorDbPath,
+          // Ancestry for cleared unverified_match history is read in the checkout.
+          repoRoot: checkoutRoot,
           dryRun: false,
         });
         return attemptsResult;

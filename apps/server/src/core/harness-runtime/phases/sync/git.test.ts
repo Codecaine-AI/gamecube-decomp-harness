@@ -218,3 +218,152 @@ describe("sync worktree merge", () => {
     expect(readFileSync(resolve(fixture.repo, "policy.c"), "utf8")).toContain("return 1;");
   });
 });
+
+describe("sync worktree merge with the certified conflict rule", () => {
+  const cpp = (alpha: number, beta: number, extra = "") =>
+    `#include "Foo.hpp"\n\nvoid TFoo::alpha(int a)\n{\n    a = ${alpha};\n}\n\nvoid TFoo::beta(int b)\n{\n    b = ${beta};\n}\n${extra}`;
+  const report = (alpha: number, beta: number) => ({ units: [{ name: "mario/Foo/foo", metadata: { source_path: "src/Foo/foo.cpp" }, functions: [
+    { name: "alpha__4TFooFi", fuzzy_match_percent: alpha, metadata: { demangled_name: "TFoo::alpha(int)" } },
+    { name: "beta__4TFooFi", fuzzy_match_percent: beta, metadata: { demangled_name: "TFoo::beta(int)" } },
+  ] }] });
+  const certification = ({ symbol }: { symbol: string }) => symbol === "alpha__4TFooFi"
+    ? { status: "certified" as const, verdict: "pass" }
+    : { status: "uncertified" as const, verdict: "unresolved" };
+
+  function conflicting(oursExtra = "") {
+    const fixture = repoFixture();
+    write(fixture.repo, "src/Foo/foo.cpp", cpp(0, 0));
+    const base = commitAll(fixture.repo, "foo");
+    git(fixture.repo, "checkout", "-b", "harness");
+    write(fixture.repo, "src/Foo/foo.cpp", cpp(1, 1, oursExtra));
+    commitAll(fixture.repo, "ours");
+    git(fixture.repo, "checkout", "-b", "upstream", base);
+    write(fixture.repo, "src/Foo/foo.cpp", cpp(2, 2));
+    const upstreamHead = commitAll(fixture.repo, "upstream");
+    git(fixture.repo, "checkout", "harness");
+    return { ...fixture, upstreamHead };
+  }
+
+  test("resolves a conflicting C++ file function by function instead of leaving it for an operator", async () => {
+    const fixture = conflicting();
+    const result = await mergeSyncWorktree({
+      worktreePath: fixture.repo, newBase: fixture.upstreamHead, mergePolicy: "score", conflictRule: "certified", certification,
+      policyInputs: { ours: report(99, 95), upstream: report(90, 80), scoreMode: "reports", upstreamReportFallbackReason: null },
+      revalidateLease: leaseGuard(),
+    });
+    expect(result.status).not.toBe("needs_operator");
+    const merged = readFileSync(resolve(fixture.repo, "src/Foo/foo.cpp"), "utf8");
+    expect(merged).toContain("a = 1;");
+    expect(merged).toContain("b = 2;");
+    expect(result.policyMergeFiles[0]?.certified?.decisions.map((decision) => [decision.function, decision.result, decision.reason])).toEqual([
+      ["TFoo::alpha(int)", "ours", "certified_ours_higher"],
+      ["TFoo::beta(int)", "upstream", "uncertified_ours_displaced"],
+    ]);
+  });
+
+  test("a header conflict inside an inline member stays for the operator; declaration-only hunks go to upstream", async () => {
+    const header = (value: string, field: string) => `class TFoo {\npublic:\n    int get() { return ${value}; }\n    int ${field};\n};\n`;
+    for (const [ours, upstream, expected] of [
+      [header("1", "a"), header("2", "a"), "needs_operator"],
+      [header("0", "b"), header("0", "c"), "auto_resolved"],
+    ] as const) {
+      const fixture = repoFixture();
+      write(fixture.repo, "include/Foo.hpp", header("0", "a"));
+      const base = commitAll(fixture.repo, "foo");
+      git(fixture.repo, "checkout", "-b", "harness");
+      write(fixture.repo, "include/Foo.hpp", ours);
+      commitAll(fixture.repo, "ours");
+      git(fixture.repo, "checkout", "-b", "upstream", base);
+      write(fixture.repo, "include/Foo.hpp", upstream);
+      const upstreamHead = commitAll(fixture.repo, "upstream");
+      git(fixture.repo, "checkout", "harness");
+      const result = await mergeSyncWorktree({
+        worktreePath: fixture.repo, newBase: upstreamHead, mergePolicy: "score", conflictRule: "certified", certification,
+        policyInputs: { ours: {}, upstream: {}, scoreMode: "reports", upstreamReportFallbackReason: null },
+        revalidateLease: leaseGuard(),
+      });
+      expect(result.status).toBe(expected);
+      if (expected === "needs_operator") {
+        expect(result.policyMergeFiles[0]?.message).toContain("conflicting header code the rule cannot decide: {class TFoo}");
+      } else {
+        expect(readFileSync(resolve(fixture.repo, "include/Foo.hpp"), "utf8")).toContain("int c;");
+      }
+    }
+  });
+
+  test("report evidence binds by namespace: certified A::f keeps ours beside B::f; an unsure binding goes to the operator (review H4 #2)", async () => {
+    const spaced = (a: number, b: number) => `namespace A {\nvoid f()\n{\n    x = ${a};\n}\n}\n\nnamespace B {\nvoid f()\n{\n    y = ${b};\n}\n}\n`;
+    const flat = (a: number) => `void f()\n{\n    x = ${a};\n}\n`;
+    const scored = (a: number, b: number) => ({ units: [{ name: "mario/Foo/foo", metadata: { source_path: "src/Foo/foo.cpp" }, functions: [
+      { name: "f__1AFv", fuzzy_match_percent: a, metadata: { demangled_name: "A::f()" } },
+      { name: "f__1BFv", fuzzy_match_percent: b, metadata: { demangled_name: "B::f()" } },
+    ] }] });
+    const byNamespace = ({ symbol }: { symbol: string }) => symbol === "f__1AFv"
+      ? { status: "certified" as const, verdict: "pass" }
+      : { status: "uncertified" as const, verdict: "unresolved" };
+    const run = async (base: string, ours: string, upstream: string) => {
+      const fixture = repoFixture();
+      write(fixture.repo, "src/Foo/foo.cpp", base);
+      const baseRev = commitAll(fixture.repo, "foo");
+      git(fixture.repo, "checkout", "-b", "harness");
+      write(fixture.repo, "src/Foo/foo.cpp", ours);
+      commitAll(fixture.repo, "ours");
+      git(fixture.repo, "checkout", "-b", "upstream", baseRev);
+      write(fixture.repo, "src/Foo/foo.cpp", upstream);
+      const upstreamHead = commitAll(fixture.repo, "upstream");
+      git(fixture.repo, "checkout", "harness");
+      const result = await mergeSyncWorktree({
+        worktreePath: fixture.repo, newBase: upstreamHead, mergePolicy: "score", conflictRule: "certified", certification: byNamespace,
+        policyInputs: { ours: scored(100, 80), upstream: scored(90, 85), scoreMode: "reports", upstreamReportFallbackReason: null },
+        revalidateLease: leaseGuard(),
+      });
+      return { result, text: readFileSync(resolve(fixture.repo, "src/Foo/foo.cpp"), "utf8") };
+    };
+    const scopedRun = await run(spaced(0, 0), spaced(1, 1), spaced(2, 2));
+    expect(scopedRun.result.status).not.toBe("needs_operator");
+    expect(scopedRun.text).toContain("x = 1;");
+    expect(scopedRun.text).toContain("y = 2;");
+    expect(scopedRun.result.policyMergeFiles[0]?.certified?.decisions.find((decision) => decision.function === "f()@[namespace A]")?.symbols.map((symbol) => symbol.symbol)).toEqual(["f__1AFv"]);
+    // `f` written without its namespace (a using directive): A::f and B::f both fit, so nothing is decided.
+    const unsure = await run(flat(0), flat(1), flat(2));
+    expect(unsure.result.status).toBe("needs_operator");
+    expect(unsure.result.policyMergeFiles[0]?.message).toContain("ambiguous report evidence: f() (report functions A::f, B::f all end in f)");
+  });
+
+  test("upstream deleting a locally modified C++ file stays for the operator with certification (review H4 #3)", async () => {
+    const fixture = repoFixture();
+    write(fixture.repo, "src/Foo/foo.cpp", cpp(0, 0));
+    const base = commitAll(fixture.repo, "foo");
+    git(fixture.repo, "checkout", "-b", "harness");
+    write(fixture.repo, "src/Foo/foo.cpp", cpp(1, 1));
+    commitAll(fixture.repo, "ours");
+    git(fixture.repo, "checkout", "-b", "upstream", base);
+    git(fixture.repo, "rm", "-q", "src/Foo/foo.cpp");
+    const upstreamHead = commitAll(fixture.repo, "upstream deletes");
+    git(fixture.repo, "checkout", "harness");
+    const result = await mergeSyncWorktree({
+      worktreePath: fixture.repo, newBase: upstreamHead, mergePolicy: "score", conflictRule: "certified", certification,
+      policyInputs: { ours: report(99, 95), upstream: { units: [] }, scoreMode: "reports", upstreamReportFallbackReason: null },
+      revalidateLease: leaseGuard(),
+    });
+    expect(result.status).toBe("needs_operator");
+    expect(result.conflictingPaths).toEqual(["src/Foo/foo.cpp"]);
+    expect(result.policyMergeFiles[0]?.message).toContain("upstream deleted the file while the other side changed it");
+    expect(result.policyMergeFiles[0]?.operatorCertification).toBe("TFoo::alpha(int) [certified] ours=99 upstream=-; TFoo::beta(int) [uncertified:unresolved] ours=95 upstream=-");
+    expect(existsSync(resolve(fixture.repo, ".git/MERGE_HEAD"))).toBe(true);
+  });
+
+  test("an unresolvable file stays for the operator with each function's certification", async () => {
+    const fixture = conflicting("void TFoo::broken()\n{\n");
+    const result = await mergeSyncWorktree({
+      worktreePath: fixture.repo, newBase: fixture.upstreamHead, mergePolicy: "score", conflictRule: "certified", certification,
+      policyInputs: { ours: report(99, 95), upstream: report(90, 80), scoreMode: "reports", upstreamReportFallbackReason: null },
+      revalidateLease: leaseGuard(),
+    });
+    expect(result.status).toBe("needs_operator");
+    expect(result.conflictingPaths).toEqual(["src/Foo/foo.cpp"]);
+    expect(result.policyMergeFiles[0]?.operatorCertification).toBe(
+      "TFoo::alpha(int) [certified] ours=99 upstream=90; TFoo::beta(int) [uncertified:unresolved] ours=95 upstream=80",
+    );
+  });
+});

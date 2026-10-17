@@ -16,17 +16,22 @@ import type {
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { knowledgeToolPromptMetadata } from "../metadata/knowledge.js";
 import { knowledgeV2ToolPromptMetadata } from "../metadata/knowledge-v2.js";
+import { gameHasCodeGraph } from "../run-game.js";
 import { gameSteeringGate, steeringGateActive } from "../steering-gate.js";
 import {
+  gatedWorkerToolIds,
   defaultLibrarianToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
   defaultReconcileToolProfile,
   defaultWorkerToolProfile,
-  steeringGateWorkerToolProfile,
 } from "./defaults.js";
 
 export {
+  codeGraphWorkerToolProfile,
+  gatedWorkerToolIds,
+  workerToolIds,
+  type WorkerToolProfileFacts,
   defaultLibrarianToolProfile,
   defaultPrSplitterToolProfile,
   defaultQaRepairToolProfile,
@@ -67,14 +72,15 @@ export function resolveAgentToolIds(
 /**
  * Tool ids a role gains from its game's policy, beyond the static profile.
  * Workers on a game with an active steering gate get the real-code evidence
- * tools; every other game and role gets none, so its tool list is unchanged.
+ * tools; workers on a game with a code graph get the read-only graph tools;
+ * every other role gets none.
  */
 export function gameGatedAgentToolIds(
   role: RuntimeAgentRole,
   game?: Pick<RunGameMetadata, "gameId" | "descriptorPath"> | null,
 ): string[] {
   if (role !== "worker") return [];
-  return steeringGateActive(gameSteeringGate(game)) ? [...steeringGateWorkerToolProfile] : [];
+  return gatedWorkerToolIds({ steeringGateActive: steeringGateActive(gameSteeringGate(game)), codeGraph: gameHasCodeGraph(game) });
 }
 
 /** resolveAgentToolIds plus the game-gated tools for the context's game. */

@@ -1,0 +1,1501 @@
+diff --git a/config/sources.json b/config/sources.json
+index 70a0652..87575fa 100644
+--- a/config/sources.json
++++ b/config/sources.json
+@@ -3839,5 +3839,19 @@
+       "lib/msl/win32sdk",
+       "lib/msl/win32sdk/sys"
+     ]
++  },
++  "src/trace/MwccTrace.c": {
++    "compiler": "pro53",
++    "flags": [
++      "-O4,p",
++      "-sym",
++      "on",
++      "-Cpp_exceptions",
++      "off"
++    ],
++    "include_dirs": [
++      "src/trace"
++    ],
++    "traced": true
+   }
+ }
+diff --git a/configure.py b/configure.py
+index be1fb8d..0047587 100644
+--- a/configure.py
++++ b/configure.py
+@@ -76,9 +76,17 @@ def objdiff(version, config, sources, units):
+ def main():
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--version", choices=VERSIONS, default=PRIMARY)
+-    version = parser.parse_args().version
++    # (--traced: link the decision trace, tools/link_traced.py, which writes build/VERSION/traced-ok and does not
++    # check the original's SHA-1; the sources only the trace has are linked in addition to the units)
++    parser.add_argument("--traced", action="store_true")
++    # (--trace-small-limits: a test build whose trace tables are tiny, for the overflow check)
++    parser.add_argument("--trace-small-limits", action="store_true")
++    arguments = parser.parse_args()
++    version, traced = arguments.version, arguments.traced
++    small_limits = traced and arguments.trace_small_limits
+     config = json.loads(Path(f"config/{version}/config.json").read_text())
+-    sources = json.loads(Path("config/sources.json").read_text())
++    sources = {source: settings for source, settings in json.loads(Path("config/sources.json").read_text()).items()
++               if traced or not settings.get("traced")}
+     splits = Path(f"config/{version}/splits.txt")
+     python = shlex.quote(sys.executable)
+     out = [
+@@ -103,7 +111,8 @@ def main():
+         "  command = MWCIncludes=include/libc $wibo $compiler $cflags",
+         "  description = MWCC $in",
+         "rule configure",
+-        f"  command = $python configure.py --version {version}",
++        f"  command = $python configure.py --version {version}{' --traced' if traced else ''}"
++        f"{' --trace-small-limits' if small_limits else ''}",
+         "  generator = 1",
+         "",
+         f"version = {version}",
+@@ -129,6 +138,7 @@ def main():
+         obj = f"build/{version}/compiled/{source}.obj"
+         compiler = f"build/compilers/{host(settings)}/mwcc.exe"
+         args = ["-c", *map(flag, settings["flags"]), f"-DVERSION={VERSIONS.index(version)}",
++                *(["-DMWCC_TRACE_SMALL_LIMITS"] if small_limits and settings.get("traced") else []),
+                 *(f"-I{d}" for d in settings.get("include_dirs", [])), "-Iinclude", "-i-",
+                 *(f"-I{d}" for d in settings.get("system_include_dirs", [])), "-Iinclude/libc"]
+         if host(settings) == "pro4":
+@@ -150,16 +160,17 @@ def main():
+                 inputs.append(f"build/{version}/compiled/{unit}.obj")
+             else:
+                 inputs.append(f"build/{version}/obj/{unit}.obj")
++        inputs += [f"build/{version}/compiled/{source}.obj" for source, settings in sources.items() if settings.get("traced")]
+         inputs += ["lib/win32sdk/KERNEL32.LIB", "build/lmgr326b.lib"]
+         out += [
+             "rule split",
+-            "  command = $python tools/split.py $version",
++            f"  command = $python tools/split.py $version{' --traced' if traced else ''}",
+             "  description = SPLIT $version",
+             "rule implib",
+             "  command = $python tools/implib.py $in $out",
+             "  description = IMPLIB $out",
+             "rule link",
+-            "  command = $python tools/link.py $version $out $in",
++            f"  command = $python tools/{'link_traced' if traced else 'link'}.py $version $out $in",
+             "  description = LINK $out",
+             "rule report",
+             "  command = build/tools/objdiff-cli report generate -o $out",
+@@ -170,8 +181,9 @@ def main():
+             f"{config['original']} config/{version}/config.json config/{version}/symbols.txt {splits} "
+             "tools/split.py tools/pe.py",
+             "build build/lmgr326b.lib: implib config/lmgr326b.def | tools/implib.py",
+-            f"build build/{version}/mwcceppc.exe | build/{version}/ok: link {' '.join(inputs)} | "
+-            "$wibo build/compilers/pro53/mwld.exe tools/link.py || lib/ok",
++            f"build build/{version}/mwcceppc.exe | build/{version}/{'traced-ok' if traced else 'ok'}: link "
++            f"{' '.join(inputs)} | $wibo build/compilers/pro53/mwld.exe tools/{'link_traced' if traced else 'link'}.py "
++            "|| lib/ok",
+             f"build build/{version}/report.json: report | build/{version}/ok build/tools/objdiff-cli "
+             f"{' '.join(objects)}",
+         ]
+@@ -198,7 +210,7 @@ def main():
+         f"build progress: phony build/{version}/report.json",
+         f"build build.ninja: configure | configure.py config/sources.json config/{version}/config.json"
+         + (f" {splits}" if splits.exists() else ""),
+-        f"default build/{version}/ok all_source",
++        f"default build/{version}/{'traced-ok' if traced and splits.exists() else 'ok'} all_source",
+         "",
+     ]
+     Path("build.ninja").write_text("\n".join(out))
+diff --git a/include/compiler/MwccTrace.h b/include/compiler/MwccTrace.h
+new file mode 100644
+index 0000000..ebaebb2
+--- /dev/null
++++ b/include/compiler/MwccTrace.h
+@@ -0,0 +1,73 @@
++#ifndef COMPILER_MWCCTRACE_H
++#define COMPILER_MWCCTRACE_H
++
++/* Decision trace (not part of the original compiler). With MWCC_TRACE_OUT set, the allocator, inliner, common
++ * subexpression and frame decisions of the functions MWCC_TRACE_FUNC names (mangled or plain, or "*") are appended
++ * to that file as mwcc-trace-v1 JSON lines. The hooks only read compiler state; with tracing off they do nothing. */
++
++#include "compiler/common.h"
++
++#define MWCC_TRACE_CLS_NONE -1
++
++struct IROLinear;
++
++/* Nonzero while the current function is traced; mwcc_trace_enabled while MWCC_TRACE_OUT is set. */
++extern int mwcc_trace_on;
++extern int mwcc_trace_enabled;
++
++extern void MwccTrace_SetFunction(Object *function);
++extern void MwccTrace_ClearFunction(void);
++/* The file a function is defined in, noted while it is parsed, and the one to report its sites in (CURRENT when
++ * none was noted). */
++extern void MwccTrace_NoteFunctionFile(Object *function, CPrepFileInfo *file, long line);
++extern CPrepFileInfo *MwccTrace_SiteFile(CPrepFileInfo *current);
++/* An argument's declaration: the compiler keeps no token for it, so decl_file and decl_line are null and, when the
++ * function's definition was seen, decl_site "function_body" with body_file and body_line (where the body opens). */
++extern void MwccTrace_ArgumentDeclaration(void);
++
++/* One line: MwccTrace_Begin, fields, MwccTrace_End. CLS: 0 GPR, 1 FPR, 9 VR, MWCC_TRACE_CLS_NONE. */
++extern void MwccTrace_Begin(const char *event, int pass, int cls);
++extern void MwccTrace_Str(const char *key, const char *value);
++extern void MwccTrace_Name(const char *key, HashNameNode *name);
++extern void MwccTrace_Int(const char *key, long value);
++extern void MwccTrace_Bool(const char *key, int value);
++extern void MwccTrace_Ratio(const char *key, double value);
++extern void MwccTrace_Null(const char *key);
++extern void MwccTrace_ArrayBegin(const char *key);
++extern void MwccTrace_ArrayInt(long value);
++extern void MwccTrace_ArrayEnd(void);
++extern void MwccTrace_End(void);
++
++/* The object's declaration: decl_file (the path the compiler opened), decl_line. */
++extern void MwccTrace_Declaration(TStreamElement *token);
++/* A local's declaration: its token, or, for a local rebuilt from a saved body (C++ functions generated after their
++ * definition), the token of the local it was saved from; null when that is not known. BODY is the saved body
++ * (CInlineInfo) and INDEX the local's position in it. */
++extern void MwccTrace_NoteSavedLocal(void *body, int index, Object *object);
++extern void MwccTrace_NoteRebuiltLocal(void *body, int index, Object *object);
++extern void MwccTrace_LocalDeclaration(Object *object, TStreamElement *token);
++/* KEY "path:line", KEY_file and KEY_line (all null when FILE or LINE is unknown); the path is the one the compiler
++ * opened the file by. */
++extern void MwccTrace_Site(const char *key, CPrepFileInfo *file, long line);
++
++/* Temporaries' origins, recorded by the pass that makes them and reported with their virtual registers. */
++extern void MwccTrace_NoteOrigin(HashNameNode *name, const char *pass, const char *expression);
++extern const char *MwccTrace_Origin(HashNameNode *name);
++
++/* Expression text of an optimizer expression tree, into a static buffer. */
++extern const char *MwccTrace_LinearText(struct IROLinear *linear);
++
++/* Stack frame: slots as they are allocated, then the layout that places them. */
++extern void MwccTrace_FrameSlot(Object *object, long offset, long size, long align);
++extern void MwccTrace_FrameLayout(long local_base, long frame_size, long local_size);
++
++/* Allocation passes of a register class in the current function (0, 1, ... per spill retry): Begin starts the
++ * next one and returns its index, AllocationPass is the current one, PendingAllocationPass the one about to begin
++ * (copy coalescing runs before the pass's graph is built). */
++extern int MwccTrace_BeginAllocationPass(int cls);
++extern int MwccTrace_AllocationPass(int cls);
++extern int MwccTrace_PendingAllocationPass(int cls);
++/* The index of the current common subexpression pass in the current function. */
++extern int MwccTrace_NextCSEPass(void);
++
++#endif
+diff --git a/src/trace/MwccTrace.c b/src/trace/MwccTrace.c
+new file mode 100644
+index 0000000..a12dd7d
+--- /dev/null
++++ b/src/trace/MwccTrace.c
+@@ -0,0 +1,1235 @@
++/* Decision trace (not part of the original compiler): see compiler/MwccTrace.h. The trace writes with the Win32
++ * file calls the compiler already imports, from static buffers, so tracing allocates nothing from the compiler's
++ * heaps and changes no state the code generator reads.
++ *
++ * A function's lines are held until the function is done (MwccTrace_ClearFunction, the next function, or exit):
++ * a C++ function gets its link (mangled) name only when its code is emitted, so each line is written then with that
++ * name in "fn" and the plain name in "display". */
++#include "compiler/common.h"
++#include "compiler/MwccTrace.h"
++#include "compiler/enode.h"
++#include "compiler/objects.h"
++#include "compiler/scopes.h"
++#include "compiler/tokens.h"
++#include "compiler/CPrep.h"
++#include "compiler/IroLoop.h"
++#include "compiler/Registers.h"
++#include "driver/MacSpecs.h"
++#include "compiler/win32.h"
++#include <stdlib.h>
++
++extern struct NameSpace *cscope_root;
++#include <string.h>
++
++/* Capacities. Whatever does not fit is counted, and the function's lines end with an overflow record
++ * ({"ev":"overflow","what":<table>,"dropped":N}, N null when not countable): a consumer must treat that capture as
++ * incomplete. MWCC_TRACE_SMALL_LIMITS (a test build, build.sh's overflow check) makes every one tiny. */
++#ifdef MWCC_TRACE_SMALL_LIMITS
++#define TRACE_LINE_SIZE 256
++#define TRACE_ORIGINS 0
++#define TRACE_SLOTS 2
++#define TRACE_PENDING_SIZE 2048
++#define TRACE_PARKED_SIZE 0
++#define TRACE_PARKED_SEGMENTS 0
++#define TRACE_FUNCTION_FILES 0
++#define TRACE_SAVED_LOCALS 0
++#define TRACE_REBUILT_LOCALS 1
++#else
++#define TRACE_LINE_SIZE 65536
++#define TRACE_ORIGINS 8192
++#define TRACE_SLOTS 8192
++#define TRACE_PENDING_SIZE (32 * 1024 * 1024)
++#define TRACE_PARKED_SIZE (32 * 1024 * 1024)
++#define TRACE_PARKED_SEGMENTS 16384
++#define TRACE_FUNCTION_FILES 32768
++#define TRACE_SAVED_LOCALS 65536
++#define TRACE_REBUILT_LOCALS 16384
++#endif
++#define TRACE_NAME_SIZE 512
++#define TRACE_TEXT_SIZE 256
++#define TRACE_OUTPUT_SIZE 65536
++#define TRACE_PATHS 512
++#define TRACE_PATH_SIZE 512
++
++/* (initialized: a common symbol would join the linker's COMMON block, whose layout the split units assume) */
++int mwcc_trace_on = 0;
++int mwcc_trace_enabled = 0;
++
++static int trace_initialized;
++static char trace_path[1024];
++static char trace_filter[TRACE_NAME_SIZE];
++static HANDLE trace_handle = (HANDLE)-1;
++static int trace_failed;
++
++static Object *trace_function;
++static char trace_fn[TRACE_NAME_SIZE];
++static char trace_display[TRACE_NAME_SIZE];
++/* (the current function's final name, read while the function is live: at exit its object may be freed) */
++static char trace_known_name[TRACE_NAME_SIZE];
++static int trace_known;
++
++/* (the current function's lines, each from its "pass" field on, newline-terminated) */
++static char trace_pending[TRACE_PENDING_SIZE + 1];
++static int trace_pending_length;
++static int trace_pending_lines;
++static char trace_output[TRACE_OUTPUT_SIZE];
++static int trace_output_length;
++/* (segments of C++ functions flushed before their link name existed) */
++static char trace_parked[TRACE_PARKED_SIZE + 1];
++static int trace_parked_length;
++static struct {
++    Object *function;
++    int offset;
++    int length;
++} trace_parked_segments[TRACE_PARKED_SEGMENTS + 1];
++static int trace_parked_count;
++
++/* (the include-resolved path of each source file, made once) */
++static struct {
++    CPrepFileInfo *file;
++    char path[TRACE_PATH_SIZE];
++} trace_paths[TRACE_PATHS];
++static int trace_path_count;
++
++static char trace_line[TRACE_LINE_SIZE];
++static int trace_length;
++static int trace_truncated;
++/* (where the field being written began: a line that runs out of room ends at the last whole field) */
++static int trace_field_mark;
++static int trace_array_items;
++
++static int trace_allocation_pass[10];
++static int trace_current_pass[10];
++static int trace_cse_pass;
++
++static struct {
++    char name[64];
++    const char *pass;
++    char expression[TRACE_TEXT_SIZE];
++} trace_origins[TRACE_ORIGINS + 1];
++static int trace_origin_count;
++
++static struct {
++    Object *object;
++    char owner[64];
++    long offset;
++    long size;
++    long align;
++} trace_slots[TRACE_SLOTS + 1];
++static int trace_slot_count;
++
++/* (the file each function was defined in, noted when it is parsed: C++ functions are generated later, when the
++ * parser's current file is another one) */
++static struct {
++    Object *function;
++    CPrepFileInfo *file;
++    long line;
++} trace_function_files[TRACE_FUNCTION_FILES + 1];
++static int trace_function_file_count;
++
++/* (locals' declaration tokens as a function's body is saved for later generation, by saved body and position, and
++ * the locals rebuilt from it: a rebuilt local's own token is wherever the parser was when it was rebuilt) */
++static struct {
++    void *body;
++    int index;
++    CPrepFileInfo *file;
++    long line;
++} trace_saved_locals[TRACE_SAVED_LOCALS + 1];
++static int trace_saved_local_count;
++static struct {
++    Object *object;
++    CPrepFileInfo *file;
++    long line;
++} trace_rebuilt_locals[TRACE_REBUILT_LOCALS + 1];
++static int trace_rebuilt_local_count;
++static int trace_rebuilt_overflow;
++
++/* (what the current function lost to capacity, written as overflow records when its lines are) */
++enum {
++    OVERFLOW_LINE,
++    OVERFLOW_ORIGINS,
++    OVERFLOW_FRAME_SLOTS,
++    OVERFLOW_DEFERRED_EVENTS,
++    OVERFLOW_FUNCTION_FILES,
++    OVERFLOW_SAVED_LOCALS,
++    OVERFLOW_REBUILT_LOCALS,
++    OVERFLOW_KINDS
++};
++static const char *trace_overflow_names[OVERFLOW_KINDS] = {
++    "line", "origins", "frame_slots", "deferred_events", "function_files", "saved_locals", "rebuilt_locals"};
++static long trace_overflow[OVERFLOW_KINDS];
++/* (tables shared by all functions that filled up: a lookup that misses may be a lost entry) */
++static int trace_function_files_full;
++static int trace_saved_locals_full;
++/* (functions whose parked lines did not fit, so their capture lacks lines written before their link name) */
++#define TRACE_LOST_PARKED 4096
++static Object *trace_lost_parked[TRACE_LOST_PARKED];
++static int trace_lost_parked_count;
++static int trace_lost_parked_full;
++
++static char trace_text[TRACE_TEXT_SIZE];
++static int trace_text_length;
++
++static void trace_flush_at_exit(void);
++static void trace_note_overflows(void);
++static void trace_puts(const char *text);
++static void trace_put_string(const char *text, int length);
++static const char *trace_file_path(CPrepFileInfo *file);
++
++static int trace_strlen(const char *text)
++{
++    int length;
++
++    for (length = 0; text[length] != 0; length++)
++        ;
++    return length;
++}
++
++static void trace_copy(char *destination, const char *source, int size)
++{
++    int i;
++
++    for (i = 0; i < size - 1 && source[i] != 0; i++)
++        destination[i] = source[i];
++    destination[i] = 0;
++}
++
++static void trace_initialize(void)
++{
++    const char *value;
++
++    trace_initialized = 1;
++    value = getenv("MWCC_TRACE_OUT");
++    if (value == NULL || value[0] == 0)
++        return;
++    trace_copy(trace_path, value, sizeof(trace_path));
++    mwcc_trace_enabled = 1;
++    value = getenv("MWCC_TRACE_FUNC");
++    trace_copy(trace_filter, value != NULL && value[0] != 0 ? value : "*", sizeof(trace_filter));
++    atexit(trace_flush_at_exit);
++}
++
++static int trace_all(void)
++{
++    return trace_filter[0] == '*' && trace_filter[1] == 0;
++}
++
++/* NAME, or NAME followed by the "__" of a mangled name (the plain name of a C++ function whose link name the
++ * compiler has not made yet). */
++static int trace_name_matches(const char *name, int allow_prefix)
++{
++    int length;
++
++    if (name == NULL || name[0] == 0)
++        return 0;
++    if (strcmp(trace_filter, name) == 0)
++        return 1;
++    if (!allow_prefix)
++        return 0;
++    length = trace_strlen(name);
++    return strncmp(trace_filter, name, length) == 0 && trace_filter[length] == '_' && trace_filter[length + 1] == '_';
++}
++
++static const char *trace_link_name(Object *function)
++{
++    if ((function->datatype == DFUNC || function->datatype == DVFUNC) && function->u.func.linkname != NULL)
++        return function->u.func.linkname->name;
++    return NULL;
++}
++
++/* FUNCTION's link name, read only: the compiler's once it has made it; the plain name for a function the compiler
++ * does not mangle (C, extern "C", main); NULL for a C++ function not given its link name yet. The trace never runs
++ * the mangler, whose buffer belongs to the compiler. */
++static const char *trace_final_name(Object *function)
++{
++    const char *link;
++
++    link = trace_link_name(function);
++    if (link != NULL)
++        return link;
++    if (function->name == NULL)
++        return "?";
++    if ((function->datatype != DFUNC && function->datatype != DVFUNC) || (function->qual & Q_MANGLE_NAME) == 0 ||
++        (memcmp("main", function->name->name, 5) == 0 && function->nspace == cscope_root))
++        return function->name->name;
++    return NULL;
++}
++
++static void trace_open(void)
++{
++    if (trace_handle != (HANDLE)-1 || trace_failed)
++        return;
++    /* (GENERIC_WRITE, FILE_SHARE_READ, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL; appended to) */
++    trace_handle = CreateFileA(trace_path, 0x40000000, 1, (LPSECURITY_ATTRIBUTES)0, 4, 0x80, (HANDLE)0);
++    if (trace_handle == (HANDLE)-1) {
++        trace_failed = 1;
++        mwcc_trace_on = 0;
++        return;
++    }
++    SetFilePointer(trace_handle, 0, (PLONG)0, 2);
++}
++
++static void trace_output_flush(void)
++{
++    DWORD written;
++
++    trace_open();
++    if (trace_handle != (HANDLE)-1 && trace_output_length != 0)
++        WriteFile(trace_handle, trace_output, trace_output_length, &written, (LPOVERLAPPED)0);
++    trace_output_length = 0;
++}
++
++static void trace_output_put(const char *text, int length)
++{
++    if (trace_output_length + length > TRACE_OUTPUT_SIZE)
++        trace_output_flush();
++    if (length > TRACE_OUTPUT_SIZE) {
++        DWORD written;
++
++        trace_open();
++        if (trace_handle != (HANDLE)-1)
++            WriteFile(trace_handle, (LPCVOID)text, length, &written, (LPOVERLAPPED)0);
++        return;
++    }
++    memcpy(trace_output + trace_output_length, text, length);
++    trace_output_length += length;
++}
++
++static void trace_write_line(const char *name, const char *display, const char *tail, int length)
++{
++    /* (the prefix: {"v":1,"fn":<name>,"display":<plain>) */
++    trace_length = 0;
++    trace_truncated = 0;
++    trace_field_mark = 0;
++    trace_puts("{\"v\":1,\"fn\":");
++    trace_put_string(name, TRACE_NAME_SIZE);
++    trace_puts(",\"display\":");
++    trace_put_string(display, TRACE_NAME_SIZE);
++    trace_output_put(trace_line, trace_length);
++    trace_output_put(tail, length);
++}
++
++static void trace_write_lines(const char *name, const char *display, const char *lines, int length)
++{
++    int start;
++    int end;
++
++    for (start = 0; start < length; start = end + 1) {
++        for (end = start; lines[end] != '\n'; end++)
++            ;
++        trace_write_line(name, display, lines + start, end + 1 - start);
++    }
++}
++
++/* Appends an overflow record to the current function's lines for each table that lost something of it. */
++static void trace_note_overflows(void)
++{
++    int kind;
++
++    for (kind = 0; kind < OVERFLOW_KINDS; kind++) {
++        if (trace_overflow[kind] == 0)
++            continue;
++        MwccTrace_Begin("overflow", 0, MWCC_TRACE_CLS_NONE);
++        MwccTrace_Str("what", trace_overflow_names[kind]);
++        if (trace_overflow[kind] > 0)
++            MwccTrace_Int("dropped", trace_overflow[kind]);
++        else
++            MwccTrace_Null("dropped");
++        MwccTrace_End();
++        trace_overflow[kind] = 0;
++    }
++}
++
++/* Lines of the current function parked before its link name existed but lost for want of room: an overflow record,
++ * written before the function's other lines (or for every function, once even that list has filled). */
++static void trace_note_lost_parked(const char *name, int keep)
++{
++    int index;
++    int lost;
++    char tail[256];
++
++    lost = trace_lost_parked_full;
++    for (index = 0; index < trace_lost_parked_count; index++) {
++        if (trace_lost_parked[index] == trace_function) {
++            lost = 1;
++            trace_lost_parked[index] = trace_lost_parked[--trace_lost_parked_count];
++            index--;
++        }
++    }
++    if (!lost || !keep)
++        return;
++    trace_length = 0;
++    trace_truncated = 0;
++    trace_field_mark = 0;
++    trace_puts(",\"pass\":0,\"cls\":\"-\",\"ev\":\"overflow\",\"what\":\"deferred_events\",\"dropped\":null}\n");
++    trace_copy(tail, trace_line, trace_length + 1 < (int)sizeof(tail) ? trace_length + 1 : (int)sizeof(tail));
++    trace_write_line(name, trace_display, tail, trace_strlen(tail));
++}
++
++/* Writes the parked segments of the current function, then its pending lines, under its final name, or drops them
++ * when that name is not the one asked for (a plain-name prefix that matched another function, such as another
++ * class's method). A C++ function without its link name yet is parked until it comes back with one (a function
++ * generated after its definition); one that never does was never emitted, and its lines are dropped at exit. */
++static int trace_flushing;
++static char trace_spill[TRACE_LINE_SIZE];
++
++/* NOTES: also write the overflow records (not for a partial flush of a function too large to hold, whose
++ * records come when it is done). */
++static void trace_flush_function(int at_exit, int notes)
++{
++    const char *name;
++    char tail[TRACE_NAME_SIZE + 64];
++    int keep;
++    int index;
++    int live;
++
++    if (trace_function == NULL)
++        return;
++    trace_flushing = 1;
++    if (notes && (!at_exit || trace_known))
++        trace_note_overflows();
++    trace_flushing = 0;
++    if (at_exit) {
++        /* (no reading the object now: the name known while it was live, or the lines are dropped) */
++        name = trace_known ? trace_known_name : NULL;
++        if (name == NULL) {
++            trace_pending_length = 0;
++            trace_pending_lines = 0;
++            return;
++        }
++    } else {
++        name = trace_final_name(trace_function);
++    }
++    if (name == NULL) {
++        if (trace_pending_lines != 0 && trace_parked_count < TRACE_PARKED_SEGMENTS &&
++            trace_parked_length + trace_pending_length <= TRACE_PARKED_SIZE) {
++            trace_parked_segments[trace_parked_count].function = trace_function;
++            trace_parked_segments[trace_parked_count].offset = trace_parked_length;
++            trace_parked_segments[trace_parked_count].length = trace_pending_length;
++            trace_parked_count++;
++            memcpy(trace_parked + trace_parked_length, trace_pending, trace_pending_length);
++            trace_parked_length += trace_pending_length;
++        } else if (trace_pending_lines != 0) {
++            /* (no room to park: remembered, so the function's capture says it lost lines when it is written) */
++            if (trace_lost_parked_count < TRACE_LOST_PARKED)
++                trace_lost_parked[trace_lost_parked_count++] = trace_function;
++            else
++                trace_lost_parked_full = 1;
++        }
++        trace_pending_length = 0;
++        trace_pending_lines = 0;
++        return;
++    }
++    keep = trace_all() || strcmp(trace_filter, name) == 0 || strcmp(trace_filter, trace_display) == 0;
++    trace_note_lost_parked(name, keep);
++    live = 0;
++    for (index = 0; index < trace_parked_count; index++) {
++        if (trace_parked_segments[index].function == trace_function)
++            break;
++    }
++    if (keep && (trace_pending_lines != 0 || index < trace_parked_count)) {
++        trace_length = 0;
++        trace_truncated = 0;
++        trace_field_mark = 0;
++        trace_puts(",\"pass\":0,\"cls\":\"-\",\"ev\":\"function\",\"name\":");
++        trace_put_string(name, TRACE_NAME_SIZE);
++        trace_puts("}\n");
++        trace_copy(tail, trace_line, trace_length + 1 < (int)sizeof(tail) ? trace_length + 1 : (int)sizeof(tail));
++        trace_write_line(name, trace_display, tail, trace_strlen(tail));
++    }
++    for (index = 0; index < trace_parked_count; index++) {
++        if (trace_parked_segments[index].function == trace_function) {
++            if (keep)
++                trace_write_lines(name, trace_display, trace_parked + trace_parked_segments[index].offset,
++                                  trace_parked_segments[index].length);
++            trace_parked_segments[index].function = NULL;
++        } else if (trace_parked_segments[index].function != NULL) {
++            live = 1;
++        }
++    }
++    if (!live) {
++        trace_parked_count = 0;
++        trace_parked_length = 0;
++    }
++    if (keep && trace_pending_lines != 0)
++        trace_write_lines(name, trace_display, trace_pending, trace_pending_length);
++    trace_output_flush();
++    trace_pending_length = 0;
++    trace_pending_lines = 0;
++}
++
++static void trace_flush(void)
++{
++    trace_flush_function(0, 1);
++}
++
++static void trace_flush_at_exit(void)
++{
++    trace_flush_function(1, 1);
++    trace_output_flush();
++}
++
++void MwccTrace_SetFunction(Object *function)
++{
++    const char *plain;
++    const char *link;
++
++    if (!trace_initialized)
++        trace_initialize();
++    mwcc_trace_on = 0;
++    if (trace_path[0] == 0 || trace_failed || function == NULL)
++        return;
++    if (function != trace_function)
++        trace_flush();
++    plain = function->name != NULL ? function->name->name : NULL;
++    link = trace_link_name(function);
++    /* (selected by link name or plain name; while the link name is not made, a plain name that prefixes the
++     * requested mangled name is a candidate, kept only if its final name is the one asked for) */
++    if (!trace_all() && !trace_name_matches(link, 0) && !(link == NULL && trace_name_matches(plain, 1)) &&
++        !trace_name_matches(plain, 0))
++        return;
++    mwcc_trace_on = 1;
++    if (function == trace_function)
++        return;
++    trace_function = function;
++    trace_known = 0;
++    trace_copy(trace_fn, link != NULL ? link : (plain != NULL ? plain : "?"), sizeof(trace_fn));
++    trace_copy(trace_display, plain != NULL ? plain : "?", sizeof(trace_display));
++    memset(trace_allocation_pass, 0, sizeof(trace_allocation_pass));
++    memset(trace_current_pass, 0, sizeof(trace_current_pass));
++    trace_cse_pass = 0;
++    trace_origin_count = 0;
++    trace_slot_count = 0;
++    memset(trace_overflow, 0, sizeof(trace_overflow));
++}
++
++void MwccTrace_NoteSavedLocal(void *body, int index, Object *object)
++{
++    int slot;
++    VarInfo *info;
++
++    if (!mwcc_trace_enabled || object == NULL)
++        return;
++    info = object->datatype == DLOCAL ? object->u.var.info : NULL;
++    for (slot = 0; slot < trace_saved_local_count; slot++) {
++        if (trace_saved_locals[slot].body == body && trace_saved_locals[slot].index == index)
++            break;
++    }
++    if (slot == trace_saved_local_count) {
++        if (trace_saved_local_count == TRACE_SAVED_LOCALS) {
++            trace_saved_locals_full = 1;
++            return;
++        }
++        trace_saved_local_count++;
++    }
++    trace_saved_locals[slot].body = body;
++    trace_saved_locals[slot].index = index;
++    trace_saved_locals[slot].file = info != NULL ? info->deftoken.tokenfile : NULL;
++    trace_saved_locals[slot].line = info != NULL ? info->deftoken.tokenline : 0;
++}
++
++void MwccTrace_NoteRebuiltLocal(void *body, int index, Object *object)
++{
++    int slot;
++    int entry;
++
++    if (!mwcc_trace_enabled || object == NULL)
++        return;
++    if (index == 0) {
++        /* (a new rebuild: the previous function's locals are done) */
++        trace_rebuilt_local_count = 0;
++        trace_rebuilt_overflow = 0;
++    }
++    if (trace_rebuilt_local_count == TRACE_REBUILT_LOCALS) {
++        trace_rebuilt_overflow = 1;
++        trace_overflow[OVERFLOW_REBUILT_LOCALS]++;
++        return;
++    }
++    entry = trace_rebuilt_local_count++;
++    trace_rebuilt_locals[entry].object = object;
++    trace_rebuilt_locals[entry].file = NULL;
++    trace_rebuilt_locals[entry].line = 0;
++    for (slot = 0; slot < trace_saved_local_count; slot++) {
++        if (trace_saved_locals[slot].body == body && trace_saved_locals[slot].index == index) {
++            trace_rebuilt_locals[entry].file = trace_saved_locals[slot].file;
++            trace_rebuilt_locals[entry].line = trace_saved_locals[slot].line;
++            return;
++        }
++    }
++    if (trace_saved_locals_full)
++        trace_overflow[OVERFLOW_SAVED_LOCALS]++;
++}
++
++void MwccTrace_LocalDeclaration(Object *object, TStreamElement *token)
++{
++    int entry;
++
++    for (entry = trace_rebuilt_local_count - 1; entry >= 0; entry--) {
++        if (trace_rebuilt_locals[entry].object == object) {
++            if (trace_rebuilt_locals[entry].file == NULL || trace_rebuilt_locals[entry].line <= 0) {
++                MwccTrace_Null("decl_file");
++                MwccTrace_Null("decl_line");
++                return;
++            }
++            MwccTrace_Str("decl_file", trace_file_path(trace_rebuilt_locals[entry].file));
++            MwccTrace_Int("decl_line", trace_rebuilt_locals[entry].line);
++            return;
++        }
++    }
++    if (trace_rebuilt_overflow) {
++        /* (possibly a rebuilt local the table had no room for: its own token is not its declaration) */
++        MwccTrace_Null("decl_file");
++        MwccTrace_Null("decl_line");
++        return;
++    }
++    MwccTrace_Declaration(token);
++}
++
++void MwccTrace_NoteFunctionFile(Object *function, CPrepFileInfo *file, long line)
++{
++    int index;
++
++    if (!trace_initialized)
++        trace_initialize();
++    if (trace_path[0] == 0 || function == NULL || file == NULL)
++        return;
++    for (index = 0; index < trace_function_file_count; index++) {
++        if (trace_function_files[index].function == function) {
++            trace_function_files[index].file = file;
++            trace_function_files[index].line = line;
++            return;
++        }
++    }
++    if (trace_function_file_count == TRACE_FUNCTION_FILES) {
++        trace_function_files_full = 1;
++        return;
++    }
++    trace_function_files[trace_function_file_count].function = function;
++    trace_function_files[trace_function_file_count].file = file;
++    trace_function_files[trace_function_file_count].line = line;
++    trace_function_file_count++;
++}
++
++void MwccTrace_ArgumentDeclaration(void)
++{
++    int index;
++
++    for (index = 0; index < trace_function_file_count; index++) {
++        if (trace_function_files[index].function == trace_function && trace_function_files[index].line > 0) {
++            /* (not the argument's own position, which the compiler does not keep: decl_file and decl_line stay null;
++             * body_file and body_line say where the function's body opens) */
++            MwccTrace_Null("decl_file");
++            MwccTrace_Null("decl_line");
++            MwccTrace_Str("decl_site", "function_body");
++            MwccTrace_Str("body_file", trace_file_path(trace_function_files[index].file));
++            MwccTrace_Int("body_line", trace_function_files[index].line);
++            return;
++        }
++    }
++    if (trace_function_files_full)
++        trace_overflow[OVERFLOW_FUNCTION_FILES]++;
++    MwccTrace_Null("decl_file");
++    MwccTrace_Null("decl_line");
++}
++
++CPrepFileInfo *MwccTrace_SiteFile(CPrepFileInfo *current)
++{
++    int index;
++
++    for (index = 0; index < trace_function_file_count; index++) {
++        if (trace_function_files[index].function == trace_function)
++            return trace_function_files[index].file;
++    }
++    if (trace_function_files_full) {
++        /* (perhaps a function the table had no room for: the parser's current file may be another one) */
++        trace_overflow[OVERFLOW_FUNCTION_FILES]++;
++        return NULL;
++    }
++    return current;
++}
++
++void MwccTrace_ClearFunction(void)
++{
++    if (mwcc_trace_on)
++        trace_flush();
++    mwcc_trace_on = 0;
++}
++
++static void trace_put(const char *text, int length)
++{
++    if (trace_truncated)
++        return;
++    if (trace_length + length >= TRACE_LINE_SIZE - 64) {
++        trace_truncated = 1;
++        trace_length = trace_field_mark;
++        return;
++    }
++    memcpy(trace_line + trace_length, text, length);
++    trace_length += length;
++}
++
++static void trace_puts(const char *text)
++{
++    trace_put(text, trace_strlen(text));
++}
++
++static void trace_put_long(long value)
++{
++    char digits[16];
++    int count;
++    unsigned long magnitude;
++
++    if (value < 0) {
++        trace_put("-", 1);
++        magnitude = (unsigned long)-value;
++    } else {
++        magnitude = (unsigned long)value;
++    }
++    count = 0;
++    do {
++        digits[sizeof(digits) - 1 - count] = (char)('0' + magnitude % 10);
++        magnitude /= 10;
++        count++;
++    } while (magnitude != 0);
++    trace_put(digits + sizeof(digits) - count, count);
++}
++
++static void trace_put_string(const char *text, int length)
++{
++    static const char hex[] = "0123456789abcdef";
++    char escape[6];
++    int i;
++    unsigned char c;
++
++    trace_put("\"", 1);
++    for (i = 0; i < length && text[i] != 0; i++) {
++        c = (unsigned char)text[i];
++        if (c == '"' || c == '\\') {
++            escape[0] = '\\';
++            escape[1] = (char)c;
++            trace_put(escape, 2);
++        } else if (c < 0x20 || c >= 0x7f) {
++            escape[0] = '\\';
++            escape[1] = 'u';
++            escape[2] = '0';
++            escape[3] = '0';
++            escape[4] = hex[c >> 4];
++            escape[5] = hex[c & 15];
++            trace_put(escape, 6);
++        } else {
++            trace_put(&text[i], 1);
++        }
++    }
++    trace_put("\"", 1);
++}
++
++static void trace_key(const char *key)
++{
++    trace_field_mark = trace_length;
++    trace_put(",\"", 2);
++    trace_puts(key);
++    trace_put("\":", 2);
++}
++
++void MwccTrace_Begin(const char *event, int pass, int cls)
++{
++    const char *name;
++
++    if (!trace_known && trace_function != NULL) {
++        name = trace_final_name(trace_function);
++        if (name != NULL) {
++            trace_copy(trace_known_name, name, sizeof(trace_known_name));
++            trace_known = 1;
++        }
++    }
++    trace_length = 0;
++    trace_truncated = 0;
++    trace_field_mark = 0;
++    trace_puts(",\"pass\":");
++    trace_put_long(pass);
++    trace_puts(",\"cls\":");
++    trace_puts(cls == 0 ? "\"gpr\"" : cls == 1 ? "\"fpr\"" : cls == 9 ? "\"vr\"" : "\"-\"");
++    trace_puts(",\"ev\":");
++    trace_put_string(event, 64);
++}
++
++void MwccTrace_Str(const char *key, const char *value)
++{
++    trace_key(key);
++    if (value == NULL)
++        trace_puts("null");
++    else
++        trace_put_string(value, TRACE_LINE_SIZE);
++}
++
++void MwccTrace_Name(const char *key, HashNameNode *name)
++{
++    MwccTrace_Str(key, name != NULL ? name->name : NULL);
++}
++
++void MwccTrace_Int(const char *key, long value)
++{
++    trace_key(key);
++    trace_put_long(value);
++}
++
++void MwccTrace_Bool(const char *key, int value)
++{
++    trace_key(key);
++    trace_puts(value ? "true" : "false");
++}
++
++void MwccTrace_Ratio(const char *key, double value)
++{
++    long whole;
++    long fraction;
++
++    trace_key(key);
++    if (value < 0.0) {
++        trace_put("-", 1);
++        value = -value;
++    }
++    if (value >= 2000000000.0) {
++        /* (the cost of a register the spill code made, which is never chosen) */
++        trace_puts("3.4e38");
++        return;
++    }
++    whole = (long)value;
++    fraction = (long)((value - (double)whole) * 10000.0 + 0.5);
++    if (fraction >= 10000) {
++        whole++;
++        fraction -= 10000;
++    }
++    trace_put_long(whole);
++    trace_put(".", 1);
++    if (fraction < 1000)
++        trace_put("0", 1);
++    if (fraction < 100)
++        trace_put("0", 1);
++    if (fraction < 10)
++        trace_put("0", 1);
++    trace_put_long(fraction);
++}
++
++void MwccTrace_Null(const char *key)
++{
++    trace_key(key);
++    trace_puts("null");
++}
++
++void MwccTrace_ArrayBegin(const char *key)
++{
++    trace_key(key);
++    trace_put("[", 1);
++    trace_array_items = 0;
++}
++
++void MwccTrace_ArrayInt(long value)
++{
++    if (trace_array_items++ != 0)
++        trace_put(",", 1);
++    trace_put_long(value);
++}
++
++void MwccTrace_ArrayEnd(void)
++{
++    trace_put("]", 1);
++}
++
++void MwccTrace_End(void)
++{
++    int length;
++
++    if (trace_truncated) {
++        /* (a field did not fit: the line ends at the last whole field written before it) */
++        trace_truncated = 0;
++        trace_puts(",\"truncated\":true");
++        trace_overflow[OVERFLOW_LINE]++;
++    }
++    trace_puts("}\n");
++    if (trace_pending_length + trace_length > TRACE_PENDING_SIZE && !trace_flushing) {
++        /* (a function too large to hold: what it has so far is written under the name it has now, or parked; the
++         * flush writes through trace_line, so this line waits aside) */
++        length = trace_length;
++        memcpy(trace_spill, trace_line, length);
++        trace_flush_function(0, 0);
++        memcpy(trace_line, trace_spill, length);
++        trace_length = length;
++    }
++    if (trace_pending_length + trace_length > TRACE_PENDING_SIZE) {
++        trace_overflow[OVERFLOW_LINE]++;
++        return;
++    }
++    memcpy(trace_pending + trace_pending_length, trace_line, trace_length);
++    trace_pending_length += trace_length;
++    trace_pending_lines++;
++}
++
++/* FILE's path as the compiler opened it (include search applied), with wibo's Z: drive and Windows separators
++ * turned back into the host path. Built in trace buffers from the compiler's directory registry, read only
++ * (build_name_and_backslash_path writes nothing but the buffers it is given); the file name is the spec's own. */
++static const char *trace_file_path(CPrepFileInfo *file)
++{
++    int index;
++    char *path;
++    char root[TRACE_PATH_SIZE];
++    char directory[TRACE_PATH_SIZE];
++    char *read;
++    char *write;
++    int length;
++    int i;
++
++    for (index = 0; index < trace_path_count; index++) {
++        if (trace_paths[index].file == file)
++            return trace_paths[index].path;
++    }
++    if (trace_path_count == TRACE_PATHS)
++        index = TRACE_PATHS - 1;
++    else
++        index = trace_path_count++;
++    trace_paths[index].file = file;
++    path = trace_paths[index].path;
++    root[0] = 0;
++    directory[0] = 0;
++    /* (a spec without a directory is relative to the working directory: its name is all there is) */
++    if (file->textfile.vRefNum != 0 && file->textfile.parID != 0)
++        build_name_and_backslash_path(file->textfile.vRefNum, file->textfile.parID, root, directory);
++    length = 0;
++    for (read = root; *read != 0 && length < TRACE_PATH_SIZE - 1; read++)
++        path[length++] = *read;
++    for (read = directory; *read != 0 && length < TRACE_PATH_SIZE - 1; read++)
++        path[length++] = *read;
++    for (i = 0; i < file->textfile.name[0] && length < TRACE_PATH_SIZE - 1; i++)
++        path[length++] = file->textfile.name[i + 1];
++    path[length] = 0;
++    read = path;
++    if ((read[0] == 'Z' || read[0] == 'z') && read[1] == ':' && (read[2] == '\\' || read[2] == '/'))
++        read += 2;
++    for (write = path; *read != 0; read++, write++)
++        *write = *read == '\\' ? '/' : *read;
++    *write = 0;
++    return path;
++}
++
++void MwccTrace_Declaration(TStreamElement *token)
++{
++    if (token == NULL || token->tokenfile == NULL) {
++        MwccTrace_Null("decl_file");
++        MwccTrace_Null("decl_line");
++        return;
++    }
++    MwccTrace_Str("decl_file", trace_file_path(token->tokenfile));
++    MwccTrace_Int("decl_line", token->tokenline);
++}
++
++void MwccTrace_Site(const char *key, CPrepFileInfo *file, long line)
++{
++    char site[TRACE_PATH_SIZE + 24];
++    char field[64];
++    const char *path;
++    int length;
++    char digits[16];
++    int count;
++    long number;
++
++    trace_copy(field, key, sizeof(field) - 8);
++    length = trace_strlen(field);
++    if (file == NULL || line <= 0) {
++        /* (no source position: a compiler-generated function or statement) */
++        MwccTrace_Null(key);
++        trace_copy(field + length, "_file", 8);
++        MwccTrace_Null(field);
++        trace_copy(field + length, "_line", 8);
++        MwccTrace_Null(field);
++        return;
++    }
++    path = trace_file_path(file);
++    trace_copy(site, path, TRACE_PATH_SIZE);
++    length = trace_strlen(site);
++    site[length++] = ':';
++    count = 0;
++    number = line;
++    do {
++        digits[count++] = (char)('0' + number % 10);
++        number /= 10;
++    } while (number != 0 && count < 15);
++    while (count > 0)
++        site[length++] = digits[--count];
++    site[length] = 0;
++    MwccTrace_Str(key, site);
++    length = trace_strlen(field);
++    trace_copy(field + length, "_file", 8);
++    MwccTrace_Str(field, path);
++    trace_copy(field + length, "_line", 8);
++    MwccTrace_Int(field, line);
++}
++
++void MwccTrace_NoteOrigin(HashNameNode *name, const char *pass, const char *expression)
++{
++    int index;
++
++    if (name == NULL)
++        return;
++    for (index = 0; index < trace_origin_count; index++) {
++        if (strcmp(trace_origins[index].name, name->name) == 0)
++            break;
++    }
++    if (index == trace_origin_count) {
++        if (trace_origin_count == TRACE_ORIGINS) {
++            trace_overflow[OVERFLOW_ORIGINS]++;
++            return;
++        }
++        trace_origin_count++;
++    }
++    trace_copy(trace_origins[index].name, name->name, sizeof(trace_origins[index].name));
++    trace_origins[index].pass = pass;
++    trace_copy(trace_origins[index].expression, expression != NULL ? expression : "",
++               sizeof(trace_origins[index].expression));
++}
++
++const char *MwccTrace_Origin(HashNameNode *name)
++{
++    int index;
++
++    if (name == NULL)
++        return NULL;
++    for (index = 0; index < trace_origin_count; index++) {
++        if (strcmp(trace_origins[index].name, name->name) == 0) {
++            trace_copy(trace_text, trace_origins[index].pass, sizeof(trace_text));
++            trace_text_length = trace_strlen(trace_text);
++            if (trace_origins[index].expression[0] != 0 && trace_text_length < TRACE_TEXT_SIZE - 2) {
++                trace_text[trace_text_length++] = ':';
++                trace_text[trace_text_length++] = ' ';
++                trace_copy(trace_text + trace_text_length, trace_origins[index].expression,
++                           TRACE_TEXT_SIZE - trace_text_length);
++            }
++            return trace_text;
++        }
++    }
++    return NULL;
++}
++
++static void text_put(const char *text)
++{
++    while (*text != 0 && trace_text_length < TRACE_TEXT_SIZE - 4)
++        trace_text[trace_text_length++] = *text++;
++    if (*text != 0 && trace_text_length == TRACE_TEXT_SIZE - 4) {
++        trace_text[trace_text_length++] = '.';
++        trace_text[trace_text_length++] = '.';
++        trace_text[trace_text_length++] = '.';
++    }
++    trace_text[trace_text_length] = 0;
++}
++
++static void text_put_long(long value)
++{
++    char digits[16];
++    int count;
++    unsigned long magnitude;
++
++    if (value < 0) {
++        text_put("-");
++        magnitude = (unsigned long)-value;
++    } else {
++        magnitude = (unsigned long)value;
++    }
++    count = 0;
++    digits[sizeof(digits) - 1] = 0;
++    do {
++        digits[sizeof(digits) - 2 - count] = (char)('0' + magnitude % 10);
++        magnitude /= 10;
++        count++;
++    } while (magnitude != 0);
++    text_put(digits + sizeof(digits) - 1 - count);
++}
++
++static const char *trace_operator(int nodetype)
++{
++    switch (nodetype) {
++        case EPOSTINC: return "post++";
++        case EPOSTDEC: return "post--";
++        case EPREINC: return "++";
++        case EPREDEC: return "--";
++        case EINDIRECT: return "*";
++        case EMONMIN: return "-";
++        case EBINNOT: return "~";
++        case ELOGNOT: return "!";
++        case EMUL: return "*";
++        case EDIV: return "/";
++        case EMODULO: return "%";
++        case EADD: return "+";
++        case ESUB: return "-";
++        case ESHL: return "<<";
++        case ESHR: return ">>";
++        case ELESS: return "<";
++        case EGREATER: return ">";
++        case ELESSEQU: return "<=";
++        case EGREATEREQU: return ">=";
++        case EEQU: return "==";
++        case ENOTEQU: return "!=";
++        case EAND: return "&";
++        case EXOR: return "^";
++        case EOR: return "|";
++        case ELAND: return "&&";
++        case ELOR: return "||";
++        case EASS: return "=";
++        case ECOMMA: return ",";
++        case EROTL: return "rotl";
++        case EROTR: return "rotr";
++        case ETYPCON: return "(cast)";
++        case EBITFIELD: return "bitfield";
++        default: return "?";
++    }
++}
++
++static int text_is_variable(IROLinear *operand)
++{
++    return operand != NULL && operand->type == IROLinearOperand && operand->u.node != NULL &&
++           operand->u.node->type == EOBJREF && operand->u.node->data.objref != NULL &&
++           operand->u.node->data.objref->name != NULL;
++}
++
++static void text_linear(IROLinear *linear, int depth)
++{
++    ENode *node;
++
++    if (linear == NULL) {
++        text_put("?");
++        return;
++    }
++    if (depth > 12) {
++        text_put("...");
++        return;
++    }
++    switch (linear->type) {
++        case IROLinearOperand:
++            node = linear->u.node;
++            if (node == NULL) {
++                text_put("?");
++            } else if (node->type == EOBJREF && node->data.objref != NULL && node->data.objref->name != NULL) {
++                text_put("&");
++                text_put(node->data.objref->name->name);
++            } else if (node->type == EINTCONST) {
++                text_put_long((long)node->data.intval.lo);
++            } else if (node->type == EFLOATCONST) {
++                text_put("<float>");
++            } else if (node->type == ESTRINGCONST) {
++                text_put("<string>");
++            } else {
++                text_put("<operand>");
++            }
++            break;
++        case IROLinearOp1Arg:
++            if (linear->nodetype == EINDIRECT && text_is_variable(linear->u.monadic)) {
++                /* (a variable's value) */
++                text_put(linear->u.monadic->u.node->data.objref->name->name);
++                break;
++            }
++            text_put(trace_operator(linear->nodetype));
++            text_put("(");
++            text_linear(linear->u.monadic, depth + 1);
++            text_put(")");
++            break;
++        case IROLinearOp2Arg:
++            text_put("(");
++            text_linear(linear->u.diadic.left, depth + 1);
++            text_put(" ");
++            text_put(trace_operator(linear->nodetype));
++            text_put(" ");
++            text_linear(linear->u.diadic.right, depth + 1);
++            text_put(")");
++            break;
++        case IROLinearFunccall:
++            text_put("call(");
++            text_linear(linear->u.funccall.callee, depth + 1);
++            text_put(")");
++            break;
++        default:
++            text_put("<node>");
++            break;
++    }
++}
++
++const char *MwccTrace_LinearText(struct IROLinear *linear)
++{
++    trace_text_length = 0;
++    trace_text[0] = 0;
++    text_linear(linear, 0);
++    return trace_text;
++}
++
++void MwccTrace_FrameSlot(Object *object, long offset, long size, long align)
++{
++    if (object == NULL)
++        return;
++    if (trace_slot_count == TRACE_SLOTS) {
++        trace_overflow[OVERFLOW_FRAME_SLOTS]++;
++        return;
++    }
++    trace_slots[trace_slot_count].object = object;
++    trace_copy(trace_slots[trace_slot_count].owner, object->name != NULL ? object->name->name : "?",
++               sizeof(trace_slots[trace_slot_count].owner));
++    trace_slots[trace_slot_count].offset = offset;
++    trace_slots[trace_slot_count].size = size;
++    trace_slots[trace_slot_count].align = align;
++    trace_slot_count++;
++}
++
++void MwccTrace_FrameLayout(long local_base, long frame_size, long local_size)
++{
++    int index;
++    Object *object;
++    VarInfo *info;
++
++    MwccTrace_Begin("frame", 0, MWCC_TRACE_CLS_NONE);
++    MwccTrace_Int("local_base", local_base);
++    MwccTrace_Int("size", frame_size);
++    MwccTrace_Int("local_size", local_size);
++    MwccTrace_Int("slots", trace_slot_count);
++    /* (no local needed the stack: the compiler dropped the local area and every slot below is unused) */
++    MwccTrace_Bool("locals_cleared", local_size == 0 && trace_slot_count != 0);
++    MwccTrace_End();
++    for (index = 0; index < trace_slot_count; index++) {
++        MwccTrace_Begin("frame_slot", 0, MWCC_TRACE_CLS_NONE);
++        MwccTrace_Int("offset", local_base + trace_slots[index].offset);
++        MwccTrace_Int("local_offset", trace_slots[index].offset);
++        MwccTrace_Int("size", trace_slots[index].size);
++        MwccTrace_Int("align", trace_slots[index].align);
++        MwccTrace_Str("owner", trace_slots[index].owner);
++        object = trace_slots[index].object;
++        info = object->datatype == DLOCAL ? object->u.var.info : NULL;
++        /* (reserved: the slot is in the final frame, whether or not the code reads it; in_register: the object
++         * has a register after allocation) */
++        MwccTrace_Bool("reserved", local_size != 0);
++        MwccTrace_Bool("in_register", info != NULL && info->reg != 0);
++        MwccTrace_End();
++    }
++    trace_slot_count = 0;
++}
++
++int MwccTrace_BeginAllocationPass(int cls)
++{
++    if (cls < 0 || cls > 9)
++        return 0;
++    trace_current_pass[cls] = trace_allocation_pass[cls];
++    return trace_allocation_pass[cls]++;
++}
++
++int MwccTrace_AllocationPass(int cls)
++{
++    if (cls < 0 || cls > 9)
++        return 0;
++    return trace_current_pass[cls];
++}
++
++int MwccTrace_PendingAllocationPass(int cls)
++{
++    if (cls < 0 || cls > 9)
++        return 0;
++    return trace_allocation_pass[cls];
++}
++
++int MwccTrace_NextCSEPass(void)
++{
++    return trace_cse_pass++;
++}
+diff --git a/tools/link_traced.py b/tools/link_traced.py
+new file mode 100644
+index 0000000..fd0d6cb
+--- /dev/null
++++ b/tools/link_traced.py
+@@ -0,0 +1,37 @@
++#!/usr/bin/env python3
++"""python tools/link_traced.py VERSION OUTPUT INPUT...: link the traced executable (configure.py --traced) as
++tools/link.py links the original, without checking the original's SHA-1 (the trace changes the code), and write
++build/VERSION/traced-ok: the executable's SHA-1 and which sources were linked from source."""
++import hashlib
++import json
++import struct
++import subprocess
++import sys
++from pathlib import Path
++
++sys.path.insert(0, str(Path(__file__).parent))
++from pe import PEFile
++
++
++def main():
++    version, output, *inputs = sys.argv[1:]
++    config = json.loads(Path(f"config/{version}/config.json").read_text())
++    subprocess.run(["build/tools/wibo", "build/compilers/pro53/mwld.exe", "-nostdlib", "-subsystem", "console",
++                    "-m", "_mainCRTStartup", *inputs, "-o", output, "-map", str(Path(output).with_suffix(".map"))],
++                   check=True)
++    original = PEFile(Path(config["original"]))
++    linked = bytearray(Path(output).read_bytes())
++    stamp = struct.unpack_from("<I", original.data, 0x3C)[0] + 8
++    linked[stamp:stamp + 4] = original.data[stamp:stamp + 4]
++    Path(output).write_bytes(linked)
++    prefix = f"build/{version}/compiled/"
++    Path(f"build/{version}/traced-ok").write_text(json.dumps({
++        "version": version,
++        "sha1": hashlib.sha1(linked).hexdigest(),
++        "original_sha1": config["sha1"],
++        "linked_from_source": sorted(path[len(prefix):-len(".obj")] for path in inputs if path.startswith(prefix)),
++    }, indent=2) + "\n")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tools/split.py b/tools/split.py
+index fc899ec..9080678 100644
+--- a/tools/split.py
++++ b/tools/split.py
+@@ -260,7 +260,10 @@ def common_names(count):
+     return names
+ 
+ 
+-def split(version):
++def split(version, traced=False):
++    """TRACED (configure.py --traced): a fixup over bytes patched by hand keeps its bytes as they are, with no
++    relocation: written against the symbol holding it, its value would move with that symbol when the traced build's
++    code before it grows, and the patched instructions would change."""
+     config, pe = original(version)
+     symbols = read_symbols(f"config/{version}/symbols.txt")
+     sections, units = read_splits(f"config/{version}/splits.txt")
+@@ -362,6 +365,8 @@ def split(version):
+                         target = resolve(value, unit)
+                         holder = [m for m in members if m[1] <= at and piece_start <= m[1] < piece_end]
+                         if target is None and pe_section(value) is None and holder:
++                            if traced:
++                                continue
+                             # (a fixup the executable keeps over bytes patched by hand, not an address: written against
+                             # the symbol holding it, the addend making up the value)
+                             name, address, symbol_options = max(holder, key=lambda m: m[1])
+@@ -427,4 +432,4 @@ def split(version):
+ 
+ 
+ if __name__ == "__main__":
+-    split(sys.argv[1])
++    split(sys.argv[1], traced="--traced" in sys.argv[2:])

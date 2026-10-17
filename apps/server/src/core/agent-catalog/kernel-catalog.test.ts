@@ -422,17 +422,16 @@ describe("meleeKernelAgentCatalog", () => {
     expect(worker?.tools).toContain(workerWriteSetToolId);
     expect(rendered).toContain("capture=trace");
     expect(rendered).toContain("trace_detail=full");
-    expect(rendered).toContain("Legacy allocator coloring modes are GPR-only");
-    expect(rendered).toContain("retains GPR/FPR coloring graphs when emitted");
-    expect(rendered).toContain("`source-rank` currently selects GPR snapshots");
+    expect(rendered).toContain("`mwcc_alloc_snapshot` with `backend=native` and capture `decisions`");
+    expect(rendered).toContain("`mwcc_alloc_compare_sources`");
     expect(rendered).not.toContain("expect no coloring evidence for `f` registers");
     expect(worker?.renderedTools).toContain("trace_detail defaults to stages");
-    expect(rendered).toContain("A modeled solver witness does not prove a source match");
+    expect(rendered).toContain("a modeled solver witness does not prove a source match");
     expect(rendered).toContain("Require baseline replay agreement");
     expect(rendered).toContain("`request_write_set_widening`");
     expect(rendered).toContain("`widening_request` object");
     expect(samplePrompt("worker").systemPrompt).toContain("capture=trace");
-    expect(samplePrompt("worker").systemPrompt).toContain("A modeled solver witness does not prove a source match");
+    expect(samplePrompt("worker").systemPrompt).toContain("a modeled solver witness does not prove a source match");
     expect(worker?.tools).toEqual(expect.arrayContaining([...workerKnowledgeV2ToolIds]));
     for (const toolId of workerKnowledgeV2ToolIds) {
       expect(worker?.renderedTools).toContain(`tool name="${toolId}"`);
@@ -441,7 +440,8 @@ describe("meleeKernelAgentCatalog", () => {
     expect(worker?.renderedTools).not.toContain("ledger_search");
     expect(worker).toBeDefined();
     expect(rendered).toContain("<submission>");
-    expect(rendered).toContain("Submit a verified improvement so it is validated and checkpointed, then continue toward exact.");
+    expect(rendered).toContain("Submit by ending your turn with a JSON note");
+    expect(rendered).not.toContain("continue toward exact");
     expect(rendered).not.toContain("handoff");
     expect(rendered).not.toContain("attempt budget");
     expect(rendered).not.toContain("for this claimed target");
@@ -449,6 +449,7 @@ describe("meleeKernelAgentCatalog", () => {
     expect(rendered).toContain("DIFF_ARG_MISMATCH");
     expect(rendered).toContain("<target_knowledge");
     expect(rendered).not.toContain(["kv2", "_"].join(""));
+    // No game selected: no game-gated graph tools in the list, so the prompt names none.
     expect(rendered).not.toContain("graph_related_functions");
     expect(rendered).not.toContain("past_prs_search");
     expect(rendered).not.toContain("<target_graph_file_card");
@@ -540,9 +541,11 @@ describe("meleeKernelAgentCatalog", () => {
     const previous = process.env.ORCH_ADVISORY_ADJUDICATION;
     try {
       delete process.env.ORCH_ADVISORY_ADJUDICATION;
+      // Unconfigured: what a run gets by default (shadow).
       const unconfigured = loadKernelAgentsPayload(paths);
-      expect(unconfigured.advisoryAdjudication).toBe("off");
-      expect(workerText(unconfigured)).not.toContain("kept_advisories");
+      expect(unconfigured.advisoryAdjudication).toBe("shadow");
+      expect(workerText(unconfigured)).toContain("findings still block acceptance today");
+      expect(workerText(loadKernelAgentsPayload(paths, { advisoryAdjudication: "off" }))).not.toContain("kept_advisories");
 
       const shadow = loadKernelAgentsPayload(paths, { advisoryAdjudication: "shadow" });
       const enforce = loadKernelAgentsPayload(paths, { advisoryAdjudication: "enforce" });
@@ -563,11 +566,11 @@ describe("meleeKernelAgentCatalog", () => {
 
       process.env.ORCH_ADVISORY_ADJUDICATION = "sometimes";
       const invalid = loadKernelAgentsPayload(paths);
-      expect(invalid.advisoryAdjudication).toBe("off");
+      expect(invalid.advisoryAdjudication).toBe("shadow");
       expect(invalid.warnings).toEqual([
-        "Rendering the worker sample as off: ORCH_ADVISORY_ADJUDICATION must be one of: off, shadow, enforce",
+        "Rendering the worker sample as shadow: ORCH_ADVISORY_ADJUDICATION must be one of: off, shadow, enforce",
       ]);
-      expect(workerText(invalid)).not.toContain("kept_advisories");
+      expect(workerText(invalid)).toContain("findings still block acceptance today");
     } finally {
       if (previous === undefined) delete process.env.ORCH_ADVISORY_ADJUDICATION;
       else process.env.ORCH_ADVISORY_ADJUDICATION = previous;
@@ -588,8 +591,8 @@ describe("meleeKernelAgentCatalog", () => {
 
     const melee = loadKernelAgentsPayload(paths);
     expect(melee.stackFramePolicy).toBe("match_frame");
-    expect(workerText(melee)).not.toContain("<stack_frame_policy>");
-    expect(workerText(melee)).toContain("use `PAD_STACK` only when");
+    expect(workerText(melee)).toContain("This game matches the stack frame too");
+    expect(workerText(melee)).toContain("`PAD_STACK` is the last resort");
     expect(worker(melee)?.body).toBe(renderXmlMarkdown(worker(melee)!.prompt!));
 
     const smsGame = { matching: { stackFramePolicy: "stop_at_frame" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
@@ -604,14 +607,14 @@ describe("meleeKernelAgentCatalog", () => {
       const text = workerText(sms);
       expect(text).toContain("<stack_frame_policy>");
       expect(text).toContain("This game matches up to stack frame size.");
-      expect(text).not.toContain("use `PAD_STACK` only when");
+      expect(text).not.toContain("`PAD_STACK` is the last resort");
       expect(text).not.toMatch(unresolvedPlaceholderPattern);
       // The viewer's prompt document is the same variant the rendered body came from.
       expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
     }
   });
 
-  test("renders the steering policy and a sample steering probe for an active steering gate", () => {
+  test("renders the SMS method lines and a sample steering probe for an enforced steering gate", () => {
     const paths = {
       game: null,
       repoRoot: sampleRepoRoot,
@@ -625,12 +628,11 @@ describe("meleeKernelAgentCatalog", () => {
 
     const melee = loadKernelAgentsPayload(paths);
     expect(melee.steeringGate).toBe("off");
-    expect(workerText(melee)).not.toContain("<steering_policy>");
     expect(workerText(melee)).not.toContain("steering_probe");
     expect(workerText(melee)).not.toContain("previous_attempt");
-    expect(workerText(melee)).not.toContain("unused-test");
+    expect(workerText(melee)).not.toContain("unused_stub_test");
 
-    const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "shadow" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
+    const smsGame = { matching: { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" } } as unknown as NonNullable<Parameters<typeof loadKernelAgentsPayload>[0]["game"]>;
     for (const sms of [
       loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce" }),
       loadKernelAgentsPayload({ ...paths, game: smsGame }, {
@@ -638,18 +640,26 @@ describe("meleeKernelAgentCatalog", () => {
         loadBackfillPassContext: () => null,
       }),
     ]) {
-      expect(sms.steeringGate).not.toBe("off");
+      expect(sms.steeringGate).toBe("enforce");
+      expect(sms.compilerDelta).toBe("present");
       const text = workerText(sms);
-      expect(text).toContain("<steering_policy>");
-      expect(text).toContain("A steering match is never done.");
-      expect(text).toContain("steering_check.py unused-test --repo . --file &lt;file&gt; --function &lt;Name&gt;");
-      expect(worker(sms)?.context?.renderedContext ?? "").toContain("<steering_probe function=");
+      expect(text).toContain("A match counts only when the steering gate certifies it.");
+      expect(text).toContain("Do not submit a probe.");
+      expect(text).toContain("run `unused_stub_test`");
+      expect(worker(sms)?.tools).toContain("real_code_evidence");
+      expect(worker(sms)?.tools).toContain("unused_stub_test");
       const context = worker(sms)?.context?.renderedContext ?? "";
+      expect(context).toContain('<steering_probe function=');
+      expect(context).toContain('<compiler_delta status="present" version="GC/1.2.5" observation_id="obs-preview-0001" changes="3">');
+      expect(context).toContain("`this` degree 28 -&gt; 29; coloured first; r28 -&gt; r31");
+      // The probe's siblings keep their certification (steering_diagnose.py).
+      expect(context).toContain('"certification": "certified"');
+      expect(context).toContain('"sibling_hypotheses"');
       expect(context).toContain("<previous_attempt function=");
       expect(context).toContain("The steering backfill rolled it back and removed that code; the real-only match left is 98.1%.");
       expect(context).toContain('<edit at="src/M3DUtil/MActor.cpp:212" shapes="temp_alias">');
       expect(context).toContain('<maintainer_quote reviewer="Mrkol" pr="330" ruling="sms-330-fakematch-steering">Totally a fakematch</maintainer_quote>');
-      expect(text).toContain("Read the `previous_attempt` block when present");
+      expect(text).toContain("Any other `previous_attempt`: an earlier match on this function was rolled back");
       expect(text).toContain('"steering_edits"');
       expect(text).toContain("real_code_evidence inlines --type MActor --member mLightData");
       expect(text).not.toMatch(unresolvedPlaceholderPattern);
@@ -657,6 +667,15 @@ describe("meleeKernelAgentCatalog", () => {
       // The viewer's prompt document is the same variant the rendered body came from.
       expect(worker(sms)?.body).toBe(renderXmlMarkdown(worker(sms)!.prompt!));
     }
+
+    // The compiler_delta selector: unavailable and absent; the system prompt is the same.
+    const delta = (compilerDelta: "present" | "unavailable" | "absent") =>
+      loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", compilerDelta });
+    const unavailable = delta("unavailable");
+    expect(unavailable.compilerDelta).toBe("unavailable");
+    expect(worker(unavailable)?.context?.renderedContext).toContain('<compiler_delta status="unavailable" reason="reconstruction: dependency hash mismatch for include/M3DUtil/MActor.hpp" />');
+    expect(worker(delta("absent"))?.context?.renderedContext).toContain('<compiler_delta status="absent" />');
+    expect(worker(unavailable)?.renderedPrompt?.content).toBe(worker(delta("present"))?.renderedPrompt?.content);
   });
 
   test("renders the selected previous_attempt variant for an active steering gate and echoes it", () => {
@@ -675,13 +694,16 @@ describe("meleeKernelAgentCatalog", () => {
     const unverified = loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "unverified_match" });
     expect(unverified.previousAttempt).toBe("unverified_match");
     const text = context(unverified);
-    expect(text).toContain('<previous_attempt variant="unverified_match" function=');
-    expect(text).toContain("code reaches 100%, but the steering gate could not verify that it is real code");
-    expect(text).toContain('It is marked "100% unverified": not done and not counted as matched. The reduced candidate reaches 97.2%.');
-    expect(text).toContain('<match base="96.4%" candidate="100%" real_only="97.2%" />');
+    expect(text).toContain('<previous_attempt variant="unverified_match" label="100% but unverified" function=');
+    expect(text).toContain('trusted_base_rev="fedcba9876543210fedcba9876543210fedcba98" source_path="src/M3DUtil/MActor.cpp" total_edits="8" omitted_edits="2" full_report_locator="build/steering/reports/obs-preview-0001.json"');
+    expect(text).toContain("code reaches 100%, but the steering gate could not certify it");
+    expect(text).toContain('It is "100% but unverified": not done and not counted as matched.');
+    expect(text).toContain('<match base="96.4%" candidate="100%" />');
+    expect(text).toContain('<unexplained_edits shown="6" total="8">');
     expect(text).toContain('<edit at="src/M3DUtil/MActor.cpp:212" status="unresolved" shapes="other">');
     expect(text).toContain("<gate_reason>incomplete groups: src/M3DUtil/MActor.cpp@4.0</gate_reason>");
-    expect(text).toContain("Produce a version the steering gate certifies");
+    expect(text).toContain('<review id="review-preview-1" site="src/M3DUtil/MActor.cpp:212-213" status="pending">');
+    expect(text).toContain("follow the unverified_match steps in the system prompt's method");
     // One variant per sample: no rollback text leaks in.
     expect(text).not.toContain("The steering backfill rolled it back");
     expect(text).not.toMatch(unresolvedPlaceholderPattern);
@@ -690,9 +712,16 @@ describe("meleeKernelAgentCatalog", () => {
     const rollback = loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "rollback" });
     expect(worker(unverified)?.renderedPrompt?.content).toBe(worker(rollback)?.renderedPrompt?.content);
 
-    // Melee (gate off): the selector changes nothing.
+    // `none`: no previous_attempt, so the pending review renders as a standalone block.
+    const none = context(loadKernelAgentsPayload(paths, { stackFramePolicy: "stop_at_frame", steeringGate: "enforce", previousAttempt: "none" }));
+    expect(none).not.toContain("<previous_attempt");
+    expect(none).toContain('    <open_reviews total="1">');
+    expect(none).toContain('<review id="review-preview-1" site="src/M3DUtil/MActor.cpp:212-213" status="pending">');
+    expect(none).not.toMatch(unresolvedPlaceholderPattern);
+
+    // Melee (gate off): the selectors change nothing.
     const melee = loadKernelAgentsPayload(paths);
-    const meleeSelected = loadKernelAgentsPayload(paths, { previousAttempt: "unverified_match" });
+    const meleeSelected = loadKernelAgentsPayload(paths, { previousAttempt: "unverified_match", compilerDelta: "unavailable" });
     expect(context(meleeSelected)).not.toContain("previous_attempt");
     expect(context(meleeSelected)).toBe(context(melee));
     expect(worker(meleeSelected)?.renderedPrompt?.content).toBe(worker(melee)?.renderedPrompt?.content);

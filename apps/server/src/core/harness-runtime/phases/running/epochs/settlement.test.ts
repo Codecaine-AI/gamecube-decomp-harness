@@ -802,7 +802,7 @@ printf '%s\\n' '${JSON.stringify(changes)}' > build/GALE01/report_changes.json
     const newMatchesSection = prReport.slice(prReport.indexOf("new matches"), prReport.indexOf("broken matches"));
     expect(newMatchesSection).toContain("exact");
     expect(newMatchesSection).not.toContain("unverified");
-    expect(prReport).toContain("**100% unverified**: 1 function(s), 24 bytes");
+    expect(prReport).toContain("**100% but unverified**: 1 function(s), 24 bytes");
     // Raw evidence: the archived report and the report's own measures.
     expect(payload.report_measures).toMatchObject({ matched_code_percent: 100, matched_functions: 2 });
     expect(JSON.parse(readFileSync(savePoint.report_path, "utf8")).measures.matched_code_percent).toBe(100);

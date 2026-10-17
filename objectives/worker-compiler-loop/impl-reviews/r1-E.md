@@ -1,0 +1,13 @@
+1. [BLOCKING] Default gate placement silently uses unchecked host clang — `apps/server/src/core/validation/steering/steering-check.ts:409`. Missing or incompatible sandbox clang makes `auto` run `reduce`/`decide` on the host without verifying its compiler. Older clang versions have documented verdict differences and can change certification. Fix: fail closed by default; require explicit host opt-in and the same compiler probe.
+
+2. [BLOCKING] Image staging enables unvalidated traced compilers — `toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/stage_traced_compilers.sh:52`. The source-build fallback supplies no byte-identity sweep evidence, then accepts capabilities by schema and version presence alone at line 78. A fresh image can advertise trace points from compilers never validated across game units. Fix: require passing, binary-bound validation evidence for every enabled version; leave unsupported versions disabled.
+
+3. [BLOCKING] Worker tools still execute computation on the host — `apps/server/src/core/tools/resolver.ts:423`. Missing sandbox m2c dependencies trigger host decompilation; missing JSystem refs trigger host evidence search. The type-layout path at line 475 also downloads context and builds its clang index on the host. These violate §3.6 and retain host CPU/memory pressure at 200 workers. Fix: sandbox-route these operations and return explicit unavailable results when prerequisites are missing. Host QA diff generation also remains per attempt in `change-validation.ts:1940`.
+
+4. [BLOCKING] Nested directory symlinks escape the image boundary — `toolpacks/gamecube-decomp/_impl/gamecube/sandbox-image/build_image_bundle.sh:234`. Validation uses `find` without following directory links, but copying uses `cp -RL`. A permitted link into the harness can contain another link to an outside file, which gets baked into the image unchecked. Fix: inventory and validate every recursively dereferenced file before copying; test nested directory-link escapes.
+
+5. [NON-BLOCKING] Inventory generation serializes host ancestry checks — `apps/server/src/core/harness-runtime/phases/running/workers/worker-job.ts:297`. Every worker regenerates the inventory using synchronous git ancestry checks for cleared holds and rollback certificates. At 200 workers, repeated checks block the dispatcher event loop. Fix: cache by game, base revision and hold-state version; deduplicate revisions and use asynchronous git.
+
+Targeted tests were limited by read-only `EPERM` fixture creation. Typecheck failed at `steering-explain.test.ts:57`, in the excluded compiler-delta slice.
+
+4 blocking findings.

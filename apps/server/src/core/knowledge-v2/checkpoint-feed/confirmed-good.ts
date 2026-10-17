@@ -6,6 +6,8 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import type { SteeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
+import { isRestorationCheckpoint, loadRestorationCertification } from "../ingest/attempts.js";
 import type { JsonObject } from "@server/core/harness-state/events.js";
 import type { StateStore } from "@server/core/orchestrator-state";
 
@@ -19,7 +21,14 @@ import {
 
 /** "bisect" when the confirmation pass ran for the checkpoint's epoch (rule 5), else "epoch-settled". */
 export type ConfirmationSource = "bisect" | "epoch-settled";
-export type ConfirmedGoodRule = 1 | 2 | 3 | 4 | 5;
+/** Rules 1–5 of §6.8; 6: the target is not held by the steering gate at the checkpoint's revision. */
+export type ConfirmedGoodRule = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Why rule 6 refused a checkpoint (recorded as the verdict's reason). */
+export const HELD_UNVERIFIED_MATCH = "held: unverified match";
+export const HELD_STEERING_ROLLBACK = "held: steering rollback";
+export const HELD_STEERING_UNKNOWN = "held: steering state unreadable";
+export const HELD_UNCERTIFIED_RESTORATION = "held: uncertified restoration";
 
 export interface CheckpointTarget {
   /** `unit::function`, as the epoch target names it. */
@@ -57,6 +66,15 @@ export interface ConfirmedGoodDeps {
   repoRoot: string;
   /** `git merge-base --is-ancestor`; null when ancestry cannot be checked. */
   isAncestor?: (repoRoot: string, ancestor: string, descendant: string) => Promise<boolean | null>;
+  /**
+   * Rule 6, steering-gated games: the game's saved-revision completion holds
+   * (`steeringCompletionHolds`, keyed canonically and tagged by game, so the
+   * epoch target's module-prefixed unit finds a short-unit hold). Undefined
+   * (Melee, gate off): rule 6 is not applied.
+   */
+  holds?: SteeringCompletionHolds;
+  /** The game, so a restoration's gate-pass certificate is found under any spelling of its unit. */
+  gameId?: string;
 }
 
 // ── rule 4: the frozen report ─────────────────────────────────────────────────
@@ -353,6 +371,29 @@ export async function evaluateConfirmedGood(
   const integrationMetadata = jsonObject(integration.metadata_json);
   const integratedRev = typeof integrationMetadata.integrated_rev === "string" ? integrationMetadata.integrated_rev.trim() : "";
   if (!integratedRev) return notConfirmed(1, "integrated-rev-missing");
+
+  // Rule 6: a target held by the steering gate at this checkpoint's revision is not
+  // confirmed good, whatever the epoch says: an active (or later-certified) unverified
+  // match, or a rollback none of whose certifying revisions is an ancestor of it.
+  if (deps.holds) {
+    const heldTarget = targetOf(row, integration);
+    const reason = heldTarget ? deps.holds.reasonAt(integratedRev, heldTarget.key) : "unknown";
+    if (reason !== null) {
+      return notConfirmed(6, reason === "unverified_match" ? HELD_UNVERIFIED_MATCH : reason === "steering_rollback" ? HELD_STEERING_ROLLBACK : HELD_STEERING_UNKNOWN, {
+        target_key: heldTarget?.key ?? null,
+        integrated_rev: integratedRev,
+      });
+    }
+  }
+  // A restoration (a base-identity proof, never certified progress) teaches no matching
+  // until a later gate-pass certificate of its target lands at or after its revision.
+  if (isRestorationCheckpoint(row)) {
+    const restoredTarget = targetOf(row, integration);
+    const certified = restoredTarget !== null && loadRestorationCertification(store.db, restoredTarget.key, deps.gameId, { repoRoot: deps.repoRoot })({
+      id: row.id, attempt_index: 0, validation_time: "", new_score: row.new_score ?? 0, exact_match: Number(row.exact_match), metadata_json: row.metadata_json,
+    });
+    if (!certified) return notConfirmed(6, HELD_UNCERTIFIED_RESTORATION, { target_key: restoredTarget?.key ?? null, integrated_rev: integratedRev });
+  }
 
   // Rule 2: the epoch settled — completed, closed, with its save point.
   const epochId = integration.epoch_id;

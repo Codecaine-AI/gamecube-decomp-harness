@@ -41,7 +41,7 @@ describe("worker context: unverified target file editability", () => {
       { previous_attempt: { variant: "unverified_match", symbol: "Steered__3FooFv", unit: "main/MarioUtil/Foo", match: { candidate: 100 } } },
     ]) {
       const text = context("enforce", claim);
-      expect(text).toContain('<editability mode="editable" reason="1 unmatched function(s) remain in this source file (1 of them 100% unverified');
+      expect(text).toContain('<editability mode="editable" reason="1 unmatched function(s) remain in this source file (1 of them 100% but unverified');
       expect(text).not.toContain("use as reference evidence only");
     }
   });

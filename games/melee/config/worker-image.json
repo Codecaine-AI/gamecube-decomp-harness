@@ -5,8 +5,27 @@
   ],
   "configure_args": ["--version", "GALE01", "--wrapper", "build/tools/wibo", "--dtk", "build/tools/dtk", "--objdiff", "build/tools/objdiff-cli", "--binutils", "build/binutils"],
   "build_targets": ["all_source", "progress", "build/GALE01/report.json"],
+  "traced_compilers": {"required": ["1.2.5", "1.2.5n"]},
+  "type_index": {"ctx_command": ["python3", "tools/m2ctx/m2ctx.py", "--quiet", "--preprocessor"], "ctx": "build/ctx.c", "lang": "c", "project": "melee"},
   "verification_commands": [
     ["sha1sum", "-c", "config/GALE01/build.sha1"],
-    ["test", "-x", "build/tools/wibo-real"]
+    ["test", "-x", "build/tools/wibo-real"],
+    ["sh", "-c", "clang-21 -print-targets | grep -q ppc32"],
+    ["sh", "-c", "test \"$ORCH_IR_ORACLE_CLANG\" = /usr/bin/clang-21"],
+    ["sh", "-c", "command -v llvm-cxxfilt && llvm-cxxfilt _ZN3Foo3barEv"],
+    ["test", "-f", "build/compilers-traced/GC/1.1p1/mwcceppc.exe"],
+    ["test", "-f", "build/compilers-traced/GC/1.1p1/lmgr326b.dll"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5/mwcceppc.exe"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5/lmgr326b.dll"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5n/mwcceppc.exe"],
+    ["test", "-f", "build/compilers-traced/GC/1.2.5n/lmgr326b.dll"],
+    ["test", "-f", "build/compilers-traced/CAPABILITIES.json"],
+    ["test", "-d", "/opt/mwcc/src"],
+    ["test", "-d", "../mwcc/src"],
+    ["test", "-d", "/opt/refs/jsystem/tp"],
+    ["test", "-d", "/opt/refs/jsystem/tww"],
+    ["env", "PYTHONPATH=/opt/toolpacks/gamecube-decomp/_impl/gamecube/m2c", "python3", "-c", "import m2c.main, elftools, graphviz, pcpp"],
+    ["test", "-s", "/opt/build-orchestrator/.qa-ready"],
+    ["test", "-s", "/opt/tool-data/type_layout_lookup/indexes/type_layout_index.json"]
   ]
 }

@@ -1,4 +1,4 @@
-export type WorkspaceSection = "overview" | "standards" | "harness" | "agents" | "trace" | "knowledge" | "settings" | "style";
+export type WorkspaceSection = "overview" | "standards" | "harness" | "agents" | "trace" | "knowledge" | "settings" | "style" | "reviews";
 export type StandardsView = "edit" | "rendered";
 export type WorkflowTab = "run" | "sync" | "pr";
 export type HarnessSubPage = WorkflowTab | "summary" | "review" | "artifacts";
@@ -11,6 +11,7 @@ export const WORKSPACE_SECTIONS: ReadonlyArray<{ id: WorkspaceSection; label: st
   { id: "overview", label: "Overview", description: "Accepted worktree, readiness, and current workflow." },
   { id: "standards", label: "Standards", description: "Decomp standards, examples, and rendered prompts." },
   { id: "harness", label: "Harness", description: "Run epochs, Sync boundaries, and evidence." },
+  { id: "reviews", label: "Reviews", description: "Evidence-review requests awaiting an operator decision." },
   { id: "agents", label: "Agents", description: "Agent catalog and recent execution." },
   { id: "trace", label: "Trace", description: "Kernel traces, agent runs, and sessions." },
   { id: "knowledge", label: "Knowledge", description: "Subjects, facts, links, and source records." },

@@ -34,6 +34,9 @@ import { forceReportRun, reportRunOptionsForGame } from "@server/core/validation
 import { fetchUpstreamMasterReport } from "@server/core/harness-runtime/phases/running/epochs/breakage-gate.js";
 import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
 import type { PolicyMergeReports } from "@server/core/harness-runtime/phases/running/epochs/policy-merge.js";
+import { syncCertificationReader } from "@server/core/harness-runtime/phases/running/epochs/sync-certification.js";
+import type { GameSyncMergePolicy } from "@server/core/game-registry/resolver.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 import { uiLog } from "@server/infrastructure/logging/ui-log";
 import {
   continueSyncMergeAfterOperator,
@@ -69,6 +72,8 @@ import type {
 interface SyncGameContext {
   baseRef?: string;
   steeringGate?: string | null;
+  /** `matching.syncMergePolicy`: `certified` resolves conflicting functions by gate certification while the gate is active. */
+  syncMergePolicy?: GameSyncMergePolicy;
   reportPath?: string;
   reportChangesPath?: string;
   qaTarget?: string;
@@ -107,12 +112,20 @@ async function mergeStagedWorktree(input: {
   newBase: string;
 }): Promise<SyncMergeResult> {
   const mergePolicy = input.sync.staging?.merge_policy ?? input.context.mergePolicy ?? "score";
+  const steeringGate = input.context.game?.steeringGate ?? null;
+  const conflictRule = mergePolicy === "score" && input.context.game?.syncMergePolicy === "certified"
+    && steeringGateActive(steeringGate as Parameters<typeof steeringGateActive>[0]) ? "certified" as const : "score" as const;
   const result = await mergeSyncWorktree({
     worktreePath: input.worktreePath,
     newBase: input.newBase,
     mergePolicy,
     policyInputs: mergePolicy === "score"
       ? await loadSyncPolicyInputs(input.context, input.newBase)
+      : undefined,
+    conflictRule,
+    // Read before the merge, while the staging worktree's HEAD is ours.
+    certification: conflictRule === "certified"
+      ? await syncCertificationReader(input.context.store, { gameId: input.sync.game_id, steeringGate }, input.worktreePath)
       : undefined,
     runGit: runner(input.context),
     revalidateLease: leaseGuard(input.context, input.sync),
@@ -334,10 +347,10 @@ function settleCancelledSyncAuthority(
   });
 }
 
-function conflictBlocker(sync: SyncState, conflicts: string[]): Blocker {
+function conflictBlocker(sync: SyncState, conflicts: string[], notes: string[] = []): Blocker {
   return {
     code: "conflict_needs_operator",
-    message: `Resolve staged sync conflicts: ${conflicts.join(", ")}`,
+    message: `Resolve staged sync conflicts: ${conflicts.join(", ")}${notes.length > 0 ? `. Certification (certified rule): ${notes.join(" | ")}` : ""}`,
     source_kind: "sync",
     source_id: sync.sync_id,
     recoverable: true,
@@ -600,6 +613,7 @@ function blockForConflicts(
   conflicts: string[],
   commandId: string,
   prReconciliation = sync.pr_reconciliation,
+  notes: string[] = [],
 ): SyncState {
   return transitionSync(context.store, sync.sync_id, {
     actor: context.actor ?? "runner",
@@ -609,7 +623,7 @@ function blockForConflicts(
     expectedRevision: sync.revision,
     patch: {
       status: "blocked",
-      blockers: [conflictBlocker(sync, conflicts)],
+      blockers: [conflictBlocker(sync, conflicts, notes)],
       staging: { ...staging, conflicts_awaiting_operator: conflicts.length, conflicting_paths: conflicts },
       prReconciliation,
     },
@@ -773,6 +787,8 @@ export async function reconcileSync(input: {
         staging,
         harnessMerge.conflictingPaths,
         input.commandId,
+        undefined,
+        harnessMerge.policyMergeFiles.flatMap((entry) => entry.operatorCertification ? [`${entry.path}: ${entry.operatorCertification}`] : []),
       );
     }
     sync = transitionSync(input.context.store, sync.sync_id, {

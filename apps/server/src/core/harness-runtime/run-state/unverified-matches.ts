@@ -1,5 +1,6 @@
 import { now, type StateStore } from "@server/core/orchestrator-state";
 import { steeringGateActive } from "@server/core/tools/steering-gate.js";
+import { canonicalUnit, sqlPlaceholders, targetKey, unitVariants, withUnitKeys } from "./unit-key.js";
 
 /**
  * `unverified_match` ("100% but unverified", migration 015): a function the
@@ -24,10 +25,12 @@ import { steeringGateActive } from "@server/core/tools/steering-gate.js";
  *   the certified version is gone, so the function is unverified again.
  *
  * Every reader tolerates a store behind migration 015 (empty) and every writer
- * is a no-op there.
+ * is a no-op there. Units are stored and returned canonical (`canonicalUnit`:
+ * no module prefix); lookups by unit also match a row written with a prefixed
+ * spelling (`unitVariants`).
  */
 export const UNVERIFIED_MATCH_STATE = "unverified_match";
-export const UNVERIFIED_MATCH_LABEL = "100% unverified";
+export const UNVERIFIED_MATCH_LABEL = "100% but unverified";
 
 export interface UnverifiedMatchMatch {
   base: number | null;
@@ -66,11 +69,12 @@ export interface UnverifiedMatchRecord extends Required<Omit<UnverifiedMatchInpu
   clearedRev: string | null;
 }
 
+/** The raw `unit::symbol` key; prefer `targetKey(game, unit, symbol)` where the game is known. */
 export function unverifiedMatchKey(unit: string, symbol: string): string {
   return `${unit}::${symbol}`;
 }
 
-/** `unit::symbol` -> the function's active record: the board's index. */
+/** Canonical `unit::symbol` -> the function's active record: the board's index (tagged `withUnitKeys`). */
 export type UnverifiedMatchIndex = ReadonlyMap<string, UnverifiedMatchRecord>;
 
 function tableExists(store: StateStore): boolean {
@@ -81,6 +85,21 @@ function tableExists(store: StateStore): boolean {
 function hasClearedRev(store: StateStore): boolean {
   return (store.db.query("PRAGMA table_info(steering_unverified_matches)").all() as Array<{ name: string }>)
     .some(({ name }) => name === "cleared_rev");
+}
+
+/** `unit IN (...)` over every spelling of the unit, with its bound values. */
+function unitClause(gameId: string, unit: string): { sql: string; units: string[] } {
+  const units = unitVariants(gameId, unit);
+  return { sql: `unit IN (${sqlPlaceholders(units)})`, units };
+}
+
+/** Renames a row written with a prefixed unit to the canonical one, unless a canonical row already exists. */
+function adoptLegacyUnit(store: StateStore, gameId: string, unit: string, symbol: string): void {
+  const legacy = unitVariants(gameId, unit).slice(1);
+  if (legacy.length === 0) return;
+  store.db
+    .query(`UPDATE OR IGNORE steering_unverified_matches SET unit = ? WHERE game_id = ? AND symbol = ? AND unit IN (${sqlPlaceholders(legacy)})`)
+    .run(canonicalUnit(gameId, unit), gameId, symbol, ...legacy);
 }
 
 function parseJson<T>(text: unknown, fallback: T, accept: (value: unknown) => boolean): T {
@@ -104,7 +123,7 @@ function record(row: Record<string, unknown>): UnverifiedMatchRecord {
   const match = parseJson<Record<string, unknown>>(row.match_json, {}, isObject);
   return {
     gameId: String(row.game_id),
-    unit: String(row.unit),
+    unit: canonicalUnit(String(row.game_id), String(row.unit)),
     symbol: String(row.symbol),
     analyzedRev: String(row.analyzed_rev),
     baseRev: row.base_rev == null ? null : String(row.base_rev),
@@ -161,6 +180,8 @@ export async function unverifiedBaseCertified(params: {
  */
 export function recordUnverifiedMatch(store: StateStore, input: UnverifiedMatchInput, options: { widenBaseFrom?: string | null } = {}): void {
   if (!tableExists(store)) return;
+  const unit = canonicalUnit(input.gameId, input.unit);
+  adoptLegacyUnit(store, input.gameId, unit, input.symbol);
   store.db
     .query(
       `INSERT INTO steering_unverified_matches (
@@ -185,7 +206,7 @@ export function recordUnverifiedMatch(store: StateStore, input: UnverifiedMatchI
          cleared_by = NULL${hasClearedRev(store) ? ",\n         cleared_rev = NULL" : ""}`,
     )
     .run(
-      input.gameId, input.unit, input.symbol, input.analyzedRev, input.baseRev ?? null, input.sourcePath ?? null,
+      input.gameId, unit, input.symbol, input.analyzedRev, input.baseRev ?? null, input.sourcePath ?? null,
       input.functionSourceSha ?? null, JSON.stringify(input.match), JSON.stringify(input.reasons), JSON.stringify(input.report ?? {}), now(),
       options.widenBaseFrom ?? null,
     );
@@ -202,10 +223,11 @@ export function clearUnverifiedMatch(
 ): boolean {
   if (!tableExists(store)) return false;
   const rev = hasClearedRev(store);
+  const units = unitClause(params.gameId, params.unit);
   const result = store.db
     .query(`UPDATE steering_unverified_matches SET cleared_at = ?, cleared_by = ?${rev ? ", cleared_rev = ?" : ""}
-            WHERE game_id = ? AND unit = ? AND symbol = ? AND cleared_at IS NULL`)
-    .run(now(), params.clearedBy, ...(rev ? [params.clearedRev ?? null] : []), params.gameId, params.unit, params.symbol);
+            WHERE game_id = ? AND ${units.sql} AND symbol = ? AND cleared_at IS NULL`)
+    .run(now(), params.clearedBy, ...(rev ? [params.clearedRev ?? null] : []), params.gameId, ...units.units, params.symbol);
   return Number(result.changes) > 0;
 }
 
@@ -264,14 +286,15 @@ export async function clearUnverifiedMatchIfCertified(store: StateStore, params:
     if (stale !== null) return { cleared: false, active: true, rowBaseRev, refused: stale };
   }
   const rev = hasClearedRev(store);
+  const units = unitClause(params.gameId, params.unit);
   const result = store.db
     .query(
       `UPDATE steering_unverified_matches SET cleared_at = ?, cleared_by = ?${rev ? ", cleared_rev = ?" : ""}
-       WHERE game_id = ? AND unit = ? AND symbol = ? AND cleared_at IS NULL AND base_rev = ? AND recorded_at = ? AND source_path IS ?`,
+       WHERE game_id = ? AND ${units.sql} AND symbol = ? AND cleared_at IS NULL AND base_rev = ? AND recorded_at = ? AND source_path IS ?`,
     )
     .run(
       now(), params.clearedBy, ...(rev ? [params.clearedRev ?? null] : []),
-      params.gameId, params.unit, params.symbol, rowBaseRev, row.recordedAt, row.sourcePath,
+      params.gameId, ...units.units, params.symbol, rowBaseRev, row.recordedAt, row.sourcePath,
     );
   return Number(result.changes) > 0
     ? { cleared: true, active: true, rowBaseRev, refused: null }
@@ -308,17 +331,20 @@ export function listUnverifiedMatches(store: StateStore, gameId: string, options
   return rows.map(record);
 }
 
-/** The function's active record, or null. */
+/** The function's active record, or null; `unit` may be written with or without the module prefix. */
 export function activeUnverifiedMatch(store: StateStore, params: { gameId: string; unit: string; symbol: string }): UnverifiedMatchRecord | null {
   if (!tableExists(store) || !params.unit || !params.symbol) return null;
+  const units = unitClause(params.gameId, params.unit);
   const row = store.db
-    .query("SELECT * FROM steering_unverified_matches WHERE game_id = ? AND unit = ? AND symbol = ? AND cleared_at IS NULL")
-    .get(params.gameId, params.unit, params.symbol) as Record<string, unknown> | null;
+    .query(`SELECT * FROM steering_unverified_matches WHERE game_id = ? AND ${units.sql} AND symbol = ? AND cleared_at IS NULL
+            ORDER BY recorded_at DESC LIMIT 1`)
+    .get(params.gameId, ...units.units, params.symbol) as Record<string, unknown> | null;
   return row ? record(row) : null;
 }
 
+/** Keyed by the canonical `targetKey`; `unitKeyedHas`/`unitKeyedGet` also find a report (prefixed) key. */
 export function unverifiedMatchIndex(store: StateStore, gameId: string): Map<string, UnverifiedMatchRecord> {
-  return new Map(listUnverifiedMatches(store, gameId).map((row) => [unverifiedMatchKey(row.unit, row.symbol), row]));
+  return withUnitKeys(new Map(listUnverifiedMatches(store, gameId).map((row) => [targetKey(gameId, row.unit, row.symbol), row])), gameId);
 }
 
 /** The board's index, or undefined for games without an active steering gate (Melee): their state is never read. */

@@ -18,6 +18,10 @@ import {
 } from "./micro-gates.js";
 import type { ClangFormatCheckResult } from "@server/core/validation/format/clang-format.js";
 import type { SymbolCheckResult, SymbolCheckUnitResult } from "@server/core/validation/symbols/symbol-check.js";
+import { useHostReportPlacement } from "./host-report-placement.test-support.js";
+
+// Fake workspaces here serve whole objdiff reports and symbols.txt: explicit host report placement.
+useHostReportPlacement();
 
 function snapshot(sections: WorkerUnitScoreSnapshot["sections"]): WorkerUnitScoreSnapshot {
   return {

@@ -7,7 +7,7 @@ import { FakeSandboxProvider, type SandboxCreateParams } from "@server/core/job-
 import { agent as workerAgent } from "@server/core/agent-catalog/agents/running/worker/agent.js";
 import { parsedAgentForMeleeKernelSpawn } from "@server/infrastructure/kernel/bridge/spawn-agent.js";
 import type { PiRunOptions } from "@server/infrastructure/agent-runtime/runtime";
-import { defaultWorkerToolProfile } from "../profiles/defaults.js";
+import { codeGraphWorkerToolProfile, defaultWorkerToolProfile, steeringGateWorkerToolProfile } from "../profiles/defaults.js";
 import { buildAgentTools, resolveAgentToolIdsForContext } from "../profiles/index.js";
 import { capabilityToolPromptMetadata } from "../metadata/capabilities.js";
 import { registeredToolIdsForContext } from "../resolver.js";
@@ -16,16 +16,16 @@ import { capabilityToolRegistrations, realCodeEvidenceToolRegistration } from ".
 
 const SANDBOX_REPO = "/sandbox/workspace";
 
-/** The worker tool ids at HEAD before real_code_evidence existed; Melee must keep exactly these. */
-const HEAD_WORKER_TOOL_IDS = [
-  "request_write_set_widening", "knowledge_render_file", "knowledge_record", "pr_search", "discord_search",
-  "wiki_search", "attempt_search", "resolve_locator", "mwcc_debug_lookup", "checkdiff_run", "checkdiff_summary",
-  "direct_compile_tu", "objdiff_score_candidate", "mwcc_debug_dump_function", "mwcc_debug_diagnose_stack",
-  "mwcc_debug_diagnose_regflow", "mwcc_debug_diagnose_inlines", "mwcc_alloc_snapshot", "mwcc_alloc_compare",
-  "mwcc_alloc_analyze", "source_permuter_run", "source_permuter_replay", "source_mutation_preview",
-  "type_oracle_lookup", "m2c_decompile", "asm_window_search", "type_layout_lookup", "review_lint_scan",
-  "review_lint_sdata2_order_helper",
-];
+/**
+ * The rule, not a snapshot: every worker gets the static profile; games with a
+ * code graph (both have Ghidra xrefs) add the read-only graph tools; games with
+ * an active steering gate (SMS) also add the steering tools.
+ */
+const STATIC_WORKER_TOOL_IDS: string[] = [...defaultWorkerToolProfile];
+const STEERING_TOOL_IDS: string[] = [...steeringGateWorkerToolProfile];
+const GRAPH_TOOL_IDS: string[] = [...codeGraphWorkerToolProfile];
+const MELEE_WORKER_TOOL_IDS = [...STATIC_WORKER_TOOL_IDS, ...GRAPH_TOOL_IDS];
+const SMS_WORKER_TOOL_IDS = [...STATIC_WORKER_TOOL_IDS, ...STEERING_TOOL_IDS, ...GRAPH_TOOL_IDS];
 
 function gameMetadata(gameId: "melee" | "sms") {
   return { gameId, descriptorPath: resolve(packageRoot(), `games/${gameId}/game.json`) };
@@ -75,9 +75,10 @@ function hostFixture(options: { withMap?: boolean } = {}): { hostRepo: string; s
   return { hostRepo, stateDir };
 }
 
-async function workerContext(hostRepo: string, stateDir: string) {
+/** A worker context; `sandbox: false` is a host-side caller (no attached sandbox). */
+async function workerContext(hostRepo: string, stateDir: string, options: { sandbox?: boolean } = {}) {
   const provider = new FakeSandboxProvider();
-  const sandboxHandle = await provider.create(createParams);
+  const sandboxHandle = options.sandbox === false ? undefined : await provider.create(createParams);
   const context: AgentToolRuntimeContext = {
     role: "worker",
     cwd: SANDBOX_REPO,
@@ -92,7 +93,7 @@ async function workerContext(hostRepo: string, stateDir: string) {
     },
     worktreeId: "claim-1",
     claimId: "claim-1",
-    sandboxHandle,
+    ...(sandboxHandle ? { sandboxHandle } : {}),
   };
   return { provider, context };
 }
@@ -112,36 +113,45 @@ describe("real_code_evidence registered tool", () => {
     expect(capabilityToolPromptMetadata.real_code_evidence?.provider).toBe("real_code_evidence");
   });
 
-  test("Melee workers keep the HEAD tool list; steering-gate games (SMS) add real_code_evidence", () => {
-    // Static lists are game-independent and unchanged.
-    expect([...defaultWorkerToolProfile] as string[]).toEqual(HEAD_WORKER_TOOL_IDS);
-    expect(workerAgent.coreTools).toEqual(HEAD_WORKER_TOOL_IDS);
+  test("Melee workers get the static profile plus graph tools; steering-gate games (SMS) also get the steering tools", () => {
+    // The steering tools are SMS-only and never part of the static list.
+    expect(STEERING_TOOL_IDS).toEqual(["real_code_evidence", "unused_stub_test"]);
+    expect(GRAPH_TOOL_IDS).toEqual(["graph_related_functions", "code_graph_file_card"]);
+    for (const id of [...STEERING_TOOL_IDS, ...GRAPH_TOOL_IDS]) expect(STATIC_WORKER_TOOL_IDS).not.toContain(id);
+    expect(workerAgent.coreTools).toEqual(STATIC_WORKER_TOOL_IDS);
 
     const melee = { role: "worker" as const, cwd: SANDBOX_REPO, repoRoot: SANDBOX_REPO, game: gameMetadata("melee") };
     const sms = { ...melee, game: gameMetadata("sms") };
-    expect(resolveAgentToolIdsForContext(melee)).toEqual(HEAD_WORKER_TOOL_IDS);
-    expect(buildAgentTools(melee).map((tool) => tool.name)).not.toContain("real_code_evidence");
-    expect(resolveAgentToolIdsForContext(sms)).toEqual([...HEAD_WORKER_TOOL_IDS, "real_code_evidence"]);
-    expect(buildAgentTools(sms).map((tool) => tool.name)).toContain("real_code_evidence");
-    expect(resolveAgentToolIdsForContext(sms, { disable: ["real_code_evidence"] })).toEqual(HEAD_WORKER_TOOL_IDS);
+    expect(resolveAgentToolIdsForContext(melee)).toEqual(MELEE_WORKER_TOOL_IDS);
+    expect(resolveAgentToolIdsForContext(sms)).toEqual(SMS_WORKER_TOOL_IDS);
+    // Built tools: the gated ones materialise (every id here has a registration).
+    const meleeTools = buildAgentTools(melee).map((tool) => tool.name);
+    const smsTools = buildAgentTools(sms).map((tool) => tool.name);
+    for (const id of GRAPH_TOOL_IDS) expect(meleeTools).toContain(id);
+    for (const id of STEERING_TOOL_IDS) expect(meleeTools).not.toContain(id);
+    for (const id of [...STEERING_TOOL_IDS, ...GRAPH_TOOL_IDS]) expect(smsTools).toContain(id);
+    expect(resolveAgentToolIdsForContext(sms, { disable: ["real_code_evidence"] })).toEqual(SMS_WORKER_TOOL_IDS.filter((id) => id !== "real_code_evidence"));
     expect(resolveAgentToolIdsForContext({ ...sms, role: "reconcile" })).not.toContain("real_code_evidence");
 
     // The kernel allowlist follows the same rule.
     const parsed = {
-      config: { name: "worker", description: "", model: "m", tools: [...HEAD_WORKER_TOOL_IDS], disallowedTools: [], variables: {} },
+      config: { name: "worker", description: "", model: "m", tools: [...STATIC_WORKER_TOOL_IDS], disallowedTools: [], variables: {} },
       body: "",
     };
     const spawnTools = (game: ReturnType<typeof gameMetadata>) => parsedAgentForMeleeKernelSpawn(
       parsed as never,
       { role: "worker", toolContext: { game } } as unknown as PiRunOptions,
     ).config.tools ?? [];
-    expect(spawnTools(gameMetadata("melee"))).not.toContain("real_code_evidence");
-    expect(spawnTools(gameMetadata("sms"))).toContain("real_code_evidence");
+    for (const id of STEERING_TOOL_IDS) {
+      expect(spawnTools(gameMetadata("melee"))).not.toContain(id);
+      expect(spawnTools(gameMetadata("sms"))).toContain(id);
+    }
+    for (const id of GRAPH_TOOL_IDS) expect(spawnTools(gameMetadata("melee"))).toContain(id);
   });
 
-  test("runs host-side against the host checkout when host and sandbox roots differ", async () => {
+  test("without a sandbox, runs host-side against the host checkout when host and sandbox roots differ", async () => {
     const { hostRepo, stateDir } = hostFixture();
-    const { provider, context } = await workerContext(hostRepo, stateDir);
+    const { provider, context } = await workerContext(hostRepo, stateDir, { sandbox: false });
 
     const calls = await run(context, { command: "map-calls", symbol: "TNerveHanaSamboHide::execute" });
     const parsed = calls.parsed as Record<string, unknown>;
@@ -167,7 +177,7 @@ describe("real_code_evidence registered tool", () => {
 
   test("reports unavailable instead of failing when the map is missing", async () => {
     const { hostRepo, stateDir } = hostFixture({ withMap: false });
-    const { context } = await workerContext(hostRepo, stateDir);
+    const { context } = await workerContext(hostRepo, stateDir, { sandbox: false });
     const result = await run(context, { command: "map-calls", symbol: "anything" });
     expect(result.exit_code).toBe(0);
     expect((result.parsed as Record<string, unknown>).status).toBe("unavailable");
@@ -178,5 +188,70 @@ describe("real_code_evidence registered tool", () => {
     const { context } = await workerContext(hostRepo, stateDir);
     expect(await run(context, { command: "map-calls" })).toMatchObject({ status: "missing_symbol" });
     expect(await run(context, { command: "grep", query: "x" })).toMatchObject({ status: "invalid_command" });
+  });
+});
+
+describe("real_code_evidence in the worker sandbox", () => {
+  /** Answers every sandbox exec: the refs probe from `refsPresent`, the tool run with a JSON payload. */
+  function scriptSandbox(provider: FakeSandboxProvider, options: { refsPresent: boolean }) {
+    for (let index = 0; index < 8; index += 1) {
+      provider.scriptExec((call) => {
+        if (call.command[0] === "test" && call.command[1] === "-d") return { exitCode: options.refsPresent ? 0 : 1, stdout: "", stderr: "" };
+        if (call.command[0] === "test") return { exitCode: 0, stdout: "", stderr: "" };
+        return { exitCode: 0, stdout: JSON.stringify({ status: "ok", surface: "sandbox" }), stderr: "" };
+      });
+    }
+  }
+  const toolRuns = (provider: FakeSandboxProvider) => provider.execCalls.filter((call) => call.command[0] === "bash");
+
+  test("runs in the sandbox against the sandbox checkout, without the host repo root", async () => {
+    const { hostRepo, stateDir } = hostFixture();
+    const { provider, context } = await workerContext(hostRepo, stateDir);
+    scriptSandbox(provider, { refsPresent: true });
+
+    const result = await run(context, { command: "usage", inline: "TVec3::scale" });
+    expect(result.parsed).toEqual({ status: "ok", surface: "sandbox" });
+    expect((result.resolved_tool as Record<string, unknown>).execution_surface).toBe("sandbox_workspace");
+    const [call] = toolRuns(provider);
+    expect(call?.command.slice(4)).toEqual([
+      "/opt/toolpacks/gamecube-decomp/research/real_code_evidence/api/real_code_evidence.py",
+      "usage", "--inline", "TVec3::scale", "--json",
+    ]);
+    expect(call?.opts.cwd).toBe(SANDBOX_REPO);
+    expect(call?.opts.env?.ORCH_GAME_REPO_ROOT).toBe(SANDBOX_REPO);
+    expect(call?.opts.env).not.toHaveProperty("ORCH_GAME_HOST_REPO_ROOT");
+    expect(JSON.stringify(call)).not.toContain(hostRepo);
+
+    // compiler (and every other command) is routed as-is; /opt/mwcc is the tool's sandbox default.
+    await run(context, { command: "compiler", query: "MaxDegree" });
+    expect(toolRuns(provider)[1]?.command.slice(5)).toEqual(["compiler", "--query", "MaxDegree", "--json"]);
+  });
+
+  test("jsystem reads the image's refs, appending --refs-root", async () => {
+    const { hostRepo, stateDir } = hostFixture();
+    const { provider, context } = await workerContext(hostRepo, stateDir);
+    scriptSandbox(provider, { refsPresent: true });
+
+    await run(context, { command: "jsystem", query: "setGlobalSRTMatrix", game: "tww" });
+    expect(provider.execCalls.find((call) => call.command[1] === "-d")?.command).toEqual(["test", "-d", "/opt/refs/jsystem"]);
+    expect(toolRuns(provider)[0]?.command.slice(5)).toEqual([
+      "jsystem", "--query", "setGlobalSRTMatrix", "--game", "tww", "--json", "--refs-root", "/opt/refs/jsystem",
+    ]);
+  });
+
+  test("jsystem on an image without refs answers prerequisite-missing (no host run); other commands stay in the sandbox", async () => {
+    const { hostRepo, stateDir } = hostFixture();
+    const { provider, context } = await workerContext(hostRepo, stateDir);
+    scriptSandbox(provider, { refsPresent: false });
+
+    const refs = await run(context, { command: "jsystem", query: "setGlobalSRTMatrix", game: "tww" });
+    expect(refs).toMatchObject({ status: "sandbox_prerequisite_missing", tool: "real_code_evidence", missing: "/opt/refs/jsystem" });
+    expect(refs).not.toHaveProperty("parsed");
+    expect(toolRuns(provider)).toHaveLength(0);
+
+    await run(context, { command: "map-calls", symbol: "TNerveHanaSamboHide::execute" });
+    expect(toolRuns(provider)).toHaveLength(1);
+    // The refs probe ran once for this sandbox.
+    expect(provider.execCalls.filter((call) => call.command[1] === "-d")).toHaveLength(1);
   });
 });

@@ -11,6 +11,7 @@ import { latestSteeringProbe, steeringCoverageFor, type SteeringCoverage } from 
 import { gitIsAncestor, type GitAncestorCheck } from "@server/core/validation/steering/steering-preflight.js";
 import {
   STEERING_CHECK_TOOLPACK_PATH,
+  steeringGatePlacement,
   steeringRepairInstruction,
   uploadThroughExec,
   workspaceSteeringRunner,
@@ -37,8 +38,12 @@ import {
   unverifiedTargetRejected,
 } from "@server/core/agent-catalog/agents/running/worker/steering-validation.js";
 import { activeUnverifiedMatch, type UnverifiedMatchRecord } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { budgetExtensionMode, certificationGrantCount, CHECKPOINT_CERTIFICATION_KEY } from "@server/core/harness-runtime/run-state/certification.js";
+import { workspaceBaseIdentityProver } from "@server/core/agent-catalog/agents/running/worker/certification-lane.js";
+import { commitWorkerAttemptCertification, workerAttemptCertification, workerCertificationLane } from "./worker-certification.js";
+import { CERTIFIED_INPUTS_KEY, certifiedInputsFromGate, sandboxGeneratedInputs, type CertifiedInputs } from "@server/core/validation/steering/certified-inputs.js";
 import { completionHoldRefs, steeringCompletionHolds } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
-import { steeringPreviousAttempt, type PreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
+import { standaloneOpenReviews, steeringPreviousAttempt, type OpenEvidenceReview, type PreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import { packageRoot } from "@server/core/knowledge";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import {
@@ -144,6 +149,7 @@ import {
 } from "@server/core/harness-runtime/run-state/write-set-widening.js";
 export { shouldApplyWideningDecision } from "@server/core/harness-runtime/run-state/write-set-widening.js";
 import type { WorkerOutputIntegrationApplyResult } from "@server/core/harness-runtime/phases/running/integration/worker-output-queue.js";
+import { EDIT_SCOPE_ATTESTATION_KEY, buildEditScopeAttestation } from "@server/core/harness-runtime/phases/running/integration/scope-attestation.js";
 import type { PiRunResult } from "@server/core/shared/types";
 import type { MeleeKernelPiRunOptions } from "@server/infrastructure/agent-runtime/kernel-pi-runner.js";
 import {
@@ -169,6 +175,7 @@ import {
   wrapSandboxHandleWithSleep,
   type SandboxSleepStats,
 } from "@server/core/job-queue/sandbox-sleep.js";
+import { ensureSandboxCompilerSourceLink } from "@server/core/job-queue/provisioning.js";
 import {
   createSandboxFileToolDefinitions,
   sandboxBashOperations,
@@ -513,7 +520,7 @@ export function workerAttemptRepairReasons(params: {
   return reasons;
 }
 
-const GATE_FAILED_EXACT_REPAIR_INSTRUCTION = `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or established inline helpers, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
+const GATE_FAILED_EXACT_REPAIR_INSTRUCTION = `The runner measured an exact target score, but hard gates failed. Hard gates win over match %: this return can never be accepted while any gate failure remains, and the runner will accept a lower gate-clean score. First try to keep the match with a compliant idiom inside your claimed write set, such as game assert/report macros or inline helpers with evidence at this site, not banned pragmas, .c externs, or open-coded asserts. If the canonical fix is a cross-file edit, such as a declaration in the owning header or a symbols.txt/splits.txt change, request these paths with request_write_set_widening (or the submission widening_request) before resubmitting. Edits still outside your write set are silently dropped at patch capture, so do not shim around a denied request locally. If the exact match fundamentally requires a banned pattern, remove the pattern and return your best gate-clean version; that lower score is the successful outcome, not a failure. Never resubmit an unchanged diff. If no gate-clean improvement is possible, state that in your note's blockers, for example 'exact requires banned pattern X' or 'exact requires denied cross-file edit to <path>'. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.`;
 
 /**
  * Claim-time stack-only shortcut (stop_at_frame): the target already differs
@@ -595,10 +602,12 @@ export function workerRepairInstruction(params: {
   repairReasons: string[];
   scoreText: string;
   stopAtFrame: boolean;
+  /** The run's game, so the gate's unit (no module prefix) matches the target's (`unverifiedTargetRejected`). */
+  gameId?: string | null;
 }): string {
   const tail = "Submit each verified improvement. Preserve pre-existing dirty work, return a compact validation-ready JSON note, and do not use whole-file destructive reset/restore/checkout/clean commands.";
   // An `unverified_match` target that matched without the gate certifying it: its reason carries the instruction.
-  if (unverifiedTargetRejected(params.runnerValidation)) {
+  if (unverifiedTargetRejected(params.runnerValidation, params.gameId)) {
     return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : "Your last submission was rejected: the steering gate did not certify this unverified target."} ${tail}`;
   }
   // An enforced steering rejection is never the "exact but a hard gate failed" case: the
@@ -614,7 +623,7 @@ export function workerRepairInstruction(params: {
   if (params.latestCheckpoint?.exactMatch && !params.latestCheckpoint.hardGatesPassed) {
     return GATE_FAILED_EXACT_REPAIR_INSTRUCTION;
   }
-  return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${params.scoreText}.`} ${params.stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : "Continue toward exact from the current source."} ${tail}`;
+  return `${params.repairReasons.length > 0 ? `Your last submission was rejected: ${params.repairReasons.join("; ")}.` : `Your last submission was validated and checkpointed${params.scoreText}.`} ${params.stopAtFrame ? STOP_AT_FRAME_CONTINUE_INSTRUCTION : MATCH_FRAME_CONTINUE_INSTRUCTION} ${tail}`;
 }
 
 export function workerCheckpointHardGatesPassed(params: {
@@ -824,9 +833,20 @@ export const WORKER_ATTEMPT_BUDGET_POLICY = {
   bonusAttemptsPerImprovement: 2,
 } as const;
 
-/** Repair continuation for stop_at_frame games (SMS): the frame is not a target. */
+/**
+ * Repair continuation, worded like the worker prompt's method: start again
+ * from the new residual within the diagnostic allowance, and stop with
+ * recorded findings when a stop condition applies. No score chasing.
+ */
+const CONTINUE_METHOD_INSTRUCTION =
+  "Continue the method from the current source: classify the new residual, test one hypothesis at a time within the diagnostic allowance, and stop with your findings recorded when a stop condition in the definition of done applies.";
+
+/** Repair continuation for match_frame games (Melee). */
+export const MATCH_FRAME_CONTINUE_INSTRUCTION = CONTINUE_METHOD_INSTRUCTION;
+
+/** Repair continuation for stop_at_frame games (SMS): the frame is not a target, and frame-only is a stop, never an exact claim. */
 export const STOP_AT_FRAME_CONTINUE_INSTRUCTION =
-  "Continue toward exact from the current source, ignoring stack frame size: a function whose only remaining difference from the target is the stack frame is done, so fix instruction, register, branch, relocation and data mismatches only, and never edit just to change the frame.";
+  `${CONTINUE_METHOD_INSTRUCTION} The stack frame is not a target: fix instruction, register, branch, relocation and data mismatches only, and never edit just to change the frame. If only the stack frame differs, stop and report frame-only; it is never an exact claim.`;
 
 export const REPAIR_REQUEST_DIFF_INLINE_LIMIT = 30_000;
 export const REPAIR_REQUEST_OUTPUT_TAIL_LIMIT = 10_000;
@@ -972,6 +992,20 @@ export function workerContinuationDecision(params: {
    * That is done for the game, so the worker stops like an exact match.
    */
   acceptedStackOnly?: boolean;
+  /**
+   * What earns +2 attempts (`matching.budgetExtension`, default `score`).
+   * `score` counts each new best selectable score (Melee, unchanged).
+   * `certified` (SMS, D1) counts only `certifiedGrants`: the claim's ledger
+   * rows for a raised certified high-water mark or a first certificate.
+   */
+  budgetExtension?: "score" | "certified";
+  /** `certified` only: the claim's budget grants (`certificationGrantCount`). */
+  certifiedGrants?: number;
+  /**
+   * The game's steering gate is enforced: a measured exact match that is not
+   * selectable (uncertified) earns no extension under the `score` rule either.
+   */
+  gateEnforced?: boolean;
 }): WorkerContinuationDecision {
   const attemptIndex = Math.max(0, Math.trunc(params.attemptIndex));
   const checkpoints = orderedContinuationCheckpoints(params.checkpoints, attemptIndex);
@@ -979,9 +1013,11 @@ export function workerContinuationDecision(params: {
   const best = latestBestSelectableCheckpoint(checkpoints);
   let improvementGrants = 0;
   let bestQualifyingScore = Number.NEGATIVE_INFINITY;
-  for (const checkpoint of checkpoints) {
+  // The exact-claim bypass (an exact checkpoint counts even unselectable) does not apply under an enforced gate.
+  const exactBypass = params.gateEnforced !== true;
+  for (const checkpoint of params.budgetExtension === "certified" ? [] : checkpoints) {
     const finiteScore = checkpoint.newScore != null && Number.isFinite(checkpoint.newScore);
-    if ((!checkpoint.selectable || !finiteScore) && !checkpoint.exactMatch) continue;
+    if ((!checkpoint.selectable || !finiteScore) && !(checkpoint.exactMatch && exactBypass)) continue;
     const qualifyingScore = checkpoint.exactMatch
       ? finiteScore
         ? checkpoint.newScore as number
@@ -991,6 +1027,9 @@ export function workerContinuationDecision(params: {
       bestQualifyingScore = qualifyingScore;
       improvementGrants += 1;
     }
+  }
+  if (params.budgetExtension === "certified") {
+    improvementGrants = Math.max(0, Math.trunc(params.certifiedGrants ?? 0));
   }
   const attemptBudget =
     WORKER_ATTEMPT_BUDGET_POLICY.baseAttempts +
@@ -1647,6 +1686,8 @@ interface WorkerTaskFile extends WorkerTaskFileBase {
   execution_class: "sandbox";
   sandbox_id: string;
   workspace_root: string;
+  /** Sandbox path provisioning wrote this claim's unverified-match gate report to; null when none was delivered. */
+  unverified_report_locator: string | null;
 }
 
 function requiredTaskString(value: unknown, field: string): string {
@@ -1726,6 +1767,9 @@ export async function readWorkerTaskFile(args: Map<string, string | true>): Prom
     execution_class: "sandbox",
     sandbox_id: requiredTaskString(row.sandbox_id, "sandbox_id"),
     workspace_root: requiredTaskString(row.workspace_root, "workspace_root"),
+    unverified_report_locator: typeof row.unverified_report_locator === "string" && row.unverified_report_locator
+      ? row.unverified_report_locator
+      : null,
   };
 }
 
@@ -1836,6 +1880,12 @@ export async function runWorkerCycleFromTask(
           (workspaceCheck.stderr.trim() ? `: ${workspaceCheck.stderr.trim()}` : ""),
         );
       }
+      // Re-attaching to an existing sandbox: restore <checkout>/../mwcc -> /opt/mwcc (a no-op on older images).
+      try {
+        await ensureSandboxCompilerSourceLink(sandboxHandle, task.workspace_root);
+      } catch (error) {
+        console.error(`[sandbox] worker ${task.worker_id}: compiler source link not restored: ${error instanceof Error ? error.message : String(error)}`);
+      }
       const workerRepoRoot = task.workspace_root;
       const workspaceExec = sandboxWorkspaceExec(sandboxHandle, workerRepoRoot);
       return await executeClaimedWorker({
@@ -1864,6 +1914,7 @@ export async function runWorkerCycleFromTask(
         advisoryConfig: deps.advisoryConfig,
         qaScanRunner: deps.qaScanRunner,
         nodeKernel: deps.nodeKernel,
+        unverifiedReportLocator: task.unverified_report_locator,
       });
     } catch (error) {
       taskFailed = true;
@@ -1910,6 +1961,8 @@ async function executeClaimedWorker(params: {
   advisoryConfig?: AdvisoryAdjudicationConfig;
   qaScanRunner?: QaScanRunner;
   nodeKernel?: () => Promise<WorkerNodeKernel | null>;
+  /** The unverified-match report path provisioning delivered (task file); the packet names exactly this. */
+  unverifiedReportLocator?: string | null;
 }): Promise<WorkerCycleResult> {
     const { store, globals, run, runId, sessionId, claimed, workerRepoRoot, workspaceExec,
       sandboxHandle, runAgent, outputDir, baseRev, ttlSeconds, thinkingLevel, postReturnCheckCommand,
@@ -2013,6 +2066,8 @@ async function executeClaimedWorker(params: {
     let claimSourceSha: string | null = null;
     let claimSteeringProbe: SteeringProbe | null = null;
     let claimPreviousAttempt: PreviousAttempt | null = null;
+    // Pending evidence reviews for a target with no previous_attempt to carry them.
+    let claimOpenReviews: OpenEvidenceReview[] = [];
     // Enforce: the target's active `unverified_match` row (its match is not certified).
     let claimUnverifiedMatch: UnverifiedMatchRecord | null = null;
     if (steeringActive) {
@@ -2055,7 +2110,13 @@ async function executeClaimedWorker(params: {
         symbol: String(target.symbol ?? ""),
         currentScore: finiteNumber(target.fuzzy_match_percent),
         rulingsPath: steeringRulingsPath(game, packageRoot()),
+        fullReportLocator: params.unverifiedReportLocator ?? null,
       });
+      claimOpenReviews = standaloneOpenReviews(store, {
+        gameId: stackGameId,
+        unit: String(target.unit ?? ""),
+        symbol: String(target.symbol ?? ""),
+      }, claimPreviousAttempt);
     }
     const packet = workerPacket({
       run,
@@ -2067,6 +2128,7 @@ async function executeClaimedWorker(params: {
     });
     if (claimSteeringProbe) packet.steering_probe = claimSteeringProbe;
     if (claimPreviousAttempt) packet.previous_attempt = claimPreviousAttempt;
+    if (claimOpenReviews.length > 0) packet.open_reviews = claimOpenReviews;
     Object.assign(packet, workerPacketReadinessFields(store, claimed.epochTargetId, editScopePolicy?.mode));
     const baselineSummaryPath = resolve(validationDir, "pre_worker_baseline.summary.json");
     await writeFile(baselineSummaryPath, JSON.stringify(workerChangeBaseline, null, 2));
@@ -2342,6 +2404,8 @@ async function executeClaimedWorker(params: {
     // The latest steering decision's `unused_checks`: the edit-scope fence's
     // UNUSED verdicts need them, but steering runs after the fence.
     let previousUnusedChecks: unknown[] | null = null;
+    // The certification lane, once an attempt of this claim opened it (it stays open for the claim).
+    let claimCertificationLane: ReturnType<typeof workerCertificationLane> = null;
     let transientCycleRetryCount = 0;
     let contextRetryIndex = 0;
     const claimDeadlineMs = Date.parse(claimed.ttl);
@@ -2872,6 +2936,20 @@ async function executeClaimedWorker(params: {
           // Without prior evidence the fence leaves UNUSED to integration/publication.
         }
       }
+      // Enforce: a target with open verification goes through the certification lane (plan §3.1).
+      const certificationLane = workerCertificationLane({
+        store,
+        gateEnforced: steeringGateEnforced(steeringGate),
+        gameId: stackGameId,
+        unit: targetUnit,
+        symbol: targetSymbol,
+        sourcePath: String(target.source_path ?? ""),
+        claimBaseRev: baseRev,
+        unverified: claimUnverifiedMatch,
+        prove: workspaceBaseIdentityProver({ workspaceExec, workspaceRoot: workerRepoRoot, hostRepoRoot: globals.repoRoot }),
+        openedEarlier: claimCertificationLane,
+      });
+      claimCertificationLane = certificationLane;
       const targetChangeValidation = await validateWorkerChange({
         repoRoot: workerRepoRoot,
         hostRepoRoot: globals.repoRoot,
@@ -2911,12 +2989,15 @@ async function executeClaimedWorker(params: {
                     ...(game?.gameId ? { ORCH_GAME_ID: game.gameId } : {}),
                     ...(game?.descriptorPath ? { ORCH_GAME_DIR: dirname(game.descriptorPath) } : {}),
                   },
+                  // reduce/decide run in the sandbox (pinned clang-21, else fail closed); host only by explicit ORCH_STEERING_GATE_PLACEMENT=host.
+                  placement: steeringGatePlacement(),
+                  game: { id: game?.gameId, descriptorPath: game?.descriptorPath },
                 },
               ),
               ...steeringLessonPaths(game, packageRoot()),
               // The trusted base the backfill measured against; the claim base still holds the unexplained code.
               unverifiedTarget: claimUnverifiedMatch
-                ? { unit: claimUnverifiedMatch.unit, symbol: claimUnverifiedMatch.symbol, baseRev: claimUnverifiedMatch.baseRev }
+                ? { unit: claimUnverifiedMatch.unit, symbol: claimUnverifiedMatch.symbol, baseRev: claimUnverifiedMatch.baseRev, game: stackGameId }
                 : null,
             }
           : null,
@@ -2928,6 +3009,7 @@ async function executeClaimedWorker(params: {
               ...(unusedChecksPath ? { unusedChecksPath } : {}),
             }
           : null,
+        certificationLane,
       });
       if (targetChangeValidation.steering?.decision?.unused_checks) {
         previousUnusedChecks = targetChangeValidation.steering.decision.unused_checks;
@@ -3013,8 +3095,42 @@ async function executeClaimedWorker(params: {
       // measured patch: integration re-checks them and writes Evidence trailers.
       const boundUnusedChecks = await loadBoundUnusedChecks(targetChangeValidation.steering, { baseRev });
       // Enforce, unverified target: the gate's own-target pass for this attempt (integration clears on it).
+      // Enforce: what the gate certified for the target (or the lane's restoration proof), and its progress.
+      const attemptCertification = workerAttemptCertification({
+        store,
+        validation: runnerValidation,
+        gateEnforced: steeringGateEnforced(steeringGate),
+        gameId: stackGameId,
+        unit: targetUnit,
+        symbol: targetSymbol,
+        claimBaseRev: baseRev,
+        unverified: claimUnverifiedMatch,
+        measuredBaselineScore,
+        diffText: postAttemptDiff.stdout,
+        laneOpen: certificationLane?.reason ?? null,
+      });
+      // The sandbox scope verdict, bound to the banked patch: integration re-verifies it instead of re-running the check.
+      const editScopeAttestation = editScopePolicy && runnerValidation.editScope
+        ? buildEditScopeAttestation({
+            result: runnerValidation.editScope,
+            unusedResult: runnerValidation.editScopeUnused ?? null,
+            usedUnusedChecks: Boolean(unusedChecksPath),
+            policy: editScopePolicy,
+            baseRev,
+            targetUnit,
+            patchText: existsSync(postAttemptDiffPath) ? await readFile(postAttemptDiffPath, "utf8") : "",
+          })
+        : null;
+      // What the certified build compiled (every input with its hash, or the restoration proof's inputs):
+      // integration lands the certificate only over these same inputs (certified-inputs.ts).
+      const certifiedInputs: CertifiedInputs | null = attemptCertification?.restoration
+        ? { kind: "base_identity", inputs: attemptCertification.restoration.inputs }
+        : targetChangeValidation.steering
+          ? await certifiedInputsFromGate(targetChangeValidation.steering, targetUnit, stackGameId, sandboxGeneratedInputs(workspaceExec))
+          : null;
       const unverifiedCertification = claimUnverifiedMatch
-        ? unverifiedMatchCertification({ validation: runnerValidation, gameId: stackGameId, unit: targetUnit, symbol: targetSymbol, baseRev })
+        ? (attemptCertification?.unverifiedCertification
+          ?? unverifiedMatchCertification({ validation: runnerValidation, gameId: stackGameId, unit: targetUnit, symbol: targetSymbol, baseRev }))
         : null;
       const checkpoint = recordWorkerCheckpoint(store, {
         authority: token,
@@ -3026,7 +3142,8 @@ async function executeClaimedWorker(params: {
         attemptIndex,
         oldScore: runnerValidation.target?.before ?? null,
         newScore: runnerValidation.target?.after ?? null,
-        exactMatch: Boolean(runnerValidation.target?.exact),
+        // A restoration is never an exact completion.
+        exactMatch: Boolean(runnerValidation.target?.exact) && !attemptCertification?.restoration,
         hardGatesPassed: workerCheckpointHardGatesPassed({ runnerValidation, reviewLint, outOfWriteSetChanges }),
         buildStatus: runnerValidationCompiled(runnerValidation) ? "compiled" : "not_compiled",
         qaStatus: runnerValidation.qaLint?.status ?? null,
@@ -3047,8 +3164,11 @@ async function executeClaimedWorker(params: {
               },
             }
           : {}),
+        ...(attemptCertification?.improvement ? { certifiedImprovement: attemptCertification.improvement } : {}),
         metadata: {
           ...(unverifiedCertification ? { [UNVERIFIED_MATCH_CERTIFICATION_KEY]: unverifiedCertification } : {}),
+          ...(attemptCertification ? { [CHECKPOINT_CERTIFICATION_KEY]: attemptCertification.metadata } : {}),
+          ...(certifiedInputs ? { [CERTIFIED_INPUTS_KEY]: certifiedInputs } : {}),
           agent_output_path: result.outputPath,
           agent_note: agentNote,
           agent_note_parse_error: parsedAgentNote.error ?? null,
@@ -3071,6 +3191,7 @@ async function executeClaimedWorker(params: {
           },
           ...(llmReviewCandidate ? { llm_review_candidate: llmReviewCandidate } : {}),
           ...(boundUnusedChecks ? { [CHECKPOINT_UNUSED_CHECKS_KEY]: boundUnusedChecks } : {}),
+          ...(editScopeAttestation ? { [EDIT_SCOPE_ATTESTATION_KEY]: editScopeAttestation } : {}),
           // Enforce: the inline verdict, and the QA status after accepted
           // advisories (the qa_status column keeps the raw scan status).
           ...(advisoryMode.mode === "enforce"
@@ -3080,6 +3201,20 @@ async function executeClaimedWorker(params: {
               }
             : {}),
         },
+      });
+      // The certified high-water mark and, for `budgetExtension: "certified"`, the claim's budget ledger.
+      const budgetExtension = budgetExtensionMode(globals.game);
+      commitWorkerAttemptCertification({
+        store,
+        certification: attemptCertification,
+        checkpoint,
+        gameId: stackGameId,
+        unverified: claimUnverifiedMatch,
+        measuredBaselineScore,
+        laneOpen: certificationLane?.reason ?? null,
+        grant: budgetExtension === "certified",
+        runId,
+        targetClaimId: claimed.claimId,
       });
       // Shadow and enforce: every gated attempt leaves observation rows (probes for the next claim, dashboard history).
       if (targetChangeValidation.steering && stackGameId) {
@@ -3092,6 +3227,12 @@ async function executeClaimedWorker(params: {
           attemptRef: checkpoint.id,
           baseRev,
           sourceSha: claimSourceSha,
+          // Cited evidence for an evidence-review request, when the gate rejected one (plan 3.1).
+          workerNote: agentNote,
+          // An unverified_match target's trusted-base run certifies it: its evidence reviews bind to the trusted base.
+          trustedBaseline: targetChangeValidation.unverifiedTarget
+            ? { result: targetChangeValidation.unverifiedTarget.baseline, trustedBaseRev: targetChangeValidation.unverifiedTarget.trustedBaseRev }
+            : null,
         });
       }
       if (inlineAdvisories?.adjudication?.verdict === "pass" && inlineAdvisories.patchText !== null) {
@@ -3150,6 +3291,9 @@ async function executeClaimedWorker(params: {
         dryRun: result.dryRun,
         claimDeadlineMs: agentDeadlineMs,
         acceptedStackOnly: stopAtFrame && acceptedCheckpoint && runnerValidation.stackPolicy?.targetStackOnly === true,
+        budgetExtension,
+        certifiedGrants: budgetExtension === "certified" ? certificationGrantCount(store, claimed.claimId) : undefined,
+        gateEnforced: steeringGateEnforced(steeringGate),
       });
       const continuationDecision: WorkerContinuationDecision = wideningRoutedCrossModule
         ? {
@@ -3231,6 +3375,7 @@ async function executeClaimedWorker(params: {
         repairReasons,
         scoreText,
         stopAtFrame,
+        gameId: stackGameId,
       });
       repairRequest = {
         attempt: attemptIndex + 1,
@@ -3548,7 +3693,7 @@ export function buildWorkerKnowledgeContext(
       graph_db: graphDb,
       generated_at: new Date().toISOString(),
       // Steering-gated games: active `unverified_match` rows overlay a stale stored card, so it never reads `read_only_complete`.
-      file_card: fileGraphCard(store, sourcePath, { unverifiedMatches: v2?.unverifiedMatches }),
+      file_card: fileGraphCard(store, sourcePath, { unverifiedMatches: v2?.unverifiedMatches, ...(v2?.gameId ? { game: v2.gameId } : {}) }),
       ...(related ? { related_functions: related } : {}),
       lookup_tools: lookupTools,
       ...(v2Card ? { knowledge_card_v2: v2Card } : {}),

@@ -374,7 +374,10 @@ class FixedBatchCompiler:
             )
             if cmd_prefix is None:
                 break
-            cmd = list(cmd_prefix) + shlex.split(self.block.cflags)
+            flags = ninja_compile.tu_flags(self.block.cflags, timeout=remaining)
+            if flags is None:
+                break
+            cmd = list(cmd_prefix) + flags
             if prefix_pch is not None:
                 cmd += ["-prefix", prefix_pch.name]
             cmd += ["-o", ninja_compile._root_rel(self.output_dir), "-c", *source_args]

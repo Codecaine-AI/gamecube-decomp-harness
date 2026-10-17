@@ -397,6 +397,7 @@ export async function runKnowledgeIntake(
         }
         const result = dependencies.attempts(store, {
           orchestratorDbPath,
+          repoRoot: input.checkoutRoot,
           dryRun: input.dryRun,
         });
         ingest.attempts = result;

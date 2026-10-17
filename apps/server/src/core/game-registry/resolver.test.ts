@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
-import { buildSandboxRuntimeOptions, resolveGame, sandboxRuntimeOptions, sandboxTimeoutScale } from "./resolver.js";
+import { buildSandboxRuntimeOptions, matchingBudgetExtension, matchingSyncMergePolicy, orderingRegistries, resolveGame, sandboxRuntimeOptions, sandboxTimeoutScale } from "./resolver.js";
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -201,12 +201,83 @@ describe("game registry layout resolution", () => {
       mode: "enforce",
       gatedPaths: ["src/System/MarNameRefGen*.cpp"],
       scope: { maxForeignHeaders: 3, maxForeignHeaderLines: 25 },
+      registries: ["MarNameRefGen"],
     });
+  });
+
+  test("budgetExtension defaults to score, stays unset unless configured, and rejects unknown modes", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-budget-"));
+    const write = (id: string, matching?: Record<string, unknown>) => {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), matching ? { id, matching } : { id });
+    };
+    write("plain");
+    write("scored", { budgetExtension: "score" });
+    write("certified", { steeringGate: "enforce", budgetExtension: "certified" });
+    const resolve = (gameId: string) => resolveGame({ orchestratorRoot: root, gameId });
+    // Unconfigured games keep their resolved matching (and configuration fingerprint) unchanged.
+    expect(resolve("plain").matching).toEqual({ stackFramePolicy: "match_frame", steeringGate: "off" });
+    expect("budgetExtension" in resolve("plain").matching).toBe(false);
+    expect(matchingBudgetExtension(resolve("plain"))).toBe("score");
+    expect(matchingBudgetExtension(resolve("scored"))).toBe("score");
+    expect(matchingBudgetExtension(resolve("certified"))).toBe("certified");
+    expect(matchingBudgetExtension(null)).toBe("score");
+    for (const [id, budgetExtension] of [["bad", "points"], ["typed", 2]] as const) {
+      write(id, { budgetExtension });
+      expect(() => resolve(id)).toThrow(/matching\.budgetExtension/);
+    }
+  });
+
+  test("syncMergePolicy defaults to score, stays unset unless configured, and rejects unknown rules", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-sync-merge-"));
+    const write = (id: string, matching?: Record<string, unknown>) => {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), matching ? { id, matching } : { id });
+    };
+    write("plain");
+    write("certified", { steeringGate: "enforce", syncMergePolicy: "certified" });
+    const resolve = (gameId: string) => resolveGame({ orchestratorRoot: root, gameId });
+    expect("syncMergePolicy" in resolve("plain").matching).toBe(false);
+    expect(matchingSyncMergePolicy(resolve("plain"))).toBe("score");
+    expect(matchingSyncMergePolicy(resolve("certified"))).toBe("certified");
+    expect(matchingSyncMergePolicy(null)).toBe("score");
+    for (const [id, syncMergePolicy] of [["bad", "theirs"], ["typed", true]] as const) {
+      write(id, { syncMergePolicy });
+      expect(() => resolve(id)).toThrow(/matching\.syncMergePolicy/);
+    }
+  });
+
+  test("ordering.registries defaults to none and accepts only class names", () => {
+    const root = mkdtempSync(join(tmpdir(), "game-registry-registries-"));
+    const write = (id: string, ordering?: Record<string, unknown>) => {
+      const gameDir = join(root, "games", id);
+      mkdirSync(gameDir, { recursive: true });
+      writeJson(join(gameDir, "game.json"), ordering ? { id, ordering } : { id });
+    };
+    write("plain");
+    write("bare", { mode: "shadow", gatedPaths: [] });
+    write("named", { mode: "shadow", gatedPaths: [], registries: ["MarNameRefGen", "TNameRefGen"] });
+    const resolve = (gameId: string) => resolveGame({ orchestratorRoot: root, gameId });
+    expect(orderingRegistries(resolve("plain"))).toEqual([]);
+    expect(resolve("bare").ordering).toEqual({ mode: "shadow", gatedPaths: [] });
+    expect(orderingRegistries(resolve("bare"))).toEqual([]);
+    expect(orderingRegistries(resolve("named"))).toEqual(["MarNameRefGen", "TNameRefGen"]);
+    for (const [id, registries] of [["notarray", "MarNameRefGen"], ["glob", ["MarNameRefGen*"]], ["typed", [3]]] as const) {
+      write(id, { mode: "shadow", registries });
+      expect(() => resolve(id)).toThrow(/ordering\.registries/);
+    }
   });
 
   test("ships Melee with the steering gate off and SMS in enforce", () => {
     expect(resolveGame({ gameId: "melee" }).matching.steeringGate).toBe("off");
     expect(resolveGame({ gameId: "sms" }).matching.steeringGate).toBe("enforce");
+    expect(matchingBudgetExtension(resolveGame({ gameId: "melee" }))).toBe("score");
+    expect(matchingBudgetExtension(resolveGame({ gameId: "sms" }))).toBe("certified");
+    expect(matchingSyncMergePolicy(resolveGame({ gameId: "melee" }))).toBe("score");
+    expect(matchingSyncMergePolicy(resolveGame({ gameId: "sms" }))).toBe("certified");
+    expect(orderingRegistries(resolveGame({ gameId: "melee" }))).toEqual([]);
   });
 
   test("parses the optional symbolCheck validator config and leaves unconfigured games unset", () => {

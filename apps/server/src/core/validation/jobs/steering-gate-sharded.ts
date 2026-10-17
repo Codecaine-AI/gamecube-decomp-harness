@@ -29,6 +29,7 @@ import {
   functionKey,
   gitSteeringOps,
   applyGroups,
+  applyVerifyFor,
   hostBuildProblem,
   recordUnverifiedFunctions,
   invocationError,
@@ -38,6 +39,7 @@ import {
   shortGroupText,
   steeringFunctionReport,
   unitSourceTable,
+  unitFidelityInputs,
   type CheckReport,
   type SteeringBackfillFunctionReport,
   type SteeringRebuild,
@@ -49,7 +51,9 @@ import {
   type SteeringCheckOptions,
   type SteeringGitOps,
   type UnverifiedClearRefusal,
+  type SteeringApplyRefusal,
 } from "./steering-gate.js";
+import { applyCompileSummary } from "@server/core/validation/steering/apply-verify.js";
 import type { RevAncestry } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { isOrderSensitiveReason, unverifiedTolerance, type UnverifiedTolerance } from "./steering-unverified.js";
 
@@ -459,6 +463,7 @@ export async function runShardedSteeringBackfill(params: {
   const recheckPaths: string[] = [];
   const rechecks = new Map<ShardReport, CheckReport & { path: string }>();
   let applied = false;
+  const applyRefusals: SteeringApplyRefusal[] = [];
   // `apply` reverts only steering groups (attributed to a steering_located function); held and unattributed ones stay.
   const ownedRemovable = (report: ShardReport) => reportGroups(report)
     .filter((group) => applyGroups(report.raw).steering.has(group.id) && sourceOwner.get(group.file) === report);
@@ -474,7 +479,12 @@ export async function runShardedSteeringBackfill(params: {
   if (params.apply && toApply.length > 0) {
     const allowed = new Set(toApply.flatMap((report) => owned.get(report) ?? []));
     for (const report of toApply) {
-      const result = await params.runner(["apply", "--report", report.path, "--only-paths", ...(owned.get(report) ?? []), ...(params.dryRun ? ["--dry-run"] : [])], "host");
+      const result = await params.runner(["apply", "--report", report.path, "--only-paths", ...(owned.get(report) ?? []), ...(params.dryRun ? ["--dry-run"] : [])], "host", { verify: applyVerifyFor(report.raw, params.validation) });
+      // A unit that no longer compiles after this report's revert refuses it: the checkout is unchanged, the next report goes on.
+      if (result.compile && !result.compile.ok) {
+        applyRefusals.push({ ...result.compile, report: report.path });
+        continue;
+      }
       if (result.exitCode !== 0) throw new Error(`${invocationError(result, "steering_check.py apply")} (report ${report.path})`);
       if (params.dryRun) continue;
       applied = true;
@@ -502,7 +512,8 @@ export async function runShardedSteeringBackfill(params: {
       ledger.open(opened);
       ledgerKeys.set(report, opened.map((row) => row.key));
     }
-    if (!params.dryRun) {
+    // Nothing to rebuild or re-check when every apply was refused.
+    if (!params.dryRun && applied) {
       if ((params.rebuild ?? "ninja") === "ninja") {
         const layout = gameBuildLayout(params.validation);
         rebuilt = [...new Set([...touchedUnits].map((unit) => unitObject.get(unit) ?? layout.objectPathForUnit(unit)).filter((path): path is string => Boolean(path)))].sort();
@@ -705,6 +716,7 @@ export async function runShardedSteeringBackfill(params: {
   if (headerResidual.size > 0) {
     notes.push(`header residual (changed files no unit compiles; listed, not judged): ${capList([...headerResidual].sort(), 10)}`);
   }
+  for (const refusal of applyRefusals) problems.push(`${basename(refusal.report ?? "")}: ${applyCompileSummary(refusal)}`);
   if (recheckFailures.length > 0) {
     problems.push(`re-check failed (functions left unresolved): ${capList(recheckFailures.map((row) => `${basename(row.report)}: ${row.error.slice(0, 200)}`), 5)}`);
   }
@@ -810,6 +822,7 @@ export async function runShardedSteeringBackfill(params: {
           coverage: unit.coverage,
           check: row?.report ?? unitOwner(unit.unit)?.path ?? null,
           sharded: true,
+          ...(unitOwner(unit.unit) && unitFidelityInputs(unitOwner(unit.unit)!.raw, unit.unit) ? { fidelity_inputs: unitFidelityInputs(unitOwner(unit.unit)!.raw, unit.unit) } : {}),
           ...(dirty.has(unit.unit) ? { dirty: dirty.get(unit.unit) } : {}),
           ...(unverifiedDirt.has(unit.unit) ? { unverified: unverifiedDirt.get(unit.unit) } : {}),
         },
@@ -824,12 +837,18 @@ export async function runShardedSteeringBackfill(params: {
     }
   }
 
+  const refusedStep = applyRefusals.length > 0
+    ? ["Refused applies left the checkout unchanged for their reports: reverting their steering edits left the units under apply_refusals uncompilable. Fix those sources, then rerun --apply for them."]
+    : [];
   const nextSteps = applied
     ? [
         "Review the rewritten sources (git diff), then commit them through the normal integration path.",
         "Rerun the check shards on the new HEAD, then steering-gate --from-reports <reports> --record (no --apply) to certify it.",
+        ...refusedStep,
       ]
-    : !clean && params.record
+    : refusedStep.length > 0
+      ? refusedStep
+      : !clean && params.record
       ? ["Fix or --apply what the problems list (steering, rule violations, tool failures, coverage), commit, rerun the affected shards and record again; unresolved functions are recorded as unverified_match and do not block."]
       : [];
 
@@ -847,6 +866,7 @@ export async function runShardedSteeringBackfill(params: {
     unverifiedCleared,
     unverifiedClearRefused,
     applied,
+    applyRefusals,
     touchedFiles,
     touchedUnits: [...touchedUnits].sort(),
     rebuilt,

@@ -1,0 +1,61 @@
+diff --git a/src/optimizer/IroCSE.c b/src/optimizer/IroCSE.c
+index 52701a1..9b60c83 100644
+--- a/src/optimizer/IroCSE.c
++++ b/src/optimizer/IroCSE.c
+@@ -20,6 +20,7 @@
+ #include "compiler/IroSubable.h"
+ #include "compiler/IroUtil.h"
+ #include "compiler/IroVars.h"
++#include "compiler/MwccTrace.h"
+ 
+ CInt64 data_005834f8;
+ unsigned int expression_count;
+@@ -1071,6 +1072,28 @@ void move_common_sub(IROExpr *group)
+     }
+ }
+ 
++/* (decision trace: see compiler/MwccTrace.h) */
++static int trace_cse_pass;
++static int trace_cse_occurrence;
++
++static void trace_cse(IROExpr *cse, IROLinear *use, IRONode *block)
++{
++    const char *text;
++
++    text = MwccTrace_LinearText(cse->linear);
++    MwccTrace_NoteOrigin(cse->temp->name, "cse", text);
++    MwccTrace_Begin("cse", trace_cse_pass, MWCC_TRACE_CLS_NONE);
++    MwccTrace_Name("temp", cse->temp->name);
++    MwccTrace_Str("expr", MwccTrace_LinearText(cse->linear));
++    MwccTrace_Int("block", block->index);
++    MwccTrace_Int("occurrence", ++trace_cse_occurrence);
++    MwccTrace_Int("def_index", cse->linear->index);
++    MwccTrace_Int("use_index", use->index);
++    if (use->stmt != NULL)
++        MwccTrace_Int("line", use->stmt->sourceoffset);
++    MwccTrace_End();
++}
++
+ void IRO_CommonSubs(void)
+ {
+     IROExpr *def;
+@@ -1081,6 +1104,10 @@ void IRO_CommonSubs(void)
+     IROExpr *cse;
+ 
+     count = 0;
++    if (mwcc_trace_on) {
++        trace_cse_pass = MwccTrace_NextCSEPass();
++        trace_cse_occurrence = 0;
++    }
+     for (proc = iro_flowgraph_head; proc != NULL; proc = proc->nextnode) {
+         availableExpressions = proc->in;
+         stmt = proc->first;
+@@ -1121,6 +1148,8 @@ void IRO_CommonSubs(void)
+                 cse = stmt->expr->use;
+                 if (cse->temp != NULL || (move_common_sub(cse), cse->temp != NULL)) {
+                     IroDump_Print("Replacing common sub at %d with %d\n", stmt->index, cse->linear->index);
++                    if (mwcc_trace_on)
++                        trace_cse(cse, stmt, proc);
+                     IroCSE_ReplaceReference(stmt, cse->temp, stmt);
+                     def = stmt->expr;
+                     prev = NULL;

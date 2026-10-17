@@ -193,7 +193,7 @@ const MAX_LISTED_STEERING_HOLDS = 200;
 function steeringHoldsBodySection(holds: readonly SteeringPrHold[]): string {
   if (holds.length === 0) return "";
   const listed = holds.slice(0, MAX_LISTED_STEERING_HOLDS).map((hold) =>
-    `- \`${hold.unit}::${hold.symbol}\` (${hold.reason === "unverified_match" ? "100% unverified" : "rolled back by the steering gate, not re-certified"})`);
+    `- \`${hold.unit}::${hold.symbol}\` (${hold.reason === "unverified_match" ? "100% but unverified" : "rolled back by the steering gate, not re-certified"})`);
   const more = holds.length > listed.length ? [`- ... and ${holds.length - listed.length} more`] : [];
   return [
     "## Not verified matches",

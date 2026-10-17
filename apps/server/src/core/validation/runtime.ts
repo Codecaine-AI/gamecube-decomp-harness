@@ -49,7 +49,7 @@ export function createValidationRuntime(deps: ValidationRuntimeDeps): Validation
     }
     uiLog("ui", `report-run${resetBaseline ? " --reset-baseline" : ""} complete`);
     // `summary` is the published completion summary; with steering holds `reportSummary`
-    // keeps the report's own and `unverifiedMeasures` the separate "100% unverified" figures.
+    // keeps the report's own and `unverifiedMeasures` the separate "100% but unverified" figures.
     return {
       game: paths.game ? deps.gameToSummary(paths.game) : null,
       ...compactReportRunResult(published),

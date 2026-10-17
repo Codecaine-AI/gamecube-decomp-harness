@@ -8,6 +8,7 @@ import { requireActiveLease } from "@server/core/harness-state";
 import {
   activeClaimsForRun,
   claimNextEpochTarget,
+  extendClaimTtl,
   setClaimWorktreePath,
 } from "@server/core/harness-runtime/run-state";
 import { recoverActiveClaims } from "@server/core/harness-runtime/phases/running/jobs/recover-claims.js";
@@ -36,6 +37,7 @@ import {
 } from "@server/core/job-queue/sandbox-lifecycle.js";
 import {
   provisionSandboxWorkspace,
+  type SandboxToolDataTree,
   type WorkerReportArtifactSource,
 } from "@server/core/job-queue/provisioning.js";
 import { emitSandboxDeletedEvent } from "@server/core/job-queue/sandbox-events.js";
@@ -57,6 +59,13 @@ import {
   workerJobEnrichmentIsLive,
   workerJobHasEnrichment,
 } from "./worker-job-payload.js";
+import { activeUnverifiedMatch, type UnverifiedMatchRecord } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { unverifiedReportSandboxFile } from "@server/core/harness-runtime/run-state/unverified-report.js";
+import { UNVERIFIED_MATCHES_EVIDENCE_PATH } from "@server/core/harness-runtime/run-state/unverified-matches-evidence.js";
+import { cachedUnverifiedMatchesEvidenceJson } from "./unverified-evidence-cache.js";
+import { resolveRegisteredTool } from "@server/core/tools/resolver.js";
+import { ASM_WINDOW_INDEX_FILES, ASM_WINDOW_SEARCH_TOOL_ID } from "@server/core/tools/wrappers/asm-window-search.js";
+import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 
 export interface WorkerJobRunContext {
   store: StateStore;
@@ -185,6 +194,36 @@ function reportArtifactSources(ctx: WorkerJobRunContext): WorkerReportArtifactSo
   });
 }
 
+/** Prebuilt tool data the worker sandbox needs: the game's asm-window index (searched in the sandbox). */
+function sandboxToolData(ctx: WorkerJobRunContext): SandboxToolDataTree[] {
+  const game = ctx.globals.game;
+  if (!game) return [];
+  try {
+    const resolved = resolveRegisteredTool({ game: { gameId: game.gameId, descriptorPath: game.descriptorPath } }, ASM_WINDOW_SEARCH_TOOL_ID);
+    return [{ toolId: ASM_WINDOW_SEARCH_TOOL_ID, hostRoot: resolved.sharedDataRoot, files: [...ASM_WINDOW_INDEX_FILES] }];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The claimed target's active unverified match on a steering-gated game, or
+ * null. Its trusted base must reach the sandbox, and its full gate report is
+ * written there (the packet's `full_report_locator` names the same path).
+ */
+function claimUnverifiedMatch(ctx: WorkerJobRunContext, job: JobRecord, gameId: string): UnverifiedMatchRecord | null {
+  try {
+    if (!steeringGateActive(ctx.globals.game?.matching?.steeringGate)) return null;
+    const epochTargetId = job.payload.claimed_epoch_target_id;
+    if (typeof epochTargetId !== "string" || !epochTargetId) return null;
+    const target = ctx.store.db.query("SELECT unit, symbol FROM epoch_targets WHERE id = ?").get(epochTargetId) as { unit: string; symbol: string } | null;
+    if (!target) return null;
+    return activeUnverifiedMatch(ctx.store, { gameId, unit: target.unit, symbol: target.symbol });
+  } catch {
+    return null;
+  }
+}
+
 function payloadString(job: JobRecord, key: string): string {
   const value = job.payload[key];
   if (typeof value !== "string" || !value) throw new Error(`Worker job ${job.jobId} is missing ${key}`);
@@ -235,6 +274,20 @@ export function buildWorkerTask(
           : new DaytonaSandboxProvider());
       // worker_state has no trace_id column; its owning workflow trace is carried by the worker job.
       const traceId = job.traceId ?? `trace-job-${job.jobId}`;
+      const unverifiedMatch = claimUnverifiedMatch(ctx, job, ctx.globals.game?.gameId ?? job.gameId);
+      const unverifiedReport = unverifiedMatch
+        ? await unverifiedReportSandboxFile(unverifiedMatch, { hostRepoRoot: ctx.globals.repoRoot })
+        : null;
+      // Provisioning can queue for a long time (create admission waits out a provider quota).
+      // Keep the claim alive meanwhile, so claim recovery never takes it from a job still waiting.
+      const keepClaim = setInterval(() => {
+        try {
+          extendClaimTtl(ctx.store, targetClaimId, workerStateId, new Date(Date.now() + ctx.ttlSeconds * 1000).toISOString(), handlerCtx.token);
+        } catch (error) {
+          console.warn(`[run-loop] worker job ${job.jobId}: could not extend claim ${targetClaimId} while provisioning`, error);
+        }
+      }, Math.max(1_000, Math.min(60_000, Math.floor(ctx.ttlSeconds * 1000 / 3))));
+      keepClaim.unref?.();
       const provisioned = await (deps.provisionSandbox ?? provisionSandboxWorkspace)({
         provider,
         sourceRepoRoot: ctx.globals.repoRoot,
@@ -259,6 +312,21 @@ export function buildWorkerTask(
           trace_id: traceId,
         },
         reportArtifactSources: reportArtifactSources(ctx),
+        requiredRevs: unverifiedMatch?.baseRev ? [unverifiedMatch.baseRev] : [],
+        toolData: sandboxToolData(ctx),
+        sandboxFiles: [
+          // real_code_evidence `usage` tells certified siblings from unverified ones from this list.
+          {
+            relativePath: UNVERIFIED_MATCHES_EVIDENCE_PATH,
+            // Shared across workers on the same base and hold state; ancestry runs on async git.
+            content: await cachedUnverifiedMatchesEvidenceJson(
+              ctx.store,
+              ctx.globals.game ?? { gameId: job.gameId },
+              { revision: baseRev, repoRoot: ctx.globals.repoRoot },
+            ),
+          },
+          ...(unverifiedReport ? [unverifiedReport] : []),
+        ],
         event: {
           store: ctx.store,
           context: {
@@ -271,7 +339,7 @@ export function buildWorkerTask(
             workerStateId,
           },
         },
-      });
+      }).finally(() => clearInterval(keepClaim));
       provisionedSandbox = { provider, sandboxId: provisioned.sandboxId };
       const workerRepoRoot = provisioned.workspaceRoot;
       let sandboxReprovision;
@@ -294,10 +362,16 @@ export function buildWorkerTask(
         : [];
       attachJobPayload(ctx.store, handlerCtx.token, {
         sandbox_id: provisioned.sandboxId,
+        // The path the packet's full_report_locator names; delivered by this provisioning only.
+        unverified_report_locator: unverifiedReport?.relativePath ?? null,
         ...(sandboxReprovision ? { sandbox_reprovisions: [...sandboxReprovisions, sandboxReprovision] } : {}),
       });
       // The job's sandbox_id qualifies this shared in-sandbox path as a durable workspace reference.
       setClaimWorktreePath(ctx.store, targetClaimId, workerStateId, workerRepoRoot, handlerCtx.token);
+      // The agent's budget clock starts at dispatch, not at claim: time queued for the sandbox
+      // is added back to the claim TTL the worker derives its agent deadline from.
+      const dispatchTtl = extendClaimTtl(ctx.store, targetClaimId, workerStateId, new Date(Date.now() + ctx.ttlSeconds * 1000).toISOString(), handlerCtx.token);
+      if (job.payload.ttl !== dispatchTtl) attachJobPayload(ctx.store, handlerCtx.token, { ttl: dispatchTtl });
       await mkdir(artifactDir, { recursive: true });
       const taskFile = resolve(artifactDir, "task_spec.json");
       await writeFile(taskFile, JSON.stringify({
@@ -323,6 +397,7 @@ export function buildWorkerTask(
         sandbox_id: provisionedSandbox.sandboxId,
         sandbox_provenance: sandbox,
         workspace_root: workerRepoRoot,
+        unverified_report_locator: unverifiedReport?.relativePath ?? null,
       }, null, 2));
       const command = ["bun", resolve(packageRoot(), "apps/server/src/job-runner.ts")];
       if (ctx.globals.gameId) command.push("--game", ctx.globals.gameId);

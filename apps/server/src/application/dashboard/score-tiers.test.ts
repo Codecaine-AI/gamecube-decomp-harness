@@ -14,10 +14,10 @@ afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 
-function transition(store: StateStore, patch: TransitionHarnessStateInput["patch"], savePointId?: string): void {
-  const current = getHarnessState(store.db, "melee")!;
+function transition(store: StateStore, patch: TransitionHarnessStateInput["patch"], savePointId?: string, gameId = "melee"): void {
+  const current = getHarnessState(store.db, gameId)!;
   transitionHarnessState(store.db, {
-    gameId: "melee", expectedRevision: current.identity.revision, commandId: `command-${current.identity.revision}`,
+    gameId, expectedRevision: current.identity.revision, commandId: `command-${current.identity.revision}`,
     patch,
     ...(savePointId ? { boundary: { eventId: `event-${current.identity.revision}`, kind: "save_point" as const, outcome: "accepted", evidence: { save_point_id: savePointId } } } : {}),
   });
@@ -31,8 +31,9 @@ function addPoint(
   at: string,
   reportPath?: string,
   triggerKind: "init" | "sync" | "epoch_finish" = id === "baseline" ? "init" : "epoch_finish",
+  gameId = "melee",
 ): void {
-  const campaign = ensureCampaign(store, { gameId: "melee", baseRef: "origin/master" });
+  const campaign = ensureCampaign(store, { gameId, baseRef: "origin/master" });
   const point = addSavePoint(store, {
     campaignId: campaign.id, triggerKind, commitSha: head,
     matchedCodePercent: score, reportPath, payload: score === null ? {} : { measures: { matched_code_percent: score } },
@@ -336,6 +337,36 @@ describe("score tiers projection", () => {
       expect(raw.confirmed.matches.map((entry) => entry.symbol)).toEqual(["F"]);
     } finally { store.db.close(); }
   });
+
+  test("SMS: a short-unit hold withholds the module-prefixed report unit from scores and matches", async () => {
+    const stateDir = mkdtempSync(join(tmpdir(), "score-tiers-sms-"));
+    tempDirs.push(stateDir);
+    const store = openState(stateDir);
+    try {
+      initializeHarnessState(store.db, { gameId: "sms", worktree: stateDir, configurationRevision: "config", commandId: "init" });
+      // Reports name the unit `mario/Animal/AnimalBase`; the steering row names it `Animal/AnimalBase`.
+      const write = (path: string, fScore: number) => writeFileSync(path, JSON.stringify({
+        measures: { total_code: "80", matched_code: fScore >= 100 ? "80" : "40", matched_code_percent: fScore >= 100 ? 100 : 50 },
+        units: [{ name: "mario/Animal/AnimalBase", functions: [{ name: "Kept", size: "40", fuzzy_match_percent: 100 }, { name: "F", size: "40", fuzzy_match_percent: fScore }] }],
+      }));
+      const baseReport = join(stateDir, "sms-base.json");
+      const headReport = join(stateDir, "sms-head.json");
+      write(baseReport, 50);
+      write(headReport, 100);
+      addPoint(store, "sms-base", "upstream", 50, "2026-08-26T02:00:00Z", baseReport, "init", "sms");
+      transition(store, { source: { upstream_revision: "upstream" } }, "sms-base", "sms");
+      addPoint(store, "sms-head", "head2", 100, "2026-08-26T03:00:00Z", headReport, "epoch_finish", "sms");
+      transition(store, { source: { head: "head2" }, readiness: { evidence: "ready" }, history: { save_point_id: "sms-head" } }, "sms-head", "sms");
+      const sourceState = { head: "head2", dirty: false };
+      // An untagged index of steering spellings: the projection keys it for the game itself.
+      const gated = await scoreTiersProjection(store, "sms", { sourceState, unverified: new Set(["Animal/AnimalBase::F"]), labels: new Set(["Animal/AnimalBase::F"]) });
+      expect(gated.confirmed.score).toBe(50);
+      expect(gated.confirmed.measures).toMatchObject({ matched_code_percent: 50, unverified_functions: 1 });
+      expect(gated.confirmed.matches).toEqual([]);
+      expect(gated.confirmed.improvements.map((entry) => [entry.unit, entry.symbol, entry.verification]))
+        .toContainEqual(["mario/Animal/AnimalBase", "F", "unverified_match"]);
+    } finally { store.db.close(); }
+  });
 });
 
 describe("savePointProgress with a revision-aware index", () => {
@@ -373,6 +404,21 @@ describe("withholdUnverifiedMatches", () => {
     expect(view.matches.map((entry) => entry.symbol)).toEqual(["clean"]);
     expect(view.improvements.map((entry) => [entry.symbol, entry.verification])).toEqual([["rolledBack", undefined], ["active", "unverified_match"]]);
     expect(view.improvements[0]).not.toHaveProperty("score");
+  });
+
+  test("SMS: a short-unit hold withholds and labels the module-prefixed report row", () => {
+    const prefixed = (symbol: string) => ({ ...match(symbol), targetKey: `mario/Animal/AnimalBase::${symbol}`, unit: "mario/Animal/AnimalBase" });
+    const smsTier = { matches: [prefixed("held"), prefixed("clean")], improvements: [] as ScoreTierImprovement[] };
+    const view = withholdUnverifiedMatches(smsTier, new Set(["Animal/AnimalBase::held"]), new Set(["Animal/AnimalBase::held"]), "sms");
+    expect(view.matches.map((entry) => entry.symbol)).toEqual(["clean"]);
+    expect(view.improvements.map((entry) => [entry.unit, entry.symbol, entry.verification])).toEqual([["mario/Animal/AnimalBase", "held", "unverified_match"]]);
+  });
+
+  test("Melee: units are compared as written (no module prefix is stripped)", () => {
+    const prefixed = { ...match("held"), unit: "mario/Animal/AnimalBase" };
+    const view = withholdUnverifiedMatches({ matches: [prefixed], improvements: [] as ScoreTierImprovement[] }, new Set(["Animal/AnimalBase::held"]), undefined, "melee");
+    expect(view.matches.map((entry) => entry.symbol)).toEqual(["held"]);
+    expect(view.improvements).toEqual([]);
   });
 
   test("an unknown index withholds every match", () => {

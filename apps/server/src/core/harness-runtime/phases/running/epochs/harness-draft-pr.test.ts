@@ -233,7 +233,7 @@ describe("publishHarnessDraftPr", () => {
     ]);
     const body = readFileSync(bodyPath, "utf8");
     expect(body).toContain("3 function(s) on this branch may read as 100% but are not verified matches");
-    expect(body).toContain("`unit_a::unverified_fn` (100% unverified)");
+    expect(body).toContain("`unit_a::unverified_fn` (100% but unverified)");
     expect(body).toContain("`unit_a::uncertified_fn` (rolled back by the steering gate, not re-certified)");
     expect(body).not.toContain("unit_b::certified_fn");
   });

@@ -168,6 +168,10 @@ describe("same-file claims behind a recovered worker's integration", () => {
       repoRoot, stateDir, gameId: "test", dryRunAgents: true, provider: "test", model: "test", thinkingLevel: "low", agentTimeoutSeconds: 600,
     };
     const starts: WorkerStart[] = [];
+    // The background steering-explain consumer starts with the worker consumer and is stopped and drained on shutdown.
+    const explainEvents: string[] = [];
+    const explainParams: Array<Record<string, unknown>> = [];
+    let storeOpen = () => false;
     const result = await runRunLoop(globals, new Map<string, string | true>([
       ["--lease-id", leaseId],
       ["--run-id", runId],
@@ -182,9 +186,25 @@ describe("same-file claims behind a recovered worker's integration", () => {
         executor: failingFirstWorkerExecutor(stateDir, starts),
         provisionSandbox: async () => ({ sandboxId: `sandbox-${randomUUID()}`, workspaceRoot: repoRoot }),
       },
+      steeringExplainConsumer: (params) => {
+        explainParams.push({ gameId: params.gameId, repoRoot: params.repoRoot, dryRun: params.dryRun });
+        // The run loop's store, borrowed: still readable when close is called means the loop has not closed it yet.
+        storeOpen = () => { try { params.store.db.query("SELECT 1").get(); return true; } catch { return false; } };
+        explainEvents.push("start");
+        return {
+          enabled: true,
+          tick() {},
+          stop() { explainEvents.push("stop"); },
+          async drain() { explainEvents.push("drain"); return true; },
+          close() { explainEvents.push(`close:${storeOpen() ? "store-open" : "store-closed"}`); },
+          inFlight: () => 0,
+        };
+      },
     });
 
     expect(result.stoppedReason).toBe("paused");
+    expect(explainEvents).toEqual(["start", "stop", "drain", "close:store-open"]);
+    expect(explainParams).toEqual([{ gameId: "test", repoRoot, dryRun: true }]);
     expect(starts).toEqual([
       { symbol: "walkToCurPathNode", integrationJobsAtStart: [] },
       { symbol: "zigzagToCurPathNode", integrationJobsAtStart: ["succeeded"] },

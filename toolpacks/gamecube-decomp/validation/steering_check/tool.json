@@ -1,0 +1,38 @@
+{
+  "id": "steering_check",
+  "title": "Steering gate checks for workers",
+  "trust_tier": "tool_evidence",
+  "description": "Worker-facing steering gate checks. unused_test runs the UNUSED stub test for one function (objectives/sms-real-codegen/unused-rule.md): the candidate is compiled with that function's body stubbed (signature kept) and every target function of the unit is compared.",
+  "operation_mode": "tool_local_impl",
+  "runner_status": "on_demand",
+  "status_message": "Tool-local implementation: the API invokes toolpacks/gamecube-decomp/_impl/gamecube/tools/steering_check.py unused-test. Workers run it in their sandbox with cwd = the sandbox checkout.",
+  "limitations": [
+    "Steering-gated games only (SMS); the wrapper refuses other games.",
+    "Requires a built checkout: build.ninja, target objects, MWCC compiler artifacts and an MWCC runner. The link map's UNUSED status is reported for context only.",
+    "The checkout is never written: C and the stubbed C' compile in shadow roots under /tmp, and parsed maps are cached outside the checkout.",
+    "A stub that does not build makes the result inconclusive, not dead."
+  ],
+  "commands": {
+    "unused_test": "python3 toolpacks/gamecube-decomp/validation/steering_check/api/unused_test.py --repo <repo_root> --file <repo-relative source> --function <Qualified::name> --json"
+  },
+  "capabilities": [
+    "unused_stub_test"
+  ],
+  "category": "validation",
+  "path": "validation/steering_check",
+  "process_role": "steering_gate_check",
+  "usage": {
+    "invocation_mode": "on_demand",
+    "mutates_source": false,
+    "blocks_on_failure": false,
+    "triggers": [
+      "unused_function_reconstructed",
+      "dead_unused_body_suspected"
+    ],
+    "outputs": [
+      "unused_stub_status",
+      "changed_target_functions"
+    ],
+    "agent_guidance": "Use on a function the original link map lists as UNUSED before keeping a body for it: dead means no target function changes, so the body must go (rule violation); inlined lists the same-unit callers it changes (the evidence that allows the body); inconclusive means the analysis is incomplete."
+  }
+}

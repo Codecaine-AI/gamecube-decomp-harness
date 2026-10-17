@@ -9,6 +9,7 @@ import {
   type UnverifiedFunctionRef,
 } from "../builders/code-graph.js";
 import type { KnowledgeGraphStore } from "../db.js";
+import { unitVariants, type UnitKeyGame } from "../../../harness-runtime/run-state/unit-key.js";
 import { graphFactPayload, graphPayload } from "../payloads.js";
 import { functionRelationshipEvidence } from "./related-functions.js";
 import { graphEdges, graphEntities, graphFacts, searchChunks } from "../storage/schema.js";
@@ -22,11 +23,17 @@ export interface FileGraphCardOptions {
    * before the state changed never calls an unverified file complete.
    */
   unverifiedMatches?: readonly UnverifiedFunctionRef[];
+  /**
+   * The game the refs belong to: steering rows name units without the
+   * objdiff module prefix the stored card carries, so each ref is matched
+   * under every unit spelling (`unitVariants`). Omitted (or Melee): exact.
+   */
+  game?: UnitKeyGame;
 }
 
 export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string, options: FileGraphCardOptions = {}): FileGraphCard {
   const card = storedFileGraphCard(store, sourcePath);
-  return options.unverifiedMatches?.length ? withActiveVerification(card, options.unverifiedMatches) : card;
+  return options.unverifiedMatches?.length ? withActiveVerification(card, options.unverifiedMatches, { game: options.game }) : card;
 }
 
 /**
@@ -38,24 +45,30 @@ export function fileGraphCard(store: KnowledgeGraphStore, sourcePath: string, op
  * only"). Each applying function is labeled `unverified_match`, counted
  * unmatched, and its file is editable. Raw scores are never changed.
  *
- * A ref applies when it names one of the card's functions or one of its units;
- * `sameFile` asserts every ref is in this file (the worker's own target).
+ * A ref applies when it names one of the card's functions or one of its units,
+ * under the card's own spelling of its unit (`game`: a short steering unit
+ * names the card's module-prefixed one); `sameFile` asserts every ref is in
+ * this file (the worker's own target).
  * `locked` and `blocked` editability are left alone. No applying ref: the card
  * is returned unchanged.
  */
 export function withActiveVerification<T extends Pick<FileGraphCard, "editability" | "match_status" | "functions">>(
   card: T,
   refs: readonly UnverifiedFunctionRef[],
-  options: { sameFile?: boolean } = {},
+  options: { sameFile?: boolean; game?: UnitKeyGame } = {},
 ): T {
   const rows = (card.functions ?? []).map(objectValue);
   const units = new Set(arrayValue(objectValue(card.match_status).units).map(String));
   const rowKeys = new Set(rows.map((row) => verificationKey(stringValue(row.unit), stringValue(row.symbol))));
-  const keys = new Set(
-    refs
-      .filter((ref) => options.sameFile || rowKeys.has(verificationKey(ref.unit, ref.symbol)) || units.has(ref.unit))
-      .map((ref) => verificationKey(ref.unit, ref.symbol)),
-  );
+  // One key per ref, in the card's spelling: a row's key, else a unit of the card, else (same file) as given.
+  const keys = new Set<string>();
+  for (const ref of refs) {
+    const spellings = unitVariants(options.game, ref.unit);
+    const key = spellings.map((unit) => verificationKey(unit, ref.symbol)).find((candidate) => rowKeys.has(candidate))
+      ?? spellings.filter((unit) => units.has(unit)).map((unit) => verificationKey(unit, ref.symbol))[0]
+      ?? (options.sameFile ? verificationKey(ref.unit, ref.symbol) : undefined);
+    if (key !== undefined) keys.add(key);
+  }
   if (keys.size === 0) return card;
   const mode = card.editability?.mode;
   const markedRows = rows.map((row) =>

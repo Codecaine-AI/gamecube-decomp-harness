@@ -179,6 +179,16 @@ export function startJobConsumer(
     if (descriptor.execution.mode !== "dispatched") return;
     const execution = descriptor.execution;
     let handle: TaskHandle;
+    // buildTask can queue for a while (sandbox create admission waits out a
+    // provider quota): keep the claim's lease alive meanwhile, at a third of
+    // the lease so a short build never writes a heartbeat.
+    const buildHeartbeat = setInterval(() => {
+      try {
+        kernel.heartbeatJob(store, token, { leaseMs: descriptor.leaseMs, at: at() });
+      } catch (cause) {
+        notifyFatal(cause, "build-heartbeat", job);
+      }
+    }, Math.max(intervalMs, Math.floor((descriptor.leaseMs ?? 60_000) / 3)));
     try {
       const task = await execution.buildTask(job, { store, token });
       handle = await execution.executor.submit(task);
@@ -186,6 +196,8 @@ export function startJobConsumer(
     } catch (cause) {
       fail(job, token, cause);
       return;
+    } finally {
+      clearInterval(buildHeartbeat);
     }
 
     try {

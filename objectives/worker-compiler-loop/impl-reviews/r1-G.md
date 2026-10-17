@@ -1,0 +1,15 @@
+1. **[BLOCKING] Worker can forge scope readiness** — `apps/server/src/core/harness-runtime/phases/running/integration/scope-attestation.ts:99`. A worker can edit `/tmp/orch-readiness-cache/.../rev-8-*.json` to mark a forbidden class ready. The checker then produces a passing report with genuine patch hashes, and integration skips the host check. **Fix:** retain the host check until checker inputs and caches are protected from worker writes; test cache poisoning.
+
+2. **[BLOCKING] Source-type drift leaves stale attestations valid** — `apps/server/src/core/harness-runtime/phases/running/integration/scope-attestation.ts:195`. An unrelated `.cpp` changing `typedef int MyInt` to `float` can change owner readiness from ready to not-ready. Verification watches headers, owner sources and namespace changes, so it accepts this stale pass. **Fix:** bind all TypeIndex dependencies or invalidate on every indexed-source change.
+
+3. **[BLOCKING] Create retries can duplicate allocated sandboxes** — `apps/server/src/core/job-queue/sandbox.ts:401`. SDK creation allocates before proxy lookup/startup checks. A subsequent 429 triggers another allocation, leaving the first sandbox unreturned and uncounted. Reproduced with the installed SDK: two allocations, admission alive count zero. **Fix:** retry only proven allocation refusals, or reconcile an existing allocation before retrying.
+
+4. **[BLOCKING] Tar cache can serve the wrong content** — `apps/server/src/core/job-queue/provisioning.ts:294` and `:456`. Content changing A→B between stamp calculation and packing stores tar B under key A. Restoring A during the cache TTL still uploads B. **Fix:** cache only when the packed stamp matches its key; test modification during the remote stamp probe.
+
+5. **[BLOCKING] RSS sampler misses production workers** — `objectives/worker-compiler-loop/scale/worker-rss.ts:43`. It requires `worker --worker-id`; production launches `worker-task --task-file`. The documented memory exercise therefore samples zero sessions. **Fix:** recognize `worker-task` and read worker/run identity from its task file; test the production command shape.
+
+6. **[BLOCKING] Null evidence bypasses live validation** — `objectives/worker-compiler-loop/scale/load-test.ts:373`. An evidence file containing `null` skips validation and causes synthetic passing evidence to be written during a live run. **Fix:** require a non-null validated evidence object whenever `--live` is set; test null and other falsy JSON values.
+
+7. **[NON-BLOCKING] Concurrent packs bypass the idle-tar bound** — `apps/server/src/core/job-queue/provisioning.ts:250`. Three distinct active packs evade insertion-time eviction and remain cached after release, exceeding the two-entry limit until TTL expiry. **Fix:** evict idle entries when the final user releases a tar.
+
+6 blocking findings.

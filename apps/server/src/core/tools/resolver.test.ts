@@ -452,7 +452,7 @@ describe("toolpack runtime resolver", () => {
     expect(result.parsed).toEqual({ status: "host" });
   });
 
-  test("keeps non-surfaced mwcc_debug and review_lint scripts on the host", async () => {
+  test("keeps the mwcc_debug notes lookup on the host (a knowledge read); review_lint scan.py runs in the sandbox", async () => {
     const { provider, handle } = await fakeSandbox();
     const hostCommands: string[][] = [];
     const runCommand = async (_cwd: string, command: string[]) => {
@@ -461,12 +461,12 @@ describe("toolpack runtime resolver", () => {
     };
 
     await runRegisteredToolApi(apiContext(handle), "mwcc_debug", "lookup_dump.py", ["--json"], { runCommand });
-    await runRegisteredToolApi(apiContext(handle), "review_lint", "scan.py", ["--json"], { runCommand });
-
     expect(provider.execCalls).toEqual([]);
-    expect(hostCommands).toHaveLength(2);
+    await runRegisteredToolApi(apiContext(handle), "review_lint", "scan.py", ["--text", "int x;", "--json"], { runCommand });
+
+    expect(hostCommands).toHaveLength(1);
     expect(hostCommands[0]?.[1]).toEndWith("/compiler/mwcc_debug/api/lookup_dump.py");
-    expect(hostCommands[1]?.[1]).toEndWith("/source_editing/review_lint/api/scan.py");
+    expect(provider.execCalls.at(-1)?.command.slice(4)).toEqual(["/opt/toolpacks/gamecube-decomp/source_editing/review_lint/api/scan.py", "--text", "int x;", "--json"]);
   });
 
   test("returns a structured missing-toolpack result without running the script", async () => {

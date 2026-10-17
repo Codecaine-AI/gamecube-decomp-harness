@@ -2,6 +2,12 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
 import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
+import type { GameSyncMergePolicy } from "@server/core/game-registry/resolver.js";
+import {
+  applyCertifiedMergePolicy,
+  NO_SYNC_CERTIFICATION,
+  type SyncCertificationLookup,
+} from "@server/core/harness-runtime/phases/running/epochs/certified-merge.js";
 import { runCommand } from "@server/infrastructure/shell/index.js";
 import {
   applyScoreMergePolicy,
@@ -495,6 +501,10 @@ export async function mergeSyncWorktree(input: {
   newBase: string;
   mergePolicy?: SyncMergePolicy;
   policyInputs?: PolicyMergeReports;
+  /** The game's conflict rule under the score policy (`matching.syncMergePolicy`, active steering gate only). */
+  conflictRule?: GameSyncMergePolicy;
+  /** Certification of our functions at the pre-merge head (certified rule); unset certifies nothing. */
+  certification?: SyncCertificationLookup;
   runGit?: SyncGitRunner;
   revalidateLease: () => void;
 }): Promise<SyncMergeResult> {
@@ -545,7 +555,7 @@ export async function mergeSyncWorktree(input: {
     minorConflictsResolved = autoResolvedPaths.length;
 
     if (mergePolicy === "score" && policyContestedPaths({ upstreamChangedFiles, locallyChangedFiles }).length > 0) {
-      const applied = await applyScoreMergePolicy({
+      const policyInput = {
         worktreePath: input.worktreePath,
         baseRevision,
         oursRevision,
@@ -554,7 +564,11 @@ export async function mergeSyncWorktree(input: {
         locallyChangedFiles,
         reports: input.policyInputs ?? DEFAULT_POLICY_INPUTS,
         runGit: policyGitRunner(runner),
-      });
+      };
+      // The certified rule leaves a file it cannot resolve unmerged, with its certification, for the operator.
+      const applied = input.conflictRule === "certified"
+        ? await applyCertifiedMergePolicy({ ...policyInput, certification: input.certification ?? NO_SYNC_CERTIFICATION, unresolvable: "leave_unmerged" })
+        : await applyScoreMergePolicy(policyInput);
       policyMergeFiles = applied.files;
       if (applied.rewrittenPaths.length > 0) {
         await checkedGit(

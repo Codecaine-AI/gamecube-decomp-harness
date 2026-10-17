@@ -52,6 +52,13 @@ import {
 } from "@server/core/harness-runtime/phases/pr/checkpoint/completion-index.js";
 import { parseEpochTargetReadiness } from "@server/core/harness-runtime/run-state/epochs.js";
 import {
+  unitKeyedGet,
+  unitKeyedHas,
+  unitKeyNormalizer,
+  withUnitKeys,
+  type UnitKeyGame,
+} from "@server/core/harness-runtime/run-state/unit-key.js";
+import {
   latestReadinessArtifact,
   readinessWaitingLabel,
   type ReadinessTargetRow,
@@ -2351,12 +2358,12 @@ function workerStateRunnerTarget(workerState: JsonObject): JsonObject | null {
  * edited the target, and the target-only run against the trusted base passed
  * it), exactly as the runtime decides, never from a stored flag.
  */
-function certifiedUnverifiedTarget(runnerValidation: JsonObject, unit: string, symbol: string): boolean {
+function certifiedUnverifiedTarget(runnerValidation: JsonObject, unit: string, symbol: string, game?: UnitKeyGame): boolean {
   if (stringValue(runnerValidation.status) !== "passed" || !unit || !symbol) return false;
   const claimBase = runnerValidation.steering as WorkerSteeringResult | null | undefined;
   const evidence = runnerValidation.unverifiedTarget as UnverifiedTargetEvidence | null | undefined;
   try {
-    return unverifiedTargetCertified(claimBase ?? null, evidence ?? null, { unit, symbol });
+    return unverifiedTargetCertified(claimBase ?? null, evidence ?? null, { unit, symbol, game });
   } catch {
     // A malformed artifact certifies nothing.
     return false;
@@ -2614,7 +2621,8 @@ function workerStateOutcomeCounts(workerStates: JsonObject[]): JsonObject {
   return counts;
 }
 
-function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject[] {
+/** `game`: the run's game, so a target's report unit names the gate's short unit (`unitModulePrefixes`). */
+function improvementRowsFromWorkerStates(workerStates: JsonObject[], game?: UnitKeyGame): JsonObject[] {
   const rows: JsonObject[] = [];
   for (const workerState of workerStates) {
     const target = asObject(workerState.target);
@@ -2654,8 +2662,8 @@ function improvementRowsFromWorkerStates(workerStates: JsonObject[]): JsonObject
         admissionBaselineScore < 99.99999;
       const displayedBefore = staleExactBaseline ? admissionBaselineScore : before;
       const displayedDelta = staleExactBaseline ? after - admissionBaselineScore : runnerDelta;
-      // 100% unverified -> verified 100%: done with no score delta (withheld again while the function is still unverified).
-      const verifiedCompletion = !held && runnerTarget.exact === true && certifiedUnverifiedTarget(asObject(workerState.runnerValidation), base.unit, base.symbol);
+      // 100% but unverified -> verified 100%: done with no score delta (withheld again while the function is still unverified).
+      const verifiedCompletion = !held && runnerTarget.exact === true && certifiedUnverifiedTarget(asObject(workerState.runnerValidation), base.unit, base.symbol, game);
       const positiveAttempts = workerStatePositiveAttempts(workerState).length;
       rows.push({
         ...base,
@@ -3015,7 +3023,7 @@ const UNVERIFIED_REASON_LIMIT = 3;
 /**
  * The game's completion holds, or undefined for games without an active
  * steering gate (Melee): their rows and counts stay exactly as before.
- * `active` holds the active `unverified_match` rows ("100% unverified") for
+ * `active` holds the active `unverified_match` rows ("100% but unverified") for
  * labels and counts; every stored figure is withheld at its own saved
  * revision (`at(rev)`: active rows plus the rollbacks not certified there,
  * the same holds settlement, save points and sync withheld when writing).
@@ -3024,7 +3032,11 @@ const UNVERIFIED_REASON_LIMIT = 3;
  */
 function unverifiedIndexForDashboard(
   stateDir: string,
-  game: { gameId?: string | null; repoRoot?: string | null; matching?: { steeringGate?: string | null } | null } | null | undefined,
+  game: {
+    gameId?: string | null;
+    repoRoot?: string | null;
+    matching?: { steeringGate?: string | null; unitModulePrefixes?: readonly string[] | null } | null;
+  } | null | undefined,
   repoRoot?: string | null,
 ): SteeringCompletionHolds | undefined {
   const steeringGate = game?.matching?.steeringGate ?? null;
@@ -3032,7 +3044,7 @@ function unverifiedIndexForDashboard(
   try {
     const store = openState(stateDir);
     try {
-      return steeringCompletionHolds(store, { gameId: game.gameId, steeringGate }, repoRoot || game.repoRoot || null);
+      return holdsForGame(steeringCompletionHolds(store, { gameId: game.gameId, steeringGate }, repoRoot || game.repoRoot || null), game);
     } finally {
       store.db.close();
     }
@@ -3040,6 +3052,26 @@ function unverifiedIndexForDashboard(
     uiLog("stderr", `unverified match read failed: ${error instanceof Error ? error.message : String(error)}`);
     return unknownCompletionHolds();
   }
+}
+
+/**
+ * Holds keyed for the game's report spelling: steering rows name units
+ * without the objdiff module prefix (`Animal/AnimalBase`) while target and
+ * report rows carry it (`mario/Animal/AnimalBase`), so every index the holds
+ * hand out canonicalises the key it is asked for (`withUnitKeys`). Identity
+ * for games without module prefixes (Melee).
+ */
+function holdsForGame(holds: SteeringCompletionHolds | undefined, game: UnitKeyGame): SteeringCompletionHolds | undefined {
+  if (!holds || holds.unknown) return holds;
+  withUnitKeys(holds.active, game);
+  return {
+    ...holds,
+    active: holds.active,
+    at: (rev) => {
+      const index = holds.at(rev);
+      return completionIndexUnknown(index) ? index : withUnitKeys(index, game);
+    },
+  };
 }
 
 /** Endpoints carrying only a run/game id still use that game's configured gate. */
@@ -3054,7 +3086,7 @@ function unverifiedIndexForDashboardGameId(stateDir: string, gameId: string): St
 /** The row's `verification*` fields when its function has an active unverified row; {} otherwise. */
 function unverifiedFields(index: UnverifiedMatchIndex | undefined, unit: unknown, symbol: unknown): JsonObject {
   if (!index || index.size === 0) return {};
-  const record = index.get(unverifiedMatchKey(stringValue(unit), stringValue(symbol)));
+  const record = unitKeyedGet(index, unverifiedMatchKey(stringValue(unit), stringValue(symbol)));
   if (!record) return {};
   return {
     verification: UNVERIFIED_MATCH_STATE,
@@ -3174,10 +3206,12 @@ function unverifiedCounts(holds: SteeringCompletionHolds | undefined, epochTarge
   if (!holds) return {};
   if (holds.unknown) return { unverified_matches: null, unverified_run_targets: null };
   const index = holds.active;
+  // Distinct functions, whichever unit spelling a target row carries.
+  const canonical = unitKeyNormalizer(index) ?? ((key: string) => key);
   const runTargets = new Set<string>();
   for (const row of epochTargets) {
     const key = unverifiedMatchKey(stringValue(row.unit), stringValue(row.symbol));
-    if (index.has(key)) runTargets.add(key);
+    if (unitKeyedHas(index, key)) runTargets.add(canonical(key));
   }
   return { unverified_matches: index.size, unverified_run_targets: runTargets.size };
 }
@@ -3439,6 +3473,7 @@ function knowledgeIntakeSummary(stateDir: string, graphDbPath: string): JsonObje
 
 function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | null = null): JsonObject {
   let holds = unverifiedIndexForDashboard(stateDir, game);
+  let unitGame: UnitKeyGame = game;
   const store = openState(stateDir);
   let status: JsonObject;
   let runId = explicitRunId;
@@ -3447,7 +3482,10 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
     if (!runId && game) runId = getHarnessState(store.db, game.gameId)?.history.run_id ?? "";
     const run = runId ? getRun(store, runId) : null;
     if (run && game && run.gameId !== game.gameId) return { error: "Run does not belong to this game." };
-    if (!game && run?.gameId) holds = unverifiedIndexForDashboardGameId(stateDir, run.gameId);
+    if (!game && run?.gameId) {
+      holds = unverifiedIndexForDashboardGameId(stateDir, run.gameId);
+      unitGame = run.gameId;
+    }
     status = run ? runStatusProjection(store, run) : { run: null };
     if (runId) boundary = boundaryDashboardForRun(store.db, runId, undefined, holds);
   } finally {
@@ -3462,7 +3500,7 @@ function runDetails(stateDir: string, explicitRunId = "", game: ResolvedGame | n
   const sessions = piSessionsForRun(stateDir, runId);
   const targetClaims = annotateUnverified(targetClaimsForRun(stateDir, runId), unverified);
   const epochTargets = annotateUnverified(epochTargetsForRun(stateDir, runId), unverified);
-  const improvements = withholdUnverifiedExact(improvementRowsFromWorkerStates(workerStates), unverified);
+  const improvements = withholdUnverifiedExact(improvementRowsFromWorkerStates(workerStates, unitGame), unverified);
   const improvedFiles = fileImprovementRows(improvements);
   const timeline = runTimeline({ workerStates, events, sessions, targetClaims });
   const exactMatches = improvements.reduce((sum, improvement) => sum + numberValue(improvement.exactMatches), 0);
@@ -3780,7 +3818,7 @@ async function runDashboard(paths: DashboardGameContext): Promise<JsonObject> {
     const result = workerStateResult(workerState);
     return result === "exact" || result === "improved";
   });
-  const improvements = withholdUnverifiedExact(improvementRowsFromWorkerStates(allWorkerStates), unverified);
+  const improvements = withholdUnverifiedExact(improvementRowsFromWorkerStates(allWorkerStates, paths.game), unverified);
   const improvedFiles = fileImprovementRows(improvements);
   const epochTargets = runId ? annotateUnverified(epochTargetsForRun(stateDir, runId), unverified) : [];
   const trustedReport = trustedReportProgress(trustedReportFromDatabase(stateDir, runId, runCreatedAt),

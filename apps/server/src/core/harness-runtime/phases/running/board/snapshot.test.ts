@@ -4,6 +4,8 @@ import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
 import { loadBoardSnapshot, loadExactTargetKeys, loadStackOnlyTargetKeys } from "./snapshot.js";
+import { withUnitKeys } from "@server/core/harness-runtime/run-state/unit-key.js";
+import { candidateFromReportFunction } from "./candidates.js";
 
 function writeJson(path: string, value: unknown): void {
   mkdirSync(resolve(path, ".."), { recursive: true });
@@ -280,7 +282,7 @@ describe("unverified_match targets", () => {
   };
   const options = { reportPath: "build/GMSJ01/report.json" };
 
-  test("a 100% unverified function is a flagged candidate ahead of untouched ones, never exact, never stack-only done", () => {
+  test("a 100% but unverified function is a flagged candidate ahead of untouched ones, never exact, never stack-only done", () => {
     const root = mkdtempSync(join(tmpdir(), "board-unverified-"));
     try {
       writeJson(resolve(root, "build/GMSJ01/report.json"), report);
@@ -294,7 +296,7 @@ describe("unverified_match targets", () => {
       expect(loadExactTargetKeys(root, { ...options, unverified }).has("sms/a::exact")).toBe(true);
       expect(loadStackOnlyTargetKeys(root, { ...options, stackOnly, unverified }).has("sms/a::frame")).toBe(false);
       // Not done: the exact unverified function leaves the matched counts, and both unverified functions'
-      // fuzzy credit ((24*100 + 20*99.5) / 92) leaves the score; the separate "100% unverified" figure reports it.
+      // fuzzy credit ((24*100 + 20*99.5) / 92) leaves the score; the separate "100% but unverified" figure reports it.
       expect(snapshot.measures).toMatchObject({
         matched_functions: 1, matched_functions_percent: 25, matched_code: 16, matched_code_percent: 17.3913, fuzzy_match_percent: 32.28261,
         unverified_functions: 1, unverified_code: 24, unverified_code_percent: 26.08696, unverified_targets: 2,
@@ -320,6 +322,72 @@ describe("unverified_match targets", () => {
       const snapshot = loadBoardSnapshot(resolve(root, "repo"), { codeGraphFunctionsIndexPath: functionsIndex, unverified: new Set(["sms/a::unverified"]) });
       expect(snapshot.candidates.map((c) => [c.symbol, c.verification])).toEqual([["unverified", "unverified_match"]]);
       expect(snapshot.measures).toMatchObject({ matched_functions_percent: 50, matched_code_percent: 60, unmatched_targets: 1, unverified_functions: 1, unverified_code: 40, unverified_code_percent: 40 });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("an unverified target whose compiler delta is a single change ranks first among the unverified", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-unverified-single-"));
+    try {
+      writeJson(resolve(root, "build/GMSJ01/report.json"), report);
+      const unverified = new Set(["sms/a::unverified", "sms/a::frame"]);
+      const order = (singleChange?: ReadonlySet<string>) => loadBoardSnapshot(root, { ...options, unverified, ...(singleChange ? { unverifiedSingleChange: singleChange } : {}) })
+        .candidates.map((c) => c.symbol);
+      expect(order()).toEqual(["unverified", "frame", "open"]);
+      expect(order(new Set(["sms/a::frame"]))).toEqual(["frame", "unverified", "open"]);
+      // A key that is not unverified changes nothing.
+      expect(order(new Set(["sms/a::open"]))).toEqual(["unverified", "frame", "open"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("module-prefixed report units (SMS)", () => {
+  // objdiff names the unit with its module; steering rows (and so the index) without it.
+  const report = {
+    units: [{
+      name: "mario/Animal/AnimalBase",
+      metadata: { source_path: "src/Animal/AnimalBase.cpp" },
+      functions: [
+        { name: "open", size: 32, fuzzy_match_percent: 50 },
+        { name: "held", size: 24, fuzzy_match_percent: 100 },
+        { name: "single", size: 20, fuzzy_match_percent: 90 },
+      ],
+      sections: [],
+    }],
+    measures: { total_functions: 3, matched_functions: 1, total_code: "76", matched_code: "24", matched_code_percent: 31.57895 },
+  };
+  const options = { reportPath: "build/GMSJ01/report.json" };
+  const shortKeys = () => new Set(["Animal/AnimalBase::held", "Animal/AnimalBase::single"]);
+
+  test("a tagged short-unit index keeps the held 100% repair target, withholds its credit and ranks the single change first", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-prefixed-"));
+    try {
+      writeJson(resolve(root, "build/GMSJ01/report.json"), report);
+      const unverified = withUnitKeys(shortKeys(), "sms");
+      expect(candidateFromReportFunction({ unitName: "mario/Animal/AnimalBase", sourcePath: "", fn: report.units[0]!.functions[1]!, unverified }))
+        .toMatchObject({ symbol: "held", verification: "unverified_match" });
+      const snapshot = loadBoardSnapshot(root, { ...options, unverified });
+      expect(snapshot.candidates.map((c) => [c.symbol, c.verification ?? null])).toEqual([["held", "unverified_match"], ["single", "unverified_match"], ["open", null]]);
+      expect(snapshot.measures).toMatchObject({ matched_functions: 0, matched_code: 0, unverified_functions: 1, unverified_targets: 2 });
+      expect(loadExactTargetKeys(root, { ...options, unverified }).has("mario/Animal/AnimalBase::held")).toBe(false);
+      // The single-change keys are steering keys too: an untagged set borrows the index's normalisation.
+      const order = loadBoardSnapshot(root, { ...options, unverified, unverifiedSingleChange: new Set(["Animal/AnimalBase::single"]) });
+      expect(order.candidates.map((c) => c.symbol)).toEqual(["single", "held", "open"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("Melee (no module prefixes): the same short keys never match a longer unit", () => {
+    const root = mkdtempSync(join(tmpdir(), "board-prefixed-melee-"));
+    try {
+      writeJson(resolve(root, "build/GMSJ01/report.json"), report);
+      const unverified = withUnitKeys(shortKeys(), "melee");
+      expect(loadBoardSnapshot(root, { ...options, unverified }).candidates.map((c) => c.symbol)).toEqual(["open", "single"]);
+      expect(loadExactTargetKeys(root, { ...options, unverified }).has("mario/Animal/AnimalBase::held")).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

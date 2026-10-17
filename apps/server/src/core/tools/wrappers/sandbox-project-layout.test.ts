@@ -33,6 +33,9 @@ describe("sandbox project layout probe", () => {
     await mkdir(resolve(fixtureRoot, "build/GMSJ01/include"), { recursive: true });
     await mkdir(resolve(fixtureRoot, "include/PowerPC_EABI_Support/Msl/MSL_C/MSL_Common"), { recursive: true });
     await mkdir(resolve(fixtureRoot, "include/PowerPC_EABI_Support/Msl/MSL_C++/MSL_Common"), { recursive: true });
+    // SMS's middleware and its MSL live under libs/ (configure.py's include flags).
+    for (const lib of ["dolphin", "JSystem"]) await mkdir(resolve(fixtureRoot, `libs/${lib}/include`), { recursive: true });
+    await mkdir(resolve(fixtureRoot, "libs/PowerPC_EABI_Support/include/PowerPC_EABI_Support/Msl/MSL_C/MSL_Common"), { recursive: true });
     await mkdir(resolve(fixtureRoot, "tools"), { recursive: true });
     await writeFile(resolve(fixtureRoot, "tools/decompctx.py"), "");
     await writeFile(resolve(fixtureRoot, "build/GMSJ01/report.json"), JSON.stringify({ units: [] }));
@@ -55,8 +58,12 @@ describe("sandbox project layout probe", () => {
       contextScript: "tools/decompctx.py",
       includePaths: [
         "include",
+        "libs/JSystem/include",
+        "libs/PowerPC_EABI_Support/include",
+        "libs/dolphin/include",
         "include/PowerPC_EABI_Support/Msl/MSL_C/MSL_Common",
         "include/PowerPC_EABI_Support/Msl/MSL_C++/MSL_Common",
+        "libs/PowerPC_EABI_Support/include/PowerPC_EABI_Support/Msl/MSL_C/MSL_Common",
         "build/GMSJ01/include",
       ],
       units: [{

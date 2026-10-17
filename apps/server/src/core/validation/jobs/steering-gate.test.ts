@@ -17,7 +17,18 @@ import { listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harne
 import { steeringPreviousAttempt } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import type { SteeringRunner } from "@server/core/validation/steering/steering-check.js";
 import type { CommandResult } from "@server/infrastructure/shell";
-import { runSteeringBackfill, steeringGateJob, type SteeringBuildRunner } from "./steering-gate.js";
+import { APPLE_CLANG_21_PROBE, LLVM_CLANG_18_PROBE, LLVM_CLANG_21_PROBE } from "@server/core/validation/steering/__fixtures__/clang-probe.js";
+import { evaluateSandboxProbe } from "@server/core/validation/steering/steering-check.js";
+import type { BuildTask } from "@server/core/validation/build/execution.js";
+import {
+  backfillSteeringPlacement,
+  buildSandboxRebuildRunner,
+  buildSandboxSteeringRunner,
+  runSteeringBackfill,
+  steeringGateJob,
+  type SteeringBuildRunner,
+  type SteeringBuildTaskExecutor,
+} from "./steering-gate.js";
 
 const dirs: string[] = [];
 afterAll(() => {
@@ -42,6 +53,8 @@ function git(repo: string, ...args: string[]): string {
 
 const UNIT_A = "mario/Enemy/a";
 const UNIT_B = "mario/Enemy/b";
+/** Steering rows store the gate's unit: the report's without the `mario/` module prefix. */
+const gateUnit = (unit: string) => unit.replace(/^mario\//, "");
 const SRC_A = "src/Enemy/a.cpp";
 const SRC_B = "src/Enemy/b.cpp";
 const HEADER = "include/Enemy/shared.h";
@@ -442,7 +455,7 @@ describe("steering-gate unverified_match", () => {
       expect(latestCleanSteeringBackfillRun(store, "sms")?.baselineRev).toBe(head);
       expect(() => assertSteeringGatePreflight(store, { game: enforced, repoRoot: repo, command: "run-loop" })).not.toThrow();
       expect(listUnverifiedMatches(store, "sms")).toEqual([expect.objectContaining({
-        unit: UNIT_B, symbol: "u", analyzedRev: head, baseRev: "base000", sourcePath: SRC_B, reasons: ["IR oracle failed for the unit"],
+        unit: gateUnit(UNIT_B), symbol: "u", analyzedRev: head, baseRev: "base000", sourcePath: SRC_B, reasons: ["IR oracle failed for the unit"],
         match: { base: 90, candidate: 100, real_only: 97 },
       })]);
     });
@@ -688,7 +701,7 @@ describe("steering-gate scoped --apply", () => {
       expect(readFileSync(join(repo, SRC_B), "utf8")).toBe(STEERED);
       expect(result.touchedFiles).toEqual([SRC_A]);
       expect(runners.builds).toEqual([["ninja", "-j3", "build/GMSJ01/src/Enemy/a.o", "build/GMSJ01/report.json"]]);
-      expect(listSteeringBackfill(store, "sms").map((row) => row.unit)).toEqual([UNIT_A]);
+      expect(listSteeringBackfill(store, "sms").map((row) => row.unit)).toEqual([gateUnit(UNIT_A)]);
       expect(steeringCoverageFor(store, "sms", UNIT_B)).toBeNull();
     });
   });
@@ -719,5 +732,170 @@ describe("steering-gate errors", () => {
   test("refuses games with the gate off unless --force", async () => {
     const globals = { game: resolveGame({ gameId: "melee" }), gameId: "melee", repoRoot: tempDir(), stateDir: tempDir(), dryRunAgents: true, model: "m", provider: "p", thinkingLevel: "low" };
     await expect(steeringGateJob(globals as never, new Map([["--base", "HEAD"]]))).rejects.toThrow(/melee is off \(pass --force/);
+  });
+});
+
+describe("backfill placement", () => {
+  /** The host probe answering a recorded probe output. */
+  const hostProbe = (fixture: unknown) => {
+    const calls: string[] = [];
+    const probe = async (cwd: string) => {
+      calls.push(cwd);
+      return evaluateSandboxProbe({ exitCode: 0, stdout: JSON.stringify(fixture), stderr: "" }, "host");
+    };
+    return { probe, calls };
+  };
+
+  test("the default, auto and sandbox all place the backfill in the build sandbox; nothing is probed on the host", async () => {
+    for (const [params, requested] of [[{}, "auto"], [{ flag: "auto" }, "auto"], [{ flag: "sandbox" }, "sandbox"], [{ env: { ORCH_STEERING_GATE_PLACEMENT: "sandbox" } }, "sandbox"]] as const) {
+      const { probe, calls } = hostProbe(LLVM_CLANG_21_PROBE);
+      expect(await backfillSteeringPlacement({ repoRoot: "/repo", env: {}, probe, ...params })).toMatchObject({ requested, where: "sandbox" });
+      expect(calls).toEqual([]);
+    }
+    await expect(backfillSteeringPlacement({ repoRoot: "/repo", flag: "elsewhere", env: {} })).rejects.toThrow("--placement is sandbox or host, got elsewhere");
+  });
+
+  test("the host opt-in runs only with an LLVM 21 clang: Apple clang 21 and LLVM 18 are refused", async () => {
+    const llvm21 = hostProbe(LLVM_CLANG_21_PROBE);
+    const placement = await backfillSteeringPlacement({ repoRoot: "/repo", env: { ORCH_STEERING_GATE_PLACEMENT: "host" }, probe: llvm21.probe });
+    expect(placement).toMatchObject({ requested: "host", where: "host", clang: "/usr/bin/clang-21", clang_version: LLVM_CLANG_21_PROBE.version });
+    expect(llvm21.calls).toEqual(["/repo"]);
+    await expect(backfillSteeringPlacement({ repoRoot: "/repo", flag: "host", env: {}, probe: hostProbe(APPLE_CLANG_21_PROBE).probe }))
+      .rejects.toThrow("steering-gate --placement host refuses: /usr/bin/clang is Apple clang (Apple clang version 21.0.0 (clang-2100.1.1.101))");
+    await expect(backfillSteeringPlacement({ repoRoot: "/repo", flag: "host", env: {}, probe: hostProbe(LLVM_CLANG_18_PROBE).probe }))
+      .rejects.toThrow("host clang is LLVM 18, not 21");
+    // The flag wins over the env.
+    expect(await backfillSteeringPlacement({ repoRoot: "/repo", flag: "sandbox", env: { ORCH_STEERING_GATE_PLACEMENT: "host" }, probe: llvm21.probe }))
+      .toMatchObject({ where: "sandbox" });
+  });
+});
+
+/**
+ * A fake build sandbox (`executeBuildTask`): `check` answers the next queued
+ * report on stdout behind an LLVM 21 probe; `apply` publishes its edit to the
+ * host checkout the way `daytona.ts` applies the returned patch; `ninja`
+ * succeeds.
+ */
+function fakeBuildSandbox(repo: string, reports: unknown[], applyWrites: Record<string, string> = {}) {
+  const tasks: BuildTask[] = [];
+  const uploaded = new Map<string, string>();
+  const llvm21 = evaluateSandboxProbe({ exitCode: 0, stdout: JSON.stringify(LLVM_CLANG_21_PROBE), stderr: "" });
+  const execute = (async (_repoRoot: string, task: BuildTask) => {
+    tasks.push(task);
+    if (task.kind === "command") return { exitCode: 0, stdout: "", stderr: "" };
+    for (const [remote, local] of Object.entries((task.input.uploads ?? {}) as Record<string, string>)) uploaded.set(remote, readFileSync(local, "utf8"));
+    const args = (task.input.command as string[]).slice(2);
+    if (args[0] === "check") return { exitCode: 0, stdout: JSON.stringify(reports.shift()), stderr: "", probe: llvm21 };
+    if (args[0] === "apply" && task.input.applyEdits === true) {
+      for (const [path, text] of Object.entries(applyWrites)) writeFileSync(join(repo, path), text);
+    }
+    return { exitCode: 0, stdout: "", stderr: "", probe: llvm21 };
+  }) as SteeringBuildTaskExecutor;
+  return { execute, tasks, uploaded };
+}
+
+describe("backfill in the build sandbox", () => {
+  test("check, apply, rebuild and re-check all run as build-sandbox tasks; apply's edit comes back to the host checkout", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const sandbox = fakeBuildSandbox(repo, [
+        check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] }), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] }),
+        check({ attempt: "pass", functions: [fn(UNIT_A, "steer", "pass"), fn(UNIT_B, "fine", "pass")], units: covered(UNIT_A, UNIT_B) }),
+      ], { [SRC_A]: REAL });
+      const runner = buildSandboxSteeringRunner({ repoRoot: repo, mode: "enforce", timeoutMs: 60_000, execute: sandbox.execute });
+      const buildRunner = buildSandboxRebuildRunner({ repoRoot: repo, timeoutMs: 60_000, execute: sandbox.execute });
+      const outputDir = join(dir, "out");
+      const result = await runSteeringBackfill({
+        store, gameId: "sms", repoRoot: repo, baseRev: "base000", headRev: head, record: true, apply: true, dryRun: false,
+        runner, buildRunner, outputDir, validation: VALIDATION, buildCheck: () => null, checkOptions: { cacheDir: join(dir, "host-cache") },
+      });
+      expect(sandbox.tasks.map((task) => `${task.kind}:${task.kind === "steering" ? (task.input.command as string[])[2] : (task.input.command as string[])[0]}`))
+        .toEqual(["steering:check", "steering:apply", "command:ninja", "steering:check"]);
+      const [first, apply, build] = sandbox.tasks;
+      const checkArgs = first!.input.command as string[];
+      expect(checkArgs.slice(0, 2)).toEqual(["python3", "/opt/toolpacks/gamecube-decomp/_impl/gamecube/tools/steering_check.py"]);
+      // Host --out files come back on stdout; the host cache becomes the sandbox cache.
+      expect(checkArgs).not.toContain("--out");
+      expect(checkArgs[checkArgs.indexOf("--cache-dir") + 1]).toBe("/tmp/steering-cache");
+      expect(checkArgs[checkArgs.indexOf("--repo") + 1]).toBe(repo);
+      expect(first!.input.options).toEqual({ env: { ORCH_STEERING_GATE: "enforce" }, timeoutMs: 60_000 });
+      expect(first!.input.applyEdits).toBeUndefined();
+      // apply gets the host check report uploaded, may edit source, and skips configure.
+      const applyArgs = apply!.input.command as string[];
+      const report = applyArgs[applyArgs.indexOf("--report") + 1]!;
+      expect(report).toBe("/tmp/steering-inputs/call/0-check.json");
+      expect(JSON.parse(sandbox.uploaded.get(report)!)).toMatchObject({ decision: { attempt: "steering_located" } });
+      // The edit must compile before it leaves the sandbox: configure runs, and every file's units are listed (headers too).
+      expect(apply!.input).toMatchObject({ applyEdits: true });
+      expect(apply!.input.skipConfigure).toBeUndefined();
+      expect((apply!.input.verify as { owners: Record<string, unknown> }).owners).toEqual({
+        [SRC_A]: [{ unit: UNIT_A, object: "build/GMSJ01/src/Enemy/a.o" }],
+        [SRC_B]: [{ unit: UNIT_B, object: "build/GMSJ01/src/Enemy/b.o" }],
+        [HEADER]: [{ unit: UNIT_A, object: "build/GMSJ01/src/Enemy/a.o" }, { unit: UNIT_B, object: "build/GMSJ01/src/Enemy/b.o" }],
+      });
+      expect(build!.input.command).toEqual(["ninja", "-j3", "build/GMSJ01/src/Enemy/a.o", "build/GMSJ01/report.json"]);
+      expect(readFileSync(join(repo, SRC_A), "utf8")).toBe(REAL);
+      expect(result).toMatchObject({ applied: true, touchedFiles: [SRC_A], touchedUnits: [UNIT_A] });
+      expect(listSteeringBackfill(store, "sms").find((row) => row.symbol === "steer")).toMatchObject({ verdict: "pass", applied: true });
+      expect(JSON.parse(readFileSync(join(outputDir, "check.json"), "utf8"))).toMatchObject({ decision: { attempt: "steering_located" } });
+      expect(runner.probes.map((probe) => probe.clangVersion)).toEqual([LLVM_CLANG_21_PROBE.version, LLVM_CLANG_21_PROBE.version, LLVM_CLANG_21_PROBE.version]);
+    });
+  });
+
+  test("an apply whose revert leaves a unit uncompilable is refused: the unit is named, the checkout is unchanged, nothing is rebuilt or re-checked", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const tasks: BuildTask[] = [];
+      const llvm21 = evaluateSandboxProbe({ exitCode: 0, stdout: JSON.stringify(LLVM_CLANG_21_PROBE), stderr: "" });
+      const failure = { unit: UNIT_A, object: "build/GMSJ01/src/Enemy/a.o", output: "src/Enemy/a.cpp:3: error: undefined identifier 't'" };
+      const execute = (async (_repoRoot: string, task: BuildTask) => {
+        tasks.push(task);
+        const args = (task.input.command as string[]).slice(2);
+        if (args[0] === "check") {
+          return { exitCode: 0, stderr: "", probe: llvm21, stdout: JSON.stringify(check({ attempt: "steering_located", functions: [fn(UNIT_A, "steer", "steering_located", { groups: ["g1"] })], units: covered(UNIT_A), removable: [{ id: "g1", file: SRC_A }], removableNoncosmetic: ["g1"] })) };
+        }
+        // The build sandbox compiled the reverted unit, it failed, and it returned no patch: the host is untouched.
+        return { exitCode: 4, stdout: "", stderr: "apply refused", probe: llvm21, compile: { ok: false, changed: [SRC_A], objects: [failure.object], failures: [failure], unowned: [] } };
+      }) as SteeringBuildTaskExecutor;
+      const result = await runSteeringBackfill({
+        store, gameId: "sms", repoRoot: repo, baseRev: "base000", headRev: head, record: true, apply: true, dryRun: false,
+        runner: buildSandboxSteeringRunner({ repoRoot: repo, mode: "enforce", timeoutMs: 1_000, execute }),
+        buildRunner: buildSandboxRebuildRunner({ repoRoot: repo, timeoutMs: 1_000, execute }), outputDir: join(dir, "out"), validation: VALIDATION, buildCheck: () => null,
+      });
+      expect(tasks.map((task) => (task.input.command as string[])[2])).toEqual(["check", "apply"]);
+      expect(result.applied).toBe(false);
+      expect(result.clean).toBe(false);
+      expect(result.applyRefusals).toEqual([{ ok: false, changed: [SRC_A], objects: [failure.object], failures: [failure], unowned: [] }]);
+      expect(result.problems[0]).toBe(`apply refused: 1 unit(s) no longer compile after the revert: ${UNIT_A}`);
+      expect(result.nextSteps[0]).toContain("The apply was refused and the checkout is unchanged");
+      expect(readFileSync(join(repo, SRC_A), "utf8")).toBe(STEERED);
+      expect(git(repo, "status", "--porcelain")).toBe("");
+      expect(listSteeringRollbacks(store, "sms")).toEqual([]);
+    });
+  });
+
+  test("--dry-run apply never asks the sandbox for an edit", async () => {
+    const sandbox = fakeBuildSandbox("/repo", []);
+    const runner = buildSandboxSteeringRunner({ repoRoot: "/repo", mode: "shadow", timeoutMs: 1_000, execute: sandbox.execute });
+    expect((await runner(["apply", "--report", "/repo/x.json", "--dry-run"], "host")).exitCode).toBe(0);
+    expect(sandbox.tasks[0]!.input.applyEdits).toBeUndefined();
+    // A report inside the checkout travels with the synced source, not as an upload.
+    expect(sandbox.tasks[0]!.input.uploads).toBeUndefined();
+  });
+
+  test("a refused clang probe, a moved checkout or a provisioning error is a failed step, never a pass", async () => {
+    await withStore(async (store, dir) => {
+      const { repo, head } = checkout();
+      const refusing = (async () => ({ exitCode: 125, stdout: "", stderr: "steering build sandbox refused: sandbox clang is LLVM 18, not 21" })) as SteeringBuildTaskExecutor;
+      const run = (execute: SteeringBuildTaskExecutor) => runSteeringBackfill({
+        store, gameId: "sms", repoRoot: repo, baseRev: "base000", headRev: head, record: true, apply: false, dryRun: false,
+        runner: buildSandboxSteeringRunner({ repoRoot: repo, mode: "enforce", timeoutMs: 1_000, execute }),
+        buildRunner: buildSandboxRebuildRunner({ repoRoot: repo, timeoutMs: 1_000, execute }), outputDir: join(dir, `out-${Math.random()}`), validation: VALIDATION, buildCheck: () => null,
+      });
+      await expect(run(refusing)).rejects.toThrow("steering_check.py check exited 125: steering build sandbox refused: sandbox clang is LLVM 18, not 21");
+      const moved = (async () => { throw new Error("Checkout changed during Daytona build; rejecting stale artifacts"); }) as SteeringBuildTaskExecutor;
+      await expect(run(moved)).rejects.toThrow("steering_check.py check exited 127: Checkout changed during Daytona build");
+      expect(listSteeringBackfill(store, "sms")).toEqual([]);
+    });
   });
 });

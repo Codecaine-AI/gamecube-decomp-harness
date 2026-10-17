@@ -10,9 +10,11 @@ import { createRequestWriteSetWideningToolDefinition } from "@server/infrastruct
 import { runKnowledgeToolApiForContext } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
-import { validateMwccAllocAnalyzeArgs } from "./mwcc-alloc.js";
+import { boundToolPayload } from "../runtime/bounded-json.js";
+import { boundMwccAllocResult, mwccAllocManifestJson, validateMwccAllocAnalyzeArgs, validateMwccAllocCompareSourcesArgs } from "./mwcc-alloc.js";
 import { mwccDebugCompilerProvisioned } from "./mwcc-debug-capability.js";
 import { scaleTimeout, toolTimeoutScale } from "../timeout-scale.js";
+import { boundUnusedStubTestResult, unusedStubTestArgs } from "./unused-stub-test.js";
 
 const evidenceToolRoles = [
   "worker",
@@ -321,6 +323,34 @@ export const objdiffScoreCandidateToolRegistration = knowledgeApiTool({
     return args;
   },
 });
+
+/** Tool for the UNUSED stub test of one function (steering-gated games, sandbox only). */
+export const unusedStubTestToolRegistration: AgentToolRegistration = {
+  ...knowledgeApiTool({
+    id: "unused_stub_test",
+    toolId: "steering_check",
+    scriptName: "unused_test.py",
+    label: "UNUSED Stub Test",
+    purpose: "Check whether a body you gave a link-map UNUSED function changes any target function of its unit.",
+    description: "Compile the candidate twice in the sandbox, as written and with one function's body stubbed (signature kept), and compare every target function of the unit; the checkout is not written. Returns status dead (nothing changes: the body must go), inlined (the same-unit callers that get worse, the evidence that allows the body) or inconclusive (the stub does not build or the evidence is ambiguous), plus the link map's UNUSED status for context. Use it before keeping a body for a function the original link map lists as UNUSED.",
+    guidance: "Use unused_stub_test on every function the link map marks UNUSED that your edit gives a body; remove a dead body, and cite the inlined callers when you keep one.",
+    parameters: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "Repo-relative source file defining the function, e.g. src/Enemy/chuuhana.cpp." },
+        function: { type: "string", description: "Qualified name, optionally with parameters: TChuuHana::rolling or T::f(int)." },
+        base_ref: { type: "string", description: "Base revision whose source text and link map the result reports. Defaults to HEAD." },
+        timeout_seconds: { type: "number", description: "Maximum seconds per MWCC compile (30-900)." },
+      },
+      required: ["file", "function"],
+      additionalProperties: false,
+    },
+    args: unusedStubTestArgs,
+    normalizeResult: boundUnusedStubTestResult,
+  }),
+  // It compiles the claim's checkout in the worker sandbox: no other role has one.
+  allowedRoles: ["worker"],
+};
 
 // Live dump/diagnose calls need the instrumented mwcceppc_debug.exe built per
 // toolpacks/gamecube-decomp/_impl/gamecube/mwcc_debug/README.md. Gate them on provisioning so an
@@ -742,7 +772,8 @@ export const asmWindowSearchToolRegistration = knowledgeApiTool({
     const symbol = stringParam(params, "symbol");
     if (!symbol) return { status: "missing_symbol" };
     // DTK target objects cover every function, so the query tokens are already
-    // in the host index and no sandbox repo path or fetch step is needed.
+    // in the prebuilt index; with a worker sandbox the search runs there against
+    // the copy provisioning synced to /opt/tool-data (tools/resolver.ts).
     const args = ["--symbol", symbol];
     const unit = stringParam(params, "unit");
     if (unit) args.push("--unit", unit);
@@ -791,7 +822,7 @@ export const typeLayoutLookupToolRegistration = knowledgeApiTool({
   },
 });
 
-const REAL_CODE_EVIDENCE_COMMANDS = ["map-calls", "map-unit", "inlines", "usage", "jsystem"] as const;
+const REAL_CODE_EVIDENCE_COMMANDS = ["map-calls", "map-unit", "inlines", "usage", "jsystem", "compiler"] as const;
 type RealCodeEvidenceCommand = (typeof REAL_CODE_EVIDENCE_COMMANDS)[number];
 
 /** Required parameter per real_code_evidence command, and the CLI flag it maps to. */
@@ -801,6 +832,7 @@ const REAL_CODE_EVIDENCE_REQUIRED: Record<RealCodeEvidenceCommand, { param: stri
   inlines: { param: "type", flag: "--type" },
   usage: { param: "inline", flag: "--inline" },
   jsystem: { param: "query", flag: "--query" },
+  compiler: { param: "query", flag: "--query" },
 };
 
 /** Tool for read-only real-code evidence: link map, header inlines, matched usage, JSystem refs. */
@@ -810,28 +842,32 @@ export const realCodeEvidenceToolRegistration = knowledgeApiTool({
   scriptName: "real_code_evidence.py",
   label: "Real Code Evidence",
   purpose: "Search real evidence of the original code: link-map callees and unit layout, header inlines, matched usage, and JSystem references.",
-  description: "Read-only lookups over the host game checkout and pinned JSystem sources. map-calls lists what a function references in the original link map (first references only); map-unit lists every function the original placed in a unit, including weak and UNUSED (stripped) ones; inlines returns header inline bodies for a type or member; usage lists already-matching functions whose source calls an inline; jsystem searches Twilight Princess and Wind Waker JSystem sources. Returns evidence rows or status unavailable when a data source is missing, not a verdict on any edit.",
+  description: "Read-only lookups over the claim's sandbox checkout and the pinned JSystem sources (run in the worker sandbox; an image without a data source reports it missing). map-calls lists what a function references in the original link map (first references only); map-unit lists every function the original placed in a unit, including weak and UNUSED (stripped) ones; inlines returns header inline bodies for a type or member; usage lists already-matching functions whose source calls an inline; jsystem searches Twilight Princess and Wind Waker JSystem sources; compiler searches the pinned MWCC compiler source (rayanht/mwcc, at /opt/mwcc in sandboxes) and returns file:line hits that explain a codegen decision, which is a diagnosis, not evidence for a spelling. Returns evidence rows or status unavailable when a data source is missing, not a verdict on any edit.",
   guidance: "Use real_code_evidence before keeping a source-shape edit: look for a real callee, inline, weak function, or JSystem body that explains the match instead of a reworded expression.",
   executionMode: "parallel",
   parameters: {
     type: "object",
     properties: {
-      command: { type: "string", enum: [...REAL_CODE_EVIDENCE_COMMANDS], description: "map-calls (symbol), map-unit (unit), inlines (type, optional member), usage (inline, optional unit), or jsystem (query, optional game)." },
+      command: { type: "string", enum: [...REAL_CODE_EVIDENCE_COMMANDS], description: "map-calls (symbol), map-unit (unit), inlines (type, optional member), usage (inline, optional unit), jsystem (query, optional game), or compiler (query, optional path)." },
       symbol: { type: "string", description: "Function symbol for map-calls; mangled or readable, e.g. TNerveHanaSamboHide::execute." },
       unit: { type: "string", description: "Unit name or source path for map-unit, or an optional filter for usage." },
       type: { type: "string", description: "Class name for inlines, e.g. JGeometry::TVec3 or TVec3<f32>." },
       member: { type: "string", description: "Optional member name for inlines, e.g. scale." },
       inline: { type: "string", description: "Inline function for usage, e.g. TVec3::scale." },
-      query: { type: "string", description: "Literal text to find in the JSystem reference sources." },
+      query: { type: "string", description: "Literal text to find in the JSystem reference sources (jsystem) or the MWCC compiler source (compiler)." },
       game: { type: "string", enum: ["tp", "tww", "all"], description: "JSystem reference game for jsystem. Defaults to all." },
+      path: { type: "string", description: "Optional compiler filter: a file name (Coloring.c), a directory prefix (src/backend) or a glob." },
+      context: { type: "number", description: "Optional lines of context around each compiler hit (0-8, default 0)." },
       limit: { type: "number", description: "Maximum rows to return." },
     },
     required: ["command"],
     additionalProperties: false,
   },
   args(params) {
-    // Host-executed: evidence_search.py reads ORCH_GAME_HOST_REPO_ROOT from
-    // the resolver env, never the worker's sandbox repo path.
+    // Sandbox-routed (tools/resolver.ts): with a worker sandbox, evidence_search.py
+    // runs there against the sandbox checkout (/opt/refs/jsystem, /opt/mwcc) and
+    // never on the host (jsystem on an image without the refs answers
+    // sandbox_prerequisite_missing). Callers without a sandbox run on the host.
     const command = stringParam(params, "command") as RealCodeEvidenceCommand;
     if (!REAL_CODE_EVIDENCE_COMMANDS.includes(command)) {
       return { status: "invalid_command", command, allowed_commands: [...REAL_CODE_EVIDENCE_COMMANDS] };
@@ -846,9 +882,15 @@ export const realCodeEvidenceToolRegistration = knowledgeApiTool({
     if (command === "usage" && unit) args.push("--unit", unit);
     const game = stringParam(params, "game");
     if (command === "jsystem" && ["tp", "tww", "all"].includes(game)) args.push("--game", game);
+    const path = stringParam(params, "path");
+    if (command === "compiler" && path) args.push("--path", path);
+    const context = Number(params.context);
+    if (command === "compiler" && Number.isFinite(context)) args.push("--context", String(Math.max(0, Math.min(8, Math.trunc(context)))));
     if (params.limit !== undefined) args.push("--limit", String(boundedLimit(params.limit, 20, 200)));
     return args;
   },
+  // map-unit of a large unit can pass the output cap: bound it structurally so the result stays valid JSON.
+  normalizeResult: (result) => boundToolPayload("real_code_evidence", result, "Narrow with unit, member, path or a lower limit."),
 });
 
 /** Tool for previewing missing include additions. */
@@ -973,15 +1015,16 @@ export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
   toolId: "mwcc_alloc",
   scriptName: "snapshot.py",
   label: "MWCC Allocator Snapshot",
-  purpose: "Capture MWCC PCode, allocator, creation, and stack trace evidence for one function.",
-  description: "Capture selected PCode or GPR coloring under stock MWCC. pair captures two stages of one compile; trace defaults to stages for PCode/graph evidence; trace_detail=full also requests creation records and stack/local object files for mwcc_alloc_analyze. Read identity and omission metadata before using the capture. Capture runs only in the sandbox with hash-gated GC 1.2.5/1.2.5n. Use trace for register allocation, stack, or scheduling residuals.",
-  guidance: "After a full diff identifies register allocation, stack, or scheduling residuals, use capture=trace and mwcc_alloc_analyze to investigate the compiler decisions. Legacy coloring modes are GPR-only; trace retains emitted GPR/FPR coloring graphs; before/after are two stages of one compile, not candidate vs target. Full tracing can take minutes under qemu; use stages first and batch questions. pair captures the snapshots you can feed to mwcc_alloc_compare.",
+  purpose: "Capture what MWCC decided for one function: coloring, vreg identities, inlining, CSE and frame (native), or PCode stages (qemu).",
+  description: "Capture MWCC's decisions for one function of the current checkout. Native captures (backend native, seconds) use the traced build of the unit's compiler and require its object to equal the stock object: coloring-native writes per-class, per-pass coloring snapshots (mwcc-coloring-snapshot-v1, GPR and FPR, every spill pass) and decisions writes mwcc-decisions-v1 (vreg identity with declaration sites, interference, coloring, coalescing, inlining, CSE, frame slots). Trace points a compiler version lacks are listed as unavailable_points, never empty. Qemu captures (pcode, coloring, pair, trace) observe the stock compiler under qemu for PCode stages and can take minutes. backend=auto picks per capture; every result names the backend used.",
+  guidance: "Use capture=decisions (native) first to see what MWCC decided for your candidate: which object owns each register, what was inlined, which CSE temps and frame slots exist. To see what an edit changes, use mwcc_alloc_compare_sources instead of two snapshots. Use qemu trace only when you need PCode stages, provenance, explain, inverse, source-rank, stack or origins (mwcc_alloc_analyze). before/after in pair are two stages of one compile, not candidate vs target.",
   parameters: {
     type: "object",
     properties: {
       unit: { type: "string", description: "Workspace-relative translation unit path." },
-      function: { type: "string", description: "Function symbol to capture." },
-      capture: { type: "string", enum: ["pcode", "coloring", "pair", "trace"], description: "Allocator state to capture. Defaults to pair." },
+      function: { type: "string", description: "Function symbol to capture (mangled or plain name)." },
+      capture: { type: "string", enum: ["decisions", "coloring-native", "pcode", "coloring", "pair", "trace"], description: "What to capture. Defaults to pair (qemu). decisions and coloring-native run on the native traced compiler." },
+      backend: { type: "string", enum: ["auto", "native", "qemu"], description: "auto (default) picks per capture: native for decisions/coloring-native, qemu for PCode captures." },
       trace_detail: { type: "string", enum: ["stages", "full"], description: "Only for capture=trace. stages is the default PCode/graph capture; full also requests creation, stack, and local-object tracing and can take minutes." },
       timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
     },
@@ -994,12 +1037,91 @@ export const mwccAllocSnapshotToolRegistration = knowledgeApiTool({
     const fn = stringParam(params, "function");
     if (!unit || !fn) return { status: "missing_unit_or_function" };
     const capture = stringParam(params, "capture") || "pair";
+    const backend = stringParam(params, "backend");
     const detail = params.trace_detail;
     if (detail !== undefined && (capture !== "trace" || !["stages", "full"].includes(String(detail)))) {
       return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: "trace_detail requires capture=trace and must be stages or full" };
     }
-    return ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn, "--capture", capture, "--timeout-seconds", String(boundedNumber(params.timeout_seconds, 900, 60, 1800)), ...(detail === undefined ? [] : ["--trace-detail", String(detail)])];
+    const nativeCapture = capture === "decisions" || capture === "coloring-native";
+    // Native captures default to the wrapper's shorter, profile-scaled timeout.
+    const timeout = params.timeout_seconds === undefined && nativeCapture
+      ? []
+      : ["--timeout-seconds", String(boundedNumber(params.timeout_seconds, 900, 60, 1800))];
+    return ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn, "--capture", capture, ...(backend ? ["--backend", backend] : []), ...timeout, ...(detail === undefined ? [] : ["--trace-detail", String(detail)])];
   },
+  normalizeResult: (result) => boundMwccAllocResult("mwcc_alloc_snapshot", result),
+});
+
+const VARIANT_SPEC_HELP = "\"@worktree\" (the checkout now), \"@base\" or \"@base:<rev>\" (src/include/libs at a revision, default base_rev), \"@revert:<file>:<first>-<last>\" (the working tree with the diff hunks touching those lines reverted), or a workspace-relative manifest .json path. Omit it to give the variant as <side>_files/<side>_deleted instead.";
+
+/** One side's variant: a spec string, or an inline manifest the sandbox wrapper writes to a file. */
+function variantArgs(params: Record<string, unknown>, side: "a" | "b"): string[] | Record<string, unknown> {
+  const spec = stringParam(params, side);
+  const files = params[`${side}_files`];
+  const deleted = params[`${side}_deleted`];
+  if (spec) {
+    if (files !== undefined || deleted !== undefined) return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: `give ${side} or ${side}_files/${side}_deleted, not both` };
+    return [`--${side}`, spec];
+  }
+  if (files === undefined && deleted === undefined) return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: `give variant ${side} (e.g. "@worktree") or ${side}_files/${side}_deleted` };
+  const manifestFiles: Record<string, string | null> = {};
+  if (files !== undefined) {
+    if (!files || typeof files !== "object" || Array.isArray(files)) return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: `${side}_files must map repo paths to full contents` };
+    Object.assign(manifestFiles, files);
+  }
+  for (const path of stringListParam(deleted)) manifestFiles[path] = null;
+  const base = stringParam(params, `${side}_base`);
+  const json = mwccAllocManifestJson({ files: manifestFiles, ...(base ? { base } : {}) });
+  if (typeof json !== "string") return { status: "rejected_arguments", tool_error: true, error_kind: "sandbox_exec_contract_rejected", error_summary: `${side}: ${json.error}` };
+  return [`--${side}-manifest-json`, json];
+}
+
+const variantProperties = (side: "a" | "b") => ({
+  [side]: { type: "string", description: `Variant ${side}: ${VARIANT_SPEC_HELP}` },
+  [`${side}_files`]: { type: "object", additionalProperties: { type: "string" }, description: `Inline manifest for variant ${side}: repo path (under src/, include/ or libs/) -> full file content, overlaying ${side}_base.` },
+  [`${side}_deleted`]: { type: "array", items: { type: "string" }, description: `Repo paths deleted in variant ${side}'s inline manifest.` },
+  [`${side}_base`]: { type: "string", description: `Base of variant ${side}'s inline manifest: a revision or "@worktree". Defaults to base_rev.` },
+});
+
+/** Tool for diffing MWCC's decisions for one function across two source variants. */
+export const mwccAllocCompareSourcesToolRegistration = knowledgeApiTool({
+  id: "mwcc_alloc_compare_sources",
+  toolId: "mwcc_alloc",
+  scriptName: "compare_sources.py",
+  label: "MWCC Compare Sources",
+  purpose: "Show what MWCC decided differently for one function between two source variants.",
+  description: "Compile two source variants of one unit (each in its own shadow root, so headers and TU edits both count) with the stock compiler and the native traced build, require each traced object to equal its stock object, and diff MWCC's decisions: added/removed webs, register, spill, coalescing, pop order, degree, inline verdicts, CSE temps and frame slots. Webs are matched by class, pass, declaration site and temp origin, never by vreg number, so an early new local is one added node rather than a cascade. Returns mwcc-decision-diff-v1 with one summary line per change, stock object hashes and their code class; the full diff stays in full_report. An unsupported version or a traced/stock object mismatch is reported as unavailable, never as an empty diff.",
+  guidance: "Typical pairs: a=@base (or the trusted base) vs b=@worktree for your whole candidate, then a=@revert:<file>:<lines> vs b=@worktree to isolate one edit. The summary is measured fact for this candidate's compile; what it predicts for the target is still your hypothesis.",
+  parameters: {
+    type: "object",
+    properties: {
+      unit: { type: "string", description: "Workspace-relative translation unit path." },
+      function: { type: "string", description: "Function symbol (mangled or plain name)." },
+      ...variantProperties("a"),
+      ...variantProperties("b"),
+      base_rev: { type: "string", description: "Revision for @base, @revert and manifests. Defaults to HEAD." },
+      timeout_seconds: { type: "number", description: "Maximum runtime in seconds." },
+    },
+    required: ["unit", "function"],
+    additionalProperties: false,
+  },
+  executionMode: "sequential",
+  args(params, context) {
+    const unit = stringParam(params, "unit");
+    const fn = stringParam(params, "function");
+    if (!unit || !fn) return { status: "missing_unit_or_function" };
+    const args = ["--repo-root", context.repoRoot, "--unit", unit, "--function", fn];
+    for (const side of ["a", "b"] as const) {
+      const sideArgs = variantArgs(params, side);
+      if (!Array.isArray(sideArgs)) return sideArgs;
+      args.push(...sideArgs);
+    }
+    const baseRev = stringParam(params, "base_rev");
+    if (baseRev) args.push("--base-rev", baseRev);
+    if (params.timeout_seconds !== undefined) args.push("--timeout-seconds", String(boundedNumber(params.timeout_seconds, 600, 60, 1800)));
+    return validateMwccAllocCompareSourcesArgs(args);
+  },
+  normalizeResult: (result) => boundMwccAllocResult("mwcc_alloc_compare_sources", result),
 });
 
 /** Tool for comparing two MWCC coloring snapshots. */
@@ -1081,6 +1203,7 @@ export const capabilityToolRegistrations = [
   checkdiffSummaryToolRegistration,
   directCompileTuToolRegistration,
   objdiffScoreCandidateToolRegistration,
+  unusedStubTestToolRegistration,
   mwccDebugDumpFunctionToolRegistration,
   mwccDebugDiagnoseStackToolRegistration,
   mwccDebugDiagnoseRegflowToolRegistration,
@@ -1102,4 +1225,5 @@ export const capabilityToolRegistrations = [
   mwccAllocSnapshotToolRegistration,
   mwccAllocCompareToolRegistration,
   mwccAllocAnalyzeToolRegistration,
+  mwccAllocCompareSourcesToolRegistration,
 ] as const;

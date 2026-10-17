@@ -111,6 +111,35 @@ describe("handleAgentsApiRoute", () => {
 
     expect(response?.status).toBe(400);
     expect(called).toBeFalse();
-    expect(await response?.json()).toEqual({ error: "previous_attempt must be one of: rollback, unverified_match" });
+    expect(await response?.json()).toEqual({ error: "previous_attempt must be one of: rollback, unverified_match, none" });
+  });
+
+  test("threads the compiler_delta variant next to previous_attempt", async () => {
+    const received: unknown[] = [];
+    const response = await handleAgentsApiRoute(
+      new URL("http://localhost/api/kernel/agents?previous_attempt=rollback&compiler_delta=unavailable"),
+      deps({
+        loadKernelAgentsPayload: (_paths, options) => {
+          received.push(options);
+          return { compilerDelta: options?.compilerDelta };
+        },
+      }),
+    );
+
+    expect(response?.status).toBe(200);
+    expect(received).toEqual([{ previousAttempt: "rollback", compilerDelta: "unavailable" }]);
+    expect(await response?.json()).toEqual({ compilerDelta: "unavailable" });
+  });
+
+  test("rejects an unknown compiler_delta variant", async () => {
+    let called = false;
+    const response = await handleAgentsApiRoute(
+      new URL("http://localhost/api/kernel/agents?compiler_delta=missing"),
+      deps({ loadKernelAgentsPayload: () => { called = true; return {}; } }),
+    );
+
+    expect(response?.status).toBe(400);
+    expect(called).toBeFalse();
+    expect(await response?.json()).toEqual({ error: "compiler_delta must be one of: present, unavailable, absent" });
   });
 });

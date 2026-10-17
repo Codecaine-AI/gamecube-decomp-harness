@@ -25,6 +25,10 @@ import {
 } from "./change-validation.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 import type { WorkspaceExec, WorkspaceExecOptions } from "@server/infrastructure/shell";
+import { useHostReportPlacement } from "./host-report-placement.test-support.js";
+
+// Fake workspaces here serve whole objdiff reports and symbols.txt: explicit host report placement.
+useHostReportPlacement();
 
 function fakeWorkspaceExec(exec: WorkspaceExec["exec"] = async () => ({ exitCode: 0, stdout: "", stderr: "" })): WorkspaceExec {
   return { exec } as WorkspaceExec;
@@ -614,13 +618,15 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
     expect(baseline.snapshot?.targetScore).toBe(75);
     expect(calls[0]?.command).toEqual(["cat", "src/melee/ft/ftcoll.c"]);
     expect(baseline.sourceSnapshotPaths?.sort()).toEqual(["src/melee/ft/ftcoll.c", "src/melee/gr/ground.c"]);
-    expect(calls[3]).toEqual({
+    // calls[3]: the worker-sandbox twin of the pre-worker snapshot (L1 QA diff runs in the sandbox).
+    expect(calls[3]?.command.slice(-1)).toEqual([JSON.stringify(["src/melee/ft/ftcoll.c", "src/melee/gr/ground.c"])]);
+    expect(calls[4]).toEqual({
       command: ["ninja", "build/GALE01/src/melee/ft/ftcoll.o"],
       options: undefined,
     });
-    expect(calls[4]?.command).toEqual(["cat", "build.ninja"]);
-    expect(calls[5]?.command).toContain("/dev/stdout");
-    expect(calls[5]?.options).toBeUndefined();
+    expect(calls[5]?.command).toEqual(["cat", "build.ninja"]);
+    expect(calls[6]?.command).toContain("/dev/stdout");
+    expect(calls[6]?.options).toBeUndefined();
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/ft/ftcoll.c"), "utf8")).toBe("int sandbox_source;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_source/src/melee/gr/ground.c"), "utf8")).toBe("int sandbox_extra;\n");
     expect(await readFile(resolve(outputDir, "pre_worker_unit_diff.json"), "utf8")).toBe(report);
@@ -713,7 +719,8 @@ describe("captureWorkerChangeBaseline source snapshot", () => {
 
       expect(baseline.status).toBe("available");
       expect(baseline.undefinedSymbols ?? null).toEqual(captureUndefinedSymbols ? ["HSD_Randi", "lbl_missing"] : null);
-      expect(calls.some((command) => command[0] === "python3")).toBe(captureUndefinedSymbols);
+      // Ignore the sandbox QA snapshot copy; only the undefined-symbol listing counts here.
+      expect(calls.some((command) => command[0] === "python3" && !String(command[3] ?? "").endsWith("/pre_worker_source"))).toBe(captureUndefinedSymbols);
     }
   });
 });

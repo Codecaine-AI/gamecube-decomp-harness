@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
+import { sharedSandboxCreateAdmission, type SandboxCreateAdmission } from "./sandbox-create-admission.js";
 
 export interface SandboxExecResult {
   exitCode: number;
@@ -40,6 +41,8 @@ export type SandboxDeleteReason = "settlement" | "reap" | "reconciliation" | "pr
 
 export interface SandboxProvider {
   create(params: SandboxCreateParams): Promise<SandboxHandle>;
+  /** Confirms failed creates' held allocations gone (providers with create admission); never throws. */
+  reconcileHeldAllocations?(): Promise<{ released: string[]; held: string[]; expired: string[] }>;
   get(sandboxId: string): Promise<SandboxHandle | null>;
   listByLabels(
     labels: Record<string, string>,
@@ -101,6 +104,12 @@ export interface DaytonaSandboxProviderOptions {
   readApiKey?: () => string | undefined;
   /** Waits between retries of idempotent sandbox calls after a transient gateway failure. */
   transientRetryDelaysMs?: readonly number[];
+  /**
+   * Queues creates beyond the provider's quota or rate limit and retries their
+   * refusals (sandbox-create-admission.ts). Defaults to the process-wide
+   * admission; null disables it (a refusal then fails the create).
+   */
+  createAdmission?: SandboxCreateAdmission | null;
 }
 
 const DEFAULT_TRANSIENT_RETRY_DELAYS_MS = [2_000, 5_000] as const;
@@ -148,6 +157,50 @@ function shellCommand(
   return opts.cwd ? `cd ${shellQuote(opts.cwd)} && ${invocation}` : invocation;
 }
 
+/** Sandbox path a command claims (atomically, with `mkdir`) before it runs (see `isolatedShellCommand`). */
+function execClaimPath(commandId: string): string {
+  return `/tmp/orch-exec-${commandId}`;
+}
+
+/** Exit code and stderr marker of a command whose id another delivery already claimed: it did not run. */
+const EXEC_CLAIM_LOST_EXIT = 75;
+const execClaimLostMarker = (commandId: string) => `orch-exec-claimed ${commandId}`;
+
+/**
+ * `shellCommand` for a reused session: a subshell, so a `cd` never changes the
+ * session's directory for the next command, and stdin from /dev/null, so a
+ * command never reads the session's input stream. Its first act claims the
+ * command id with `mkdir` (atomic: exactly one delivery of the same id can
+ * create the directory); a delivery that loses the claim exits without
+ * running. A replay reuses the id, so the original and its replay, in any
+ * order or overlap, run the command at most once.
+ */
+function isolatedShellCommand(
+  command: string[],
+  opts: { cwd?: string; env?: Record<string, string> },
+  commandId: string,
+): string {
+  const lost = `{ echo ${shellQuote(execClaimLostMarker(commandId))} >&2; exit ${EXEC_CLAIM_LOST_EXIT}; }`;
+  return `(mkdir ${shellQuote(execClaimPath(commandId))} 2>/dev/null || ${lost}; ${shellCommand(command, opts)}) </dev/null`;
+}
+
+/** One reused Daytona session per sandbox handle (default on); "0" or "false" restores a session per command. */
+export const DAYTONA_SESSION_REUSE_ENV = "ORCH_DAYTONA_SESSION_REUSE";
+/** Idle sessions a handle keeps for reuse; concurrent commands beyond it get sessions deleted after use. */
+const MAX_IDLE_SESSIONS = 4;
+const SESSION_MISSING = /session\b[^\n]*\b(?:not found|does not exist|expired|ended|closed)|no such session/i;
+
+function sessionReuseEnabled(): boolean {
+  const value = process.env[DAYTONA_SESSION_REUSE_ENV]?.trim().toLowerCase();
+  return value !== "0" && value !== "false" && value !== "off";
+}
+
+/** A reused session that is gone (sandbox restarted, session expired): the command never ran in it. */
+function isSessionMissing(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return isNotFound(error) || SESSION_MISSING.test(message);
+}
+
 function timeoutSeconds(timeoutMs: number): number {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error("sandbox exec timeoutMs must be a positive finite number");
@@ -177,6 +230,8 @@ async function defaultDaytonaClientFactory(config: { apiKey: string }): Promise<
 
 class DaytonaSandboxHandle implements SandboxHandle {
   readonly sandboxId: string;
+  /** Sessions free for the next command (reuse cuts a command from 3 API calls to 1). */
+  private idleSessions: string[] = [];
 
   constructor(
     private readonly sandbox: DaytonaSandbox,
@@ -190,14 +245,75 @@ class DaytonaSandboxHandle implements SandboxHandle {
   }
 
   async stop(): Promise<void> {
+    // A stopped sandbox loses its sessions.
+    this.idleSessions = [];
     await this.sandbox.stop(60);
   }
 
   async start(): Promise<void> {
+    this.idleSessions = [];
     await this.sandbox.start(60);
   }
 
+  private async takeSession(): Promise<{ id: string; reused: boolean }> {
+    const idle = this.idleSessions.pop();
+    if (idle) return { id: idle, reused: true };
+    const id = `orch-exec-${randomUUID()}`;
+    await this.retry(() => this.sandbox.process.createSession(id));
+    return { id, reused: false };
+  }
+
+  private releaseSession(sessionId: string): void {
+    if (this.idleSessions.length < MAX_IDLE_SESSIONS) this.idleSessions.push(sessionId);
+    else this.discardSession(sessionId);
+  }
+
+  /** Best effort and not awaited: a session that failed or timed out may still be running its command. */
+  private discardSession(sessionId: string): void {
+    void this.retry(() => this.sandbox.process.deleteSession(sessionId)).catch(() => undefined);
+  }
+
   async exec(
+    command: string[],
+    opts: { cwd?: string; env?: Record<string, string>; timeoutMs: number },
+  ): Promise<SandboxExecResult> {
+    if (!sessionReuseEnabled()) return this.execInFreshSession(command, opts);
+    const commandId = randomUUID();
+    const request = { command: isolatedShellCommand(command, opts, commandId), runAsync: false as const, suppressInputEcho: true as const };
+    for (let attempt = 0; ; attempt += 1) {
+      const session = await this.takeSession();
+      let result: DaytonaExecResponse;
+      try {
+        result = await this.sandbox.process.executeSessionCommand(session.id, request, timeoutSeconds(opts.timeoutMs));
+      } catch (error) {
+        this.discardSession(session.id);
+        // Only a reused session that vanished is retried (once, on a fresh session), with the
+        // same command id: the id claim lets at most one delivery run, even if the original was
+        // accepted and starts late. Any other failure may have run it, so it is not re-run.
+        if (session.reused && attempt === 0 && isSessionMissing(error)) continue;
+        if (attempt > 0) throw new Error(`Daytona sandbox ${this.sandboxId}: the command's session ended and its replay failed; it may have run once: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+        throw error;
+      }
+      if (attempt > 0 && result.exitCode === EXEC_CLAIM_LOST_EXIT && (result.stderr ?? "").includes(execClaimLostMarker(commandId))) {
+        // The original delivery claimed the id: it ran (or is running) in the closed session, result unknown.
+        this.releaseSession(session.id);
+        throw new Error(`Daytona sandbox ${this.sandboxId}: the session ended after the command started; not re-run (it may have completed)`);
+      }
+      if (typeof result.exitCode !== "number") {
+        this.discardSession(session.id);
+        throw new Error(`Daytona sandbox ${this.sandboxId} returned no exit code`);
+      }
+      this.releaseSession(session.id);
+      return {
+        exitCode: result.exitCode,
+        stdout: result.stdout ?? "",
+        stderr: result.stderr ?? "",
+      };
+    }
+  }
+
+  /** One session per command (create, run, delete): `ORCH_DAYTONA_SESSION_REUSE=0`. */
+  private async execInFreshSession(
     command: string[],
     opts: { cwd?: string; env?: Record<string, string>; timeoutMs: number },
   ): Promise<SandboxExecResult> {
@@ -267,16 +383,25 @@ async function collectSandboxes(value: unknown): Promise<DaytonaSandbox[]> {
   throw new Error("Daytona list returned an unsupported response");
 }
 
+/** Label carrying one logical create's id on every attempt (provenance; see `DaytonaSandboxProvider.create`). */
+export const SANDBOX_CREATE_REQUEST_LABEL = "orch_create_request";
+/** Label carrying one allocation attempt's own id: cleanup and quota holds are keyed by it alone. */
+export const SANDBOX_CREATE_ATTEMPT_LABEL = "orch_create_attempt";
+
 export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly clientFactory: DaytonaClientFactory;
   private readonly readApiKey: () => string | undefined;
   private readonly retryDelaysMs: readonly number[];
+  private readonly createAdmission: SandboxCreateAdmission | null;
   private clientPromise?: Promise<DaytonaClient>;
 
   constructor(options: DaytonaSandboxProviderOptions = {}) {
     this.clientFactory = options.clientFactory ?? defaultDaytonaClientFactory;
     this.readApiKey = options.readApiKey ?? (() => process.env.DAYTONA_API_KEY);
     this.retryDelaysMs = options.transientRetryDelaysMs ?? DEFAULT_TRANSIENT_RETRY_DELAYS_MS;
+    this.createAdmission = options.createAdmission === undefined ? sharedSandboxCreateAdmission() : options.createAdmission;
+    // Creates blocked behind held allocations ask the most recent provider to confirm them gone.
+    this.createAdmission?.setHoldReconciler(() => this.reconcileHeldAllocations());
   }
 
   private client(): Promise<DaytonaClient> {
@@ -291,19 +416,123 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   async create(params: SandboxCreateParams): Promise<SandboxHandle> {
     const client = await this.client();
-    // Only ephemeral (build) sandboxes retry creation: a duplicate left by a lost
-    // response stops on inactivity and deletes itself. Worker sandboxes have
-    // their own reprovision and reconciliation path.
-    const createOnce = () => client.create({
-      snapshot: params.snapshot,
-      labels: { ...params.labels },
-      // Daytona API: "Cannot specify Sandbox resources when using a snapshot".
-      autoStopInterval: params.ephemeral ? params.ttlMinutes : 0,
-      ...(params.ephemeral ? { autoDeleteInterval: 0 } : {}),
-      ttlMinutes: params.ttlMinutes,
-    }, { timeout: CREATE_START_TIMEOUT_SECONDS });
-    const sandbox = params.ephemeral ? await retryTransient(this.retryDelaysMs, createOnce) : await createOnce();
-    return handle(sandbox, this.retryDelaysMs);
+    // The SDK allocates the sandbox before its proxy lookup and start wait, so
+    // a refusal (429) or startup failure can arrive after an allocation. Every
+    // allocation attempt carries its own immutable `orch_create_attempt` label
+    // (beside the create's `orch_create_request`), and a failed attempt's
+    // cleanup and quota hold are keyed by that attempt label alone: whoever
+    // cleans up late (a stalled reconciler) can only ever delete that failed
+    // attempt's sandbox, never a later attempt that succeeded.
+    const requestId = randomUUID();
+    /** Failed attempts whose allocations are not yet confirmed deleted. */
+    const failedAttempts = new Set<string>();
+    // Only ephemeral (build) sandboxes retry creation on a transient error: a duplicate left by a
+    // lost response stops on inactivity and deletes itself. Worker sandboxes have their own
+    // reprovision and reconciliation path.
+    const createOnce = async () => {
+      const attemptId = randomUUID();
+      try {
+        return await client.create({
+          snapshot: params.snapshot,
+          labels: { ...params.labels, [SANDBOX_CREATE_REQUEST_LABEL]: requestId, [SANDBOX_CREATE_ATTEMPT_LABEL]: attemptId },
+          // Daytona API: "Cannot specify Sandbox resources when using a snapshot".
+          autoStopInterval: params.ephemeral ? params.ttlMinutes : 0,
+          ...(params.ephemeral ? { autoDeleteInterval: 0 } : {}),
+          ttlMinutes: params.ttlMinutes,
+        }, { timeout: CREATE_START_TIMEOUT_SECONDS });
+      } catch (error) {
+        failedAttempts.add(attemptId);
+        throw error;
+      }
+    };
+    const createChecked = () => params.ephemeral ? retryTransient(this.retryDelaysMs, createOnce) : createOnce();
+    const admission = this.createAdmission;
+    // A failed attempt's allocation is deleted while the attempt still holds its admission slot.
+    // If that cleanup fails, the allocation keeps a quota slot in the shared admission (keyed by
+    // its attempt label) until a later cleanup, this create's retry or `reconcileHeldAllocations`,
+    // confirms it gone; a concurrent create never doubles up on it.
+    const confirmFailedAttemptsGone = async () => {
+      for (const attemptId of [...failedAttempts]) {
+        await this.deleteAllocations(client, { [SANDBOX_CREATE_ATTEMPT_LABEL]: attemptId });
+        failedAttempts.delete(attemptId);
+        admission?.releaseHold(attemptId);
+      }
+    };
+    const holdUnconfirmed = (cleanup: unknown, when: string) => {
+      for (const attemptId of failedAttempts) {
+        if (admission && !params.ephemeral) admission.holdAllocation(attemptId);
+        console.warn(`[sandbox] ${when}: could not confirm its allocation deleted; it keeps a quota slot until reconciliation confirms it (label ${SANDBOX_CREATE_ATTEMPT_LABEL}=${attemptId}): ${cleanup instanceof Error ? cleanup.message : String(cleanup)}`);
+      }
+    };
+    // Earlier failed creates' holds are confirmed gone (or expired) before this one queues.
+    if (admission?.heldRequestIds().length) await this.reconcileHeldAllocations().catch(() => undefined);
+    try {
+      // Refusals (quota, rate limit) are queued and retried; ephemeral build
+      // sandboxes delete themselves and are not counted against the alive cap.
+      const sandbox = admission
+        ? (await admission.run(async () => {
+            try {
+              const created = await createChecked();
+              return { sandboxId: created.id, created };
+            } catch (error) {
+              await confirmFailedAttemptsGone().catch((cleanup: unknown) => holdUnconfirmed(cleanup, "a refused create"));
+              throw error;
+            }
+          }, {
+            track: !params.ephemeral,
+            beforeRetry: async () => { if ([...failedAttempts].some((attemptId) => admission.isHeld(attemptId))) await confirmFailedAttemptsGone(); },
+          })).created
+        : await createChecked();
+      // Transiently failed attempts an ephemeral create retried past: best effort, by their own labels.
+      if (failedAttempts.size > 0) void confirmFailedAttemptsGone().catch(() => undefined);
+      return handle(sandbox, this.retryDelaysMs);
+    } catch (error) {
+      // Nothing is returned, so nothing this request allocated may stay alive.
+      await confirmFailedAttemptsGone().catch((cleanup: unknown) => holdUnconfirmed(cleanup, "a failed create"));
+      throw error;
+    }
+  }
+
+  /**
+   * Confirms the held allocations of failed creates gone: per held attempt
+   * label, list, delete what is listed, and release the hold once nothing is
+   * left. An attempt label names exactly one failed allocation attempt, so a
+   * stalled run of this can never delete a later attempt that succeeded. Holds past their max age are released and reported. The run
+   * loop's sandbox reconciliation and every create call this; it never throws.
+   */
+  async reconcileHeldAllocations(): Promise<{ released: string[]; held: string[]; expired: string[] }> {
+    const admission = this.createAdmission;
+    const out = { released: [] as string[], held: [] as string[], expired: [] as string[] };
+    if (!admission) return out;
+    let client: DaytonaClient | null = null;
+    try {
+      client = await this.client();
+    } catch {}
+    for (const attemptId of admission.heldRequestIds()) {
+      try {
+        if (!client) throw new Error("no Daytona client");
+        await this.deleteAllocations(client, { [SANDBOX_CREATE_ATTEMPT_LABEL]: attemptId });
+        admission.releaseHold(attemptId);
+        out.released.push(attemptId);
+      } catch (error) {
+        out.held.push(attemptId);
+        console.warn(`[sandbox] held allocation ${SANDBOX_CREATE_ATTEMPT_LABEL}=${attemptId} still unconfirmed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    out.expired = admission.expireHolds();
+    out.held = out.held.filter((attemptId) => !out.expired.includes(attemptId));
+    return out;
+  }
+
+  /** Deletes every sandbox carrying `attemptLabels` (the allocation of one failed attempt). */
+  private async deleteAllocations(client: DaytonaClient, attemptLabels: Record<string, string>): Promise<void> {
+    const allocated = await collectSandboxes(client.list({ labels: { ...attemptLabels } }));
+    for (const sandbox of allocated) {
+      console.warn(`[sandbox] deleting ${sandbox.id}: allocated by a create that was refused or failed after allocation`);
+      if (sandbox.delete) await sandbox.delete(60, true);
+      else if (client.delete) await client.delete(sandbox, 60, true);
+      else throw new Error("Daytona SDK does not expose sandbox deletion");
+    }
   }
 
   async get(sandboxId: string): Promise<SandboxHandle | null> {
@@ -331,7 +560,10 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     try {
       sandbox = await (await this.client()).get(sandboxId);
     } catch (error) {
-      if (isNotFound(error)) return;
+      if (isNotFound(error)) {
+        this.createAdmission?.deleted(sandboxId);
+        return;
+      }
       throw error;
     }
     if (sandbox.delete) await sandbox.delete(60, true);
@@ -340,6 +572,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       if (!client.delete) throw new Error("Daytona SDK does not expose sandbox deletion");
       await client.delete(sandbox, 60, true);
     }
+    this.createAdmission?.deleted(sandboxId);
   }
 }
 

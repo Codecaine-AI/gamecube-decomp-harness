@@ -27,7 +27,10 @@ import {
   buildAttemptMechanicalRows,
   deriveWorkerRunIntegration,
   hasAttemptErrorSignal,
+  attemptRunGameId,
+  isRestorationCheckpoint,
   loadAttemptMatchHold,
+  loadRestorationCertification,
   type AttemptSourceCheckpoint,
   type AttemptSourceCheckpointItem,
   type AttemptSourceIntegration,
@@ -242,8 +245,13 @@ export async function handleWorkerSummaryJob(
     const state = input.worker_state as unknown as AttemptSourceWorkerState;
     // Active unverified_match rows and unresolved steering rollbacks, judged on each checkpoint's own gate evidence.
     // Undefined without recorded steering state (Melee, gate off): an existing run is skipped untouched, as before.
-    const matchHold = loadAttemptMatchHold(orchestratorStore.db, state.target_key);
-    if (existing && !matchHold) return { resultRef: existing.id, detail: { skipped: "existing" } };
+    // The game: its steering rows spell the worker's (report) unit without the module prefix (SMS `mario/`).
+    const gameId = deps.globals.game?.gameId ?? deps.globals.gameId ?? attemptRunGameId(orchestratorStore.db, state.run_id);
+    const matchHold = loadAttemptMatchHold(orchestratorStore.db, state.target_key, gameId, { repoRoot: deps.globals.repoRoot });
+    // A restoration's 100 is the match only once a later gate-pass certificate covers it.
+    const restorationCertified = loadRestorationCertification(orchestratorStore.db, state.target_key, gameId, { repoRoot: deps.globals.repoRoot });
+    const restorationRun = input.checkpoints.some((row) => isRestorationCheckpoint({ metadata_json: row.metadata_json }));
+    if (existing && !matchHold && !restorationRun) return { resultRef: existing.id, detail: { skipped: "existing" } };
     const target = knowledge.db.query<{ id: string; stable_key: string }, [string]>(
       "SELECT id, stable_key FROM target WHERE stable_key = ? AND identity_status = 'current'",
     ).get(state.target_key.replace("::", ":"));
@@ -278,6 +286,7 @@ export async function handleWorkerSummaryJob(
       integration,
       useLegacyIntegrationHeuristic: integrationTable === null,
       matchHold,
+      restorationCertified,
     });
     if (existing) {
       knowledge.db.query("UPDATE worker_run SET final_outcome = ?, error_type = ? WHERE id = ?")

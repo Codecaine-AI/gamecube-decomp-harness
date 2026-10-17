@@ -4,7 +4,7 @@ import { runStorageMigrations, verifyStorageSchema } from "./index.js";
 
 const LATER_TABLES = [
   "stack_only_functions", "steering_observations", "steering_backfill", "steering_backfill_coverage", "steering_backfill_runs",
-  "steering_rollbacks", "steering_unverified_matches",
+  "steering_rollbacks", "steering_unverified_matches", "steering_explain_jobs",
 ];
 
 test("a live v11 store migrates through 015 additively and keeps its rows", () => {
@@ -13,7 +13,7 @@ test("a live v11 store migrates through 015 additively and keeps its rows", () =
     runStorageMigrations(db);
     db.query("INSERT INTO runs (id, goal_kind, goal_value, desired_workers, status, created_at) VALUES ('run-1', 'matched_percent', 100, 1, 'active', 'then')").run();
     db.exec(`${LATER_TABLES.map((table) => `DROP TABLE ${table};`).join(" ")} DELETE FROM schema_migrations WHERE version >= 12`);
-    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v11, this build requires v15");
+    expect(() => verifyStorageSchema(db)).toThrow("schema is behind this process: applied through v11, this build requires v18");
 
     runStorageMigrations(db);
 
@@ -22,6 +22,9 @@ test("a live v11 store migrates through 015 additively and keeps its rows", () =
       { version: 13, name: "steering" },
       { version: 14, name: "steering_rollbacks" },
       { version: 15, name: "unverified_matches" },
+      { version: 16, name: "certification" },
+      { version: 17, name: "evidence_review" },
+      { version: 18, name: "compiler_delta" },
     ]);
     expect(() => verifyStorageSchema(db)).not.toThrow();
     expect(db.query("SELECT COUNT(*) AS count FROM runs").get()).toEqual({ count: 1 });
@@ -44,7 +47,7 @@ test("a v14 store (steering rows present) gains only the unverified table", () =
     runStorageMigrations(db);
     db.query("INSERT INTO steering_backfill (game_id, unit, symbol, analyzed_rev, verdict, recorded_at) VALUES ('sms', 'u', 'f', 'r', 'unresolved', 'then')").run();
     db.exec("DROP TABLE steering_unverified_matches; DELETE FROM schema_migrations WHERE version >= 15");
-    expect(() => verifyStorageSchema(db)).toThrow("applied through v14, this build requires v15");
+    expect(() => verifyStorageSchema(db)).toThrow("applied through v14, this build requires v18");
     runStorageMigrations(db);
     expect(() => verifyStorageSchema(db)).not.toThrow();
     expect(db.query("SELECT verdict FROM steering_backfill").all()).toEqual([{ verdict: "unresolved" }]);

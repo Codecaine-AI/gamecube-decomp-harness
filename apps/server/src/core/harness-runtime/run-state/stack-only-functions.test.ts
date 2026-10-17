@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { openState } from "@server/core/orchestrator-state";
 import { loadBoardSnapshot, loadStackOnlyTargetKeys } from "@server/core/harness-runtime/phases/running/board/snapshot.js";
-import { recordStackOnlyFunction, stackOnlyIndexForGame } from "./stack-only-functions.js";
+import { clearStackOnlyFunction, isRecordedStackOnly, listStackOnlyFunctions, recordStackOnlyFunction, stackOnlyIndexForGame } from "./stack-only-functions.js";
 
 function withBoard(run: (root: string, store: ReturnType<typeof openState>) => void): void {
   const root = mkdtempSync(join(tmpdir(), "stack-only-board-"));
@@ -53,6 +53,38 @@ describe("stack-only functions on the board", () => {
       const stackOnly = stackOnlyIndexForGame(store, { gameId: "sms", stackFramePolicy: "match_frame" });
       expect(stackOnly).toBeUndefined();
       expect(loadBoardSnapshot(root, { ...OPTIONS, stackOnly }).candidates.map((c) => c.symbol)).toEqual(["frameOnly", "edited", "open"]);
+    });
+  });
+
+  test("SMS: a record under either unit spelling excludes the module-prefixed report function", () => {
+    withBoard((root, store) => {
+      // A legacy row written under the short (steering) unit, and a prefixed write stored canonical.
+      store.db.query(`INSERT INTO stack_only_functions (game_id, unit, symbol, fuzzy, frame_compiled, frame_target, source, run_id, evidence_json, recorded_at)
+        VALUES ('sms', 'M3DUtil/MActor', 'frameOnly', 97.5, NULL, NULL, 'backfill', NULL, '{}', '2026-10-17T00:00:00Z')`).run();
+      record(store, "edited", 91);
+      expect(listStackOnlyFunctions(store, "sms").map((row) => row.unit)).toEqual(["M3DUtil/MActor", "M3DUtil/MActor"]);
+
+      const stackOnly = stackOnlyIndexForGame(store, { gameId: "sms", stackFramePolicy: "stop_at_frame" });
+      expect(isRecordedStackOnly(stackOnly, "mario/M3DUtil/MActor::frameOnly", 97.5)).toBe(true);
+      expect(isRecordedStackOnly(stackOnly, "M3DUtil/MActor::frameOnly", 97.5)).toBe(true);
+      expect(isRecordedStackOnly(stackOnly, "mario/M3DUtil/MActor::frameOnly", 98)).toBe(false);
+      expect(loadBoardSnapshot(root, { ...OPTIONS, stackOnly }).candidates.map((c) => c.symbol)).toEqual(["open"]);
+      // Settlement keys keep the report's spelling.
+      expect([...loadStackOnlyTargetKeys(root, { ...OPTIONS, stackOnly })].sort()).toEqual(["mario/M3DUtil/MActor::edited", "mario/M3DUtil/MActor::frameOnly"]);
+
+      // A clear under the report unit removes the short-unit row.
+      clearStackOnlyFunction(store, { gameId: "sms", unit: "mario/M3DUtil/MActor", symbol: "frameOnly" });
+      expect(listStackOnlyFunctions(store, "sms").map((row) => row.symbol)).toEqual(["edited"]);
+    });
+  });
+
+  test("Melee: units are stored and matched as written", () => {
+    withBoard((_root, store) => {
+      recordStackOnlyFunction(store, { gameId: "melee", unit: "main/melee/lb/lbcommand", symbol: "fn", fuzzy: 99, source: "backfill" });
+      expect(listStackOnlyFunctions(store, "melee").map((row) => row.unit)).toEqual(["main/melee/lb/lbcommand"]);
+      const stackOnly = stackOnlyIndexForGame(store, { gameId: "melee", stackFramePolicy: "stop_at_frame" });
+      expect(isRecordedStackOnly(stackOnly, "main/melee/lb/lbcommand::fn", 99)).toBe(true);
+      expect(isRecordedStackOnly(stackOnly, "melee/lb/lbcommand::fn", 99)).toBe(false);
     });
   });
 });

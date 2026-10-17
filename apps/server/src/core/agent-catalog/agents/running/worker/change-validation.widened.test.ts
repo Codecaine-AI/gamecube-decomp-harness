@@ -3,6 +3,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WorkspaceExec } from "@server/infrastructure/shell";
+import { useHostReportPlacement } from "./host-report-placement.test-support.js";
 import {
   configHunkAddresses,
   diffTouchedPaths,
@@ -11,6 +12,9 @@ import {
   type ScopedUnitCheckRunnerOptions,
   type WorkerChangeValidation,
 } from "./change-validation.js";
+
+// Fake workspaces here serve whole objdiff.json/splits.txt reads: explicit host report placement.
+useHostReportPlacement();
 
 function fakeWorkspaceExec(exec: WorkspaceExec["exec"] = async () => ({ exitCode: 0, stdout: "", stderr: "" })): WorkspaceExec {
   return { exec } as WorkspaceExec;

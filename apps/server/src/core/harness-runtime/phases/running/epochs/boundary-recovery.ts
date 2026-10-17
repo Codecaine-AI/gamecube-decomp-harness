@@ -51,6 +51,7 @@ export function boundaryRecoverySummary(item: BoundaryDisplacement): string {
     `Merge recovery: previously achieved ${item.priorScore ?? "unknown"}% (${item.priorKind ?? "unclassified"}).`,
     `After upstream merge ${item.upstreamLandedSha}, measured ${item.afterScore ?? "absent from report"}${item.afterScore == null ? "" : "%"}.`,
     "The upstream merge/resolution displaced prior work; this is not a failed worker attempt.",
+    item.reason ? `Reason: ${item.reason}; it stays an open target until a certified version beats upstream.` : "",
     item.priorHeadSha ? `Saved solution: ${item.priorHeadSha}:${item.sourcePath}. Read with git show ${item.priorHeadSha}:${item.sourcePath}.` : "",
     item.resultingHeadSha ? `Post-merge source: ${item.resultingHeadSha}.` : "",
     "Adapt the saved solution to current upstream APIs and revalidate; do not redo from scratch or blindly restore the whole file. Readmit only if eligible within the run's scope.",

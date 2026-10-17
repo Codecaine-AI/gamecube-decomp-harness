@@ -200,6 +200,194 @@ describe("Daytona build execution", () => {
     expect(add).toBeGreaterThan(clean);
     expect(f.commands.some(command => command[0] === "git" && command[1] === "clean" && command.some(arg => arg.includes("x")))).toBe(false);
   });
+  describe("steering tasks (backfill sandbox placement)", () => {
+    const worker = async (path: string) => { await writeFile(path, "// fixture worker"); };
+    const steering = (f: Awaited<ReturnType<typeof fixture>>, input: Record<string, unknown>) =>
+      executeDaytonaBuild(f.repo, { kind: "steering", input: { command: ["python3", "/opt/toolpacks/gamecube-decomp/_impl/gamecube/tools/steering_check.py", "check", "--repo", f.repo], options: { env: { ORCH_STEERING_GATE: "enforce" } }, ...input } }, { game: f.game, provider: f.provider, bundleWorker: worker });
+
+    test("syncs the host toolpack, uploads the game's policy, approvals, lessons and per-call files, and passes the game env", async () => {
+      const f = await fixture();
+      const report = resolve(f.root, "check.json"); await writeFile(report, "{\"decision\":{}}");
+      f.response = { value: { exitCode: 0, stdout: `{"repo":"/work/sms"}`, stderr: "", probe: { ok: true } }, artifacts: [] };
+      const value = await steering(f, { uploads: { "/tmp/steering-inputs/call/0-check.json": report } });
+      // The value comes back with sandbox paths mapped to the host checkout.
+      expect(value).toMatchObject({ exitCode: 0, stdout: `{"repo":"${f.repo}"}` });
+      expect(f.uploads.has("/tmp/toolpack-gamecube-decomp.tar")).toBe(true);
+      const lessons = "knowledge/sources/injectable/steering_lessons";
+      expect(f.uploads.get("/tmp/steering-inputs/games/sms/game.json")).toBe(await readFile(f.game.descriptorPath, "utf8"));
+      for (const name of ["evidence_approvals.jsonl", "lessons.jsonl", "review_rulings.jsonl"]) {
+        expect(f.uploads.get(`/tmp/steering-inputs/games/sms/${lessons}/${name}`)).toBe(await readFile(resolve(f.game.gameDir, lessons, name), "utf8"));
+      }
+      expect(f.uploads.get("/tmp/steering-inputs/call/0-check.json")).toBe("{\"decision\":{}}");
+      const request = JSON.parse(f.uploads.get("/tmp/build-request.json")!);
+      expect(request.task.kind).toBe("steering");
+      expect(request.task.input.uploads).toBeUndefined();
+      expect(request.task.input.command).toEqual(["python3", "/opt/toolpacks/gamecube-decomp/_impl/gamecube/tools/steering_check.py", "check", "--repo", "/work/sms"]);
+      expect(request.task.input.options.env).toEqual({ ORCH_STEERING_GATE: "enforce", ORCH_GAME_ID: "sms", ORCH_GAME_DIR: "/tmp/steering-inputs/games/sms" });
+      expect(f.deleted).toBe(1);
+    });
+
+    test("an aborted steering task stops waiting on the sandbox run and deletes the sandbox", async () => {
+      const f = await fixture();
+      const controller = new AbortController();
+      // The sandbox command never returns by itself; the abort ends the wait.
+      f.onRun = () => { controller.abort(new Error("cancelled at shutdown")); return new Promise(() => {}); };
+      await expect(executeDaytonaBuild(f.repo, { kind: "steering", input: { command: ["python3", "steering_explain.py", "run"] } }, {
+        game: f.game, provider: f.provider, bundleWorker: worker, signal: controller.signal,
+      })).rejects.toThrow("cancelled at shutdown");
+      expect(f.deleted).toBe(1);
+      // Already aborted: provisioned, then deleted before any command runs.
+      const g = await fixture();
+      await expect(executeDaytonaBuild(g.repo, { kind: "steering", input: { command: ["python3", "steering_explain.py", "run"] } }, {
+        game: g.game, provider: g.provider, bundleWorker: worker, signal: controller.signal,
+      })).rejects.toThrow("cancelled at shutdown");
+      expect(g.commands).toEqual([]);
+      expect(g.deleted).toBe(1);
+    });
+
+    test("a missing or invalid game.json refuses the steering task before any sandbox is provisioned", async () => {
+      const f = await fixture();
+      let created = 0;
+      const provider: SandboxProvider = { ...f.provider, create: async params => { created++; return f.provider.create(params); } };
+      const invalid = resolve(f.root, "game.json"); await writeFile(invalid, "[]");
+      for (const [descriptorPath, detail] of [[resolve(f.root, "missing.json"), "cannot read"], [invalid, "is not a JSON object"]] as const) {
+        const game = { ...f.game, descriptorPath };
+        await expect(executeDaytonaBuild(f.repo, { kind: "steering", input: { command: ["python3", "steering_check.py", "check"] } }, { game, provider, bundleWorker: worker }))
+          .rejects.toThrow(new RegExp(`steering gate needs the game's policy \\(game.json\\) to enforce its rules: .*${detail}`));
+      }
+      expect(created).toBe(0);
+    });
+
+    test("a per-call upload outside the steering inputs, or over the game dir, is refused", async () => {
+      const f = await fixture();
+      const report = resolve(f.root, "check.json"); await writeFile(report, "{}");
+      await expect(steering(f, { uploads: { "/work/sms/src/a.cpp": report } })).rejects.toThrow("Invalid steering input destination");
+      await expect(steering(f, { uploads: { "/tmp/steering-inputs/games/sms/game.json": report } })).rejects.toThrow("Invalid steering input destination");
+      await expect(steering(f, { uploads: { "/tmp/steering-inputs/call/x": resolve(f.root, "missing.json") } })).rejects.toThrow("Invalid steering input");
+    });
+
+    test("apply returns its edit as a patch and the host applies it; a check may not edit source", async () => {
+      const f = await fixture(); await writeFile(resolve(f.repo, "source.c"), "real\n"); const patch = f.git(["diff"]); f.git(["checkout", "--", "source.c"]);
+      f.response = { value: { exitCode: 0, stdout: "", stderr: "" }, sourcePatch: patch + "\n", artifacts: [] };
+      await steering(f, { applyEdits: true, skipConfigure: true });
+      expect(await readFile(resolve(f.repo, "source.c"), "utf8")).toBe("real\n");
+      f.git(["checkout", "--", "source.c"]);
+      await expect(steering(f, {})).rejects.toThrow("changed source");
+      expect(await readFile(resolve(f.repo, "source.c"), "utf8")).toBe("original\n");
+    });
+
+    test("a failed apply never publishes its edit", async () => {
+      const f = await fixture(); await writeFile(resolve(f.repo, "source.c"), "real\n"); const patch = f.git(["diff"]); f.git(["checkout", "--", "source.c"]);
+      f.response = { value: { exitCode: 125, stdout: "", stderr: "steering build sandbox refused" }, sourcePatch: patch + "\n", artifacts: [] };
+      expect(await steering(f, { applyEdits: true })).toMatchObject({ exitCode: 125 });
+      expect(await readFile(resolve(f.repo, "source.c"), "utf8")).toBe("original\n");
+    });
+
+    test("the task worker runs steering_check.py only behind an LLVM 21 clang probe", async () => {
+      const f = await fixture();
+      const workerPath = resolve(f.root, "worker.mjs");
+      const bundled = await Bun.build({ entrypoints: [resolve(import.meta.dir, "task-worker.ts")], target: "bun", format: "esm" });
+      expect(bundled.success).toBe(true);
+      await writeFile(workerPath, new Uint8Array(await bundled.outputs[0]!.arrayBuffer()));
+      const bin = resolve(f.root, "bin"); await mkdir(bin);
+      const run = async (probe: unknown) => {
+        // python3 -c <probe> answers the recorded probe output; the steering command just reports it ran.
+        await writeFile(resolve(bin, "python3"), `#!/bin/sh\nif [ "$1" = "-c" ]; then cat <<'EOF'\n${JSON.stringify(probe)}\nEOF\nexit 0; fi\necho "ran $* gate=$ORCH_STEERING_GATE game=$ORCH_GAME_ID"\n`);
+        await chmod(resolve(bin, "python3"), 0o755);
+        const requestPath = resolve(f.root, "request.json"); const resultPath = resolve(f.root, "response.json");
+        await writeFile(requestPath, JSON.stringify({ repoRoot: f.repo, sourceTree: f.source.tree, gameKind: "doldecomp-sms", reportOptions: {}, logDir: resolve(f.root, "logs"), resultPath, artifactRoots: [], extraArtifacts: [],
+          task: { kind: "steering", input: { skipConfigure: true, command: ["python3", "steering_check.py", "check"], options: { env: { ORCH_STEERING_GATE: "enforce", ORCH_GAME_ID: "sms" } } } } }));
+        const proc = Bun.spawn([process.execPath, workerPath, requestPath], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, stdout: "pipe", stderr: "pipe" });
+        expect(await proc.exited, await new Response(proc.stderr).text()).toBe(0);
+        return JSON.parse(await readFile(resultPath, "utf8")).value;
+      };
+      const llvm21 = { clang: "/usr/bin/clang-21", executable: true, version: "Debian clang version 21.1.8 (++20251221032947+2078da43e25a-1~exp1~20251221153113.67)", macros: { __clang_major__: "21" }, demangler: "/usr/local/bin/llvm-cxxfilt" };
+      expect(await run(llvm21)).toMatchObject({ exitCode: 0, stdout: "ran steering_check.py check gate=enforce game=sms\n", probe: { ok: true, llvmMajor: 21 } });
+      const llvm18 = { ...llvm21, version: "Debian clang version 18.1.8", macros: { __clang_major__: "18" } };
+      const refused = await run(llvm18);
+      expect(refused).toMatchObject({ exitCode: 125, stdout: "", probe: { ok: false, llvmMajor: 18 } });
+      expect(refused.stderr).toBe("steering build sandbox refused: snapshot lacks clang-21; rebuild the image (sandbox clang is LLVM 18, not 21 (Debian clang version 18.1.8))");
+    });
+
+    describe("apply must leave every affected unit compiling", () => {
+      async function applyWorker(f: Awaited<ReturnType<typeof fixture>>) {
+        const workerPath = resolve(f.root, "worker.mjs");
+        const bundled = await Bun.build({ entrypoints: [resolve(import.meta.dir, "task-worker.ts")], target: "bun", format: "esm" });
+        expect(bundled.success).toBe(true);
+        await writeFile(workerPath, new Uint8Array(await bundled.outputs[0]!.arrayBuffer()));
+        const bin = resolve(f.root, "bin"); await mkdir(bin, { recursive: true });
+        const probe = { clang: "/usr/bin/clang-21", executable: true, version: "Debian clang version 21.1.8", macros: { __clang_major__: "21" }, demangler: "/usr/local/bin/llvm-cxxfilt" };
+        await writeFile(resolve(bin, "python3"), `#!/bin/sh\nif [ "$1" = "-c" ]; then echo '${JSON.stringify(probe)}'; exit 0; fi\nexit 0\n`);
+        // ninja logs its arguments and fails any build that includes the object named in $NINJA_FAIL.
+        await writeFile(resolve(bin, "ninja"), `#!/bin/sh\necho "$*" >> "$NINJA_CALLS"\ncase " $* " in *" $NINJA_FAIL "*) echo "src/a.cpp:3: error: undefined identifier 't'" >&2; exit 1;; esac\nexit 0\n`);
+        await chmod(resolve(bin, "python3"), 0o755); await chmod(resolve(bin, "ninja"), 0o755);
+        return async (sourceTree: string, script: string, owners: Record<string, Array<{ unit: string; object: string }>>, fail = "none") => {
+          const requestPath = resolve(f.root, "request.json"); const resultPath = resolve(f.root, "response.json"); const calls = resolve(f.root, "ninja-calls");
+          await rm(calls, { force: true });
+          await writeFile(requestPath, JSON.stringify({ repoRoot: f.repo, sourceTree, gameKind: "doldecomp-sms", reportOptions: {}, logDir: resolve(f.root, "logs"), resultPath, artifactRoots: [], extraArtifacts: [],
+            task: { kind: "steering", input: { skipConfigure: true, applyEdits: true, command: ["sh", "-c", script], verify: { owners } } } }));
+          const proc = Bun.spawn([process.execPath, workerPath, requestPath], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NINJA_CALLS: calls, NINJA_FAIL: fail }, stdout: "pipe", stderr: "pipe" });
+          expect(await proc.exited, await new Response(proc.stderr).text()).toBe(0);
+          const response = JSON.parse(await readFile(resultPath, "utf8"));
+          return { ...response, ninja: (await Bun.file(calls).exists()) ? (await readFile(calls, "utf8")).trim().split("\n") : [] };
+        };
+      }
+      const owners = { "source.c": [{ unit: "u/source", object: "build/source.o" }], "decl.h": [{ unit: "u/source", object: "build/source.o" }, { unit: "u/other", object: "build/other.o" }] };
+
+      test("a revert that drops a declaration another hunk still uses is refused: the unit is named and no patch leaves the sandbox", async () => {
+        const f = await fixture();
+        const run = await applyWorker(f);
+        const response = await run(f.source.tree, "printf 'int use() { return t; }\\n' > source.c", owners, "build/source.o");
+        expect(response.value.exitCode).toBe(4);
+        expect(response.value.stderr).toContain("apply refused: 1 unit(s) no longer compile after the revert: u/source");
+        expect(response.value.compile).toMatchObject({ ok: false, changed: ["source.c"], objects: ["build/source.o"], failures: [{ unit: "u/source", object: "build/source.o" }] });
+        expect(response.value.compile.failures[0].output).toContain("undefined identifier 't'");
+        expect(response.ninja).toEqual(["-k 0 build/source.o", "build/source.o"]);
+        // The sandbox tree is back at its input: the patch is empty.
+        expect(response.sourcePatch).toBe("");
+        expect(await readFile(resolve(f.repo, "source.c"), "utf8")).toBe("original\n");
+      });
+
+      test("a header revert rebuilds every unit that includes it; a clean apply returns its patch", async () => {
+        const f = await fixture();
+        await writeFile(resolve(f.repo, "decl.h"), "int t;\n"); f.git(["add", "decl.h"]); f.git(["commit", "-qm", "header"]);
+        const source = await buildSourceIdentity(f.repo);
+        const run = await applyWorker(f);
+        const response = await run(source.tree, "printf 'extern int t;\\n' > decl.h", owners);
+        expect(response.value).toMatchObject({ exitCode: 0, compile: { ok: true, changed: ["decl.h"], objects: ["build/other.o", "build/source.o"] } });
+        expect(response.ninja).toEqual(["-k 0 build/other.o build/source.o"]);
+        expect(response.sourcePatch).toContain("+extern int t;");
+      });
+
+      test("a changed source no known unit compiles is refused", async () => {
+        const f = await fixture();
+        const run = await applyWorker(f);
+        const response = await run(f.source.tree, "printf 'x\\n' > stray.cpp", owners);
+        expect(response.value).toMatchObject({ exitCode: 4, compile: { ok: false, unowned: ["stray.cpp"] } });
+        expect(response.ninja).toEqual([]);
+        expect(response.sourcePatch).toBe("");
+        expect(await Bun.file(resolve(f.repo, "stray.cpp")).exists()).toBe(false);
+      });
+    });
+
+    test("a refused apply (units no longer compile) publishes nothing to the host", async () => {
+      const f = await fixture(); await writeFile(resolve(f.repo, "source.c"), "real\n"); const patch = f.git(["diff"]); f.git(["checkout", "--", "source.c"]);
+      const compile = { ok: false, changed: ["source.c"], objects: ["build/source.o"], failures: [{ unit: "u/source", object: "build/source.o", output: "error" }], unowned: [] };
+      f.response = { value: { exitCode: 4, stdout: "", stderr: "apply refused", compile }, sourcePatch: patch + "\n", artifacts: [] };
+      expect(await steering(f, { applyEdits: true, verify: { owners: {} } })).toMatchObject({ exitCode: 4, compile });
+      expect(await readFile(resolve(f.repo, "source.c"), "utf8")).toBe("original\n");
+    });
+
+    test("an apply whose checkout moved meanwhile is rejected and publishes nothing", async () => {
+      const f = await fixture();
+      await writeFile(resolve(f.repo, "new.c"), "steered away\n"); f.git(["add", "new.c"]); const patch = f.git(["diff", "--cached"]); f.git(["rm", "-q", "--cached", "new.c"]); await rm(resolve(f.repo, "new.c"));
+      f.response = { value: { exitCode: 0, stdout: "", stderr: "" }, sourcePatch: patch + "\n", artifacts: [] };
+      f.onRun = async () => { await writeFile(resolve(f.repo, "source.c"), "integrated\n"); };
+      await expect(steering(f, { applyEdits: true })).rejects.toThrow("Checkout changed");
+      expect(await Bun.file(resolve(f.repo, "new.c")).exists()).toBe(false);
+      expect(f.deleted).toBe(1);
+    });
+  });
   test("artifact traversal cannot write outside allowed outputs", async () => {
     const f = await fixture(); f.response = { value: {}, artifacts: ["/work/sms/build/../../../escape/report.json"] };
     await expect(f.run()).rejects.toThrow("Invalid build artifact"); expect(f.deleted).toBe(1);

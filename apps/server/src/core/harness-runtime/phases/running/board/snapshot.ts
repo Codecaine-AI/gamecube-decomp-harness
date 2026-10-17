@@ -24,6 +24,8 @@ export interface LoadBoardSnapshotOptions extends BoardReadinessOptions {
   stackOnly?: StackOnlyIndex;
   /** Steering-gated games: `unverified_match` functions, claimable even at 100% and never retired as done. */
   unverified?: UnverifiedIndex;
+  /** `unit::symbol` of unverified targets whose compiler delta is one measured change: ranked first among the unverified. */
+  unverifiedSingleChange?: ReadonlySet<string>;
 }
 
 function excludedSource(sourcePath: string, options: LoadBoardSnapshotOptions): boolean {
@@ -80,7 +82,7 @@ export function loadBoardSnapshot(repoRoot: string, options: LoadBoardSnapshotOp
     reportPath,
     objdiffPath,
     measures,
-    ...applyReadinessFrontier(rankUnverifiedFirst(candidates), options),
+    ...applyReadinessFrontier(rankUnverifiedFirst(candidates, options.unverifiedSingleChange, options.unverified), options),
   };
 }
 
@@ -195,7 +197,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     matched_code_percent: percent(matchedBytes, totalBytes),
     complete_code_percent: percent(matchedBytes, totalBytes),
     unmatched_targets: Math.max(0, totalFunctions - matchedFunctions),
-    // The same "100% unverified" figure the report path stamps (see unverified-measures.ts).
+    // The same "100% but unverified" figure the report path stamps (see unverified-measures.ts).
     ...(options.unverified && options.unverified.size > 0
       ? {
           unverified_functions: unverifiedFunctions,
@@ -210,7 +212,7 @@ function loadBoardSnapshotFromCodeGraphIndex(
     reportPath: functionsIndex,
     objdiffPath: "",
     measures,
-    ...applyReadinessFrontier(rankUnverifiedFirst(candidates), options),
+    ...applyReadinessFrontier(rankUnverifiedFirst(candidates, options.unverifiedSingleChange, options.unverified), options),
   };
 }
 

@@ -15,6 +15,9 @@ import { stackOnlyFunctionsMigration } from "./012-stack-only-functions.js";
 import { steeringMigration } from "./013-steering.js";
 import { steeringRollbacksMigration } from "./014-steering-rollbacks.js";
 import { unverifiedMatchesMigration } from "./015-unverified-matches.js";
+import { certificationMigration } from "./016-certification.js";
+import { evidenceReviewMigration } from "./017-evidence-review.js";
+import { compilerDeltaMigration } from "./018-compiler-delta.js";
 import { SCHEMA_MIGRATIONS_DDL } from "./ddl.js";
 import type { StorageMigration } from "./types.js";
 
@@ -36,6 +39,9 @@ export const storageMigrations: readonly StorageMigration[] = Object.freeze([
   steeringMigration,
   steeringRollbacksMigration,
   unverifiedMatchesMigration,
+  certificationMigration,
+  evidenceReviewMigration,
+  compilerDeltaMigration,
 ]);
 
 interface AppliedMigrationRow {

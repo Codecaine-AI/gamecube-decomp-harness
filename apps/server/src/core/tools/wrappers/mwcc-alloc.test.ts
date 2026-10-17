@@ -3,8 +3,9 @@ import { FakeSandboxProvider, type SandboxCreateParams } from "@server/core/job-
 import { packageRoot } from "@server/core/knowledge/paths.js";
 import { resolve } from "node:path";
 import { runRegisteredToolApi, type ToolRuntimeContext } from "../resolver.js";
-import { mwccAllocAnalyzeToolRegistration, mwccAllocSnapshotToolRegistration } from "./capabilities.js";
-import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./mwcc-alloc.js";
+import { mwccAllocAnalyzeToolRegistration, mwccAllocCompareSourcesToolRegistration, mwccAllocSnapshotToolRegistration } from "./capabilities.js";
+import { boundMwccAllocResult, runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocCompareSources, runSandboxMwccAllocSnapshot } from "./mwcc-alloc.js";
+import { maxToolOutputCharacters } from "../runtime/results.js";
 
 const WORKSPACE_ROOT = "/sandbox/workspace";
 const createParams: SandboxCreateParams = {
@@ -48,6 +49,7 @@ describe("sandbox mwcc allocator wrappers", () => {
     expect(result).toEqual({
       status: "debug_tools_not_provisioned",
       guidance: "This sandbox image snapshot predates the MWCC allocator tooling; do not retry or treat as a tool error. Continue with checkdiff/mwcc_debug_lookup evidence.",
+      backend: "qemu",
     });
     expect(provider.execCalls).toHaveLength(1);
   });
@@ -259,5 +261,199 @@ describe("sandbox mwcc allocator wrappers", () => {
     });
     expect(result.parsed).toEqual(error);
     expect(hostCalls).toBe(0);
+  });
+});
+
+const SYNCED = "/opt/toolpacks/gamecube-decomp/compiler/mwcc_alloc/api";
+const probeOk = { exitCode: 0, stdout: "", stderr: "" };
+const jsonOk = (payload: unknown) => ({ exitCode: 0, stdout: JSON.stringify(payload), stderr: "" });
+
+describe("native mwcc_alloc backend", () => {
+  test("the default pair capture keeps the baked qemu command and says so", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(probeOk, jsonOk({ status: "ok" }));
+    const result = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: snapshotArgs() });
+    expect(provider.execCalls[1].command).toEqual(["python3", "build/tools/mwcc-alloc/mwcc_alloc_capture.py", "--unit", "src/melee/lb/lbmemory.c", "--function", "lb_8000F000", "--capture", "pair", "--timeout-seconds", "900", "--json"]);
+    expect(result.backend).toBe("qemu");
+  });
+
+  test("native captures run the synced snapshot API with a shorter, profile-scaled default", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(probeOk, jsonOk({ status: "ok", backend: "native" }));
+    const tool = mwccAllocSnapshotToolRegistration.create({ ...runtimeContext(handle), role: "worker", cwd: WORKSPACE_ROOT, repoRoot: WORKSPACE_ROOT });
+    await tool.execute("native", { unit: "src/melee/lb/lbmemory.c", function: "lb_8000F000", capture: "decisions" });
+    expect(provider.execCalls[0].command).toEqual(["test", "-f", `${SYNCED}/snapshot.py`]);
+    expect(provider.execCalls[1].command).toEqual(["python3", `${SYNCED}/snapshot.py`, "--repo-root", WORKSPACE_ROOT, "--backend", "native", "--unit", "src/melee/lb/lbmemory.c", "--function", "lb_8000F000", "--capture", "decisions", "--timeout-seconds", "300", "--json"]);
+    const scaled = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: snapshotArgs(["--capture", "coloring-native"]), timeoutScale: 2 });
+    expect(provider.execCalls[3].command).toContain("600");
+    expect(scaled.backend).toBe("native");
+  });
+
+  test("backend/capture combinations milestone 1 cannot serve are refused before the sandbox", async () => {
+    const { provider, handle } = await fakeSandbox();
+    for (const extra of [["--capture", "pair", "--backend", "native"], ["--capture", "trace", "--backend", "native"], ["--capture", "decisions", "--backend", "qemu"]]) {
+      const result = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: snapshotArgs(extra) });
+      expect(result).toMatchObject({ status: "backend_unsupported", tool_error: true });
+    }
+    const bad = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: snapshotArgs(["--backend", "gdb"]) });
+    expect(bad.status).toBe("rejected_arguments");
+    expect(provider.execCalls).toEqual([]);
+  });
+
+  test("compare_sources passes variant specs to the synced API", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(probeOk, jsonOk({ status: "ok", schema: "mwcc-decision-diff-v1", summary_lines: ["gpr pass 1: +1 node"] }));
+    const tool = mwccAllocCompareSourcesToolRegistration.create({ ...runtimeContext(handle), role: "worker", cwd: WORKSPACE_ROOT, repoRoot: WORKSPACE_ROOT });
+    const result = await tool.execute("cmp", { unit: "src/melee/lb/lbmemory.c", function: "lb_8000F000", a: "@revert:src/melee/lb/lbmemory.c:10-12", b: "@worktree", base_rev: "abc123" });
+    expect(provider.execCalls[1].command).toEqual(["python3", `${SYNCED}/compare_sources.py`, "--repo-root", WORKSPACE_ROOT, "--unit", "src/melee/lb/lbmemory.c", "--function", "lb_8000F000", "--a", "@revert:src/melee/lb/lbmemory.c:10-12", "--b", "@worktree", "--base-rev", "abc123", "--timeout-seconds", "600", "--json"]);
+    expect(provider.execCalls[1].opts.timeoutMs).toBe(660_000);
+    expect(JSON.stringify(result)).toContain("+1 node");
+  });
+
+  test("inline manifests are written into the sandbox workspace and passed by path", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(probeOk, probeOk, jsonOk({ status: "ok" }));
+    const tool = mwccAllocCompareSourcesToolRegistration.create({ ...runtimeContext(handle), role: "worker", cwd: WORKSPACE_ROOT, repoRoot: WORKSPACE_ROOT });
+    await tool.execute("cmp", { unit: "src/a.c", function: "f", a: "@base", b_files: { "include/a.h": "int x;\n" }, b_deleted: ["src/old.c"] });
+    expect(provider.execCalls[0].command).toEqual(["mkdir", "-p", "build/mwcc-alloc/manifests"]);
+    const command = provider.execCalls[2].command;
+    const path = command[command.indexOf("--b") + 1];
+    expect(path).toMatch(/^build\/mwcc-alloc\/manifests\/b-[0-9a-f]{16}\.json$/);
+    expect(JSON.parse(await handle.readFile(`${WORKSPACE_ROOT}/${path}`))).toEqual({ files: { "include/a.h": "int x;\n", "src/old.c": null } });
+  });
+
+  test("compare_sources rejects unsafe variants without touching the sandbox", async () => {
+    const { provider, handle } = await fakeSandbox();
+    const tool = mwccAllocCompareSourcesToolRegistration.create({ ...runtimeContext(handle), role: "worker", cwd: WORKSPACE_ROOT, repoRoot: WORKSPACE_ROOT });
+    for (const params of [
+      { a: "@base", b: "../etc/passwd.json" },
+      { a: "@base", b: "@revert:tools/x.py:3" },
+      { a: "@base:$(rm)", b: "@worktree" },
+      { a: "@base", b_files: { "tools/run.sh": "echo" } },
+      { a: "@base" },
+      { a: "@base", b: "@worktree", b_files: { "src/a.c": "" } },
+    ]) {
+      const result = await tool.execute("cmp", { unit: "src/a.c", function: "f", ...params });
+      expect(JSON.stringify(result)).toContain("rejected_arguments");
+    }
+    expect(provider.execCalls).toEqual([]);
+  });
+
+  test("compare_sources needs a sandbox and is routed to it", async () => {
+    let hostCalls = 0;
+    const args = ["--repo-root", WORKSPACE_ROOT, "--unit", "src/a.c", "--function", "f", "--a", "@base", "--b", "@worktree", "--json"];
+    const host = await runRegisteredToolApi(runtimeContext(), "mwcc_alloc", "compare_sources.py", args, {
+      runCommand: async () => { hostCalls += 1; throw new Error("host compiler execution forbidden"); },
+    });
+    expect(host.status).toBe("sandbox_required");
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(probeOk, jsonOk({ status: "ok" }));
+    const routed = await runRegisteredToolApi(runtimeContext(handle), "mwcc_alloc", "compare_sources.py", args, {
+      runCommand: async () => { hostCalls += 1; throw new Error("host compiler execution forbidden"); },
+    });
+    expect(routed.parsed).toEqual({ status: "ok" });
+    expect(routed.backend).toBe("native");
+    expect(hostCalls).toBe(0);
+  });
+
+  test("native captures accept mangled template names; qemu captures keep identifiers", async () => {
+    const { provider, handle } = await fakeSandbox();
+    provider.scriptExec(probeOk, jsonOk({ status: "ok" }));
+    const mangled = "execute__26TNerveBossEelSleepOnBottomCFP24TSpineBase<10TLiveActor>";
+    const args = (fn: string, capture: string) => ["--repo-root", WORKSPACE_ROOT, "--unit", "src/Enemy/bosseel.cpp", "--function", fn, "--capture", capture, "--json"];
+    const ok = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: args(mangled, "decisions") });
+    expect(ok.status).not.toBe("rejected_arguments");
+    expect(provider.execCalls[1].command).toContain(mangled);
+    const qemu = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: args(mangled, "pair") });
+    expect(qemu.status).toBe("rejected_arguments");
+    const shell = await runSandboxMwccAllocSnapshot({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: args("f;rm -rf /", "decisions") });
+    expect(shell.status).toBe("rejected_arguments");
+    expect(provider.execCalls).toHaveLength(2);
+  });
+
+  test("direct wrapper calls validate their own arguments", async () => {
+    const { provider, handle } = await fakeSandbox();
+    const result = await runSandboxMwccAllocCompareSources({ sandboxHandle: handle, workspaceRoot: WORKSPACE_ROOT, args: ["--unit", "src/a.c", "--function", "f", "--a", "@base"] });
+    expect(result).toMatchObject({ status: "rejected_arguments" });
+    expect(provider.execCalls).toEqual([]);
+  });
+});
+
+function bigChange(index: number) {
+  const identity = { cls: "gpr", vreg: 40 + index, kind: "local", object: `local_${index}`, decl_file: "src/Enemy/bosseel.cpp", decl_line: 2400 + index, origin: "x".repeat(400) };
+  return {
+    kind: "register",
+    summary: `gpr pass 0: \`local_${index}\` (local src/Enemy/bosseel.cpp:${2400 + index}) r30 -> r31 (v${40 + index} -> v${41 + index})`,
+    a: { vreg: 40 + index, degree: 12, reg: "r30", order: index, spilled: false, identity },
+    b: { vreg: 41 + index, degree: 12, reg: "r31", order: index, spilled: false, identity },
+    match: "by_site",
+  };
+}
+
+function toolText(result: { content: Array<{ type: string; text?: string }> }): string {
+  return String(result.content[0].text);
+}
+
+describe("mwcc_alloc output stays valid JSON when large", () => {
+  test("a 30-row diff keeps its locator and counts, cutting rows first", async () => {
+    const { provider, handle } = await fakeSandbox();
+    const parsed = {
+      schema: "mwcc-decision-diff-v1", status: "ok", backend: "native", function: "updateTearsCnt__8TBossEelFv",
+      change_counts: { register: 300 }, changes: Array.from({ length: 30 }, (_, i) => bigChange(i)),
+      changes_omitted: 270, changes_truncated: true,
+      summary_lines: Array.from({ length: 41 }, (_, i) => `line ${i} ${"y".repeat(200)}`),
+      full_report: "build/mwcc-alloc/compare-sources/f-1/decision-diff.json",
+      stock: { a_obj_sha: "a".repeat(64), b_obj_sha: "b".repeat(64), code_class: "code" },
+    };
+    expect(JSON.stringify(parsed).length).toBeGreaterThan(maxToolOutputCharacters);
+    provider.scriptExec(probeOk, jsonOk(parsed));
+    const tool = mwccAllocCompareSourcesToolRegistration.create({ ...runtimeContext(handle), role: "worker", cwd: WORKSPACE_ROOT, repoRoot: WORKSPACE_ROOT });
+    const text = toolText(await tool.execute("cmp", { unit: "src/Enemy/bosseel.cpp", function: "updateTearsCnt__8TBossEelFv", a: "@base", b: "@worktree" }));
+    expect(text.length).toBeLessThanOrEqual(maxToolOutputCharacters);
+    const out = JSON.parse(text).parsed;
+    expect(out).toMatchObject({ schema: "mwcc-decision-diff-v1", status: "ok", function: "updateTearsCnt__8TBossEelFv",
+      change_counts: { register: 300 }, changes_truncated: true, full_report: parsed.full_report });
+    expect(out.changes.length).toBeGreaterThan(0);
+    expect(out.changes.length).toBeLessThan(30);
+    expect(out.changes_omitted).toBe(300 - out.changes.length);
+    expect(out.note).toContain(parsed.full_report);
+    expect(out.summary_lines).toHaveLength(41);
+  });
+
+  test("when even the kept rows are too big the locator survives", () => {
+    const parsed = {
+      schema: "mwcc-decision-diff-v1", status: "ok", function: "f", change_counts: { register: 2 },
+      changes: [bigChange(0), bigChange(1)], full_report: "build/x/decision-diff.json",
+      provenance: { blob: "z".repeat(200_000) }, error: "e".repeat(50_000),
+    };
+    const bounded = boundMwccAllocResult("mwcc_alloc_compare_sources", { operation: "tool:mwcc_alloc:compare_sources.py", exit_code: 0, parsed });
+    const text = JSON.stringify({ tool: "mwcc_alloc_compare_sources", ...bounded }, null, 2);
+    expect(text.length).toBeLessThanOrEqual(maxToolOutputCharacters);
+    const out = JSON.parse(text).parsed;
+    expect(out).toMatchObject({ schema: "mwcc-decision-diff-v1", status: "ok", function: "f", full_report: "build/x/decision-diff.json", changes_omitted: 2 });
+    expect(out.error.length).toBeLessThan(1_300);
+  });
+
+  test("snapshot output keeps its status and out_dir when the file list is huge", async () => {
+    const { provider, handle } = await fakeSandbox();
+    const parsed = {
+      status: "ok", backend: "native", capture: "coloring-native", function: "mnSnap_80257F24",
+      out_dir: "build/mwcc-alloc/native/mnSnap_80257F24-1",
+      files: Array.from({ length: 400 }, (_, i) => ({ path: `build/mwcc-alloc/native/mnSnap_80257F24-1/coloring-0001-gpr-${i}-before.json`, kind: "coloring_before", nodes: 300 })),
+      replay: Array.from({ length: 200 }, (_, i) => ({ cls: "gpr", pass: i, ok: false, color_mismatches: Array.from({ length: 8 }, (_, j) => ({ register: j, replayed: 3, captured: 4 })) })),
+      available_points: ["coloring"], unavailable_points: ["scheduling"],
+    };
+    provider.scriptExec(probeOk, jsonOk(parsed));
+    const tool = mwccAllocSnapshotToolRegistration.create({ ...runtimeContext(handle), role: "worker", cwd: WORKSPACE_ROOT, repoRoot: WORKSPACE_ROOT });
+    const text = toolText(await tool.execute("snap", { unit: "src/melee/mn/mnsnap.c", function: "mnSnap_80257F24", capture: "coloring-native" }));
+    expect(text.length).toBeLessThanOrEqual(maxToolOutputCharacters);
+    const out = JSON.parse(text).parsed;
+    expect(out).toMatchObject({ status: "ok", backend: "native", out_dir: parsed.out_dir, capture: "coloring-native" });
+    expect(out.replay_omitted).toBeGreaterThan(0);
+  });
+
+  test("small results pass through unchanged", () => {
+    const result = { operation: "x", parsed: { status: "ok", changes: [bigChange(0)] } };
+    expect(boundMwccAllocResult("mwcc_alloc_compare_sources", result)).toBe(result);
   });
 });

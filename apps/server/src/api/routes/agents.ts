@@ -1,5 +1,9 @@
 import type { KernelPreviewOptions } from "@server/core/agent-catalog/kernel-preview.js";
 import {
+  COMPILER_DELTA_PREVIEW_VARIANTS,
+  isCompilerDeltaPreviewVariant,
+} from "@server/core/agent-catalog/kernel-preview.js";
+import {
   isPreviousAttemptVariant,
   PREVIOUS_ATTEMPT_VARIANTS,
 } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
@@ -41,6 +45,14 @@ export async function handleAgentsApiRoute(url: URL, deps: AgentsApiRouteDeps): 
       return deps.json({ error: `previous_attempt must be one of: ${PREVIOUS_ATTEMPT_VARIANTS.join(", ")}` }, { status: 400 });
     }
     options = { ...options, previousAttempt: rawPreviousAttempt };
+  }
+  // Which `compiler_delta` variant the worker sample's steering_probe renders (enforced steering gate only).
+  const rawCompilerDelta = url.searchParams.get("compiler_delta");
+  if (rawCompilerDelta !== null) {
+    if (!isCompilerDeltaPreviewVariant(rawCompilerDelta)) {
+      return deps.json({ error: `compiler_delta must be one of: ${COMPILER_DELTA_PREVIEW_VARIANTS.join(", ")}` }, { status: 400 });
+    }
+    options = { ...options, compilerDelta: rawCompilerDelta };
   }
   const paths = deps.requestPaths(url, { useDefaultGame: true });
   return deps.json(deps.loadKernelAgentsPayload(paths, options));

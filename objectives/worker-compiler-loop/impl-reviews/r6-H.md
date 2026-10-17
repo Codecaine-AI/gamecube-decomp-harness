@@ -1,0 +1,5 @@
+1. [BLOCKING] Current landing inherits a certificate for different source — `apps/server/src/core/harness-runtime/phases/running/epochs/sync-certification.ts:59`. A worker gates source A, then its patch applies cleanly onto changed source B. The integration records `steering_content_freshness.fresh=false`, but this reader ignores it and certifies the landing because `integrated_rev === ours`. Without a hold, ungated combined code can beat upstream. Confirmed with an injected-store reproduction. Fix: require fresh certification at the integrated tree, or complete candidate-to-landing source and compile-input identity; reject missing, false, or mismatched proofs. Add regression coverage. **New versus origin/main; distinct from the resolved historical-revision issue.**
+
+R5 token-boundary finding: RESOLVED by write-free reproduction. No remaining unit-name mismatch found. Typecheck passed; focused tests: 25 passed, 29 blocked by sandbox temporary-directory denial.
+
+1 blocking finding.

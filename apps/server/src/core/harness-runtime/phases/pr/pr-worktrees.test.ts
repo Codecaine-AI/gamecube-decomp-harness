@@ -19,6 +19,8 @@ import type { RegressionReport } from "@server/core/validation/objdiff/report.js
 import { openState } from "@server/core/orchestrator-state";
 import { listUnverifiedMatches, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
+import { createRun } from "@server/core/harness-runtime/run-state";
+import { seedRunHarness } from "@server/core/harness-runtime/run-state/test-harness.js";
 
 const cleanupPaths: string[] = [];
 const ungatedPaths: PrWorktreeGameContext = { game: null, repoRoot: "/repo", stateDir: "/unused-pr-state" };
@@ -94,7 +96,14 @@ describe("PR verification steering holds", () => {
    * edit in mixed.cpp, plus a verified edit alone in clean.cpp. The report
    * reflects exactly what the applied patch left in the baseline worktree.
    */
-  async function fixture(heldEdit: HeldEdit) {
+  /**
+   * `reportPrefix`: the objdiff module prefix the report's unit names carry
+   * (SMS `mario/`) while steering rows name the unit without it; `mixed`: the
+   * mixed file, which the report maps the held unit to by its source path.
+   */
+  async function fixture(heldEdit: HeldEdit, options: { reportPrefix?: string; mixed?: string } = {}) {
+    const MIXED = options.mixed ?? "src/JSystem/mixed.cpp";
+    const reportUnit = (unit: string) => `${options.reportPrefix ?? ""}${unit}`;
     const repoRoot = tempDir("pr-held-repo-");
     const stateDir = tempDir("pr-held-state-");
     const baselineWorktree = tempDir("pr-held-baseline-");
@@ -141,11 +150,11 @@ describe("PR verification steering holds", () => {
         const mixed = readFileSync(join(baselineWorktree, MIXED), "utf8").includes("return 1");
         const clean = readFileSync(join(baselineWorktree, CLEAN), "utf8").includes("return 1");
         const newMatches = [
-          ...(mixed ? [entry("JSystem/mixed", "verified", MIXED, 0, 100)] : []),
-          ...(mixed && (heldEdit === "newly_exact" || heldEdit === "none") ? [entry("JSystem/mixed", "held", MIXED, 0, 100)] : []),
-          ...(clean ? [entry("JSystem/clean", "clean", CLEAN, 0, 100)] : []),
+          ...(mixed ? [entry(reportUnit("JSystem/mixed"), "verified", MIXED, 0, 100)] : []),
+          ...(mixed && (heldEdit === "newly_exact" || heldEdit === "none") ? [entry(reportUnit("JSystem/mixed"), "held", MIXED, 0, 100)] : []),
+          ...(clean ? [entry(reportUnit("JSystem/clean"), "clean", CLEAN, 0, 100)] : []),
         ];
-        const improvements = mixed && heldEdit === "improved" ? [entry("JSystem/mixed", "held", MIXED, 40, 90)] : [];
+        const improvements = mixed && heldEdit === "improved" ? [entry(reportUnit("JSystem/mixed"), "held", MIXED, 40, 90)] : [];
         return {
           ...cleanReport(), newMatches, improvements,
           summary: { matchedCodeBytesDelta: newMatches.length * 64 },
@@ -203,6 +212,30 @@ describe("PR verification steering holds", () => {
     expect((await git(baselineWorktree, ["status", "--porcelain"])).stdout).toBe("");
   });
 
+  test.each([
+    { label: "a newly exact unverified match", heldEdit: "newly_exact" as const, heldMatches: 1 },
+    { label: "a rolled-back function that only improved", heldEdit: "improved" as const, heldMatches: 0 },
+  ])("SMS report units with the module prefix still find $label held under its short unit", async ({ heldEdit, heldMatches }) => {
+    // The report maps `mario/JSystem/mixed` to shared.cpp: no filename fallback can find it, only the unit.
+    const SHARED = "src/JSystem/shared.cpp";
+    const { service, paths, baseSha, baselineWorktree, repoRoot } = await fixture(heldEdit, { reportPrefix: "mario/", mixed: SHARED });
+
+    const status = await service.verifyShipSet(paths, { baseSha, worktreeDir: baselineWorktree }, [SHARED, CLEAN], { sourceRef: "pr/sms" });
+    expect(status).toMatchObject({ status: "pr_ready", shippedFiles: [CLEAN], newMatches: 1, heldMatches: 0, matchedCodeBytesDelta: 64 });
+    expect(Object.keys(status.droppedFiles as object)).toEqual([SHARED]);
+
+    const patchPath = join(paths.stateDir, "slice.patch");
+    writeFileSync(patchPath, (await git(repoRoot, ["diff", "--binary", `${baseSha}..pr/sms`, "--", SHARED, CLEAN])).stdout);
+    const result = await service.verifyPrSliceInBaseline({
+      paths, sourceRef: "pr/sms", baseSha, baselineWorktree, files: [SHARED, CLEAN], patchPath,
+    });
+    const rawNewMatches = heldEdit === "newly_exact" ? 3 : 2;
+    // The held new match earns neither a match nor its bytes.
+    expect(result.validation).toMatchObject({ status: "failed", rawNewMatches, heldMatches, newMatches: rawNewMatches - heldMatches });
+    expect(result.validation.matchedCodeBytesDelta).toBe(rawNewMatches * 64 - heldMatches * 64);
+    expect(Object.keys(result.validation.steeringHeldFiles as object)).toEqual([SHARED]);
+  });
+
   test("the same gated patch ships whole when no function in it is held", async () => {
     const { service, paths, baseSha, baselineWorktree, repoRoot } = await fixture("none");
 
@@ -232,6 +265,122 @@ describe("PR verification steering holds", () => {
       paths, baseSha: "trusted-base", baselineWorktree, files: ["src/mixed.cpp"], patchPath: join(stateDir, "slice.patch"),
     })).rejects.toThrow();
     expect(existsSync(join(stateDir, "orchestrator.sqlite"))).toBe(false);
+  });
+});
+
+describe("PR readiness keeps certified repairs on raw scores", () => {
+  const FILE = "src/JSystem/repaired.cpp";
+  const UNIT = "JSystem/repaired";
+
+  /** A state DB where a certification-lane checkpoint (unverified 100 -> certified 96) of `JSystem/repaired::fn` landed. */
+  async function landedRepairState(certificationUnit = UNIT, targetKey = `${UNIT}::fn`, fresh = true): Promise<string> {
+    const stateDir = tempDir("pr-certified-repair-state-");
+    const store = openState(stateDir);
+    try {
+      seedRunHarness(store, "sms", "base-sha", "/repo");
+      const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sha" });
+      store.db.query(`INSERT INTO worker_checkpoints (id, worker_state_id, run_id, epoch_id, epoch_target_id, target_claim_id, attempt_index,
+          validation_time, hard_gates_passed, validation_status, validation_state, write_set_json, metadata_json)
+        VALUES ('cp-1', 'ws-1', ?, 'epoch-1', 'et-1', 'claim-1', 0, 'then', 1, 'passed', 'tentative', '[]', ?)`)
+        .run(run.id, JSON.stringify({ certification: { certified: true, kind: "gate_pass", unit: certificationUnit, symbol: "fn", score: 96, certificate_hash: "h", revision: "trusted", progress: "first_certificate", high_water_before: null, lane: "unverified_match" } }));
+      store.db.query(`INSERT INTO target_claims (id, run_id, epoch_id, epoch_target_id, worker_id, base_rev, status, claimed_at)
+        VALUES ('claim-1', ?, 'epoch-1', 'et-1', 'worker-1', 'claim-base', 'closed', 'then')`).run(run.id);
+      store.db.query(`INSERT INTO epoch_targets (id, epoch_id, run_id, target_key, unit, symbol, source_path, size, baseline_score, priority, admission_index, status, admitted_at)
+        VALUES ('et-1', 'epoch-1', ?, ?, ?, 'fn', ?, 64, 100, 1, 0, 'finished', 'then')`).run(run.id, targetKey, targetKey.slice(0, targetKey.lastIndexOf("::")), FILE);
+      // The landed-content proof the integration queue records (fresh: the gated source landed unchanged).
+      store.db.query(`INSERT INTO integration_outcomes (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_state_id, worker_checkpoint_id,
+          status, target_key, metadata_json, created_at, updated_at)
+        VALUES ('int-1', ?, 'epoch-1', 'et-1', 'claim-1', 'ws-1', 'cp-1', 'applied', ?, ?, 'then', 'then')`)
+        .run(run.id, targetKey, JSON.stringify({
+          integrated_rev: "landed-rev", pre_apply_rev: "pre-apply",
+          steering_content_freshness: { fresh, target_key: targetKey, source_path: FILE, claim_base_rev: "claim-base", pre_apply_rev: "pre-apply", integrated_rev: "landed-rev" },
+        }));
+    } finally {
+      store.db.close();
+    }
+    return stateDir;
+  }
+
+  function repairReport(unitName = UNIT): RegressionReport {
+    return {
+      ...cleanReport(),
+      brokenMatches: [{ unitName, itemName: "fn", sourcePath: FILE, size: 64, fromPercent: 100, toPercent: 96, bytesDelta: -3 }],
+    } as unknown as RegressionReport;
+  }
+
+  test("a certified repair below the upstream score is held out of the slice with an explicit reason", async () => {
+    const stateDir = await landedRepairState();
+    const paths: PrWorktreeGameContext = { game: { gameId: "sms", matching: { steeringGate: "enforce" } }, repoRoot: "/repo", stateDir };
+    const service = createService({ readRegressionReport: async () => repairReport() });
+
+    const status = await service.verifyShipSet(paths, { baseSha: "base-sha", worktreeDir: tempDir("pr-certified-baseline-") }, [FILE], { sourceRef: "pr/sms" });
+    const reasons = Object.values({ ...(status.droppedFiles as object), ...(status.unattributed as object ?? {}) }).flat() as string[];
+    expect(status.status).not.toBe("pr_ready");
+    expect(reasons).toContain("certified repair below upstream score; not shippable until exact: fn 100.00 -> 96.00 (certified 96.00)");
+
+    const slice = await service.verifyPrSliceInBaseline({
+      paths, sourceRef: "pr/sms", baseSha: "base-sha", baselineWorktree: tempDir("pr-certified-slice-"), files: [FILE], patchPath: join(stateDir, "slice.patch"),
+    });
+    expect(slice.validation).toMatchObject({
+      status: "failed", brokenMatches: 1,
+      certifiedRepairs: [{ target: `${UNIT}::fn`, fromPercent: 100, toPercent: 96, certifiedScore: 96, reason: "certified repair below upstream score; not shippable until exact" }],
+    });
+    expect(() => service.assertSliceVerificationClean("pr/sms", slice.validation))
+      .toThrow("1 certified repair below upstream score; not shippable until exact (JSystem/repaired::fn 96%)");
+  });
+
+  test("a short-unit certification names the module-prefixed report row and integration key as the same repair", async () => {
+    const REPORT_UNIT = `mario/${UNIT}`;
+    const stateDir = await landedRepairState(UNIT, `${REPORT_UNIT}::fn`);
+    const paths: PrWorktreeGameContext = { game: { gameId: "sms", matching: { steeringGate: "enforce" } }, repoRoot: "/repo", stateDir };
+    const service = createService({ readRegressionReport: async () => repairReport(REPORT_UNIT) });
+    const slice = await service.verifyPrSliceInBaseline({
+      paths, sourceRef: "pr/sms", baseSha: "base-sha", baselineWorktree: tempDir("pr-certified-slice-"), files: [FILE], patchPath: join(stateDir, "slice.patch"),
+    });
+    expect(slice.validation).toMatchObject({
+      certifiedRepairs: [{ target: `${REPORT_UNIT}::fn`, fromPercent: 100, toPercent: 96, certifiedScore: 96 }],
+    });
+  });
+});
+
+describe("PR readiness labels only proven certified repairs", () => {
+  test("a stale landing, or a source ref the landing is not in, keeps the plain regression reason", async () => {
+    const FILE = "src/JSystem/repaired.cpp";
+    const UNIT = "JSystem/repaired";
+    const report = { ...cleanReport(), brokenMatches: [{ unitName: UNIT, itemName: "fn", sourcePath: FILE, size: 64, fromPercent: 100, toPercent: 96, bytesDelta: -3 }] } as unknown as RegressionReport;
+    const seed = (fresh: boolean) => {
+      const stateDir = tempDir("pr-certified-stale-");
+      const store = openState(stateDir);
+      try {
+        seedRunHarness(store, "sms", "base-sha", "/repo");
+        const run = createRun(store, "matched_code_percent", 100, 1, { gameId: "sms" }, { baseRevision: "base-sha" });
+        store.db.query(`INSERT INTO worker_checkpoints (id, worker_state_id, run_id, epoch_id, epoch_target_id, target_claim_id, attempt_index,
+            validation_time, hard_gates_passed, validation_status, validation_state, write_set_json, metadata_json)
+          VALUES ('cp-1', 'ws-1', ?, 'epoch-1', 'et-1', 'claim-1', 0, 'then', 1, 'passed', 'tentative', '[]', ?)`)
+          .run(run.id, JSON.stringify({ certification: { certified: true, kind: "gate_pass", unit: UNIT, symbol: "fn", score: 96, lane: "unverified_match" } }));
+        store.db.query(`INSERT INTO target_claims (id, run_id, epoch_id, epoch_target_id, worker_id, base_rev, status, claimed_at)
+          VALUES ('claim-1', ?, 'epoch-1', 'et-1', 'worker-1', 'claim-base', 'closed', 'then')`).run(run.id);
+        store.db.query(`INSERT INTO epoch_targets (id, epoch_id, run_id, target_key, unit, symbol, source_path, size, baseline_score, priority, admission_index, status, admitted_at)
+          VALUES ('et-1', 'epoch-1', ?, ?, ?, 'fn', ?, 64, 100, 1, 0, 'finished', 'then')`).run(run.id, `${UNIT}::fn`, UNIT, FILE);
+        store.db.query(`INSERT INTO integration_outcomes (id, run_id, epoch_id, epoch_target_id, target_claim_id, worker_state_id, worker_checkpoint_id,
+            status, target_key, metadata_json, created_at, updated_at)
+          VALUES ('int-1', ?, 'epoch-1', 'et-1', 'claim-1', 'ws-1', 'cp-1', 'applied', ?, ?, 'then', 'then')`)
+          .run(run.id, `${UNIT}::fn`, JSON.stringify({
+            integrated_rev: "landed-rev", pre_apply_rev: "pre-apply",
+            steering_content_freshness: { fresh, target_key: `${UNIT}::fn`, source_path: FILE, claim_base_rev: "claim-base", pre_apply_rev: "pre-apply", integrated_rev: "landed-rev" },
+          }));
+      } finally {
+        store.db.close();
+      }
+      return { game: { gameId: "sms", matching: { steeringGate: "enforce" } }, repoRoot: "/repo", stateDir } as PrWorktreeGameContext;
+    };
+    const verify = (paths: PrWorktreeGameContext, notAncestor = false) => createService({
+      readRegressionReport: async () => report,
+      runGit: async (_root, args) => (notAncestor && args[0] === "merge-base" ? { exitCode: 1, stdout: "", stderr: "" } : successResult()),
+    }).verifyPrSliceInBaseline({ paths, sourceRef: "pr/sms", baseSha: "base-sha", baselineWorktree: tempDir("pr-certified-stale-slice-"), files: [FILE], patchPath: join(paths.stateDir, "slice.patch") });
+    for (const result of [await verify(seed(false)), await verify(seed(true), true)]) {
+      expect(result.validation).toMatchObject({ status: "failed", brokenMatches: 1, certifiedRepairs: [] });
+    }
   });
 });
 

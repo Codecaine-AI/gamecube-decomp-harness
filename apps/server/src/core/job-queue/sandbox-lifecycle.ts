@@ -29,6 +29,8 @@ export interface SandboxReconciliationResult {
   kept: number;
   deleted: number;
   failed: number;
+  /** Failed creates' quota holds: released (allocations confirmed gone), still held, or expired (reported). */
+  held_allocations?: { released: string[]; held: string[]; expired: string[] };
 }
 
 function nonempty(value: unknown): string | undefined {
@@ -232,6 +234,20 @@ export async function reconcileSandboxes(
   const provider = deps.sandboxProvider;
   const result: SandboxReconciliationResult = { scanned: 0, kept: 0, deleted: 0, failed: 0 };
   if (!provider) return result;
+  const scan = await reconcileLabelledSandboxes(store, input, provider, deps, result);
+  // After the label sweep (which may itself have deleted a failed create's allocation): release
+  // the quota holds of failed creates whose allocations are now confirmed gone.
+  const holds = await provider.reconcileHeldAllocations?.().catch(() => undefined);
+  return holds && (holds.released.length || holds.held.length || holds.expired.length) ? { ...scan, held_allocations: holds } : scan;
+}
+
+async function reconcileLabelledSandboxes(
+  store: StateStore,
+  input: { gameId: string; at?: string },
+  provider: SandboxProvider,
+  deps: SandboxLifecycleDeps,
+  result: SandboxReconciliationResult,
+): Promise<SandboxReconciliationResult> {
   const warn = deps.warn ?? ((message: string, error?: unknown) => console.warn(message, error));
   let sandboxes: Array<{ sandboxId: string; labels: Record<string, string> }>;
   try {

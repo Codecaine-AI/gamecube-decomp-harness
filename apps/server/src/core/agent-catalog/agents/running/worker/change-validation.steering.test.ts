@@ -17,6 +17,10 @@ import {
   UNVERIFIED_MATCH_INSTRUCTION,
   unverifiedMatchCertification,
 } from "./steering-validation.js";
+import { useHostReportPlacement } from "./host-report-placement.test-support.js";
+
+// Fake workspaces here serve whole objdiff reports and symbols.txt: explicit host report placement.
+useHostReportPlacement();
 
 const UNIT = "mario/M3DUtil/MActor";
 const SYMBOL = "setLightData__6MActorFv";

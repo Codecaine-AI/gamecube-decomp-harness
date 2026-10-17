@@ -2,6 +2,7 @@
 import { graphFileCard, graphRelatedFunctions, graphSearch } from "../runtime/execution.js";
 import type { AgentToolRegistration, AgentToolRuntimeContext, PiToolDefinition } from "../types.js";
 import { boundedLimit, jsonToolResult } from "../runtime/results.js";
+import { boundToolPayload } from "../runtime/bounded-json.js";
 import {
   applyKnowledgePolicies,
   applyKnowledgePolicy,
@@ -130,7 +131,12 @@ export const codeGraphFileCardToolRegistration: AgentToolRegistration = {
       executionMode: "parallel",
       async execute(_toolCallId, params) {
         const sourcePath = String(params.source_path ?? "").trim();
-        return jsonToolResult("code_graph_file_card", applyKnowledgePolicies(context.game?.gameId, graphFileCard(context, sourcePath)));
+        // A big file's card (callees, data references, patterns) can exceed the output cap: cut it to valid JSON.
+        return jsonToolResult("code_graph_file_card", boundToolPayload(
+          "code_graph_file_card",
+          applyKnowledgePolicies(context.game?.gameId, graphFileCard(context, sourcePath)),
+          "Lists were cut to fit the output cap; shown/total per list. For one function's callers, callees and data references call graph_related_functions with unit and symbol.",
+        ));
       },
     };
   },
@@ -189,7 +195,7 @@ export const graphRelatedFunctionsToolRegistration: AgentToolRegistration = {
       parameters: relatedFunctionsParameters,
       executionMode: "parallel",
       async execute(_toolCallId, params) {
-        return jsonToolResult(
+        return jsonToolResult("graph_related_functions", boundToolPayload(
           "graph_related_functions",
           graphRelatedFunctions(context, {
             sourcePath: String(params.source_path ?? "").trim() || undefined,
@@ -198,7 +204,8 @@ export const graphRelatedFunctionsToolRegistration: AgentToolRegistration = {
             entityId: String(params.entity_id ?? "").trim() || undefined,
             limit: boundedLimit(params.limit),
           }),
-        );
+          "Lists were cut to fit the output cap; shown/total per list. Narrow with unit and symbol or entity_id, or lower limit.",
+        ));
       },
     };
   },

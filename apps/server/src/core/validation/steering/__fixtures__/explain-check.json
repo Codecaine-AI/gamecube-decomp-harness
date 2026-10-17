@@ -1,0 +1,781 @@
+{
+ "edits": {
+  "tool": "steering_check",
+  "version": 1,
+  "repo": "<repo>",
+  "game_version": "V1",
+  "base_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+  "head_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+  "base_tree": "5f4d2748f6d6aa65b3fd323502951992ff0cf131",
+  "paths": [
+   "src",
+   "include",
+   "libs"
+  ],
+  "overlay": false,
+  "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+  "no_changes": false,
+  "files": [
+   {
+    "path": "src/a.c",
+    "base_exists": true,
+    "cand_exists": true,
+    "base_text": "int gB; // GLOBAL(gB)\nint gA; // GLOBAL(gA)\nvoid f()\n{\n    a();\n    v = foo->mX NEUTRAL;\n    b();\n}\nvoid g()\n{\n    c();\n    d(1) NEUTRAL;\n}\n",
+    "cand_text": "int gA; // GLOBAL(gA)\nint gB; // GLOBAL(gB)\nvoid f()\n{\n    a();\n    v = foo->getX() NEUTRAL ACCESSOR;\n    b();\n}\nvoid g()\n{\n    c();\n    int t = 1 NEUTRAL STEER;\n    d(t) NEUTRAL;\n}\n"
+   }
+  ],
+  "generated": {
+   "root": "build/V1/include",
+   "files": []
+  },
+  "units": [
+   {
+    "unit": "u1",
+    "source": "src/a.c",
+    "object": "o",
+    "target": "t",
+    "flags": [
+     "clang",
+     "--target=powerpc-eabi",
+     "-Ibuild/V1/include",
+     "-c",
+     "${REPO}/src/a.c"
+    ]
+   }
+  ],
+  "header_units": {}
+ },
+ "reduce": {
+  "tool": "steering_check",
+  "version": 1,
+  "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+  "base_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+  "game": "sms",
+  "oracle": {
+   "available": true,
+   "injected": true,
+   "context": {
+    "base_tree_ok": true,
+    "generated_ok": true,
+    "detail": "injected oracle"
+   }
+  },
+  "analysis": "complete",
+  "changed_files": [
+   "src/a.c"
+  ],
+  "incomplete_reasons": [],
+  "global_incomplete": [],
+  "incomplete_details": [],
+  "groups": [
+   {
+    "id": "src/a.c@0.0",
+    "file": "src/a.c",
+    "edit_ids": [
+     "src/a.c#0.0",
+     "src/a.c#1.0"
+    ],
+    "line": 1,
+    "functions": [],
+    "base_lines": [
+     "int gA; // GLOBAL(gA)"
+    ],
+    "cand_lines": [
+     "int gA; // GLOBAL(gA)"
+    ],
+    "shapes": [
+     "other",
+     "data_order"
+    ],
+    "real_shapes": [],
+    "status": "unresolved",
+    "reason": "data order changes: no symbols.txt at base_rev to check the original order",
+    "evidence": null,
+    "units": [
+     "u1"
+    ],
+    "cosmetic": false,
+    "compile_blocked": false,
+    "incomplete": false,
+    "data_order": {
+     "flipped": [
+      [
+       "gA",
+       "gB"
+      ]
+     ],
+     "verified": false,
+     "detail": "no symbols.txt at base_rev to check the original order"
+    },
+    "ir_functions": [],
+    "ir_symbols_changed": [],
+    "site_lines": [
+     1,
+     1
+    ],
+    "group_digest": "7e3379d8f3170bf96e4eb4e76a622bdbf1371dc0d3422b6dfd6e1d884dd6e797",
+    "new_calls": [],
+    "dropped_calls": [],
+    "findings": []
+   },
+   {
+    "id": "src/a.c@2.0",
+    "file": "src/a.c",
+    "edit_ids": [
+     "src/a.c#2.0"
+    ],
+    "line": 6,
+    "functions": [
+     "f"
+    ],
+    "base_lines": [
+     "    v = foo->mX NEUTRAL;"
+    ],
+    "cand_lines": [
+     "    v = foo->getX() NEUTRAL ACCESSOR;"
+    ],
+    "shapes": [
+     "accessor_swap"
+    ],
+    "real_shapes": [],
+    "status": "removable",
+    "reason": "reverting it keeps every IR fingerprint and the data order",
+    "evidence": null,
+    "units": [
+     "u1"
+    ],
+    "cosmetic": false,
+    "compile_blocked": false,
+    "incomplete": false,
+    "data_order": null,
+    "ir_functions": null,
+    "ir_symbols_changed": null,
+    "site_lines": [
+     6,
+     6
+    ],
+    "group_digest": "eb219f10d316b73da700a0387ac1cfaa8fcc39c02ea0b7007295f842751bb056",
+    "new_calls": [
+     "getX"
+    ],
+    "dropped_calls": [],
+    "findings": []
+   },
+   {
+    "id": "src/a.c@3.0",
+    "file": "src/a.c",
+    "edit_ids": [
+     "src/a.c#3.0",
+     "src/a.c#3.1"
+    ],
+    "line": 12,
+    "functions": [
+     "g"
+    ],
+    "base_lines": [
+     "    d(1) NEUTRAL;"
+    ],
+    "cand_lines": [
+     "    int t = 1 NEUTRAL STEER;",
+     "    d(t) NEUTRAL;"
+    ],
+    "shapes": [
+     "temp_alias"
+    ],
+    "real_shapes": [],
+    "status": "removable",
+    "reason": "reverting it keeps every IR fingerprint and the data order",
+    "evidence": null,
+    "units": [
+     "u1"
+    ],
+    "cosmetic": false,
+    "compile_blocked": false,
+    "incomplete": false,
+    "data_order": null,
+    "ir_functions": null,
+    "ir_symbols_changed": null,
+    "site_lines": [
+     12,
+     13
+    ],
+    "group_digest": "cad2b12f1a1fe74dc546d7d15415594a0d3fa682220f019299b5940cab0237cf",
+    "new_calls": [],
+    "dropped_calls": [],
+    "findings": []
+   }
+  ],
+  "units": [
+   {
+    "unit": "u1",
+    "source": "src/a.c",
+    "ok": true,
+    "base_ok": true,
+    "ir_changed": true,
+    "functions": [],
+    "unsupported": {},
+    "errors": []
+   }
+  ],
+  "compiles": null,
+  "elapsed_s": 0.0,
+  "order_refs": []
+ },
+ "mwcc": {
+  "tool": "steering_check",
+  "version": 1,
+  "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+  "base_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+  "revert_edits": [
+   "src/a.c#2.0",
+   "src/a.c#3.0",
+   "src/a.c#3.1"
+  ],
+  "changed_files": [
+   "src/a.c"
+  ],
+  "missing_functions": [],
+  "stack_frame_policy": "match_frame",
+  "coverage": [
+   {
+    "unit": "u1",
+    "built": {
+     "base": "ok",
+     "candidate": "ok",
+     "sstar": "ok"
+    },
+    "compared": true,
+    "reason": ""
+   }
+  ],
+  "functions": [
+   {
+    "unit": "u1",
+    "name": "f",
+    "demangled": "f",
+    "target_name": "f",
+    "requested": false,
+    "base": {
+     "status": "mismatch",
+     "match_percent": 28.5714
+    },
+    "candidate": {
+     "status": "exact",
+     "match_percent": 100.0
+    },
+    "real_only": {
+     "status": "mismatch",
+     "match_percent": 28.5714
+    },
+    "base_vs_candidate": "code",
+    "sstar_vs_candidate": "code",
+    "in_candidate": true,
+    "frame": {
+     "target": null,
+     "candidate": null
+    },
+    "target_relocs": [
+     "a",
+     "b",
+     "getX"
+    ],
+    "candidate_relocs": [
+     "a",
+     "b",
+     "getX"
+    ],
+    "sstar_relocs": [
+     "a",
+     "b"
+    ],
+    "attribution": [
+     {
+      "group": "src/a.c@2.0",
+      "delta": 71.4286
+     },
+     {
+      "group": "src/a.c@3.0",
+      "delta": 0.0
+     }
+    ],
+    "call_evidence": [
+     {
+      "group": "src/a.c@2.0",
+      "callee": "getX",
+      "target": 1,
+      "sstar": 0,
+      "with": 1,
+      "relocs_ok": true
+     }
+    ],
+    "evidence_sstar": {
+     "groups": [
+      "src/a.c@2.0"
+     ],
+     "real_only": {
+      "status": "exact",
+      "match_percent": 100.0
+     },
+     "sstar_vs_candidate": "identical"
+    }
+   },
+   {
+    "unit": "u1",
+    "name": "g",
+    "demangled": "g",
+    "target_name": "g",
+    "requested": false,
+    "base": {
+     "status": "exact",
+     "match_percent": 100.0
+    },
+    "candidate": {
+     "status": "mismatch",
+     "match_percent": 33.3333
+    },
+    "real_only": {
+     "status": "exact",
+     "match_percent": 100.0
+    },
+    "base_vs_candidate": "code",
+    "sstar_vs_candidate": "code",
+    "in_candidate": true,
+    "frame": {
+     "target": null,
+     "candidate": null
+    },
+    "target_relocs": [
+     "c",
+     "d"
+    ],
+    "candidate_relocs": [
+     "c",
+     "d"
+    ],
+    "sstar_relocs": [
+     "c",
+     "d"
+    ],
+    "attribution": [
+     {
+      "group": "src/a.c@2.0",
+      "delta": 0.0
+     },
+     {
+      "group": "src/a.c@3.0",
+      "delta": -66.6667
+     }
+    ],
+    "call_evidence": [],
+    "evidence_sstar": {
+     "groups": [
+      "src/a.c@2.0"
+     ],
+     "real_only": {
+      "status": "exact",
+      "match_percent": 100.0
+     },
+     "sstar_vs_candidate": "code"
+    }
+   }
+  ],
+  "data_evidence": [
+   {
+    "group": "src/a.c@0.0",
+    "unit": "u1",
+    "sections": {
+     ".data": [
+      100.0,
+      50.0
+     ]
+    },
+    "symbol_order": {
+     ".data": [
+      1.0,
+      0.5
+     ]
+    },
+    "effect": "data_order",
+    "functions": [],
+    "improves": [
+     ".data",
+     ".data order"
+    ],
+    "worsens": []
+   }
+  ],
+  "group_touch": {
+   "src/a.c@2.0": {
+    "u1": [
+     "f"
+    ]
+   },
+   "src/a.c@3.0": {
+    "u1": [
+     "g"
+    ]
+   }
+  },
+  "unused_checks": [],
+  "unused_map": {
+   "u1": {
+    "available": false,
+    "unused": 0,
+    "reason": ""
+   }
+  },
+  "errors": [],
+  "fidelity": {
+   "schema": "steering-fidelity-v1",
+   "base_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+   "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+   "units": {
+    "u1": {
+     "compile": {
+      "rule": "mwcc",
+      "mw_version": "GC/1.2.5",
+      "src": "src/a.c",
+      "cflags": "-O4,p",
+      "extab_padding": null,
+      "compiler": {
+       "path": "build/compilers/GC/1.2.5/mwcceppc.exe",
+       "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "runner": {
+       "path": "/wibo",
+       "sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+      },
+      "wrappers": [],
+      "post": []
+     },
+     "builds": {
+      "cand": {
+       "variant": "candidate",
+       "revert_ids": [],
+       "obj_sha256": "f74e49351115bf1c81fd6a802206d8452f054d4db509c4126f683ceaa1c51cb9",
+       "deps": {
+        "include/h.h": "0000000000000000000000000000000000000000000000000000000000000000",
+        "src/a.c": "0c178a2127ff1f090614cd77b3a46d5b301278dc58eeab8e0a8352b53cbc05bc"
+       },
+       "deps_sha256": "f5e247bbc05417eb6a621ad2dbde49e07a1f71b0c4978535676f002658c71d03",
+       "depfile": "ok"
+      },
+      "sstar": {
+       "variant": "global",
+       "revert_ids": [
+        "src/a.c#2.0",
+        "src/a.c#3.0",
+        "src/a.c#3.1"
+       ],
+       "obj_sha256": "2ae567aec0b311fc6ad5a7bd46e07a51659b94d54ad45764b8e7beef1da324af",
+       "deps": {
+        "include/h.h": "0000000000000000000000000000000000000000000000000000000000000000",
+        "src/a.c": "05e47a1199962ba4ebc8eba5e4384a1b89836b9acbb7c335db5661c5bae19749"
+       },
+       "deps_sha256": "8967c0cf4edbdef3defbc601faa316b4ec1bb57b180b6d299d3639437bae78ac",
+       "depfile": "ok"
+      },
+      "sstar_evidence": {
+       "variant": "evidence_sstar",
+       "revert_ids": [
+        "src/a.c#3.0",
+        "src/a.c#3.1"
+       ],
+       "obj_sha256": "30eb7f9790c0d34041f0761459da61ccaeb7b1b388e47aab408208a4dea921b3",
+       "deps": {
+        "include/h.h": "0000000000000000000000000000000000000000000000000000000000000000",
+        "src/a.c": "ecbae5c2d3f906c3f2cb9d44ce5c7a690d9122944cbeccc64f210cb0d74b5a9b"
+       },
+       "deps_sha256": "ee5f9707464a9df185454e253cdea951621d0bf5a12f768f15c2e460be17267e",
+       "depfile": "ok"
+      }
+     }
+    }
+   }
+  }
+ },
+ "decision": {
+  "tool": "steering_check",
+  "version": 1,
+  "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+  "attempt": "steering_located",
+  "reasons": [
+   "functions depend on behaviour-identical edits: g"
+  ],
+  "attempt_issues": [
+   {
+    "category": "steering_functions",
+    "units": [
+     "u1"
+    ],
+    "groups": [],
+    "files": [],
+    "detail": "g"
+   },
+   {
+    "category": "removable_noncosmetic",
+    "units": [
+     "u1"
+    ],
+    "groups": [
+     "src/a.c@3.0"
+    ],
+    "files": [
+     "src/a.c"
+    ],
+    "detail": ""
+   }
+  ],
+  "functions": [
+   {
+    "unit": "u1",
+    "name": "f",
+    "demangled": "f",
+    "decision": "pass",
+    "semantic": "clean",
+    "analysis": "complete",
+    "audit_label": "real",
+    "match": {
+     "base": 28.5714,
+     "candidate": 100.0,
+     "real_only": 100.0
+    },
+    "status": {
+     "base": "mismatch",
+     "candidate": "exact",
+     "real_only": "exact"
+    },
+    "sstar_vs_candidate": "identical",
+    "stack_only_perturbation": false,
+    "evidence_sstar": true,
+    "steering_sstar": false,
+    "groups": [
+     "src/a.c@2.0"
+    ],
+    "reasons": [],
+    "sstar_variant": "evidence_sstar",
+    "fidelity": {
+     "schema": "steering-function-fidelity-v1",
+     "unit": "u1",
+     "function": "f",
+     "base_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+     "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+     "variant": "evidence_sstar",
+     "revert_ids": [
+      "src/a.c#3.0",
+      "src/a.c#3.1"
+     ],
+     "candidate": {
+      "build": "cand",
+      "obj_sha256": "f74e49351115bf1c81fd6a802206d8452f054d4db509c4126f683ceaa1c51cb9",
+      "deps_sha256": "f5e247bbc05417eb6a621ad2dbde49e07a1f71b0c4978535676f002658c71d03"
+     },
+     "sstar": {
+      "build": "sstar_evidence",
+      "obj_sha256": "30eb7f9790c0d34041f0761459da61ccaeb7b1b388e47aab408208a4dea921b3",
+      "deps_sha256": "ee5f9707464a9df185454e253cdea951621d0bf5a12f768f15c2e460be17267e",
+      "same_as_candidate": false
+     },
+     "compiler": {
+      "mw_version": "GC/1.2.5",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "complete": true,
+     "problems": [],
+     "input_hash": "ce3c19f52df405ffeddf05993e2e483a3b8072166cd0a31652884ad8b270978b"
+    }
+   },
+   {
+    "unit": "u1",
+    "name": "g",
+    "demangled": "g",
+    "decision": "steering_located",
+    "semantic": "steering",
+    "analysis": "complete",
+    "audit_label": "steering",
+    "match": {
+     "base": 100.0,
+     "candidate": 33.3333,
+     "real_only": 100.0
+    },
+    "status": {
+     "base": "exact",
+     "candidate": "mismatch",
+     "real_only": "exact"
+    },
+    "sstar_vs_candidate": "code",
+    "stack_only_perturbation": false,
+    "evidence_sstar": false,
+    "steering_sstar": false,
+    "groups": [
+     "src/a.c@3.0"
+    ],
+    "reasons": [],
+    "sstar_variant": "global",
+    "fidelity": {
+     "schema": "steering-function-fidelity-v1",
+     "unit": "u1",
+     "function": "g",
+     "base_rev": "c9d122e92220dda3d4207382da1c98cd679c0260",
+     "edits_hash": "9be2946e9e158bb1150f87143a5d362d56f8f76951279302f8a7d39f8da05fcb",
+     "variant": "global",
+     "revert_ids": [
+      "src/a.c#2.0",
+      "src/a.c#3.0",
+      "src/a.c#3.1"
+     ],
+     "candidate": {
+      "build": "cand",
+      "obj_sha256": "f74e49351115bf1c81fd6a802206d8452f054d4db509c4126f683ceaa1c51cb9",
+      "deps_sha256": "f5e247bbc05417eb6a621ad2dbde49e07a1f71b0c4978535676f002658c71d03"
+     },
+     "sstar": {
+      "build": "sstar",
+      "obj_sha256": "2ae567aec0b311fc6ad5a7bd46e07a51659b94d54ad45764b8e7beef1da324af",
+      "deps_sha256": "8967c0cf4edbdef3defbc601faa316b4ec1bb57b180b6d299d3639437bae78ac",
+      "same_as_candidate": false
+     },
+     "compiler": {
+      "mw_version": "GC/1.2.5",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     "complete": true,
+     "problems": [],
+     "input_hash": "760ae1bd7d7f1abad3f5981570de31e43464a7db5fe99ec7fcf7cb3775846208"
+    }
+   }
+  ],
+  "removable_noncosmetic": [
+   "src/a.c@3.0"
+  ],
+  "unresolved_groups": [],
+  "evidence_keeps": [
+   "src/a.c@2.0"
+  ],
+  "group_updates": [
+   {
+    "id": "src/a.c@0.0",
+    "status": "real",
+    "was": "unresolved",
+    "reason": "the move brings the data layout closer to the target: .data, .data order",
+    "evidence": {
+     "kind": "data_order_mwcc",
+     "rows": [
+      {
+       "group": "src/a.c@0.0",
+       "unit": "u1",
+       "sections": {
+        ".data": [
+         100.0,
+         50.0
+        ]
+       },
+       "symbol_order": {
+        ".data": [
+         1.0,
+         0.5
+        ]
+       },
+       "effect": "data_order",
+       "functions": [],
+       "improves": [
+        ".data",
+        ".data order"
+       ],
+       "worsens": []
+      }
+     ]
+    }
+   },
+   {
+    "id": "src/a.c@2.0",
+    "status": "real",
+    "was": "removable",
+    "reason": "map call evidence: original calls getX",
+    "evidence": {
+     "kind": "map_call",
+     "callee": "getX",
+     "function": "f",
+     "target_calls": 1,
+     "sstar_calls": 0,
+     "with_calls": 1
+    }
+   }
+  ],
+  "late_approved": [],
+  "evidence_reviews": [],
+  "stack_only_perturbation": false,
+  "units": [
+   {
+    "unit": "u1",
+    "built": true,
+    "compared": true,
+    "builds": {
+     "base": "ok",
+     "candidate": "ok",
+     "sstar": "ok"
+    }
+   }
+  ],
+  "no_changes": false,
+  "group_statuses": {
+   "src/a.c@0.0": "real",
+   "src/a.c@2.0": "real",
+   "src/a.c@3.0": "removable"
+  },
+  "unused_checks": [],
+  "order_checks": [],
+  "violations": [],
+  "probes": [
+   {
+    "function": "g",
+    "symbol": "g",
+    "unit": "u1",
+    "decision": "steering_located",
+    "match": {
+     "base": 100.0,
+     "candidate": 33.3333,
+     "real_only": 100.0
+    },
+    "steering_edits": [
+     {
+      "file": "src/a.c",
+      "line": 12,
+      "shapes": [
+       "temp_alias"
+      ],
+      "before": "d(1) NEUTRAL;",
+      "after": "int t = 1 NEUTRAL STEER; / d(t) NEUTRAL;",
+      "delta": -66.6667
+     }
+    ],
+    "unresolved": [],
+    "hypotheses": [
+     {
+      "cause": "missing inline function",
+      "why": "a single-use temp moves registers the way an inline's parameter or return value does",
+      "how_to_check": "real_code_evidence map-unit --unit <unit>; real_code_evidence inlines"
+     },
+     {
+      "cause": "wrong type or signedness",
+      "why": "a temp of another type changes conversions and register classes",
+      "how_to_check": "real_code_evidence map-calls --symbol g; type_layout_lookup"
+     }
+    ],
+    "evidence": {
+     "map_callees": [
+      "getX"
+     ],
+     "emitted_inlines": [],
+     "unused": [],
+     "header_inlines": [],
+     "sibling_uses": [],
+     "sibling_hypotheses": [],
+     "jsystem_hits": []
+    },
+    "lessons": [],
+    "rulings": []
+   }
+  ]
+ }
+}

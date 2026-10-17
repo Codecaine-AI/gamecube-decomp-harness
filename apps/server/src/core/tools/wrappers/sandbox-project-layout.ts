@@ -94,12 +94,15 @@ context_script = next((
     for candidate in (Path("tools/m2ctx/m2ctx.py"), Path("tools/decompctx.py"))
     if candidate.is_file()
 ), None)
+# The project's own include path, its middleware (libs/<lib>/include, as SMS's
+# configure.py passes them), MSL in either layout, then the generated headers.
+msl_roots = (Path("include/PowerPC_EABI_Support/Msl"), Path("libs/PowerPC_EABI_Support/include/PowerPC_EABI_Support/Msl"))
 include_paths = [
     candidate.as_posix()
     for candidate in (
         Path("include"),
-        Path("include/PowerPC_EABI_Support/Msl/MSL_C/MSL_Common"),
-        Path("include/PowerPC_EABI_Support/Msl/MSL_C++/MSL_Common"),
+        *(sorted(path for path in Path("libs").glob("*/include")) if Path("libs").is_dir() else []),
+        *[msl / part for msl in msl_roots for part in ("MSL_C/MSL_Common", "MSL_C++/MSL_Common")],
         Path(f"build/{version}/include"),
     )
     if candidate.is_dir()
@@ -222,7 +225,7 @@ export function unitForTranslationUnit(layout: SandboxProjectLayout, input: stri
   }) ?? null;
 }
 
-export function contextGenerationCommand(layout: SandboxProjectLayout, sourcePath: string | null): string[] {
+export function contextGenerationCommand(layout: SandboxProjectLayout, sourcePath: string | null, outputPath = "build/ctx.c"): string[] {
   if (layout.contextScript === "tools/m2ctx/m2ctx.py") {
     return ["python3", layout.contextScript, "--quiet", "--preprocessor"];
   }
@@ -230,7 +233,7 @@ export function contextGenerationCommand(layout: SandboxProjectLayout, sourcePat
     if (!sourcePath) throw new Error("tools/decompctx.py requires a source file, but the project layout has none");
     const includeArgs = layout.includePaths.flatMap((path) => ["-I", path]);
     if (!includeArgs.length) throw new Error("tools/decompctx.py requires at least one include directory");
-    return ["python3", layout.contextScript, sourcePath, "-o", "build/ctx.c", ...includeArgs];
+    return ["python3", layout.contextScript, sourcePath, "-o", outputPath, ...includeArgs];
   }
   throw new Error("the project has no supported context generation script");
 }

@@ -1,5 +1,6 @@
 import { now, type StateStore } from "@server/core/orchestrator-state";
 import type { SteeringProbe } from "@server/core/validation/steering/steering-check.js";
+import { canonicalUnit, sqlPlaceholders, unitVariants } from "./unit-key.js";
 
 /**
  * Steering gate state (migrations 013, 014). Observations are attempt
@@ -10,7 +11,9 @@ import type { SteeringProbe } from "@server/core/validation/steering/steering-ch
  * one row per function each `--apply` rewrote, never overwritten, read by the
  * worker's `previous_attempt` block. Every reader tolerates a store behind
  * the migration (null/empty) and every writer is a no-op there, like
- * `stack-only-functions.ts`.
+ * `stack-only-functions.ts`. Units are stored and returned canonical
+ * (`canonicalUnit`: no module prefix); lookups by unit also match rows
+ * written with a prefixed spelling (`unitVariants`).
  */
 export type SteeringObservationMode = "shadow" | "enforce";
 
@@ -70,6 +73,24 @@ function tableExists(store: StateStore, table: SteeringTable): boolean {
   return Boolean(store.db.query("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?").get(table));
 }
 
+/** `unit IN (...)` over every spelling of the unit, with its bound values. */
+function unitClause(gameId: string, unit: string): { sql: string; units: string[] } {
+  const units = unitVariants(gameId, unit);
+  return { sql: `unit IN (${sqlPlaceholders(units)})`, units };
+}
+
+/**
+ * Renames rows written with a prefixed unit to the canonical one before an
+ * upsert keyed on the unit, unless a canonical row already exists.
+ */
+function adoptLegacyUnit(store: StateStore, table: "steering_backfill" | "steering_backfill_coverage", gameId: string, unit: string, symbol?: string): void {
+  const legacy = unitVariants(gameId, unit).slice(1);
+  if (legacy.length === 0) return;
+  store.db
+    .query(`UPDATE OR IGNORE ${table} SET unit = ? WHERE game_id = ? ${symbol === undefined ? "" : "AND symbol = ?"} AND unit IN (${sqlPlaceholders(legacy)})`)
+    .run(canonicalUnit(gameId, unit), gameId, ...(symbol === undefined ? [] : [symbol]), ...legacy);
+}
+
 function parseObject(text: unknown): Record<string, unknown> {
   try {
     const parsed = JSON.parse(String(text ?? "{}")) as unknown;
@@ -79,9 +100,10 @@ function parseObject(text: unknown): Record<string, unknown> {
   }
 }
 
-export function recordSteeringObservation(store: StateStore, row: SteeringObservationInput): void {
-  if (!tableExists(store, "steering_observations")) return;
-  store.db
+/** Appends one observation; returns its id (null behind migration 013). */
+export function recordSteeringObservation(store: StateStore, row: SteeringObservationInput): number | null {
+  if (!tableExists(store, "steering_observations")) return null;
+  const result = store.db
     .query(
       `INSERT INTO steering_observations (
          game_id, unit, symbol, run_id, attempt_ref, base_rev, function_source_sha,
@@ -90,7 +112,7 @@ export function recordSteeringObservation(store: StateStore, row: SteeringObserv
     )
     .run(
       row.gameId,
-      row.unit,
+      canonicalUnit(row.gameId, row.unit),
       row.symbol,
       row.runId ?? null,
       row.attemptRef ?? null,
@@ -103,6 +125,7 @@ export function recordSteeringObservation(store: StateStore, row: SteeringObserv
       row.mode,
       now(),
     );
+  return Number(result.lastInsertRowid);
 }
 
 /**
@@ -116,21 +139,63 @@ export function latestSteeringProbe(
 ): SteeringProbe | null {
   if (!tableExists(store, "steering_observations")) return null;
   const sha = params.functionSourceSha ?? null;
+  const units = unitClause(params.gameId, params.unit);
   const row = store.db
     .query(
       `SELECT probe_json FROM steering_observations
-       WHERE game_id = ? AND unit = ? AND symbol = ? AND probe_json IS NOT NULL
+       WHERE game_id = ? AND ${units.sql} AND symbol = ? AND probe_json IS NOT NULL
          ${sha ? "AND function_source_sha = ?" : ""}
        ORDER BY id DESC LIMIT 1`,
     )
-    .get(...(sha ? [params.gameId, params.unit, params.symbol, sha] : [params.gameId, params.unit, params.symbol])) as { probe_json?: string } | null;
+    .get(params.gameId, ...units.units, params.symbol, ...(sha ? [sha] : [])) as { probe_json?: string } | null;
   if (!row?.probe_json) return null;
   const probe = parseObject(row.probe_json);
   return typeof probe.function === "string" && typeof probe.unit === "string" ? probe as SteeringProbe : null;
 }
 
+export interface SteeringObservationRecord extends Omit<SteeringObservationInput, "probe" | "scores" | "mode"> {
+  id: number;
+  mode: string;
+  scores: Record<string, unknown>;
+  /** The stored probe (any object; null when none was recorded). */
+  probe: Record<string, unknown> | null;
+  recordedAt: string;
+}
+
+/** One observation by id (null when missing, or behind migration 013). */
+export function steeringObservation(store: StateStore, id: number): SteeringObservationRecord | null {
+  if (!tableExists(store, "steering_observations")) return null;
+  const row = store.db.query("SELECT * FROM steering_observations WHERE id = ?").get(id) as Record<string, unknown> | null;
+  if (!row) return null;
+  const text = (value: unknown) => value == null ? null : String(value);
+  return {
+    id: Number(row.id),
+    gameId: String(row.game_id),
+    unit: canonicalUnit(String(row.game_id), String(row.unit)),
+    symbol: String(row.symbol),
+    runId: text(row.run_id),
+    attemptRef: text(row.attempt_ref),
+    baseRev: text(row.base_rev),
+    functionSourceSha: text(row.function_source_sha),
+    verdict: String(row.verdict),
+    analysis: text(row.analysis),
+    scores: parseObject(row.scores_json),
+    probe: row.probe_json == null ? null : parseObject(row.probe_json),
+    mode: String(row.mode),
+    recordedAt: String(row.recorded_at),
+  };
+}
+
+/** Replaces one observation's probe (the explain job's `compiler_delta`); writing the same probe twice is a no-op in effect. */
+export function setSteeringObservationProbe(store: StateStore, id: number, probe: Record<string, unknown>): void {
+  if (!tableExists(store, "steering_observations")) return;
+  store.db.query("UPDATE steering_observations SET probe_json = ? WHERE id = ?").run(JSON.stringify(probe), id);
+}
+
 export function recordSteeringBackfill(store: StateStore, row: SteeringBackfillInput): void {
   if (!tableExists(store, "steering_backfill")) return;
+  const unit = canonicalUnit(row.gameId, row.unit);
+  adoptLegacyUnit(store, "steering_backfill", row.gameId, unit, row.symbol);
   store.db
     .query(
       `INSERT INTO steering_backfill (
@@ -147,7 +212,7 @@ export function recordSteeringBackfill(store: StateStore, row: SteeringBackfillI
     )
     .run(
       row.gameId,
-      row.unit,
+      unit,
       row.symbol,
       row.analyzedRev,
       row.functionSourceSha ?? null,
@@ -161,9 +226,10 @@ export function recordSteeringBackfill(store: StateStore, row: SteeringBackfillI
 
 export function listSteeringBackfill(store: StateStore, gameId: string, unit?: string): SteeringBackfillRecord[] {
   if (!tableExists(store, "steering_backfill")) return [];
+  const units = unit ? unitClause(gameId, unit) : null;
   const rows = store.db
-    .query(`SELECT * FROM steering_backfill WHERE game_id = ? ${unit ? "AND unit = ?" : ""} ORDER BY unit, symbol`)
-    .all(...(unit ? [gameId, unit] : [gameId])) as Record<string, unknown>[];
+    .query(`SELECT * FROM steering_backfill WHERE game_id = ? ${units ? `AND ${units.sql}` : ""} ORDER BY unit, symbol`)
+    .all(gameId, ...(units?.units ?? [])) as Record<string, unknown>[];
   return rows.map(backfillRecord);
 }
 
@@ -176,16 +242,17 @@ export function latestSteeringBackfill(
   params: { gameId: string; unit: string; symbol: string },
 ): SteeringBackfillRecord | null {
   if (!tableExists(store, "steering_backfill") || !params.unit || !params.symbol) return null;
+  const units = unitClause(params.gameId, params.unit);
   const row = store.db
-    .query("SELECT * FROM steering_backfill WHERE game_id = ? AND unit = ? AND symbol = ? ORDER BY recorded_at DESC LIMIT 1")
-    .get(params.gameId, params.unit, params.symbol) as Record<string, unknown> | null;
+    .query(`SELECT * FROM steering_backfill WHERE game_id = ? AND ${units.sql} AND symbol = ? ORDER BY recorded_at DESC LIMIT 1`)
+    .get(params.gameId, ...units.units, params.symbol) as Record<string, unknown> | null;
   return row ? backfillRecord(row) : null;
 }
 
 function backfillRecord(row: Record<string, unknown>): SteeringBackfillRecord {
   return {
     gameId: String(row.game_id),
-    unit: String(row.unit),
+    unit: canonicalUnit(String(row.game_id), String(row.unit)),
     symbol: String(row.symbol),
     analyzedRev: String(row.analyzed_rev),
     functionSourceSha: row.function_source_sha == null ? null : String(row.function_source_sha),
@@ -199,6 +266,8 @@ function backfillRecord(row: Record<string, unknown>): SteeringBackfillRecord {
 
 export function recordSteeringCoverage(store: StateStore, row: SteeringCoverageInput): void {
   if (!tableExists(store, "steering_backfill_coverage")) return;
+  const unit = canonicalUnit(row.gameId, row.unit);
+  adoptLegacyUnit(store, "steering_backfill_coverage", row.gameId, unit);
   store.db
     .query(
       `INSERT INTO steering_backfill_coverage (game_id, unit, analyzed_rev, baseline_rev, clean, applied, report_json, recorded_at)
@@ -211,23 +280,26 @@ export function recordSteeringCoverage(store: StateStore, row: SteeringCoverageI
          report_json = excluded.report_json,
          recorded_at = excluded.recorded_at`,
     )
-    .run(row.gameId, row.unit, row.analyzedRev, row.baselineRev, row.clean ? 1 : 0, row.applied ? 1 : 0, JSON.stringify(row.report ?? {}), now());
+    .run(row.gameId, unit, row.analyzedRev, row.baselineRev, row.clean ? 1 : 0, row.applied ? 1 : 0, JSON.stringify(row.report ?? {}), now());
 }
 
-/** The stored coverage report for a unit, or null. */
+/** The stored coverage report for a unit (with or without its module prefix), or null. */
 export function steeringCoverageReport(store: StateStore, gameId: string, unit: string): Record<string, unknown> | null {
   if (!tableExists(store, "steering_backfill_coverage")) return null;
+  const units = unitClause(gameId, unit);
   const row = store.db
-    .query("SELECT report_json FROM steering_backfill_coverage WHERE game_id = ? AND unit = ?")
-    .get(gameId, unit) as { report_json: string } | null;
+    .query(`SELECT report_json FROM steering_backfill_coverage WHERE game_id = ? AND ${units.sql} ORDER BY recorded_at DESC LIMIT 1`)
+    .get(gameId, ...units.units) as { report_json: string } | null;
   return row ? parseObject(row.report_json) : null;
 }
 
+/** The unit's coverage (the unit with or without its module prefix), or null. */
 export function steeringCoverageFor(store: StateStore, gameId: string, unit: string): SteeringCoverage | null {
   if (!tableExists(store, "steering_backfill_coverage")) return null;
+  const units = unitClause(gameId, unit);
   const row = store.db
-    .query("SELECT analyzed_rev, baseline_rev, clean FROM steering_backfill_coverage WHERE game_id = ? AND unit = ?")
-    .get(gameId, unit) as { analyzed_rev: string; baseline_rev: string; clean: number } | null;
+    .query(`SELECT analyzed_rev, baseline_rev, clean FROM steering_backfill_coverage WHERE game_id = ? AND ${units.sql} ORDER BY recorded_at DESC LIMIT 1`)
+    .get(gameId, ...units.units) as { analyzed_rev: string; baseline_rev: string; clean: number } | null;
   return row ? { baselineRev: String(row.baseline_rev), clean: Number(row.clean) === 1, analyzedRev: String(row.analyzed_rev) } : null;
 }
 
@@ -288,7 +360,7 @@ export function recordSteeringRollback(store: StateStore, row: SteeringRollbackI
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
-      row.gameId, row.unit, row.symbol, row.analyzedRev, row.baseRev ?? null, row.initialVerdict, row.finalVerdict,
+      row.gameId, canonicalUnit(row.gameId, row.unit), row.symbol, row.analyzedRev, row.baseRev ?? null, row.initialVerdict, row.finalVerdict,
       JSON.stringify(row.rules), JSON.stringify(row.report), row.status ?? "rewritten", at, at,
     );
   return Number(result.lastInsertRowid);
@@ -327,7 +399,7 @@ function rollbackRecord(row: Record<string, unknown>): SteeringRollbackRecord {
   return {
     id: Number(row.id),
     gameId: String(row.game_id),
-    unit: String(row.unit),
+    unit: canonicalUnit(String(row.game_id), String(row.unit)),
     symbol: String(row.symbol),
     analyzedRev: String(row.analyzed_rev),
     baseRev: row.base_rev == null ? null : String(row.base_rev),
@@ -347,16 +419,18 @@ export function latestSteeringRollback(
   params: { gameId: string; unit: string; symbol: string },
 ): SteeringRollbackRecord | null {
   if (!tableExists(store, "steering_rollbacks") || !params.unit || !params.symbol) return null;
+  const units = unitClause(params.gameId, params.unit);
   const row = store.db
-    .query("SELECT * FROM steering_rollbacks WHERE game_id = ? AND unit = ? AND symbol = ? ORDER BY id DESC LIMIT 1")
-    .get(params.gameId, params.unit, params.symbol) as Record<string, unknown> | null;
+    .query(`SELECT * FROM steering_rollbacks WHERE game_id = ? AND ${units.sql} AND symbol = ? ORDER BY id DESC LIMIT 1`)
+    .get(params.gameId, ...units.units, params.symbol) as Record<string, unknown> | null;
   return row ? rollbackRecord(row) : null;
 }
 
 export function listSteeringRollbacks(store: StateStore, gameId: string, unit?: string): SteeringRollbackRecord[] {
   if (!tableExists(store, "steering_rollbacks")) return [];
+  const units = unit ? unitClause(gameId, unit) : null;
   const rows = store.db
-    .query(`SELECT * FROM steering_rollbacks WHERE game_id = ? ${unit ? "AND unit = ?" : ""} ORDER BY id`)
-    .all(...(unit ? [gameId, unit] : [gameId])) as Record<string, unknown>[];
+    .query(`SELECT * FROM steering_rollbacks WHERE game_id = ? ${units ? `AND ${units.sql}` : ""} ORDER BY id`)
+    .all(gameId, ...(units?.units ?? [])) as Record<string, unknown>[];
   return rows.map(rollbackRecord);
 }

@@ -67,6 +67,72 @@ async function toolpackReady(sandboxHandle: SandboxHandle, toolpackId: string): 
   return true;
 }
 
+/** Image path of the pinned TP/TWW JSystem reference sources (`/opt/refs/jsystem/{tp,tww}`). */
+export const SANDBOX_JSYSTEM_REFS_ROOT = "/opt/refs/jsystem";
+const SANDBOX_PROBE_TIMEOUT_MS = 30_000;
+const sandboxProbes = new WeakMap<SandboxHandle, Map<string, Promise<SandboxExecResult>>>();
+
+/**
+ * Run a read-only prerequisite probe once per sandbox handle and cache its
+ * result (the image does not change under a live sandbox). An exec that
+ * throws is not cached.
+ */
+export function sandboxProbe(sandboxHandle: SandboxHandle, command: string[]): Promise<SandboxExecResult> {
+  let probes = sandboxProbes.get(sandboxHandle);
+  if (!probes) sandboxProbes.set(sandboxHandle, probes = new Map());
+  const key = JSON.stringify(command);
+  const cached = probes.get(key);
+  if (cached) return cached;
+  const probe = sandboxHandle.exec(command, { timeoutMs: SANDBOX_PROBE_TIMEOUT_MS });
+  probes.set(key, probe);
+  probe.catch(() => probes.delete(key));
+  return probe;
+}
+
+/** Whether `path` is a directory in the sandbox (cached per sandbox handle). */
+export async function sandboxDirectoryExists(sandboxHandle: SandboxHandle, path: string): Promise<boolean> {
+  return (await sandboxProbe(sandboxHandle, ["test", "-d", path])).exitCode === 0;
+}
+
+/**
+ * A worker tool whose sandbox prerequisite is missing from the image. Worker
+ * tools never fall back to host execution (plan 3.6); the snapshot must be
+ * rebuilt.
+ */
+export function sandboxPrerequisiteMissing(
+  toolId: string,
+  missing: string,
+  resolvedTool?: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    status: "sandbox_prerequisite_missing",
+    tool: toolId,
+    missing,
+    guidance: `This sandbox image lacks ${missing}; the tool does not run on the host. Rebuild the worker snapshot, and continue with other evidence meanwhile.`,
+    ...(resolvedTool ? { resolved_tool: { ...resolvedTool, execution_surface: "sandbox_workspace" } } : {}),
+  };
+}
+
+/** The sandbox-local cache directory `runWorkspaceToolApi` exports as ORCH_TOOL_WORKTREE_CACHE_ROOT. */
+export function sandboxToolCacheRoot(toolId: string): string {
+  return `/tmp/tool-cache/${toolId}`;
+}
+
+/**
+ * `real_code_evidence.py` arguments for an in-sandbox run, or a
+ * prerequisite-missing result. The sandbox repo is the claim's checkout (the
+ * `usage` certification list sits at its default path there) and the
+ * compiler source is `/opt/mwcc`; `jsystem` reads the image's refs.
+ */
+export async function realCodeEvidenceSandboxArgs(
+  sandboxHandle: SandboxHandle,
+  args: string[],
+): Promise<{ args: string[] } | { missing: string }> {
+  if (args[0] !== "jsystem" || args.includes("--refs-root")) return { args };
+  if (!await sandboxDirectoryExists(sandboxHandle, SANDBOX_JSYSTEM_REFS_ROOT)) return { missing: SANDBOX_JSYSTEM_REFS_ROOT };
+  return { args: [...args, "--refs-root", SANDBOX_JSYSTEM_REFS_ROOT] };
+}
+
 export async function runWorkspaceToolApi(params: {
   sandboxHandle: SandboxHandle;
   resolved: ResolvedRegisteredTool;
@@ -74,12 +140,16 @@ export async function runWorkspaceToolApi(params: {
   scriptName: string;
   args: string[];
   timeoutScale?: number;
+  /** Tool-relative directory holding the script; `api` unless a runner is invoked. */
+  scriptDir?: string;
+  /** Extra sandbox env (e.g. the QA standards roots); the base tool env wins on a shared key. */
+  env?: Record<string, string>;
 }): Promise<Record<string, unknown>> {
   const { sandboxHandle, resolved, scriptName, args } = params;
   const toolPath = resolved.registryEntry.path ?? resolved.toolId;
   const sandboxToolpackRoot = `${SANDBOX_TOOLPACK_ROOT}/${resolved.toolpackId}`;
   const sandboxToolRoot = `${sandboxToolpackRoot}/${toolPath}`;
-  const scriptPath = `${sandboxToolRoot}/api/${scriptName}`;
+  const scriptPath = `${sandboxToolRoot}/${params.scriptDir ?? "api"}/${scriptName}`;
   const resolvedTool = { ...params.resolvedTool, execution_surface: "sandbox_workspace" };
 
   if (!await toolpackReady(sandboxHandle, resolved.toolpackId)) {
@@ -100,6 +170,7 @@ export async function runWorkspaceToolApi(params: {
     ...args,
   ];
   const env: Record<string, string> = {
+    ...params.env,
     ORCH_TOOLPACK_ID: resolved.toolpackId,
     ORCH_TOOL_ID: resolved.toolId,
     ORCH_WORKTREE_ID: resolved.worktreeId,
@@ -115,7 +186,7 @@ export async function runWorkspaceToolApi(params: {
     ORCH_TOOL_IMPL_ROOT: `${sandboxToolpackRoot}/_impl/gamecube`,
     ORCH_GAME_REPO_ROOT: resolved.gameRepoRoot,
     ORCH_TOOL_SHARED_DATA_ROOT: `/opt/tool-data/${resolved.toolId}`,
-    ORCH_TOOL_WORKTREE_CACHE_ROOT: `/tmp/tool-cache/${resolved.toolId}`,
+    ORCH_TOOL_WORKTREE_CACHE_ROOT: sandboxToolCacheRoot(resolved.toolId),
     MWCC_WIBO: `${resolved.gameRepoRoot}/build/tools/wibo`,
     WINEDEBUG: "-all",
   };

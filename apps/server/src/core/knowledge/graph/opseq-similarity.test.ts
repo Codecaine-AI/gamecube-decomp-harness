@@ -74,6 +74,20 @@ describe("opseq similarity graph records", () => {
     expect(records?.sourceVersion.contentHash).not.toBe(plain?.sourceVersion.contentHash);
   });
 
+  test("a ref without the game's module prefix still withholds the module-prefixed analog", () => {
+    const { repoRoot, indexesRoot } = opseqFixture();
+    // Report units `unit/a`, `unit/b`: a game whose module is `unit` names `unit/b` as `b` in its steering rows.
+    const game = { gameId: "opseq-test", matching: { unitModulePrefixes: ["unit"] } };
+    const records = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot, unverifiedMatches: [{ unit: "b", symbol: "RefFn" }], game });
+    const targetFact = records?.facts.find((fact) => fact.entityId === functionEntityId("unit/a", "TargetFn"));
+    expect(targetFact?.payload).toMatchObject({ matched_analog_count: 0 });
+    expect((targetFact?.payload.top_analogs as Array<Record<string, unknown>>)[0]).toMatchObject({ symbol: "RefFn", status: "unverified_match", matched: false });
+    // Without module prefixes the short ref names no report function.
+    const raw = buildOpseqSimilarityGraphRecords(repoRoot, { indexesRoot, unverifiedMatches: [{ unit: "b", symbol: "RefFn" }] });
+    const rawFact = raw?.facts.find((fact) => fact.entityId === functionEntityId("unit/a", "TargetFn"));
+    expect((rawFact?.payload.top_analogs as Array<Record<string, unknown>>)[0]).toMatchObject({ symbol: "RefFn", matched: true });
+  });
+
   test("returns null when neighbor artifacts are absent", () => {
     const repoRoot = tempDir("opseq-repo-empty-");
     const indexesRoot = tempDir("opseq-index-empty-");

@@ -1,0 +1,5 @@
+1. [BLOCKING] **Repair packets restore score-chasing instructions** — `apps/server/src/core/agent-catalog/agents/running/worker/context.ts:677`. Repair instructions pass through verbatim. Runtime `worker-cycle.ts:622` still says “Continue toward exact”; `:834` tells SMS workers frame-only “is done.” After a partial submission, this authoritative packet contradicts §4’s bounded method and frame-only rule. Fix both runtime continuation strings and test the combined system prompt plus repair packet, including SMS frame-only feedback.
+
+2. [BLOCKING] **Pending evidence reviews never reach live packets** — `apps/server/src/core/agent-catalog/agents/running/worker/previous-attempt.ts:536`. The only runtime caller, `worker-cycle.ts:2090`, omits `openReviews`, so an unverified target with a pending review receives `open_reviews: []` and can resubmit the same construct. Fix by wiring `openEvidenceReviewsForTarget` into packet construction, adapting its tuple-shaped `site_lines`. Test with a persisted review through the real packet path; the injected-callback test misses this failure.
+
+2 blocking findings.

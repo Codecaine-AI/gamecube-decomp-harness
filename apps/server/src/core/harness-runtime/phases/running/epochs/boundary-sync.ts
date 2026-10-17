@@ -4,6 +4,16 @@ import { resolve } from "node:path";
 import { reportBoundaryDisplacements, reportRecoveryTargets } from "./boundary-recovery.js";
 import { buildFixerFailureOutput } from "@server/core/validation/failure-output.js";
 import type { SyncMergePolicy } from "@server/core/game-registry/runtime-options.js";
+import type { GameSyncMergePolicy } from "@server/core/game-registry/resolver.js";
+import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
+import {
+  applyCertifiedMergePolicy,
+  certifiedDecisionsTsv,
+  NO_SYNC_CERTIFICATION,
+  UNCERTIFIED_DISPLACED_REASON,
+  type CertifiedFunctionDecision,
+  type SyncCertificationLookup,
+} from "./certified-merge.js";
 import { fetchUpstreamMasterReport } from "./breakage-gate.js";
 import { BUILD_FIXER_TIMEOUT_MS, runCodexBuildFixer, type BuildFixerResult } from "./build-fixer.js";
 import { executeBuildTask } from "@server/core/validation/build/execution.js";
@@ -53,6 +63,8 @@ export interface BoundaryDisplacement {
   priorScore: number | null;
   upstreamLandedSha: string;
   verdict: typeof BOUNDARY_OVERRIDE_VERDICT;
+  /** Why upstream displaced it, when the merge rule says (`UNCERTIFIED_DISPLACED_REASON`). */
+  reason?: string;
 }
 
 export interface BoundarySyncPlan {
@@ -119,6 +131,14 @@ export interface BoundarySyncInput {
   hooks?: BoundarySyncHooks;
   buildFixerEnabled?: boolean;
   mergePolicy?: SyncMergePolicy;
+  /**
+   * The game's conflict rule under the `score` merge policy
+   * (`matching.syncMergePolicy`, active steering gate only): `certified`
+   * resolves conflicting functions by gate certification (`certified-merge.ts`).
+   */
+  conflictRule?: GameSyncMergePolicy;
+  /** Certification of our functions pinned to the pre-merge ours revision; unset certifies nothing. */
+  loadCertification?: (oursRevision: string) => Promise<SyncCertificationLookup>;
   prepareMergeReport?: () => Promise<void>;
   fetchUpstreamReport?: typeof fetchUpstreamMasterReport;
   onMergePolicyFile?: (entry: BoundaryPolicyFileLog) => void;
@@ -287,6 +307,10 @@ export interface BoundarySyncResult {
   changed: boolean;
   headSha: string;
   policyMergeFiles?: BoundaryPolicyFileLog[];
+  /** The certified rule's per-function decisions (`conflictRule: "certified"`). */
+  functionDecisions?: CertifiedFunctionDecision[];
+  /** Where the decision record (`function-decisions.tsv`) was written; null without a state dir. */
+  decisionRecordPath?: string | null;
 }
 
 async function defaultGit(repoRoot: string, args: string[]): Promise<BoundaryGitResult> {
@@ -385,6 +409,124 @@ function policyAdjustedPlan(plan: BoundarySyncPlan, files: BoundaryPolicyFileLog
     return decision ? decision.contested && decision.side !== "ours" : true;
   });
   return { ...plan, targetsToRequeue, ledgerNotes: targetsToRequeue };
+}
+
+const CERTIFIED_SOURCE_FILE = /\.(?:c|cc|cpp|cxx|C)$/;
+
+/** The certified rule's displacement filter: a target stays queued unless its function kept ours. */
+function certifiedAdjustedPlan(plan: BoundarySyncPlan, decisions: CertifiedFunctionDecision[]): BoundarySyncPlan {
+  const results = new Map<string, CertifiedFunctionDecision["result"]>();
+  for (const decision of decisions) {
+    for (const symbol of decision.symbols) results.set(`${normalizePath(decision.path)}\0${symbol.symbol}`, decision.result);
+  }
+  const targetsToRequeue = plan.targetsToRequeue.filter((target) => {
+    const symbol = target.symbol ?? target.targetKey.split("::", 2)[1] ?? null;
+    const result = symbol ? results.get(`${normalizePath(target.sourcePath)}\0${symbol}`) : undefined;
+    return result === undefined || result !== "ours";
+  });
+  return { ...plan, targetsToRequeue, ledgerNotes: targetsToRequeue };
+}
+
+/**
+ * Rule 3 of the certified merge: every symbol whose uncertified ours scored
+ * higher but went to upstream is an open target. Marks a displacement the
+ * report already found, and adds the ones it did not (no recovery journal).
+ */
+export function withCertifiedDisplacements(
+  displacements: BoundaryDisplacement[],
+  decisions: CertifiedFunctionDecision[],
+  heads: { priorHeadSha: string; resultingHeadSha: string; upstreamHeadSha: string },
+): BoundaryDisplacement[] {
+  const byKey = new Map(displacements.map((item) => [item.targetKey, item]));
+  for (const decision of decisions) {
+    if (!decision.displaced) continue;
+    for (const symbol of decision.symbols) {
+      if (symbol.certification.status === "certified" || symbol.oursScore === null || symbol.upstreamScore === null || symbol.oursScore <= symbol.upstreamScore) continue;
+      const targetKey = `${symbol.unit}::${symbol.symbol}`;
+      const existing = byKey.get(targetKey);
+      byKey.set(targetKey, existing ? { ...existing, reason: UNCERTIFIED_DISPLACED_REASON } : {
+        epochTargetId: null,
+        targetKey,
+        sourcePath: normalizePath(decision.path),
+        unit: symbol.unit,
+        symbol: symbol.symbol,
+        priorKind: symbol.oursScore >= EXACT_SCORE ? "match" : "improvement",
+        priorScore: symbol.oursScore,
+        afterScore: symbol.upstreamScore,
+        ...heads,
+        upstreamLandedSha: heads.upstreamHeadSha,
+        verdict: BOUNDARY_OVERRIDE_VERDICT,
+        reason: UNCERTIFIED_DISPLACED_REASON,
+      });
+    }
+  }
+  return [...byKey.values()].sort((left, right) => left.targetKey.localeCompare(right.targetKey));
+}
+
+async function readMergedReport(input: BoundarySyncInput): Promise<unknown> {
+  if (!input.reportRelPath) return undefined;
+  try {
+    return await readJsonFile(resolve(input.repoRoot, input.reportRelPath));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The sync's auditable decision record: `function-decisions.tsv` (one row per
+ * function and report symbol, `merged` filled once the report is recomputed)
+ * and `function-decisions.json`, under
+ * `<stateDir>/boundary_sync/<ours>-<upstream>/`.
+ */
+function decisionRecordPaths(input: BoundarySyncInput, plan: BoundarySyncPlan): { dir: string; tsv: string; json: string } | null {
+  if (!input.stateDir) return null;
+  const dir = resolve(input.stateDir, "boundary_sync", `${plan.localHeadSha}-${plan.upstreamHeadSha}`);
+  return { dir, tsv: resolve(dir, "function-decisions.tsv"), json: resolve(dir, "function-decisions.json") };
+}
+
+/** The decisions of the record written at the merge, or null when none was. */
+async function readDecisionRecord(input: BoundarySyncInput, plan: BoundarySyncPlan): Promise<CertifiedFunctionDecision[] | null> {
+  const paths = decisionRecordPaths(input, plan);
+  if (!paths) return null;
+  try {
+    const record = await readJsonFile(paths.json) as { local_head?: unknown; upstream_head?: unknown; decisions?: unknown };
+    if (record.local_head !== plan.localHeadSha || record.upstream_head !== plan.upstreamHeadSha || !Array.isArray(record.decisions)) return null;
+    return record.decisions as CertifiedFunctionDecision[];
+  } catch {
+    return null;
+  }
+}
+
+async function writeDecisionRecord(
+  input: BoundarySyncInput,
+  plan: BoundarySyncPlan,
+  decisions: CertifiedFunctionDecision[],
+  mergedReport?: unknown,
+  postMerge?: { build_fixer: { files: string[]; commit: string } | null },
+): Promise<string | null> {
+  const paths = decisionRecordPaths(input, plan);
+  if (!paths || decisions.length === 0) return null;
+  const dir = paths.dir;
+  await mkdir(dir, { recursive: true });
+  const tsvPath = paths.tsv;
+  const jsonPath = paths.json;
+  const json = {
+    schema: "boundary-sync-function-decisions-v1",
+    rule: "certified",
+    local_head: plan.localHeadSha,
+    upstream_head: plan.upstreamHeadSha,
+    merge_base: plan.mergeBaseSha ?? null,
+    merged_scores: mergedReport !== undefined,
+    // Ours-only edits outside the conflicts keep git's merge; when that tree
+    // did not build, the build fixer's commit (else null) is recorded here.
+    post_merge: postMerge ?? null,
+    decisions,
+  };
+  await writeFile(`${tsvPath}.tmp`, certifiedDecisionsTsv(decisions, mergedReport));
+  await rename(`${tsvPath}.tmp`, tsvPath);
+  await writeFile(`${jsonPath}.tmp`, `${JSON.stringify(json, null, 2)}\n`);
+  await rename(`${jsonPath}.tmp`, jsonPath);
+  return tsvPath;
 }
 
 function normalizePath(path: string): string {
@@ -541,7 +683,7 @@ export async function planBoundarySync(input: Omit<BoundarySyncInput, "hooks">):
     ledgerNotes: targetsToRequeue,
     upstreamDrift: upstreamDrift ?? undefined,
     actions: drifted
-      ? [input.mergePolicy === "theirs" ? "merge_upstream_theirs" : "merge_upstream_score", "recompute_report", "append_override_notes", "requeue_displaced_targets", "knowledge_intake", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_harness_head"]
+      ? [input.mergePolicy === "theirs" ? "merge_upstream_theirs" : input.conflictRule === "certified" ? "merge_upstream_certified" : "merge_upstream_score", "recompute_report", "append_override_notes", "requeue_displaced_targets", "knowledge_intake", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_harness_head"]
       : ["recompute_report", "knowledge_intake", "rebuild_knowledge_graph", "write_pr_sync_save_point", "advance_anchor", "advance_harness_head"],
   };
 }
@@ -552,7 +694,12 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
   // retry must not measure its "before" state from the already-merged checkout.
   const recoveryDir = input.stateDir && input.reportRelPath ? resolve(input.stateDir, "boundary_recovery") : null;
   const pendingPath = recoveryDir ? resolve(recoveryDir, "pending.json") : null;
-  let journal: { repoRoot: string; plan: BoundarySyncPlan; before: unknown } | null = null;
+  // `functionDecisions`: the certified rule's decisions, saved with the merge so a retry keeps them.
+  // `buildFixer`: the fixer's commit, saved as soon as it lands so a retry still records it.
+  let journal: {
+    repoRoot: string; plan: BoundarySyncPlan; before: unknown;
+    functionDecisions?: CertifiedFunctionDecision[]; buildFixer?: { files: string[]; commit: string };
+  } | null = null;
   if (pendingPath && !input.dryRun) {
     try { journal = JSON.parse(await readFile(pendingPath, "utf8")); }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
@@ -587,20 +734,29 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
   if (journal) {
     await checkedGit(runGit, input.repoRoot, ["merge-base", "--is-ancestor", plan.localHeadSha, "HEAD"], "saved recovery source ancestry");
   }
+  // The certified rule replaces the score rule for conflicting functions (`matching.syncMergePolicy`).
+  const certifiedRule = mergePolicy === "score" && input.conflictRule === "certified";
+  let functionDecisions: CertifiedFunctionDecision[] = [];
+  let decisionRecordPath: string | null = null;
   if (mergePolicy === "score") {
     if (!upstreamAlreadyMerged) {
-      const needsFunctionReports = policyContestedPaths(plan).some((path) => path.endsWith(".c"));
+      const contested = policyContestedPaths(plan);
+      const needsFunctionReports = certifiedRule
+        ? contested.some((path) => CERTIFIED_SOURCE_FILE.test(path))
+        : contested.some((path) => path.endsWith(".c"));
       const reports = needsFunctionReports
         ? await preparePolicyReports(input, plan.upstreamHeadSha)
         : { ours: {}, upstream: {}, scoreMode: "reports" as const, upstreamReportFallbackReason: null };
+      // Certification describes our pre-merge head: read it before HEAD moves.
+      const certification = certifiedRule ? (input.loadCertification ? await input.loadCertification(plan.localHeadSha) : NO_SYNC_CERTIFICATION) : null;
       try {
         await checkedGit(
           runGit,
           input.repoRoot,
           ["merge", "--no-edit", "--no-ff", "--no-commit", "-X", "theirs", plan.upstreamHeadSha],
-          "score-policy merge preparation",
+          certifiedRule ? "certified-policy merge preparation" : "score-policy merge preparation",
         );
-        const applied = await applyScoreMergePolicy({
+        const policyInput = {
           worktreePath: input.repoRoot,
           baseRevision: plan.mergeBaseSha ?? plan.anchorSha,
           oursRevision: plan.localHeadSha,
@@ -609,8 +765,11 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
           locallyChangedFiles: plan.locallyChangedFiles,
           reports,
           runGit,
-        });
+        };
+        const certified = certification ? await applyCertifiedMergePolicy({ ...policyInput, certification }) : null;
+        const applied = certified ?? await applyScoreMergePolicy(policyInput);
         policyMergeFiles = applied.files;
+        functionDecisions = certified?.decisions ?? [];
         if (applied.rewrittenPaths.length > 0) {
           await checkedGit(runGit, input.repoRoot, ["add", "--", ...applied.rewrittenPaths], "score-policy staging");
         }
@@ -618,6 +777,20 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
       } catch (error) {
         await runGit(input.repoRoot, ["merge", "--abort"]);
         throw error;
+      }
+      // Persist the decisions with the merge, before any post-merge step can fail.
+      if (certifiedRule && journal && pendingPath) {
+        journal = { ...journal, functionDecisions };
+        await writeFile(`${pendingPath}.tmp`, JSON.stringify(journal));
+        await rename(`${pendingPath}.tmp`, pendingPath);
+      }
+      decisionRecordPath = await writeDecisionRecord(input, plan, functionDecisions);
+    } else if (certifiedRule) {
+      // A retry after the merge: the decisions come back from the journal (else the record written at the merge).
+      const saved = journal?.functionDecisions ?? await readDecisionRecord(input, plan);
+      if (saved) {
+        functionDecisions = saved;
+        decisionRecordPath = decisionRecordPaths(input, plan)?.tsv ?? null;
       }
     }
     for (const entry of policyMergeFiles) input.onMergePolicyFile?.(entry);
@@ -632,9 +805,13 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
   let headSha = await checkedGit(runGit, input.repoRoot, ["rev-parse", "HEAD"], "merged HEAD resolution");
   let effectivePlan = upstreamAlreadyMerged
     ? { ...plan, targetsToRequeue: [], ledgerNotes: [] }
-    : mergePolicy === "score" ? policyAdjustedPlan(plan, policyMergeFiles) : plan;
+    : mergePolicy === "score"
+      ? certifiedRule ? certifiedAdjustedPlan(plan, functionDecisions) : policyAdjustedPlan(plan, policyMergeFiles)
+      : plan;
 
   let report: Awaited<ReturnType<BoundarySyncHooks["recomputeReport"]>>;
+  // The merged tree the rule produced needed the build fixer (recorded with the decisions).
+  let buildFixer: { files: string[]; commit: string } | null = journal?.buildFixer ?? null;
   try {
     report = await input.hooks.recomputeReport();
   } catch (error) {
@@ -654,6 +831,12 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
       report = await input.hooks.recomputeReport();
       headSha = await commitBoundaryBuildFixerDiff(runGit, input.repoRoot, fixerFiles);
       input.onBuildFixerEvent?.("propagated", { ...fixer, files: fixerFiles, commitSha: headSha });
+      buildFixer = { files: fixerFiles, commit: headSha };
+      if (journal && pendingPath) {
+        journal = { ...journal, buildFixer };
+        await writeFile(`${pendingPath}.tmp`, JSON.stringify(journal));
+        await rename(`${pendingPath}.tmp`, pendingPath);
+      }
     } catch (fixerError) {
       await discardBoundaryBuildFixerDiff(runGit, input.repoRoot);
       throw fixerError;
@@ -672,6 +855,14 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
       priorHeadSha: plan.localHeadSha, resultingHeadSha: headSha, upstreamHeadSha: plan.upstreamHeadSha,
     });
     effectivePlan = { ...plan, targetsToRequeue: displacements, ledgerNotes: displacements };
+  }
+  if (functionDecisions.length > 0) {
+    // Uncertified ours that upstream displaced are open targets, requeued like any displacement.
+    const displaced = withCertifiedDisplacements(effectivePlan.targetsToRequeue, functionDecisions, {
+      priorHeadSha: plan.localHeadSha, resultingHeadSha: headSha, upstreamHeadSha: plan.upstreamHeadSha,
+    });
+    effectivePlan = { ...effectivePlan, targetsToRequeue: displaced, ledgerNotes: displaced };
+    decisionRecordPath = await writeDecisionRecord(input, plan, functionDecisions, await readMergedReport(input), { build_fixer: buildFixer }) ?? decisionRecordPath;
   }
   for (const displacement of effectivePlan.targetsToRequeue) {
     await input.hooks.appendOverrideNote(displacement);
@@ -697,5 +888,11 @@ export async function runBoundarySync(input: BoundarySyncInput): Promise<Boundar
   if (journal && pendingPath) {
     await rename(pendingPath, resolve(recoveryDir!, `${plan.localHeadSha}-${plan.upstreamHeadSha}.json`));
   }
-  return { plan: effectivePlan, changed: headSha !== plan.localHeadSha, headSha, policyMergeFiles: mergePolicy === "score" ? policyMergeFiles : undefined };
+  return {
+    plan: effectivePlan,
+    changed: headSha !== plan.localHeadSha,
+    headSha,
+    policyMergeFiles: mergePolicy === "score" ? policyMergeFiles : undefined,
+    ...(certifiedRule ? { functionDecisions, decisionRecordPath } : {}),
+  };
 }

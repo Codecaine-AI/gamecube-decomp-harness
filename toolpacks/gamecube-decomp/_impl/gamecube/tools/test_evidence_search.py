@@ -316,6 +316,24 @@ def test_jsystem_searches_refs_and_hints_when_missing(tmp_path: Path) -> None:
     assert missing["available"] is False and "fetch_jsystem_refs.sh" in missing["fetch_hint"]
 
 
+def test_default_refs_root_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sandbox = tmp_path / "opt-refs"
+    monkeypatch.setattr(es, "SANDBOX_REFS_ROOT", sandbox)
+    monkeypatch.setenv("ORCH_GAME_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.delenv(es.REFS_ROOT_ENV, raising=False)
+    # No sandbox refs: the state dir.
+    assert es.default_refs_root() == tmp_path / "state" / "refs" / "jsystem"
+    # Sandbox refs present: they win over the state dir.
+    sandbox.mkdir()
+    assert es.default_refs_root() == sandbox
+    # An explicit override wins over both.
+    monkeypatch.setenv(es.REFS_ROOT_ENV, str(tmp_path / "explicit"))
+    assert es.default_refs_root() == tmp_path / "explicit"
+    monkeypatch.delenv(es.REFS_ROOT_ENV)
+    monkeypatch.delenv("ORCH_GAME_STATE_DIR")
+    assert es.default_refs_root() == sandbox
+
+
 def test_cli_uses_host_repo_env_over_sandbox_repo_env(repo: Path, tmp_path: Path) -> None:
     env = {
         **os.environ,
@@ -382,3 +400,252 @@ def test_sms_map_unit_hanasambo(tmp_path: Path) -> None:
 def test_sms_inlines_tvec3() -> None:
     names = {r["name"] for r in es.inlines(SMS_REPO, "JGeometry::TVec3", limit=200)}
     assert {"TVec3<f32>::scale", "TVec3<f32>::setAll", "TVec3<s16>::add"} <= names
+
+
+# --------------------------------------------------------------------------
+# usage certification (plan 3.0): matched = 100% and not "100% but unverified"
+# --------------------------------------------------------------------------
+
+UNVERIFIED_LIST = {
+    "schema": "orch-unverified-matches-v1",
+    "game_id": "sms",
+    "gate": "enforce",
+    "gate_active": True,
+    "revision": "head-rev-1234567890",
+    "generated_at": "2026-10-17T00:00:00.000Z",
+    "unverified": [
+        {"unit": "mario/Enemy/hanasambo", "symbol": "moveObject__10THanaSamboFv", "analyzed_rev": "backfill-rev-abc", "base_rev": "base-rev"},
+    ],
+}
+
+
+def _add_certified_sibling(repo: Path) -> None:
+    """A second 100% caller of TVec3::scale, so one sibling is certified and one unverified."""
+    source = repo / "src" / "Enemy" / "hanasambo.cpp"
+    source.write_text(source.read_text() + "\nvoid THanaSambo::calc()\n{\n\tmPos.scale(2.0f);\n}\n")
+    report_path = repo / "build" / "GMSJ01" / "report.json"
+    report = json.loads(report_path.read_text())
+    report["units"][0]["functions"].append({"name": "calc__10THanaSamboFv", "size": "32", "fuzzy_match_percent": 100.0})
+    report_path.write_text(json.dumps(report))
+
+
+def _git(repo: Path, *args: str) -> str:
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+    return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
+                          env=env, capture_output=True, text=True, check=True).stdout.strip()
+
+
+def _commit(repo: Path, message: str = "base") -> str:
+    if not (repo / ".git").exists():
+        _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "--allow-empty", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def _gated(repo: Path, **over) -> dict:
+    """UNVERIFIED_LIST bound to a commit of the checkout as it is now."""
+    return {**UNVERIFIED_LIST, "revision": _commit(repo), **over}
+
+
+def _write_list(path: Path, body: dict) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(body))
+    return path
+
+
+def test_usage_reports_certification_and_revision(repo: Path, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv(es.UNVERIFIED_ENV, raising=False)
+    _add_certified_sibling(repo)
+    body = _gated(repo)
+    cert = es.load_certification(repo, _write_list(tmp_path / "unverified.json", body))
+    rows = {r["mangled"]: r for r in es.usage(repo, "TVec3::scale", certification=cert)}
+    assert rows["moveObject__10THanaSamboFv"]["certification"] == "unverified"
+    assert rows["moveObject__10THanaSamboFv"]["revision"] == "backfill-rev-abc"
+    assert rows["moveObject__10THanaSamboFv"]["matched"] is False
+    assert rows["calc__10THanaSamboFv"]["certification"] == "certified"
+    assert rows["calc__10THanaSamboFv"]["revision"] == body["revision"]
+    assert rows["calc__10THanaSamboFv"]["matched"] is True
+    # Matched siblings sort first.
+    assert es.usage(repo, "TVec3::scale", certification=cert)[0]["mangled"] == "calc__10THanaSamboFv"
+
+
+@pytest.fixture()
+def no_gate_env(monkeypatch):
+    for key in (es.UNVERIFIED_ENV, "ORCH_STEERING_GATE", "ORCH_GAME_DIR"):
+        monkeypatch.delenv(key, raising=False)
+    return monkeypatch
+
+
+def test_usage_without_certification_data_is_unknown_not_evidence(repo: Path, no_gate_env) -> None:
+    cert = es.load_certification(repo)
+    assert cert.status == "unknown" and "unknown" in (cert.note or "")
+    rows = es.usage(repo, "TVec3::scale")
+    assert [(r["certification"], r["match_percent"], r["matched"]) for r in rows] == [("unknown", 100.0, False)]
+
+
+def test_missing_or_corrupt_certification_file_is_unknown(repo: Path, tmp_path: Path, no_gate_env) -> None:
+    _add_certified_sibling(repo)
+    missing = es.load_certification(repo, tmp_path / "absent.json")
+    assert missing.status == "unknown" and "not found" in (missing.note or "")
+    corrupt = tmp_path / "corrupt.json"
+    corrupt.write_text('{"schema": "orch-unverified-matches-v1", "gate_active": tr')
+    malformed = [
+        {k: v for k, v in UNVERIFIED_LIST.items() if k != "unverified"},  # no list: must not certify everyone
+        {**UNVERIFIED_LIST, "revision": None},
+        {**UNVERIFIED_LIST, "gate": "enforce", "gate_active": False},
+        {**UNVERIFIED_LIST, "gate": "strict"},
+        {**UNVERIFIED_LIST, "unverified": [{"unit": "mario/Enemy/hanasambo"}]},
+        {**UNVERIFIED_LIST, "schema": "other"},
+    ]
+    files = [corrupt] + [_write_list(tmp_path / f"bad{i}.json", body) for i, body in enumerate(malformed)]
+    for path in files:
+        cert = es.load_certification(repo, path)
+        assert cert.status == "unknown", path
+        rows = es.usage(repo, "TVec3::scale", certification=cert)
+        assert rows and all(r["certification"] == "unknown" and not r["matched"] for r in rows), path
+    # Through the env, too: a named file that is missing never falls back to the checkout default.
+    _write_list(repo / es.UNVERIFIED_DEFAULT, UNVERIFIED_LIST)
+    no_gate_env.setenv(es.UNVERIFIED_ENV, str(tmp_path / "absent.json"))
+    assert es.load_certification(repo).status == "unknown"
+
+
+def test_certification_sources_and_gate_off(repo: Path, tmp_path: Path, no_gate_env) -> None:
+    # The checkout default is picked up without a flag or env.
+    gated = _gated(repo)
+    _write_list(repo / es.UNVERIFIED_DEFAULT, gated)
+    assert es.load_certification(repo).classify("mario/Enemy/hanasambo", "moveObject__10THanaSamboFv")[0] == "unverified"
+    # The env wins over the default; a game whose gate is off is ungated, and ungated 100% siblings are evidence.
+    off = _write_list(tmp_path / "off.json", {**UNVERIFIED_LIST, "gate": "off", "gate_active": False, "unverified": []})
+    no_gate_env.setenv(es.UNVERIFIED_ENV, str(off))
+    assert es.load_certification(repo).classify("mario/Enemy/hanasambo", "moveObject__10THanaSamboFv") == ("ungated", "head-rev-1234567890")
+    assert all(r["matched"] for r in es.usage(repo, "TVec3::scale"))
+    # A symbol listed under another unit name still counts as unverified.
+    cert = es.load_certification(repo, _write_list(tmp_path / "u.json", gated))
+    assert cert.classify("main/Enemy/hanasambo", "moveObject__10THanaSamboFv")[0] == "unverified"
+    assert cert.classify("mario/Enemy/hanasambo", "calc__10THanaSamboFv")[0] == "certified"
+
+
+def test_without_a_file_only_a_confirmed_gate_off_is_ungated(repo: Path, tmp_path: Path, no_gate_env) -> None:
+    no_gate_env.setenv("ORCH_STEERING_GATE", "off")
+    assert es.load_certification(repo).status == "ungated"
+    no_gate_env.setenv("ORCH_STEERING_GATE", "enforce")
+    assert es.load_certification(repo).status == "unknown"
+    no_gate_env.delenv("ORCH_STEERING_GATE")
+    game = tmp_path / "game"
+    game.mkdir()
+    no_gate_env.setenv("ORCH_GAME_DIR", str(game))
+    assert es.load_certification(repo).status == "unknown"  # no game.json: not confirmed
+    (game / "game.json").write_text(json.dumps({"id": "melee"}))
+    assert es.load_certification(repo).status == "ungated"  # registry default: off
+    (game / "game.json").write_text(json.dumps({"id": "sms", "matching": {"steeringGate": "enforce"}}))
+    assert es.load_certification(repo).status == "unknown"
+
+
+def test_cli_usage_lists_uncertified_siblings_as_hypotheses(repo: Path, tmp_path: Path) -> None:
+    _add_certified_sibling(repo)
+    env = {**os.environ, "ORCH_GAME_HOST_REPO_ROOT": str(repo), "ORCH_GAME_STATE_DIR": str(tmp_path / "state"),
+           es.UNVERIFIED_ENV: str(_write_list(tmp_path / "unverified.json", _gated(repo)))}
+    proc = subprocess.run(
+        [sys.executable, str(TOOLS / "evidence_search.py"), "usage", "--inline", "TVec3::scale", "--json"],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert [(r["mangled"], r["certification"]) for r in payload["results"]] == [("calc__10THanaSamboFv", "certified")]
+    assert [(r["mangled"], r["certification"]) for r in payload["hypotheses"]] == [("moveObject__10THanaSamboFv", "unverified")]
+    assert payload["total"] == 1 and payload["hypotheses_total"] == 1
+    assert payload["certification"]["gated"] is True and payload["certification"]["unverified_count"] == 1
+
+
+def test_cli_usage_with_a_corrupt_file_lists_no_evidence(repo: Path, tmp_path: Path) -> None:
+    corrupt = tmp_path / "corrupt.json"
+    corrupt.write_text("not json")
+    env = {**os.environ, "ORCH_GAME_HOST_REPO_ROOT": str(repo), "ORCH_GAME_STATE_DIR": str(tmp_path / "state"),
+           es.UNVERIFIED_ENV: str(corrupt)}
+    proc = subprocess.run(
+        [sys.executable, str(TOOLS / "evidence_search.py"), "usage", "--inline", "TVec3::scale", "--json"],
+        env=env, capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["results"] == [] and payload["total"] == 0
+    assert [(r["mangled"], r["certification"]) for r in payload["hypotheses"]] == [("moveObject__10THanaSamboFv", "unknown")]
+    assert payload["certification"]["status"] == "unknown" and "unreadable" in payload["certification"]["note"]
+
+
+@pytest.mark.parametrize("certification_file", ["missing", "corrupt"])
+def test_probe_keeps_unknown_siblings_out_of_evidence_after_fit(repo: Path, tmp_path: Path, no_gate_env,
+                                                                certification_file: str) -> None:
+    """Missing/corrupt certification data through usage -> prefetch_evidence -> the probe's fit() cap."""
+    import steering_diagnose as sd
+
+    _add_certified_sibling(repo)
+    path = tmp_path / "unverified.json"
+    if certification_file == "corrupt":
+        path.write_text('{"schema": "orch-unverified-matches-v1", "game_id": "sms", "gate": "enforce", "gate_active": true}')
+    no_gate_env.setenv(es.UNVERIFIED_ENV, str(path))
+    evidence = sd.prefetch_evidence(repo, "moveObject__10THanaSamboFv", "mario/Enemy/hanasambo", "TVec3", "scale")
+    assert evidence["sibling_uses"] == []
+    assert {s["certification"] for s in evidence["sibling_hypotheses"]} == {"unknown"}
+    long = "x" * 3000
+    probe = sd.fit({"function": "THanaSambo::moveObject()", "symbol": "moveObject__10THanaSamboFv", "unit": "mario/Enemy/hanasambo",
+                    "decision": "steering_located", "match": {}, "steering_edits": [], "unresolved": [],
+                    "hypotheses": [{"cause": "c", "why": long, "how_to_check": "x"}],
+                    "evidence": evidence, "lessons": [], "rulings": []})
+    assert len(json.dumps(probe, separators=(",", ":"))) <= sd.PROBE_LIMIT
+    kept = probe.get("evidence") or {}
+    assert kept.get("sibling_uses", []) == []
+    assert kept["sibling_hypotheses"] and all(s["certification"] == "unknown" for s in kept["sibling_hypotheses"])
+
+
+
+def test_gated_list_must_describe_this_checkout(repo: Path, tmp_path: Path, no_gate_env) -> None:
+    _add_certified_sibling(repo)
+    first = _commit(repo, "first")
+    # A list derived at an ancestor of HEAD still binds; the file is unchanged since then.
+    head = _commit(repo, "second")
+    assert es.load_certification(repo, _write_list(tmp_path / "a.json", {**UNVERIFIED_LIST, "revision": first})).status == "gated"
+    assert es.load_certification(repo, _write_list(tmp_path / "b.json", {**UNVERIFIED_LIST, "revision": head})).status == "gated"
+    # A revision this checkout does not contain, or that is not an ancestor of HEAD, does not.
+    for bad in ("0" * 40, "head-rev-1234567890", "--output=x"):
+        cert = es.load_certification(repo, _write_list(tmp_path / "bad.json", {**UNVERIFIED_LIST, "revision": bad}))
+        assert cert.status == "unknown" and "does not describe this checkout" in (cert.note or ""), bad
+    _git(repo, "checkout", "-q", first)
+    detached = es.load_certification(repo, _write_list(tmp_path / "later.json", {**UNVERIFIED_LIST, "revision": head}))
+    assert detached.status == "unknown"
+    # Another game's list never binds.
+    no_gate_env.setenv("ORCH_GAME_ID", "melee")
+    assert es.load_certification(repo, _write_list(tmp_path / "game.json", {**UNVERIFIED_LIST, "revision": first})).status == "unknown"
+    no_gate_env.setenv("ORCH_GAME_ID", "sms")
+    assert es.load_certification(repo, _write_list(tmp_path / "game.json", {**UNVERIFIED_LIST, "revision": first})).status == "gated"
+
+
+def test_a_sibling_edited_since_the_certified_revision_is_unknown(repo: Path, tmp_path: Path, no_gate_env) -> None:
+    """A worker edits a certified sibling (a new call to the inline) without certifying it: not evidence."""
+    import steering_diagnose as sd
+
+    source = repo / "src" / "Enemy" / "hanasambo.cpp"
+    source.write_text(source.read_text() + "\nvoid THanaSambo::calc()\n{\n\tmPos.zero();\n}\n")
+    report_path = repo / "build" / "GMSJ01" / "report.json"
+    report = json.loads(report_path.read_text())
+    report["units"][0]["functions"].append({"name": "calc__10THanaSamboFv", "size": "32", "fuzzy_match_percent": 100.0})
+    report_path.write_text(json.dumps(report))
+    no_gate_env.setenv(es.UNVERIFIED_ENV, str(_write_list(tmp_path / "unverified.json", _gated(repo, unverified=[]))))
+    # At the certified revision the sibling does not call scale(); the edit adds the call.
+    source.write_text(source.read_text().replace("mPos.zero();", "mPos.scale(2.0f);"))
+    rows = {r["mangled"]: r for r in es.usage(repo, "TVec3::scale")}
+    assert rows["calc__10THanaSamboFv"]["certification"] == "unknown" and rows["calc__10THanaSamboFv"]["matched"] is False
+    assert rows["moveObject__10THanaSamboFv"]["certification"] == "unknown"  # same file, also edited
+    evidence = sd.prefetch_evidence(repo, "calc__10THanaSamboFv", "mario/Enemy/hanasambo", "TVec3", "scale")
+    assert evidence["sibling_uses"] == []
+    assert {s["certification"] for s in evidence["sibling_hypotheses"]} == {"unknown"}
+    probe = sd.fit({"function": "THanaSambo::calc()", "symbol": "calc__10THanaSamboFv", "unit": "mario/Enemy/hanasambo",
+                    "decision": "steering_located", "match": {}, "steering_edits": [], "unresolved": [],
+                    "hypotheses": [{"cause": "c", "why": "x" * 3000, "how_to_check": "x"}],
+                    "evidence": evidence, "lessons": [], "rulings": []})
+    assert (probe.get("evidence") or {}).get("sibling_uses", []) == []
+    # Restoring the certified text makes the sibling evidence again.
+    source.write_text(source.read_text().replace("mPos.scale(2.0f);", "mPos.zero();"))
+    assert "calc__10THanaSamboFv" not in {r["mangled"] for r in es.usage(repo, "TVec3::scale")}
+    assert [r["certification"] for r in es.usage(repo, "TVec3::scale")] == ["certified"]

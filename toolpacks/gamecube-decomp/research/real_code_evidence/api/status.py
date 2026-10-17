@@ -14,12 +14,21 @@ sys.path.insert(0, str(TOOLPACK_ROOT / "_impl" / "gamecube" / "tools"))
 import evidence_search  # type: ignore  # noqa: E402
 
 
+def _compiler_source(repo: Path | None) -> dict:
+    found = evidence_search.compiler_ref.resolve_root(repo=repo)
+    if found is None:
+        return {"available": False, "pin": evidence_search.compiler_ref.lock().get("commit")}
+    return {"available": True, "root": str(found["root"]), "origin": found["origin"],
+            "commit": found["commit"], "pinned": found["pinned"]}
+
+
 def build_payload(repo: Path | None) -> dict:
     refs = evidence_search.default_refs_root()
     payload: dict = {
         "tool": "real_code_evidence",
         "repo": str(repo) if repo else None,
         "jsystem_refs": {game: bool(refs and (refs / game).is_dir()) for game in evidence_search.JSYSTEM_GAMES},
+        "compiler_source": _compiler_source(repo),
     }
     if repo is None or not repo.is_dir():
         return {**payload, "available": False, "status": "repo_missing"}

@@ -86,6 +86,7 @@ if str(TOOLS) not in sys.path:
 import game_policy  # noqa: E402
 import ir_oracle  # noqa: E402
 import stack_compare as sc  # noqa: E402
+import steering_approvals as sa  # noqa: E402
 import steering_edits as se  # noqa: E402
 
 try:  # owned by the lint slice; the gate degrades to 'other' (unresolved) without it
@@ -738,8 +739,9 @@ class Reducer:
     def __init__(self, manifest: dict, ctx: Optional[OracleContext], oracle_info: dict, *,
                  budget_seconds: float = DEFAULT_BUDGET, max_groups: int = DEFAULT_MAX_GROUPS, jobs: int = MAX_JOBS,
                  approvals: Optional[list[dict]] = None, evidence_repo: Optional[Path] = None,
-                 symbols_text: Optional[str] = None, oracle: Optional[Callable] = None):
+                 symbols_text: Optional[str] = None, oracle: Optional[Callable] = None, game: Optional[str] = None):
         self.manifest = manifest
+        self.game = game or manifest.get("game")  # binds site-bound approvals; None: no approval certifies
         self.ctx = ctx
         self.oracle_info = oracle_info
         self.budget = budget_seconds
@@ -1093,9 +1095,24 @@ class Reducer:
         if not weak:
             return
         callee, symbol = sorted(weak.items())[0]
+        # The site a review (and a site-bound approval) is about: plan 3.1.
+        site = {"game": self.game, "units": list(g.units), "functions": list(g.group.functions),
+                "base_rev": self.manifest.get("base_rev"), "file": g.group.file,
+                "lines": sa.site_lines(g.group), "digest": self.group_digest(g)}
         evidence = {"kind": "evidence_review", "callee": callee, "symbol": symbol,
-                    "provenance": "weak function emitted in this unit (map)"}
-        approval = _find_approval(self.approvals, callee, symbol, g.group.functions)
+                    "provenance": "weak function emitted in this unit (map)",
+                    "site": {**site, "patch": sa.group_patch(g.group)}}
+        # Every (unit, function) the group affects needs its own approval (a shared header reaches several units).
+        pairs = [(u, None, f) for u in g.units for f in g.group.functions]
+        found, missing = _group_approvals(self.approvals, {**site, "callee": callee, "symbol": symbol}, pairs)
+        approval = found[0] if found and not missing else None
+        if found and missing:
+            evidence = {**evidence, "missing": missing}
+            g.status = "unresolved"
+            g.reason = (f"evidence_review: {callee} is approved for {', '.join(sorted({r['unit'] for r in found}))} "
+                        f"but not for {', '.join(sorted({m['unit'] for m in missing}))}")
+            g.evidence = evidence
+            return
         if approval is not None:
             extra = approval_residue(g.shapes, g.real_shapes)
             if extra:
@@ -1109,6 +1126,11 @@ class Reducer:
             return
         g.status, g.reason = "unresolved", f"evidence_review: {callee} is a weak inline the original emitted"
         g.evidence = evidence
+
+    def group_digest(self, g: GroupInfo) -> str:
+        """The group digest, each edit lexed in its file's state at its first line (steering_approvals)."""
+        f = self.files.get(g.group.file) or {}
+        return sa.group_digest(g.group, f.get("base_text"), f.get("cand_text"))
 
     def unsupported_index(self) -> "_Unsupported":
         return _Unsupported({u: r.unsupported for u, r in self.unit_ok.items() if r.ok})
@@ -1145,6 +1167,8 @@ class Reducer:
                 "data_order": g.data_order,
                 "ir_functions": g.ir_touch,
                 "ir_symbols_changed": g.ir_symbols,
+                "site_lines": sa.site_lines(g.group),
+                "group_digest": self.group_digest(g),
                 "new_calls": se.new_calls(g.group.removed, g.group.added),
                 "dropped_calls": se.dropped_calls(g.group.removed, g.group.added),
                 "findings": (g.details.get("findings") or [])[:6],
@@ -1176,6 +1200,7 @@ class Reducer:
             "version": VERSION,
             "edits_hash": self.manifest["edits_hash"],
             "base_rev": self.manifest["base_rev"],
+            "game": self.game,
             "oracle": self.oracle_info,
             "analysis": "complete" if complete else "incomplete",
             "changed_files": sorted(self.files),
@@ -1276,28 +1301,73 @@ def approval_residue(shapes: list[str], real_shapes: list[str]) -> list[str]:
     return extra
 
 
-def _find_approval(approvals: list[dict], callee: str, symbol: str, functions: list[str]) -> Optional[dict]:
-    """An approval row bound to this symbol and this function.
+def _find_approval(approvals: list[dict], site: dict) -> Optional[dict]:
+    """The site-bound approval (steering_approvals) for exactly this edit group.
 
-    Both fields are required. The symbol must be exactly the construct the
-    group introduces: the same mangled name, or the same fully qualified
-    demangled name (`TBar::getX`); a bare or differently qualified name never
-    matches. The function must be one the group edits.
+    `site`: {game, units, base_rev, file, lines, digest, callee, symbol,
+    functions (qualified names the group edits), targets (optional: mangled
+    functions the group touches, from the MWCC report)}. A row certifies only
+    when it carries every site-bound field and all of them match: the game,
+    a unit the group compiles in, the claim base revision, the file, the line
+    range, the group digest (operands included), the callee, and the symbol
+    the group introduces (the same mangled name, or the same fully qualified
+    demangled name; a bare or differently qualified name never matches). The
+    target must be one of `targets` when given, else its demangled qualified
+    name must be one of `functions` (a function defined in its class body
+    carries only its own name there). Legacy rows (symbol + function) never
+    certify.
     """
-    if not callee or not symbol or not functions:
+    callee, symbol = str(site.get("callee") or ""), str(site.get("symbol") or "")
+    game, base_rev = site.get("game"), site.get("base_rev")
+    if not callee or not symbol or not game or not base_rev or not site.get("digest") or not site.get("file"):
         return None
     exact = {symbol, normalize_name(_mwcc_qualified(symbol))}
+    units = set(site.get("units") or [])
     for row in approvals:
-        sym = str(row.get("symbol") or "")
-        fn = str(row.get("function") or "")
-        if not sym or not fn:
+        if not sa.site_bound(row):
             continue
+        if row["game"] != game or row["unit"] not in units or row["base_rev"] != base_rev:
+            continue
+        if row["site_file"] != site["file"] or list(row["site_lines"]) != list(site.get("lines") or []):
+            continue
+        if row["group_digest"] != site["digest"] or row["callee"] != callee:
+            continue
+        sym = row["symbol"]
         if sym not in exact and normalize_name(sym) not in exact:
             continue
-        if not any(_names_match(fn, f) for f in functions):
+        if not _target_matches(row["target"], site.get("targets") or [], site.get("functions") or []):
             continue
         return row
     return None
+
+
+def _group_approvals(approvals: list[dict], site: dict,
+                     pairs: list[tuple[str, Optional[str], Optional[str]]]) -> tuple[list[dict], list[dict]]:
+    """Approvals per affected (unit, mangled target or qualified function): (rows found, pairs
+    missing). A group counts as approved only with no pair missing; no pairs = nothing approved."""
+    found: list[dict] = []
+    missing: list[dict] = []
+    for unit, target, function in pairs:
+        narrowed = {**site, "units": [unit], "targets": [target] if target else [], "functions": [function] if function else []}
+        row = _find_approval(approvals, narrowed) if (target or function) else None
+        if row is None:
+            missing.append({"unit": unit, "name": target, "function": function})
+        else:
+            found.append(row)
+    if not pairs:
+        missing.append({"unit": None, "name": None, "function": None})
+    return found, missing
+
+
+def _target_matches(target: str, targets: list[str], functions: list[str]) -> bool:
+    if targets:
+        return target in targets
+    want = normalize_name(qualified(_mwcc_qualified(target)))
+    for fn in functions:
+        have = normalize_name(qualified(fn))
+        if have == want or ("::" not in have and want.endswith("::" + have)):
+            return True
+    return False
 
 
 def _names_match(a: str, b: str) -> bool:
@@ -1322,7 +1392,7 @@ def run_reduce(manifest: dict, oracle_repo: Optional[Path], cache_dir: Optional[
     try:
         reducer = Reducer(manifest, ctx, info, budget_seconds=budget, max_groups=max_groups, jobs=jobs,
                           approvals=approvals, evidence_repo=evidence_repo or oracle_repo, symbols_text=symbols_text,
-                          oracle=oracle)
+                          oracle=oracle, game=sa.game_id(approvals_path or default_approvals_path()))
         red = reducer.run()
     finally:
         if ctx is not None:
@@ -1406,7 +1476,7 @@ class ShadowCompiler:
                 pass
 
     def compile(self, unit_name: str, texts: dict[str, Optional[bytes]], label: str,
-                timeout: Optional[float] = None):
+                timeout: Optional[float] = None, depfile: bool = False):
         unit = self.repo.units[unit_name]
         with self.lock:
             self.counter += 1
@@ -1415,7 +1485,8 @@ class ShadowCompiler:
         try:
             for rel, content in texts.items():
                 self.sc.write_file(root, rel, content)
-            return self.sc.compile_in(self.repo, root, unit, out, timeout=timeout)
+            # depfile: the inputs are hashed inside compile_in, before this root goes back to the pool.
+            return self.sc.compile_in(self.repo, root, unit, out, timeout=timeout, **({"depfile": True} if depfile else {}))
         finally:
             self.free.put(root)
 
@@ -1440,9 +1511,54 @@ class RepoBackend:
         self.deadline: Optional[float] = None
         self._progress_lock = threading.Lock()
         self._objdiff_flags: Optional[dict[str, Optional[str]]] = None
+        self.records: dict[str, dict] = {}  # object path -> {deps, depfile_error} of a fidelity build
+        self._file_hashes: dict[str, Optional[dict]] = {}
 
     def units(self, paths: list[str]) -> tuple[dict[str, list], dict[str, list[str]]]:
         return units_for_paths(self.repo, paths)
+
+    def compile_record(self, obj: Path) -> Optional[dict]:
+        """What a fidelity build (FIDELITY_LABELS) read: {deps, depfile_error}; None for other builds."""
+        return self.records.get(str(obj))
+
+    def _identity(self, path: Path, sha1: bool = False) -> Optional[dict]:
+        key = f"{path}:{sha1}"
+        if key not in self._file_hashes:
+            try:
+                data = path.read_bytes()
+            except OSError:
+                self._file_hashes[key] = None
+            else:
+                rel = path.relative_to(self.root).as_posix() if path.is_relative_to(self.root) else str(path)
+                self._file_hashes[key] = {"path": rel, "sha256": hashlib.sha256(data).hexdigest(),
+                                          **({"sha1": hashlib.sha1(data).hexdigest()} if sha1 else {})}
+        return self._file_hashes[key]
+
+    def compile_command(self, unit) -> dict:
+        """The unit's exact compile (stack_check.compile_in) for the fidelity record: flags, the
+        MWCC version, the runner, wrappers and post-processing, with their hashes."""
+        import shlex
+
+        import stack_check
+
+        edge = self.repo.edges[unit.obj]
+        compiler = f"build/compilers/{edge.mw_version}/mwcceppc.exe"
+        wrappers = ["build/tools/sjiswrap.exe"] if "sjis" in edge.rule else []
+        post = ["build/tools/dtk"] if "extab" in edge.rule else []
+        return {
+            "rule": edge.rule,
+            "mw_version": edge.mw_version,
+            "src": edge.src,
+            "cflags": edge.cflags,
+            "extab_padding": edge.extab_padding,
+            "depfile_flag": stack_check.DEPFILE_FLAG,
+            "argv": ["<runner>", *wrappers, compiler, *shlex.split(edge.cflags), stack_check.DEPFILE_FLAG,
+                     "-c", edge.src, "-o", "<out>"],
+            "runner": self._identity(Path(self.repo.runner)),
+            "compiler": self._identity(self.root / compiler, sha1=True),
+            "wrappers": [self._identity(self.root / w) for w in wrappers],
+            "post": [self._identity(self.root / p) for p in post],
+        }
 
     def set_deadline(self, deadline: float) -> None:
         self.deadline = deadline
@@ -1458,7 +1574,12 @@ class RepoBackend:
             # A compile started near the deadline is killed at it, not left to run past the budget.
             timeout = max(1.0, min(stack_check.compile_timeout(), remaining))
         t0 = time.time()
-        res = self.pool.compile(unit.name, texts, label, timeout=timeout)
+        fidelity = label in FIDELITY_LABELS
+        res = self.pool.compile(unit.name, texts, label, timeout=timeout, **({"depfile": True} if fidelity else {}))
+        if fidelity and res.ok and res.obj is not None:
+            with self._progress_lock:
+                self.records[str(res.obj)] = {"deps": getattr(res, "deps", None),
+                                              "depfile_error": getattr(res, "depfile_error", None)}
         took = time.time() - t0
         with self._progress_lock:
             self.compiles += 1
@@ -1529,6 +1650,88 @@ class Built:
     elf: Optional[sc.ElfObject] = None
     target: Optional[dict] = None
     error: str = ""
+    fidelity: Optional[dict] = None  # fidelity_build() of a candidate / S* build
+
+
+# --------------------------------------------------------------------------
+# Fidelity record (plan 3.4.1): what the steering-explain job needs to rebuild
+# exactly the candidate and the S* a function's verdict used, and to prove it
+# did (object hashes, the compile command and compiler, every input's hash).
+# --------------------------------------------------------------------------
+
+FIDELITY_SCHEMA = "steering-fidelity-v1"
+FUNCTION_FIDELITY_SCHEMA = "steering-function-fidelity-v1"
+# backend compile label -> fidelity build name; only these compiles write a depfile
+FIDELITY_BUILDS = {"cand": "cand", "sstar": "sstar", "sstar2": "sstar_evidence", "sstar_steer": "sstar_steering"}
+FIDELITY_LABELS = frozenset(FIDELITY_BUILDS)
+# decide's S* variant -> the build its verdict compared against
+VARIANT_BUILDS = {"global": "sstar", "evidence_sstar": "sstar_evidence", "steering_sstar": "sstar_steering"}
+
+
+def fidelity_build(backend, obj: Optional[Path], variant: str, revert_ids: Iterable[str]) -> dict:
+    """One candidate or S* build: its revert set, object hash and the hashes of every input it read."""
+    try:
+        obj_sha = sha256_bytes(Path(obj).read_bytes()) if obj is not None else None
+    except OSError:
+        obj_sha = None
+    record = backend.compile_record(obj) if obj is not None and hasattr(backend, "compile_record") else None
+    deps = (record or {}).get("deps")
+    if deps:
+        depfile = "ok"
+    elif record is not None:
+        depfile = record.get("depfile_error") or "depfile lists no inputs"
+    else:
+        depfile = "the MWCC backend records no compile inputs"
+    return {"variant": variant, "revert_ids": sorted(revert_ids), "obj_sha256": obj_sha,
+            "deps": dict(sorted((deps or {}).items())), "deps_sha256": sha256_json(deps) if deps else None,
+            "depfile": depfile}
+
+
+def function_fidelity(mwcc: dict, fn: dict, variant: str) -> dict:
+    """The fidelity record of one decide row: the S* variant its verdict used, both builds' object
+    and input digests and the compiler. `input_hash` (of the rest) keys the steering-explain job."""
+    units = ((mwcc.get("fidelity") or {}).get("units") or {})
+    unit = units.get(fn.get("unit")) or {}
+    builds = unit.get("builds") or {}
+    compile_ = unit.get("compile") or {}
+    problems: list[str] = []
+    if not units:
+        problems.append("the mwcc report has no fidelity record")
+
+    def ref(name: str) -> dict:
+        b = builds.get(name) or {}
+        if not b:
+            problems.append(f"no {name} build recorded")
+        elif b.get("depfile") != "ok":
+            problems.append(f"{name}: {b.get('depfile')}")
+        if b and not b.get("obj_sha256"):
+            problems.append(f"{name}: no object hash")
+        return {"build": name, "obj_sha256": b.get("obj_sha256"), "deps_sha256": b.get("deps_sha256")}
+
+    sstar_name = VARIANT_BUILDS.get(variant, "sstar")
+    cand, sstar = ref("cand"), ref(sstar_name)
+    sstar_build = builds.get(sstar_name) or {}
+    sstar["same_as_candidate"] = bool(sstar_build.get("same_as") == "cand" or (
+        cand["obj_sha256"] and cand["obj_sha256"] == sstar["obj_sha256"]))
+    compiler = compile_.get("compiler") or {}
+    if units and not compile_:
+        problems.append("no compile command recorded")
+    record = {
+        "schema": FUNCTION_FIDELITY_SCHEMA,
+        "unit": fn.get("unit"),
+        "function": fn.get("name"),
+        "base_rev": mwcc.get("base_rev"),
+        "edits_hash": mwcc.get("edits_hash"),
+        "variant": variant,
+        "revert_ids": list(sstar_build.get("revert_ids") or []),
+        "candidate": cand,
+        "sstar": sstar,
+        "compiler": {"mw_version": compile_.get("mw_version"), "sha256": compiler.get("sha256")},
+        "complete": not problems,
+        "problems": problems[:6],
+    }
+    record["input_hash"] = sha256_json(record)
+    return record
 
 
 def _function_relocs(obj: sc.ElfObject, fn: sc.Function) -> list[str]:
@@ -1640,6 +1843,7 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
     group_touch: dict[str, dict[str, list[str]]] = {}
     unused_checks: list[dict] = []
     unused_map: dict[str, dict] = {}
+    fidelity_units: dict[str, dict] = {}
     groups = (attribute or {}).get("groups") or []
     try:
         by_path, header_units = backend.units([f["path"] for f in files])
@@ -1688,7 +1892,9 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
                 elf = sc.ElfObject.from_path(str(obj))
             except (OSError, ValueError) as e:
                 return job, Built("failed", error=str(e))
-            return job, Built("ok", elf, backend.classify(obj, units[name]))
+            fid = fidelity_build(backend, obj, "candidate" if kind == "cand" else "global",
+                                 () if kind == "cand" else revert) if kind in FIDELITY_LABELS else None
+            return job, Built("ok", elf, backend.classify(obj, units[name]), fidelity=fid)
 
         log(f"steering: mwcc {len(jobs_list)} unit builds for {len(units)} units "
             f"(+ attribution, data-order and UNUSED stub builds), jobs {getattr(backend, 'jobs', 1)}")
@@ -1706,6 +1912,18 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
                 # byte-identical to the candidate's: S* is the candidate object.
                 built[(name, "sstar")] = built[(name, "cand")]
                 shared_sstar.add(name)
+        for name, u in sorted(units.items()):
+            rows = {}
+            for kind in ("cand", "sstar"):
+                b = built.get((name, kind))
+                if b is not None and b.fidelity is not None:
+                    rows[kind] = dict(b.fidelity)
+            if name in shared_sstar and "cand" in rows:
+                rows["sstar"] = {**rows["cand"], "variant": "global", "revert_ids": sorted(revert), "same_as": "cand"}
+            fidelity_units[name] = {
+                "compile": backend.compile_command(u) if hasattr(backend, "compile_command") else None,
+                "builds": rows,
+            }
 
         attribution_jobs = []
         for name, u in sorted(units.items()):
@@ -1778,10 +1996,10 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
                     attribution_jobs.append((name, u, wanted, cand.elf, sstar.elf))
         if groups:
             group_touch = _attribute(backend, revert, groups, attribution_jobs, files_of_unit=files_of,
-                                     variant=variant, errors=errors)
+                                     variant=variant, errors=errors, fidelity=fidelity_units)
             data_evidence = _data_order_evidence(backend, revert, groups, units, built, variant, errors)
             _steering_only_sstar(backend, revert, groups, attribution_jobs, files_of_unit=files_of,
-                                 variant=variant, errors=errors)
+                                 variant=variant, errors=errors, fidelity=fidelity_units)
         compared_units = {c["unit"] for c in coverage if c.get("compared")}
         unused_checks, unused_map = run_unused_checks(backend, base_rev, units, built, files, cand_texts,
                                                       compared_units, edits_hash, inputs_of=files_of)
@@ -1805,6 +2023,9 @@ def run_mwcc(repo_path: Path, base_ref: str, edits_hash: str, revert_ids: list[s
         "unused_checks": unused_checks,
         "unused_map": unused_map,
         "errors": errors,
+        # per unit: the compile command and every candidate / S* build's revert set, object and input hashes
+        "fidelity": {"schema": FIDELITY_SCHEMA, "base_rev": base_rev, "edits_hash": edits_hash,
+                     "units": fidelity_units},
     }
 
 
@@ -1899,7 +2120,7 @@ def _mwcc_display(name: str) -> str:
 
 
 def _attribute(backend, revert: set[str], groups: list[dict], jobs: list,
-               *, files_of_unit, variant, errors) -> dict[str, dict[str, list[str]]]:
+               *, files_of_unit, variant, errors, fidelity: Optional[dict] = None) -> dict[str, dict[str, list[str]]]:
     """Add back each removable group alone to S* (cap per unit, groups adding
     a call always included). Records the MWCC functions each group changes
     (its touch set, returned as {group: {unit: [functions]}}) and the match
@@ -1976,6 +2197,8 @@ def _attribute(backend, revert: set[str], groups: list[dict], jobs: list,
             if not ok or obj is None:
                 errors.append({"unit": name, "variant": "sstar_evidence", "error": (err or "")[:400]})
                 continue
+            if fidelity is not None and name in fidelity:
+                fidelity[name]["builds"]["sstar_evidence"] = fidelity_build(backend, obj, "evidence_sstar", revert - keep_ids)
             elf = sc.ElfObject.from_path(str(obj))
             target = backend.classify(obj, u)
             idx = {(e.get("compiled_name") or e["name"]): e for e in (target or {}).get("functions", [])}
@@ -1997,7 +2220,7 @@ def steering_only_retained(g: dict) -> bool:
 
 
 def _steering_only_sstar(backend, revert: set[str], groups: list[dict], jobs: list,
-                         *, files_of_unit, variant, errors) -> None:
+                         *, files_of_unit, variant, errors, fidelity: Optional[dict] = None) -> None:
     """S** = S* with the steering-only retained groups reverted too, per unit."""
     picked = [g for g in groups if steering_only_retained(g)]
     if not picked:
@@ -2012,6 +2235,8 @@ def _steering_only_sstar(backend, revert: set[str], groups: list[dict], jobs: li
         if not ok or obj is None:
             errors.append({"unit": name, "variant": "sstar_steering", "kind": "attribution", "error": (err or "")[:400]})
             continue
+        if fidelity is not None and name in fidelity:
+            fidelity[name]["builds"]["sstar_steering"] = fidelity_build(backend, obj, "steering_sstar", revert | ids)
         elf = sc.ElfObject.from_path(str(obj))
         idx = {(e.get("compiled_name") or e["name"]): e for e in (backend.classify(obj, u) or {}).get("functions", [])}
         cls = {fd.name: fd.cls for fd in sc.compare_objects(elf, cand_elf).functions}
@@ -2916,7 +3141,8 @@ def _map_confirms(evidence_repo: Optional[Path], fn: dict, callee: str, version:
 
 
 def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, approvals: Optional[list[dict]] = None,
-           lessons_path: Optional[Path] = None, probes: bool = True, version: Optional[str] = None) -> dict:
+           lessons_path: Optional[Path] = None, probes: bool = True, version: Optional[str] = None,
+           game: Optional[str] = None) -> dict:
     reasons: list[str] = []
     if reduce.get("edits_hash") != mwcc.get("edits_hash"):
         reasons.append("edits_hash differs between reduce and mwcc")
@@ -3030,12 +3256,24 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
         if problem:
             g["status"], g["reason"] = "unresolved", problem
 
-    # Evidence-review approvals that the reduce step did not have.
+    # Evidence-review approvals that the reduce step did not have (site-bound: steering_approvals).
+    game = game or reduce.get("game")
     late_approved = []
+    review_sites: dict[str, dict] = {}
     for g in groups:
         ev = g.get("evidence") or {}
         if g.get("status") == "unresolved" and ev.get("kind") == "evidence_review":
-            if _find_approval(approvals, ev.get("callee") or "", ev.get("symbol") or "", g.get("functions") or []):
+            touched = sorted({(fn["unit"], fn["name"]) for fn in mwcc.get("functions") or [] if touches(g, fn)})
+            site = {"game": game, "units": g.get("units") or [], "functions": g.get("functions") or [],
+                    "targets": [name for _, name in touched], "base_rev": reduce.get("base_rev"), "file": g.get("file"),
+                    "lines": g.get("site_lines"), "digest": g.get("group_digest"),
+                    "callee": ev.get("callee") or "", "symbol": ev.get("symbol") or ""}
+            # Every affected (unit, target) needs its own approval; the missing ones are what the runner queues.
+            pairs = [(unit, name, None) for unit, name in touched] or [
+                (u, None, f) for u in site["units"] for f in site["functions"]]
+            _found, site["missing"] = _group_approvals(approvals, site, pairs)
+            review_sites[g["id"]] = site
+            if not site["missing"]:
                 late_approved.append(g["id"])
                 residue = approval_residue(g.get("shapes") or [], g.get("real_shapes") or [])
                 g["reason"] = ("approved construct mixed with " + ", ".join(residue) + "; split the group") if residue \
@@ -3165,6 +3403,11 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
             "groups": [g["id"] for g in touching],
             "reasons": fn_reasons[:8],
         }
+        # The S* this verdict compared against, and the record that lets the explain job rebuild it.
+        # steering_sstar replaces real_only after the evidence pick, so it wins when both apply.
+        sstar_variant = "steering_sstar" if steering_sstar_used else "evidence_sstar" if evidence_used else "global"
+        entry["sstar_variant"] = sstar_variant
+        entry["fidelity"] = function_fidelity(mwcc, fn, sstar_variant)
         uc = _unused_check_for(fn, unused_checks)
         if uc is not None:
             entry["unused_check"] = uc.get("status")
@@ -3286,6 +3529,7 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
         "group_updates": [{"id": g["id"], "status": g.get("status"), "was": before[g["id"]], "reason": g.get("reason"),
                            "evidence": g.get("evidence")} for g in groups if g.get("status") != before[g["id"]]],
         "late_approved": late_approved,
+        "evidence_reviews": _evidence_reviews(groups, review_sites, late_approved, functions_out),
         "stack_only_perturbation": any(f["stack_only_perturbation"] for f in functions_out),
         "units": unit_rows,
         "no_changes": reduce.get("changed_files") == [] and mwcc.get("changed_files") == [],
@@ -3295,6 +3539,33 @@ def decide(reduce: dict, mwcc: dict, *, evidence_repo: Optional[Path] = None, ap
         "violations": violations,
         "probes": probe_list,
     }
+
+
+def _evidence_reviews(groups: list[dict], sites: dict[str, dict], late_approved: list[str],
+                      functions_out: list[dict]) -> list[dict]:
+    """Evidence-review groups still unresolved and unapproved: what the runner
+    queues for human review (one request per target function the group edits,
+    keyed by game, unit, target and group digest)."""
+    out = []
+    for g in groups:
+        site = sites.get(g["id"])
+        if site is None or g["id"] in late_approved or g.get("status") != "unresolved":
+            continue
+        ev = g.get("evidence") or {}
+        missing = site.get("missing") or []
+        touching = [{"unit": f["unit"], "name": f["name"]} for f in functions_out if g["id"] in (f.get("groups") or [])]
+        # Only the (unit, target) pairs without an approval: an approved one is never asked again.
+        targets = [{"unit": m["unit"], "name": m["name"]} for m in missing if m.get("name")] or [
+            t for t in touching if any(m.get("unit") == t["unit"] for m in missing)]
+        out.append({
+            "group": g["id"], "game": site["game"], "base_rev": site["base_rev"], "units": site["units"],
+            "targets": targets, "functions": site["functions"], "site_file": site["file"],
+            "site_lines": site["lines"], "group_digest": site["digest"], "callee": site["callee"],
+            "symbol": site["symbol"], "provenance": ev.get("provenance"),
+            "patch": (ev.get("site") or {}).get("patch"), "edit_ids": g.get("edit_ids") or [],
+            "shapes": g.get("shapes") or [], "real_shapes": g.get("real_shapes") or [], "reason": g.get("reason"),
+        })
+    return out
 
 
 def _unused_check_for(fn: dict, checks: list[dict]) -> Optional[dict]:
@@ -3429,7 +3700,8 @@ def run_check(repo: Path, base_ref: str, *, oracle_repo: Optional[Path] = None, 
                   backend=backend, budget=mwcc_budget)
     approvals = read_jsonl(approvals_path if approvals_path else default_approvals_path())
     dec = decide(red, mw, evidence_repo=evidence_repo or oracle_repo or Path(repo), approvals=approvals,
-                 lessons_path=lessons_path, version=edits.get("game_version"))
+                 lessons_path=lessons_path, version=edits.get("game_version"),
+                 game=sa.game_id(approvals_path or default_approvals_path()))
     return {"tool": TOOL, "version": VERSION, "no_changes": dec["no_changes"], "edits": edits, "reduce": red,
             "mwcc": mw, "decision": dec, "elapsed_s": round(time.time() - start, 1)}
 
@@ -3724,7 +3996,8 @@ def cmd_decide(args) -> int:
     dec = decide(_load(args.reduce), _load(args.mwcc),
                  evidence_repo=Path(args.evidence_repo) if args.evidence_repo else _env_path("ORCH_GAME_HOST_REPO_ROOT"),
                  approvals=read_jsonl(Path(args.approvals) if args.approvals else default_approvals_path()),
-                 lessons_path=Path(args.lessons) if args.lessons else default_lessons_path(), version=args.version)
+                 lessons_path=Path(args.lessons) if args.lessons else default_lessons_path(), version=args.version,
+                 game=sa.game_id(Path(args.approvals) if args.approvals else default_approvals_path()))
     _emit(args, dec, _decision_lines(dec))
     return 0
 

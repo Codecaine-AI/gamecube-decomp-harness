@@ -6,7 +6,11 @@ import type { OrderingMode, StackFramePolicy, SteeringGateMode } from "@server/c
 import type { AdvisoryAdjudicationMode } from "@server/core/game-registry/runtime-options.js";
 import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import { gameStackFramePolicy } from "@server/core/tools/stack-frame-policy.js";
-import { gameSteeringGate, steeringGateActive } from "@server/core/tools/steering-gate.js";
+import { gameSteeringGate, steeringGateActive, steeringGateEnforced } from "@server/core/tools/steering-gate.js";
+import { gameHasCodeGraph, resolvedRunGame } from "@server/core/tools/run-game.js";
+import { workerToolIds } from "@server/core/tools/profiles/defaults.js";
+import { orderingRegistries } from "@server/core/game-registry/resolver.js";
+import { loadCompilerCapabilities, type CompilerCapabilities } from "./compiler-capabilities.js";
 import type {
   PiPromptBundle,
   RunGameMetadata,
@@ -90,6 +94,54 @@ export interface WorkerPromptOptions {
   steeringGate?: SteeringGateMode;
   /** The game's `ordering.mode`; omitted resolves it from `game`, else `off` (today's text). */
   ordering?: OrderingMode;
+  /** The worker's tool ids; omitted resolves the game's default worker list. The prompt names only these tools. */
+  toolIds?: readonly string[];
+  /** The game's base ref (`baseRef`); omitted resolves it from `game`, else `origin/master`. */
+  baseRef?: string;
+  /** Fixed-order registry classes (`ordering.registries`); omitted resolves them from `game`, else none. */
+  registries?: readonly string[];
+  /** Traced-compiler trace points; omitted loads `native/CAPABILITIES.json` (null when absent). */
+  compilerCapabilities?: CompilerCapabilities | null;
+}
+
+/** The game id the worker prompt is named for (`<game>.worker.system`). */
+export function workerGameId(options: Pick<WorkerPromptOptions, "game">): string {
+  return options.game?.gameId ?? resolvedRunGame(options.game)?.gameId ?? "default";
+}
+
+/** The game's display name for the prompt title. */
+export function workerGameDisplayName(options: Pick<WorkerPromptOptions, "game">): string {
+  return resolvedRunGame(options.game)?.displayName ?? options.game?.gameId ?? "Default";
+}
+
+/** The base ref the worker's foreign types come from. */
+export function workerBaseRef(options: Pick<WorkerPromptOptions, "game" | "baseRef">): string {
+  return options.baseRef ?? resolvedRunGame(options.game)?.baseRef ?? "origin/master";
+}
+
+/** Registry classes filled in a fixed order; read defensively (`ordering.registries` may be absent). */
+export function workerRegistries(options: Pick<WorkerPromptOptions, "game" | "registries">): string[] {
+  if (options.registries) return [...options.registries];
+  try {
+    return orderingRegistries(resolvedRunGame(options.game) ?? null).filter((name) => typeof name === "string" && name !== "");
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The worker's tool ids: explicit, else the game's default worker list (the
+ * static profile plus the steering-gate and code-graph tools). Mirrors
+ * `gameGatedAgentToolIds`, which builds the tools the worker gets.
+ */
+export function workerPromptToolIds(options: Pick<WorkerPromptOptions, "game" | "steeringGate" | "toolIds">): string[] {
+  if (options.toolIds) return [...options.toolIds];
+  return workerToolIds({ steeringGateActive: steeringGateActive(workerSteeringGate(options)), codeGraph: gameHasCodeGraph(options.game) });
+}
+
+/** Trace points per traced compiler version, or null when none is provisioned. */
+export function workerCompilerCapabilities(options: Pick<WorkerPromptOptions, "compilerCapabilities">): CompilerCapabilities | null {
+  return options.compilerCapabilities !== undefined ? options.compilerCapabilities : loadCompilerCapabilities();
 }
 
 /** The stack frame policy the worker prompt renders for. */
@@ -359,11 +411,42 @@ export function steeringProbeXml(packet: Record<string, unknown>, steeringGate: 
   if (Object.keys(probe).length === 0) return "";
   const fn = optionalString(probe.function);
   const unit = optionalString(probe.unit);
+  const revision = optionalString(probe.revision) ?? optionalString(probe.base_rev) ?? optionalString(probe.analyzed_rev);
+  const { compiler_delta: delta, ...rest } = probe;
   return [
-    `    <steering_probe${fn ? ` function="${xmlAttribute(fn)}"` : ""}${unit ? ` unit="${xmlAttribute(unit)}"` : ""}>`,
-    `        <instruction>${xmlText("A previous attempt on this target matched through steering edits. The probe lists those edits, the match without them, hypotheses for the real cause, and evidence. Find the real construct; do not resubmit the steering edits.")}</instruction>`,
-    jsonBlockXml("probe_json", probe),
+    `    <steering_probe${fn ? ` function="${xmlAttribute(fn)}"` : ""}${unit ? ` unit="${xmlAttribute(unit)}"` : ""}${optionalAttribute("revision", revision)}>`,
+    `        <instruction>${xmlText("A previous attempt on this target matched through probe edits the steering gate reverts. This lists those edits, the match without them, hypotheses and evidence; compiler_delta is what the edits changed inside the compiler. Find the real construct; do not resubmit the probe edits.")}</instruction>`,
+    compilerDeltaXml(delta),
+    jsonBlockXml("probe_json", rest),
     "    </steering_probe>",
+  ].join("\n");
+}
+
+const COMPILER_DELTA_MAX_LINES = 12;
+
+/**
+ * The probe's `compiler_delta` (written by the steering-explain job after the
+ * gate): `present` with its summary lines, `unavailable` with the reason, or
+ * `absent` when the job has not written one (yet).
+ */
+export function compilerDeltaXml(value: unknown, indent = "        "): string {
+  const delta = asRecord(value);
+  if (Object.keys(delta).length === 0) return `${indent}<compiler_delta status="absent" />`;
+  const unavailable = optionalString(delta.unavailable);
+  if (unavailable) return `${indent}<compiler_delta status="unavailable" reason="${xmlAttribute(unavailable)}" />`;
+  const lines = Array.isArray(delta.summary_lines) ? delta.summary_lines.filter((line): line is string => typeof line === "string" && line !== "") : [];
+  const changes = Array.isArray(delta.changes) ? delta.changes.length : null;
+  const attrs = [
+    ' status="present"',
+    optionalAttribute("version", optionalString(delta.version)),
+    optionalAttribute("observation_id", optionalString(delta.observation_id) ?? (typeof delta.observation_id === "number" ? delta.observation_id : null)),
+    optionalAttribute("changes", changes),
+    lines.length > COMPILER_DELTA_MAX_LINES ? optionalAttribute("omitted_lines", lines.length - COMPILER_DELTA_MAX_LINES) : "",
+  ].join("");
+  return [
+    `${indent}<compiler_delta${attrs}>`,
+    ...lines.slice(0, COMPILER_DELTA_MAX_LINES).map((line) => `${indent}    ${xmlText(line)}`),
+    `${indent}</compiler_delta>`,
   ].join("\n");
 }
 
@@ -377,7 +460,7 @@ function previousAttemptInstruction(kinds: string[]): string {
   const parts = [
     "Do not repeat these edits or reintroduce the removed code.",
     ...(kinds.includes("dead_unused_body")
-      ? ["Keep the upstream stub; give the body back only if `steering_check.py unused-test` shows a same-TU caller gets worse when it is emptied."]
+      ? ["Keep the upstream stub; give the body back only if `unused_stub_test` shows a same-TU caller gets worse when it is emptied."]
       : []),
     ...(kinds.includes("out_of_order") ? ["Leave the code that needs undecompiled classes until their units are decompiled."] : []),
     ...(kinds.includes("steering") || kinds.every((kind) => kind !== "dead_unused_body" && kind !== "out_of_order")
@@ -407,47 +490,72 @@ function previousAttemptSummary(attempt: Record<string, unknown>, kinds: string[
   return `A previous attempt ${reached} only through ${how}. ${action}${after}.`;
 }
 
-// `UNVERIFIED_MATCH_STATE` / `UNVERIFIED_MATCH_LABEL` (run-state/unverified-matches.ts), kept
-// literal so the prompt module does not load the state store.
+// `UNVERIFIED_MATCH_STATE` (run-state/unverified-matches.ts) and
+// `UNVERIFIED_MATCH_PACKET_LABEL` (previous-attempt.ts), kept literal so the
+// prompt module does not load the state store.
 const UNVERIFIED_MATCH_STATE = "unverified_match";
-const UNVERIFIED_MATCH_LABEL = "100% unverified";
+const UNVERIFIED_MATCH_LABEL = "100% but unverified";
 
-/** What happened: the code reaches 100% but the gate could not verify it is real. */
+/** What happened: the code reaches 100% but the gate could not certify it. */
 function unverifiedMatchSummary(attempt: Record<string, unknown>): string {
   const match = asRecord(attempt.match);
   const candidate = percent(match.candidate) ?? "100%";
-  const realOnly = percent(match.real_only);
-  const reduced = realOnly ? ` The reduced candidate reaches ${realOnly}.` : "";
-  return `This function's code reaches ${candidate}, but the steering gate could not verify that it is real code: it could neither prove the match real nor attribute it to steering. It is marked "${UNVERIFIED_MATCH_LABEL}": not done and not counted as matched.${reduced}`;
+  return `This function's code reaches ${candidate}, but the steering gate could not certify it: it could neither prove the match real nor attribute it to probe edits. It is "${UNVERIFIED_MATCH_LABEL}": not done and not counted as matched. Nothing in the current source is certified, including edits this block does not list.`;
 }
 
-const UNVERIFIED_MATCH_INSTRUCTION = [
-  "Keep the parts that are real code.",
-  "Find what each unexplained edit below stands for: the real inline, type, call or construct the original had, or evidence (`real_code_evidence`) that it is the original's code.",
-  "Produce a version the steering gate certifies: separate real fixes from steering in their own statements and remove every steering edit. Resubmitting the same code leaves it unverified.",
-].join(" ");
+const UNVERIFIED_MATCH_INSTRUCTION = "Read full_report_locator and the source at trusted_base_rev, then follow the unverified_match steps in the system prompt's method. Resubmitting the same code leaves it unverified.";
+
+/** Pending evidence-review requests (`open_reviews`) for either previous_attempt variant; [] when none. */
+function openReviewsXml(reviews: Array<Record<string, unknown>>): string[] {
+  if (reviews.length === 0) return [];
+  return [
+    `        <open_reviews total="${reviews.length}">`,
+    ...reviews.map((review) => {
+      const site = optionalString(review.site_file)
+        ? `${review.site_file}${optionalString(review.site_lines) ? `:${review.site_lines}` : ""}`
+        : null;
+      return `            <review id="${xmlAttribute(review.id)}"${optionalAttribute("site", site)} status="pending">${xmlText(review.summary ?? "")}</review>`;
+    }),
+    "        </open_reviews>",
+  ];
+}
+
+function intAttribute(name: string, value: unknown): string {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? ` ${name}="${value}"` : "";
+}
 
 /**
- * The `unverified_match` variant ("100% unverified"): the function's active
- * `steering_unverified_matches` row, its match, the edits the gate could not
- * explain and the gate's reasons.
+ * The `unverified_match` variant ("100% but unverified"): the function's
+ * active `steering_unverified_matches` row, its match, the first edits the
+ * gate could not explain (with the total and omitted counts), where the full
+ * report and the trusted base are, the gate's reasons and the open
+ * evidence-review requests.
  */
 function unverifiedMatchXml(attempt: Record<string, unknown>): string {
   const match = asRecord(attempt.match);
   const edits = asRecordArray(attempt.unexplained_edits).filter((edit) => optionalString(edit.file));
   const reasons = Array.isArray(attempt.reasons) ? attempt.reasons.filter((reason): reason is string => typeof reason === "string" && reason !== "") : [];
   const hints = asRecordArray(attempt.hints).filter((hint) => optionalString(hint.cause));
+  const reviews = asRecordArray(attempt.open_reviews).filter((review) => optionalString(review.id));
+  const totalEdits = typeof attempt.total_edits === "number" ? attempt.total_edits : edits.length;
+  const omittedEdits = typeof attempt.omitted_edits === "number" ? attempt.omitted_edits : Math.max(0, totalEdits - edits.length);
+  const reportLocator = optionalString(attempt.full_report_locator);
   const attrs = [
     optionalAttribute("variant", UNVERIFIED_MATCH_STATE),
+    optionalAttribute("label", UNVERIFIED_MATCH_LABEL),
     optionalAttribute("function", optionalString(attempt.symbol)),
     optionalAttribute("unit", optionalString(attempt.unit)),
     optionalAttribute("decision", optionalString(attempt.decision)),
     optionalAttribute("analyzed_rev", optionalString(attempt.analyzed_rev)?.slice(0, 12)),
+    optionalAttribute("trusted_base_rev", optionalString(attempt.trusted_base_rev) ?? optionalString(attempt.base_rev)),
+    optionalAttribute("source_path", optionalString(attempt.source_path)),
+    intAttribute("total_edits", totalEdits),
+    intAttribute("omitted_edits", omittedEdits),
+    reportLocator ? optionalAttribute("full_report_locator", reportLocator) : ' full_report_locator="unavailable"',
   ].join("");
   const matchAttrs = [
     optionalAttribute("base", percent(match.base)),
     optionalAttribute("candidate", percent(match.candidate)),
-    optionalAttribute("real_only", percent(match.real_only)),
   ].join("");
   return [
     `    <previous_attempt${attrs}>`,
@@ -456,7 +564,7 @@ function unverifiedMatchXml(attempt: Record<string, unknown>): string {
     ...(matchAttrs ? [`        <match${matchAttrs} />`] : []),
     ...(edits.length > 0
       ? [
-          "        <unexplained_edits>",
+          `        <unexplained_edits shown="${edits.length}" total="${totalEdits}">`,
           ...edits.map((edit) => {
             const shapes = Array.isArray(edit.shapes) ? edit.shapes.filter((shape) => typeof shape === "string").join(",") : "";
             const where = `${edit.file}${optionalNumber(edit.line) !== null ? `:${edit.line}` : ""}`;
@@ -472,6 +580,7 @@ function unverifiedMatchXml(attempt: Record<string, unknown>): string {
       : []),
     ...reasons.map((reason) => `        <gate_reason>${xmlText(reason)}</gate_reason>`),
     ...hints.map((hint) => `        <hint cause="${xmlAttribute(hint.cause)}"${optionalAttribute("how_to_check", optionalString(hint.how_to_check))}>${xmlText(hint.why ?? "")}</hint>`),
+    ...openReviewsXml(reviews),
     "    </previous_attempt>",
   ].join("\n");
 }
@@ -541,7 +650,27 @@ export function previousAttemptXml(packet: Record<string, unknown>, steeringGate
       ];
       return lines.join("\n");
     }),
+    ...openReviewsXml(asRecordArray(attempt.open_reviews).filter((review) => optionalString(review.id))),
     "    </previous_attempt>",
+  ].join("\n");
+}
+
+/**
+ * Pending evidence-review requests for a target with no `previous_attempt`
+ * (`packet.open_reviews`, set at claim time), as a standalone block in the
+ * steering section; "" when absent, when a previous_attempt carries its own,
+ * or when the steering gate is off.
+ */
+export function openReviewsBlockXml(packet: Record<string, unknown>, steeringGate: SteeringGateMode | null | undefined): string {
+  if (!steeringGateActive(steeringGate)) return "";
+  if (Object.keys(asRecord(packet.previous_attempt)).length > 0) return "";
+  const reviews = asRecordArray(packet.open_reviews).filter((review) => optionalString(review.id));
+  if (reviews.length === 0) return "";
+  return [
+    `    <open_reviews total="${reviews.length}">`,
+    `        <instruction>${xmlText("Constructs queued for human evidence review on this target: stop each lead until its review is decided, and do not resubmit it unchanged.")}</instruction>`,
+    ...openReviewsXml(reviews).slice(1, -1).map((line) => line.replace(/^ {4}/, "")),
+    "    </open_reviews>",
   ].join("\n");
 }
 
@@ -972,7 +1101,11 @@ export function buildWorkerKernelContext(
     contextBudget,
   );
   const steeringGate = workerSteeringGate(options);
-  const steeringBlocks = [previousAttemptXml(options.packet, steeringGate), steeringProbeXml(options.packet, steeringGate)].filter(Boolean);
+  const steeringBlocks = [
+    previousAttemptXml(options.packet, steeringGate),
+    openReviewsBlockXml(options.packet, steeringGate),
+    steeringProbeXml(options.packet, steeringGate),
+  ].filter(Boolean);
   const notReadyClasses = notReadyClassesXml(options.packet, workerOrdering(options));
   const values = {
     DECOMP_STANDARDS_XML: decompStandardsBudgetXml(contextBudget, options.game, options.advisoryAdjudication ?? "off"),

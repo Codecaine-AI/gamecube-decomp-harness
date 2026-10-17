@@ -38,6 +38,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repo-root", type=Path, help="Built project checkout; supplies build/ctx.c and src/.")
     parser.add_argument("--ctx", type=Path, help="Context file override. Defaults to <repo-root>/build/ctx.c.")
     parser.add_argument("--clang", default="clang")
+    parser.add_argument("--lang", choices=typeidx.DUMP_LANGS, default="c",
+                        help="Language the ctx is parsed as: c (Melee, default) or c++ (C++ projects such as SMS).")
     parser.add_argument("--src-root", type=Path, help="Source root override. Defaults to <repo-root>/src.")
     parser.add_argument("--skip-casts", action="store_true")
     parser.add_argument("--project", default="melee")
@@ -82,9 +84,15 @@ def build_index(
     clang: str,
     src_root: Path | None,
     skip_casts: bool,
+    lang: str = "c",
 ) -> dict[str, Any]:
-    dump_text = typeidx.make_dump(ctx, clang)
+    dump_text, diagnostics = typeidx.make_dump_result(ctx, clang, lang)
     index = typeidx.ingest(project, ctx, dump_text=dump_text)
+    if lang == "c++":
+        typeidx.mark_abi_uncertainty(index)
+    # A C ctx that compiled cleanly keeps today's index shape; anything else records how it was dumped.
+    if lang != "c" or diagnostics["error_count"]:
+        index["dump"] = diagnostics
     index.update({
         "schema_version": SCHEMA_VERSION,
         "built_at": datetime.now(timezone.utc).isoformat(),
@@ -131,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
     assert ctx is not None
     print(f"Generating PPC-EABI record layouts from {ctx}", file=sys.stderr)
     try:
-        index = build_index(ctx, args.project, args.clang, src_root, args.skip_casts)
+        index = build_index(ctx, args.project, args.clang, src_root, args.skip_casts, args.lang)
     except FileNotFoundError:
         print(json.dumps(error_payload(
             "clang_not_found",
@@ -160,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
         "project": args.project,
         "ctx": str(ctx),
     }
+    if "dump" in index:
+        payload["dump"] = {key: index["dump"][key] for key in ("lang", "exit_code", "error_count")}
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 

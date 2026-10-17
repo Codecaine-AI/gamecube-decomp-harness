@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, isAbsolute, resolve, sep } from "node:path";
 import { booleanArg, stringArg, type GlobalArgs } from "@server/core/game-registry/runtime-options.js";
 import { gameBuildLayout, type GameBuildValidation } from "@server/core/game-registry/build-layout.js";
 import { packageRoot } from "@server/core/knowledge";
@@ -25,20 +25,33 @@ import {
 import { gitRevAncestry } from "@server/core/validation/steering/unverified-certification.js";
 import { steeringGateActive } from "@server/core/tools/steering-gate.js";
 import {
+  SANDBOX_STEERING_CACHE_DIR,
+  SANDBOX_STEERING_CHECK_SCRIPT,
   STEERING_CHECK_TOOLPACK_PATH,
+  STEERING_GATE_PLACEMENT_ENV,
+  STEERING_SANDBOX_CLANG_MAJOR,
   hostSteeringRunner,
   parseSteeringDecision,
+  probeHostSteeringClang,
   steeringCertificateContext,
   steeringCertificateProblems,
   steeringViolationProblem,
   unitCovered,
   type SteeringDecision,
   type SteeringFunctionDecision,
+  type SteeringPlacement,
   type SteeringProbe,
+  type SteeringApplyCompile,
+  type SteeringApplyVerify,
   type SteeringRunner,
+  type SteeringRunnerResult,
+  type SteeringSandboxProbe,
   type SteeringViolation,
 } from "@server/core/validation/steering/steering-check.js";
 import { runCommand, type CommandResult } from "@server/infrastructure/shell";
+import { applyCompileSummary } from "@server/core/validation/steering/apply-verify.js";
+import { executeBuildTask, REMOTE_STEERING_INPUTS } from "@server/core/validation/build/execution.js";
+import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import { runShardedSteeringBackfill } from "./steering-gate-sharded.js";
 import { heldGroupIds, steeringGroupIds, unverifiedCertificateView } from "./steering-unverified.js";
 
@@ -63,6 +76,12 @@ import { heldGroupIds, steeringGroupIds, unverifiedCertificateView } from "./ste
  * - `--from-reports <dir|glob>[,...]` (sharded backfill, see
  *   `steering-gate-sharded.ts`) reuses existing `check` reports instead of
  *   running `check` over the whole tree.
+ * - Placement (`backfillSteeringPlacement`): by default every
+ *   `steering_check.py` call and the `--apply` rebuild run in Daytona build
+ *   sandboxes synced to this checkout (`buildSandboxSteeringRunner`); `apply`'s
+ *   edit comes back as a verified patch. `--placement host` (or
+ *   `ORCH_STEERING_GATE_PLACEMENT=host`) opts into the host, with an LLVM 21
+ *   `ORCH_IR_ORACLE_CLANG` only.
  *
  * `steering_backfill.report_json` (one row per function; stable shape, read
  * by the worker prompt wiring), `SteeringBackfillFunctionReport`:
@@ -231,6 +250,11 @@ export interface SteeringBackfillFunctionReport {
   probe: SteeringProbe | null;
   check: string;
   recheck: string | null;
+  /**
+   * The function's decide-row fidelity `input_hash` in `check` (plan 3.4.1): which gate inputs this
+   * row's verdict came from. An explain delta ranks the row only when it was measured for these inputs.
+   */
+  fidelity_input_hash?: string;
 }
 
 const SHORT_TEXT_LIMIT = 160;
@@ -471,7 +495,13 @@ export function steeringFunctionReport(params: {
     probe: params.probe,
     check: params.initial.path,
     recheck: params.recheck?.path ?? null,
+    ...(fidelityInputHash(initialRow) ? { fidelity_input_hash: fidelityInputHash(initialRow)! } : {}),
   };
+}
+
+function fidelityInputHash(row: JsonObject | null): string | null {
+  const fidelity = row ? asObject(row.fidelity) : {};
+  return typeof fidelity.input_hash === "string" && fidelity.input_hash ? fidelity.input_hash : null;
 }
 
 export interface SteeringBackfillFunction {
@@ -510,6 +540,13 @@ export interface SteeringBackfillResult {
   /** Active rows a certified-unit pass left active: the run's `--base` does not certify the row's trusted base. */
   unverifiedClearRefused: UnverifiedClearRefusal[];
   applied: boolean;
+  /**
+   * Applies the build sandbox refused because a unit no longer compiled after
+   * the revert (rollback fa5d5210 broke 5 SMS units this way): the failing
+   * units with a bounded output tail each, and the report (sharded runs). A
+   * refused apply changed nothing in the checkout.
+   */
+  applyRefusals: SteeringApplyRefusal[];
   /** Files the apply changed (from git), and the units whose objects were rebuilt. */
   touchedFiles: string[];
   touchedUnits: string[];
@@ -522,6 +559,23 @@ export interface SteeringBackfillResult {
 }
 
 export type JsonObject = Record<string, unknown>;
+
+export type SteeringApplyRefusal = SteeringApplyCompile & { report?: string };
+
+/**
+ * What a build-sandbox `apply` must keep compiling: every edited file of the
+ * check report with the units (and objects) compiling it, headers included
+ * (`header_units`). The sandbox compiles each unit whose file the apply
+ * changed and refuses the apply when one fails; a changed source no unit
+ * owns is refused too.
+ */
+export function applyVerifyFor(raw: JsonObject, validation?: GameBuildValidation | null): SteeringApplyVerify {
+  const owners: SteeringApplyVerify["owners"] = {};
+  for (const [file, units] of fileOwners(raw)) {
+    owners[file] = [...units].sort().flatMap((unit) => objectsForUnits(raw, [unit], validation).map((object) => ({ unit, object })));
+  }
+  return { owners };
+}
 
 export function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
@@ -728,6 +782,27 @@ export function rewrittenReport(params: Omit<Parameters<typeof steeringFunctionR
 }
 
 /** unit -> source path, from a check's `edits.units`. */
+/**
+ * The unit's candidate compile inputs from the gate's fidelity record
+ * (`mwcc.fidelity.units[unit]`): every input path and the sha256 of its
+ * bytes, and the compile command identity. Recorded on the unit's coverage
+ * row as audit evidence of what the verdict compiled (sync certification
+ * does not reuse it: only a pass at ours certifies). Null unless the
+ * candidate's depfile was read.
+ */
+export function unitFidelityInputs(raw: JsonObject, unit: string): JsonObject | null {
+  const record = asObject(asObject(asObject(asObject(raw.mwcc).fidelity).units)[unit]);
+  const candidate = asObject(asObject(record.builds).cand);
+  const deps = asObject(candidate.deps);
+  if (candidate.depfile !== "ok" || Object.keys(deps).length === 0) return null;
+  const compile = asObject(record.compile);
+  return {
+    deps,
+    deps_sha256: candidate.deps_sha256 ?? null,
+    compile: { mw_version: compile.mw_version ?? null, cflags: compile.cflags ?? null, compiler_sha256: asObject(compile.compiler).sha256 ?? null },
+  };
+}
+
 export function unitSourceTable(raw: JsonObject): Map<string, string> {
   const table = new Map<string, string>();
   for (const row of asArray(asObject(raw.edits).units)) {
@@ -888,6 +963,7 @@ export async function runSteeringBackfill(params: {
     || initial.decision.removable_noncosmetic.length > 0
     || violations.length > 0;
   let applied = false;
+  const applyRefusals: SteeringApplyRefusal[] = [];
   let recheckPath: string | null = null;
   let recheckReport: CheckReport | null = null;
   let rebuilt: string[] = [];
@@ -908,9 +984,11 @@ export async function runSteeringBackfill(params: {
         );
       }
     }
-    const applyResult = await params.runner(["apply", "--report", checkPath, ...(params.dryRun ? ["--dry-run"] : [])], "host");
-    if (applyResult.exitCode !== 0) throw new Error(invocationError(applyResult, "steering_check.py apply"));
-    if (!params.dryRun) {
+    const applyResult = await params.runner(["apply", "--report", checkPath, ...(params.dryRun ? ["--dry-run"] : [])], "host", { verify: applyVerifyFor(initial.raw, params.validation) });
+    // A unit that no longer compiles after the revert refuses the apply: nothing reached the checkout.
+    if (applyResult.compile && !applyResult.compile.ok) applyRefusals.push(applyResult.compile);
+    else if (applyResult.exitCode !== 0) throw new Error(invocationError(applyResult, "steering_check.py apply"));
+    if (applyRefusals.length === 0 && !params.dryRun) {
       applied = true;
       touchedFiles = git.changedPaths(params.repoRoot);
       for (const file of touchedFiles) for (const unit of owners.get(file) ?? []) touchedUnits.add(unit);
@@ -1000,7 +1078,7 @@ export async function runSteeringBackfill(params: {
   const view = unverifiedCertificateView(initial.raw, scopedDecision, certificate);
   const problems = applied
     ? ["applied: the cleanup is uncommitted; commit it and rerun with --record to certify the new HEAD"]
-    : steeringCertificateProblems(view.decision, view.context);
+    : [...applyRefusals.map(applyCompileSummary), ...steeringCertificateProblems(view.decision, view.context)];
   const clean = !applied && problems.length === 0;
   const unverified = functions.filter((fn) => fn.final === "unresolved");
 
@@ -1071,6 +1149,7 @@ export async function runSteeringBackfill(params: {
           provisional: applied,
           coverage: unit.coverage,
           check: checkPath,
+          ...(unitFidelityInputs(initial.raw, unit.unit) ? { fidelity_inputs: unitFidelityInputs(initial.raw, unit.unit) } : {}),
         },
       });
     }
@@ -1089,7 +1168,9 @@ export async function runSteeringBackfill(params: {
         "Review the rewritten sources (git diff), then commit them through the normal integration path.",
         "Rerun steering-gate with --record (no --apply) on the new HEAD to certify it.",
       ]
-    : !clean && params.record
+    : applyRefusals.length > 0
+      ? ["The apply was refused and the checkout is unchanged: reverting the steering edits left the units under apply_refusals uncompilable (e.g. one side of a declaration/use pair). Fix those sources, then rerun --apply."]
+      : !clean && params.record
       ? ["Fix or --apply the functions listed under problems (steering, dead UNUSED bodies, tool failures), commit, and rerun with --record; unresolved functions are recorded as unverified_match and do not block."]
       : [];
 
@@ -1107,6 +1188,7 @@ export async function runSteeringBackfill(params: {
     unverifiedCleared,
     unverifiedClearRefused,
     applied,
+    applyRefusals,
     touchedFiles,
     touchedUnits: [...touchedUnits].sort(),
     rebuilt,
@@ -1130,6 +1212,131 @@ function gitRev(repoRoot: string, ref: string): string {
   return result.stdout.toString().trim();
 }
 
+/** Runs one build task in a Daytona build sandbox (`executeBuildTask`); tests inject a fake. */
+export type SteeringBuildTaskExecutor = typeof executeBuildTask;
+
+/** `steering_check.py` flags whose value is a file the sandbox must receive. */
+const STEERING_FILE_FLAGS = new Set(["--report", "--input", "--reduce", "--mwcc", "--attribute", "--approvals", "--lessons"]);
+
+/**
+ * Backfill runner for the sandbox placement: every `steering_check.py` call
+ * runs as a `steering` build task in a fresh Daytona build sandbox synced to
+ * the host checkout's exact source (`daytona.ts`: the host toolpack, the
+ * game's policy, approvals and lessons, the LLVM 21 clang probe). Host-side
+ * `--out` files come back on stdout (callers already fall back to it),
+ * `--cache-dir` becomes the sandbox cache, and host file inputs (`--report`
+ * and the like) are uploaded. `apply` without `--dry-run` may edit source:
+ * its edit reaches the host checkout only as the verified patch the build
+ * sandbox returns, and only when the checkout did not move meanwhile.
+ * Failures come back as a non-zero result, never a throw. `probes` collects
+ * what each task's clang probe found.
+ */
+export function buildSandboxSteeringRunner(params: {
+  repoRoot: string;
+  mode: SteeringGateMode;
+  timeoutMs: number;
+  execute?: SteeringBuildTaskExecutor;
+}): SteeringRunner & { probes: SteeringSandboxProbe[] } {
+  const execute = params.execute ?? executeBuildTask;
+  const probes: SteeringSandboxProbe[] = [];
+  const repo = resolve(params.repoRoot);
+  const inRepo = (path: string) => resolve(path) === repo || resolve(path).startsWith(`${repo}${sep}`);
+  const runner = (async (args: string[], _where: "sandbox" | "host", call?: { timeoutMs?: number; verify?: SteeringApplyVerify }): Promise<SteeringRunnerResult> => {
+    const timeoutMs = call?.timeoutMs ?? params.timeoutMs;
+    const sandboxArgs: string[] = [];
+    const uploads: Record<string, string> = {};
+    for (let index = 0; index < args.length; index += 1) {
+      const arg = args[index]!;
+      const value = args[index + 1];
+      if (arg === "--out" && value !== undefined) { index += 1; continue; }
+      if (arg === "--cache-dir" && value !== undefined) { sandboxArgs.push(arg, SANDBOX_STEERING_CACHE_DIR); index += 1; continue; }
+      if (STEERING_FILE_FLAGS.has(arg) && value !== undefined && isAbsolute(value) && !inRepo(value)) {
+        const remote = `${REMOTE_STEERING_INPUTS}/call/${Object.keys(uploads).length}-${basename(value)}`;
+        uploads[remote] = value;
+        sandboxArgs.push(arg, remote);
+        index += 1;
+        continue;
+      }
+      sandboxArgs.push(arg);
+    }
+    const apply = args[0] === "apply";
+    const edits = apply && !args.includes("--dry-run");
+    // An apply that edits source is compiled before its patch may leave the sandbox: that needs configure.
+    const verify = edits && call?.verify ? call.verify : null;
+    try {
+      const value = await execute<Partial<CommandResult> & { probe?: SteeringSandboxProbe; compile?: SteeringApplyCompile }>(repo, {
+        kind: "steering",
+        input: {
+          command: ["python3", SANDBOX_STEERING_CHECK_SCRIPT, ...sandboxArgs],
+          options: { env: { ORCH_STEERING_GATE: params.mode }, timeoutMs },
+          timeoutMs,
+          ...(Object.keys(uploads).length > 0 ? { uploads } : {}),
+          // A dry-run or unverified apply only rewrites text from the report: no configure or compilers needed.
+          ...(apply && !verify ? { skipConfigure: true } : {}),
+          ...(edits ? { applyEdits: true } : {}),
+          ...(verify ? { verify } : {}),
+        },
+      });
+      if (value?.probe) probes.push(value.probe);
+      return {
+        exitCode: typeof value?.exitCode === "number" ? value.exitCode : 1, stdout: value?.stdout ?? "", stderr: value?.stderr ?? "",
+        ...(value?.compile ? { compile: value.compile } : {}),
+      };
+    } catch (error) {
+      return { exitCode: 127, stdout: "", stderr: error instanceof Error ? error.message : String(error) };
+    }
+  }) as SteeringRunner & { probes: SteeringSandboxProbe[] };
+  runner.probes = probes;
+  return runner;
+}
+
+/** Backfill rebuilds (`ninja`) for the sandbox placement: a `command` build task, whose report.json comes back as an artifact. */
+export function buildSandboxRebuildRunner(params: { repoRoot: string; timeoutMs: number; execute?: SteeringBuildTaskExecutor }): SteeringBuildRunner {
+  const execute = params.execute ?? executeBuildTask;
+  return async (command) => {
+    try {
+      return await execute<CommandResult>(resolve(params.repoRoot), { kind: "command", input: { command, options: { timeoutMs: params.timeoutMs }, timeoutMs: params.timeoutMs } });
+    } catch (error) {
+      return { exitCode: 127, stdout: "", stderr: error instanceof Error ? error.message : String(error) };
+    }
+  };
+}
+
+/**
+ * Where the backfill runs `steering_check.py` (plan 3.6: everything but LLM
+ * calls runs in sandboxes). The default, `auto` and `sandbox` all mean the
+ * Daytona build sandbox (`buildSandboxSteeringRunner`); the backfill never
+ * falls back to the host on its own. The host runs only as an explicit
+ * opt-in (`--placement host` or `ORCH_STEERING_GATE_PLACEMENT=host`), and only
+ * when the host's `ORCH_IR_ORACLE_CLANG` passes the same clang probe as the
+ * sandbox: LLVM `STEERING_SANDBOX_CLANG_MAJOR`, never Apple clang.
+ */
+export async function backfillSteeringPlacement(params: {
+  repoRoot: string;
+  /** `--placement`, when given; it wins over the env. */
+  flag?: string;
+  env?: Record<string, string | undefined>;
+  probe?: typeof probeHostSteeringClang;
+}): Promise<SteeringPlacement> {
+  const raw = (params.flag ?? (params.env ?? process.env)[STEERING_GATE_PLACEMENT_ENV] ?? "").trim().toLowerCase();
+  if (raw && raw !== "auto" && raw !== "sandbox" && raw !== "host") {
+    throw new Error(`steering-gate --placement is sandbox or host, got ${raw}`);
+  }
+  if (raw !== "host") {
+    return {
+      requested: raw === "sandbox" ? "sandbox" : "auto",
+      where: "sandbox",
+      reason: `Daytona build sandbox: every steering_check.py call and rebuild runs there, each behind the LLVM ${STEERING_SANDBOX_CLANG_MAJOR} clang probe`,
+    };
+  }
+  const found = await (params.probe ?? probeHostSteeringClang)(params.repoRoot);
+  if (!found.ok) throw new Error(`steering-gate --placement host refuses: ${found.reason}`);
+  return {
+    requested: "host", where: "host", reason: `explicit host opt-in; ${found.reason}`,
+    clang: found.clang, clang_version: found.clangVersion, ...(found.demangler !== undefined ? { demangler: found.demangler } : {}),
+  };
+}
+
 export async function steeringGateJob(globals: GlobalArgs, args: Map<string, string | true>): Promise<void> {
   const game = globals.game;
   const gameId = game?.gameId ?? globals.gameId ?? "";
@@ -1139,6 +1346,13 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
     throw new Error(`steering-gate only applies to games with matching.steeringGate shadow or enforce; ${gameId} is ${mode} (pass --force to run anyway)`);
   }
   const repoRoot = resolve(stringArg(args, "--repo", globals.repoRoot));
+  const fromReports = stringArg(args, "--from-reports", "").trim();
+  if (fromReports && (stringArg(args, "--paths", "") || stringArg(args, "--paths-file", "") || stringArg(args, "--unit", "") || stringArg(args, "--function", ""))) {
+    throw new Error("steering-gate --from-reports takes the reports' own scope; drop --paths/--unit/--function");
+  }
+  // Before anything touches the checkout: the host opt-in needs an LLVM 21 clang.
+  const placementFlag = stringArg(args, "--placement", "").trim();
+  const placement = await backfillSteeringPlacement({ repoRoot, ...(placementFlag ? { flag: placementFlag } : {}) });
   const base = stringArg(args, "--base", "").trim();
   if (!base) throw new Error("steering-gate needs --base <ref> (the trusted source the history is measured against)");
   const baseRev = gitRev(repoRoot, base);
@@ -1172,18 +1386,26 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
     ...(cacheDir ? { cacheDir: resolve(cacheDir) } : {}),
   };
   // Every steering_check.py call (and ninja) runs under the same explicit ceiling; a timeout exits 124 and fails the step.
-  const runner = hostSteeringRunner(script, repoRoot, { mode: mode === "off" ? "shadow" : mode, timeoutMs });
-  const buildRunner: SteeringBuildRunner = (command) => runCommand(repoRoot, command, { timeoutMs });
-  const fromReports = stringArg(args, "--from-reports", "").trim();
+  const gateMode = mode === "off" ? "shadow" : mode;
+  const inSandbox = placement.where === "sandbox";
+  const sandboxRunner = inSandbox ? buildSandboxSteeringRunner({ repoRoot, mode: gateMode, timeoutMs }) : null;
+  const runner = sandboxRunner ?? hostSteeringRunner(script, repoRoot, { mode: gateMode, timeoutMs });
+  const buildRunner: SteeringBuildRunner = inSandbox
+    ? buildSandboxRebuildRunner({ repoRoot, timeoutMs })
+    : (command) => runCommand(repoRoot, command, { timeoutMs });
+  // The build sandbox regenerates build.ninja itself: a host build.ninja's paths do not matter there.
+  const buildCheck = inSandbox ? () => null : undefined;
+  /** The placement as run: the sandbox's clang from the first task probe, when one ran. */
+  const ranPlacement = (): SteeringPlacement => {
+    const probe = sandboxRunner?.probes[0];
+    return probe ? { ...placement, clang: probe.clang, clang_version: probe.clangVersion, ...(probe.demangler !== undefined ? { demangler: probe.demangler } : {}) } : placement;
+  };
   const store = !dryRun && (record || apply) ? openState(globals.stateDir) : null;
   try {
     if (fromReports) {
-      if (paths.length > 0 || stringArg(args, "--unit", "") || stringArg(args, "--function", "")) {
-        throw new Error("steering-gate --from-reports takes the reports' own scope; drop --paths/--unit/--function");
-      }
       const result = await runShardedSteeringBackfill({
         store, gameId, repoRoot, baseRev, headRev, reports: fromReports, record, apply, dryRun, runner,
-        buildRunner, outputDir, validation: game?.validation, checkOptions, rebuild,
+        buildRunner, outputDir, validation: game?.validation, checkOptions, rebuild, ...(buildCheck ? { buildCheck } : {}),
       });
       console.log(JSON.stringify({
         game_id: gameId,
@@ -1191,6 +1413,7 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
         base_rev: result.baseRev,
         head_rev: result.headRev,
         dry_run: dryRun,
+        placement: ranPlacement(),
         timeout_ms: timeoutMs,
         rebuild,
         reports: result.reports.length,
@@ -1208,6 +1431,7 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
         unverified_cleared: result.unverifiedCleared,
         unverified_clear_refused: result.unverifiedClearRefused,
         applied: result.applied,
+        apply_refusals: result.applyRefusals,
         touched_files: result.touchedFiles,
         touched_units: result.touchedUnits,
         rebuilt: result.rebuilt,
@@ -1241,6 +1465,7 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
       validation: game?.validation,
       checkOptions: { ...checkOptions, ...(paths.length > 0 ? { paths } : {}) },
       rebuild,
+      ...(buildCheck ? { buildCheck } : {}),
     });
     console.log(JSON.stringify({
       game_id: gameId,
@@ -1248,6 +1473,7 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
       base_rev: result.baseRev,
       head_rev: result.headRev,
       dry_run: dryRun,
+      placement: ranPlacement(),
       full: result.full,
       clean: result.clean,
       problems: result.problems,
@@ -1256,6 +1482,7 @@ export async function steeringGateJob(globals: GlobalArgs, args: Map<string, str
       unverified_cleared: result.unverifiedCleared,
       unverified_clear_refused: result.unverifiedClearRefused,
       applied: result.applied,
+      apply_refusals: result.applyRefusals,
       touched_files: result.touchedFiles,
       touched_units: result.touchedUnits,
       rebuilt: result.rebuilt,

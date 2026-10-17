@@ -2,43 +2,15 @@ import { defineHarnessAgent } from "@server/core/agent-catalog/agent-definition.
 
 import { context } from "./context.js";
 import { prompt } from "./prompt.js";
-import { REQUEST_WRITE_SET_WIDENING_TOOL_ID, tools } from "./tools.js";
+import { defaultWorkerToolProfile } from "@server/core/tools/profiles/defaults.js";
+import { tools } from "./tools.js";
 
 export const agent = defineHarnessAgent({
   name: "worker",
   description: "Execute one claimed Melee decomp target while the runner owns checkpoints and lifecycle state.",
   model: "codex-lb/gpt-6-astra",
-  coreTools: [
-    REQUEST_WRITE_SET_WIDENING_TOOL_ID,
-    "knowledge_render_file",
-      "knowledge_record",
-      "pr_search",
-      "discord_search",
-      "wiki_search",
-      "attempt_search",
-      "resolve_locator",
-      "mwcc_debug_lookup",
-      "checkdiff_run",
-      "checkdiff_summary",
-      "direct_compile_tu",
-      "objdiff_score_candidate",
-      "mwcc_debug_dump_function",
-      "mwcc_debug_diagnose_stack",
-      "mwcc_debug_diagnose_regflow",
-      "mwcc_debug_diagnose_inlines",
-      "mwcc_alloc_snapshot",
-      "mwcc_alloc_compare",
-      "mwcc_alloc_analyze",
-      "source_permuter_run",
-      "source_permuter_replay",
-      "source_mutation_preview",
-      "type_oracle_lookup",
-      "m2c_decompile",
-      "asm_window_search",
-      "type_layout_lookup",
-      "review_lint_scan",
-      "review_lint_sdata2_order_helper",
-  ],
+  // The static worker profile; game-gated tools (steering gate, code graph) are added at launch.
+  coreTools: [...defaultWorkerToolProfile],
   disallowedTools: [],
   extensions: false,
   canSpawnSubagent: false,
