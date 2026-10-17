@@ -273,7 +273,9 @@ export function loadOrBuildFixtures(params: {
 }): FixtureSet {
   if (existsSync(params.cacheFile) && existsSync(resolve(params.scratch, ".git"))) {
     const cached = JSON.parse(readFileSync(params.cacheFile, "utf8")) as FixtureSet & { count: number };
-    if (cached.count >= params.count && gitOk(params.scratch, ["cat-file", "-e", `${cached.baseRev}^{commit}`])) {
+    // A base built from an older live HEAD (before a sync) is stale: it would seed full bundles and old sources.
+    const liveHead = git(params.smsCheckout, ["rev-parse", "HEAD"]).trim();
+    if (cached.count >= params.count && cached.headRev === liveHead && gitOk(params.scratch, ["cat-file", "-e", `${cached.baseRev}^{commit}`])) {
       git(params.scratch, ["checkout", "--quiet", "--force", "--detach", cached.baseRev]);
       return { ...cached, targets: pickBalanced(cached.targets, params.count) };
     }

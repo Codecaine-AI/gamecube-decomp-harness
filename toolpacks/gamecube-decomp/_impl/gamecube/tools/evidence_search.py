@@ -1134,7 +1134,8 @@ def _source_functions(code: str, start: int, end: int, prefix: str = "") -> Iter
                 head = decl[:paren]
                 match = QUALIFIED_BEFORE_PAREN_RE.search(head)
                 if match and not re.search(r"=\s*$", head):
-                    yield f"{prefix}{re.sub(r'\s+', '', match.group(1))}", stmt_start, index, close
+                    name = re.sub(r"\s+", "", match.group(1))
+                    yield f"{prefix}{name}", stmt_start, index, close
             index = close
             stmt_start = close + 1
         index += 1
