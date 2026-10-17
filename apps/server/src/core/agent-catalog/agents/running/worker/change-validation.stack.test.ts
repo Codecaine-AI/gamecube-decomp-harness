@@ -10,6 +10,10 @@ import {
   type WorkerChangeBaseline,
   type WorkerUnitScoreSnapshot,
 } from "./change-validation.js";
+import { useHostReportPlacement } from "./host-report-placement.test-support.js";
+
+// Fake workspaces here serve whole objdiff reports and symbols.txt: explicit host report placement.
+useHostReportPlacement();
 
 // SMS layout: unit `mario/<object>`, compiled `build/GMSJ01/src/<object>.o`, target `build/GMSJ01/obj/<object>.o`.
 const UNIT = "mario/M3DUtil/MActor";

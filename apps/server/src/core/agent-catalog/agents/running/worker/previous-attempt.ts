@@ -12,6 +12,7 @@ import {
   UNVERIFIED_MATCH_STATE,
   type UnverifiedMatchRecord,
 } from "@server/core/harness-runtime/run-state/unverified-matches.js";
+import { openEvidenceReviewsForTarget, type EvidenceReviewRequest } from "@server/core/harness-runtime/run-state/evidence-reviews.js";
 import { readReviewRulings, type ReviewRuling } from "@server/core/knowledge-v2/steering-lessons/seed.js";
 
 /**
@@ -33,7 +34,7 @@ import { readReviewRulings, type ReviewRuling } from "@server/core/knowledge-v2/
  * violation whose re-check no longer names it) comes from the first check
  * report it points to (`report.check`).
  *
- * A second variant, `unverified_match` ("100% unverified", migration 015),
+ * A second variant, `unverified_match` ("100% but unverified", migration 015),
  * comes from the function's active `steering_unverified_matches` row: its code
  * usually reaches 100% but the gate left it `unresolved`, neither proven real
  * nor attributed to steering. It wins over a rollback and is shown whatever
@@ -92,6 +93,8 @@ interface PreviousAttemptCommon {
 export interface RollbackPreviousAttempt extends PreviousAttemptCommon {
   variant?: "rollback";
   match: { base: number | null; with_steering: number | null; real_only: number | null };
+  /** Pending evidence-review requests for this target (claim time); absent when none. */
+  open_reviews?: OpenEvidenceReview[];
 }
 
 /** An edit of an unverified match the gate could not explain (`unexplained_edit_groups`). */
@@ -100,22 +103,107 @@ export interface UnverifiedMatchEdit extends PreviousAttemptEdit {
   status?: string;
 }
 
-/** The `unverified_match` variant ("100% unverified"): the gate could not verify the function's code. */
+/** Where provisioning puts a target's full gate report in the sandbox checkout (contract §3.2). */
+export function steeringReportLocator(observationId: string): string {
+  return `build/steering/reports/${observationId}.json`;
+}
+
+/** The label the worker packet uses for an `unverified_match`: the one label used everywhere. */
+export const UNVERIFIED_MATCH_PACKET_LABEL = UNVERIFIED_MATCH_LABEL;
+
+/**
+ * A pending evidence-review request for this target: a behaviour-identical
+ * construct the gate rejected as `evidence_review`, queued with its cited site
+ * evidence for a human decision (migration 017). The worker treats that lead
+ * as pending.
+ */
+export interface OpenEvidenceReview {
+  id: string;
+  site_file: string | null;
+  site_lines: string | null;
+  /** One line: what the queued construct is. */
+  summary: string | null;
+  base_rev: string | null;
+}
+
+/**
+ * Claim-time lookup of the open evidence-review requests for one target.
+ * `steeringPreviousAttempt` defaults to `storedOpenEvidenceReviews` (the
+ * review store, migration 017).
+ */
+export type OpenEvidenceReviewsLookup = (
+  store: StateStore,
+  target: { gameId: string; unit: string; symbol: string },
+) => readonly OpenEvidenceReview[];
+
+/** A stored review request in the packet's shape: `site_lines` `[4, 9]` becomes `"4-9"` (`"4"` for one line). */
+export function packetOpenReview(request: Pick<EvidenceReviewRequest, "id" | "site_file" | "site_lines" | "callee" | "callee_symbol" | "note" | "evidence" | "base_rev">): OpenEvidenceReview {
+  const [first, last] = Array.isArray(request.site_lines) ? request.site_lines : [];
+  const lines = typeof first === "number" ? (typeof last === "number" && last !== first ? `${first}-${last}` : `${first}`) : null;
+  const worker = asObject(asObject(request.evidence).worker);
+  const construct = request.callee ? `${request.callee}${request.callee_symbol ? ` (${request.callee_symbol})` : ""}` : null;
+  const cited = str(worker.summary) ?? str(request.note);
+  const summary = [construct, cited].filter((part): part is string => Boolean(part)).join(": ");
+  return { id: request.id, site_file: str(request.site_file), site_lines: lines, summary: summary ? clip(summary) : null, base_rev: str(request.base_rev) };
+}
+
+/** The review store's open requests for one target, in the packet's shape. */
+export const storedOpenEvidenceReviews: OpenEvidenceReviewsLookup = (store, target) =>
+  openEvidenceReviewsForTarget(store, target).map(packetOpenReview);
+
+/**
+ * Claim-time `packet.open_reviews`: the target's pending evidence reviews
+ * when the packet has no `previous_attempt` to carry them (that block lists
+ * its own). Same row shape as `previous_attempt.open_reviews`; [] when there
+ * are none or the store cannot be read. Never throws.
+ */
+export function standaloneOpenReviews(
+  store: StateStore,
+  target: { gameId: string; unit: string; symbol: string },
+  previousAttempt: PreviousAttempt | null,
+  lookup: OpenEvidenceReviewsLookup = storedOpenEvidenceReviews,
+): OpenEvidenceReview[] {
+  if (previousAttempt) return [];
+  try {
+    return openReviewRows(lookup(store, target));
+  } catch {
+    return [];
+  }
+}
+
+/** The `unverified_match` variant ("100% but unverified"): the gate could not certify the function's code. */
 export interface UnverifiedMatchPreviousAttempt extends PreviousAttemptCommon {
   variant: typeof UNVERIFIED_MATCH_STATE;
   label: string;
   base_rev: string | null;
+  /** The trusted base the gate measures this target against (`git show <rev>:<source_path>` in the sandbox). */
+  trusted_base_rev: string | null;
   source_path: string | null;
   /** `candidate` is the match the code reaches; `real_only` the reduced candidate's measured match (not a certified subset). */
   match: { base: number | null; candidate: number | null; real_only: number | null };
+  /** The first edits the gate could not explain; `total_edits` counts them all, `omitted_edits` the ones not listed. */
   unexplained_edits: UnverifiedMatchEdit[];
+  total_edits: number;
+  omitted_edits: number;
+  /**
+   * A sandbox path to the full gate report for this target
+   * (`steeringReportLocator`), or null when provisioning did not deliver one.
+   * S8's provisioning writes the report there and records the locator; this
+   * module only reads it.
+   */
+  full_report_locator: string | null;
+  open_reviews: OpenEvidenceReview[];
 }
 
 export type PreviousAttempt = RollbackPreviousAttempt | UnverifiedMatchPreviousAttempt;
 
-/** Which variant a `previous_attempt` block shows; the dashboard preview selects one. */
-export type PreviousAttemptVariant = "rollback" | typeof UNVERIFIED_MATCH_STATE;
-export const PREVIOUS_ATTEMPT_VARIANTS: readonly PreviousAttemptVariant[] = ["rollback", UNVERIFIED_MATCH_STATE];
+/**
+ * Which variant a `previous_attempt` block shows; the dashboard preview
+ * selects one. `none`: no previous_attempt, so pending reviews render as the
+ * standalone `open_reviews` block.
+ */
+export type PreviousAttemptVariant = "rollback" | typeof UNVERIFIED_MATCH_STATE | "none";
+export const PREVIOUS_ATTEMPT_VARIANTS: readonly PreviousAttemptVariant[] = ["rollback", UNVERIFIED_MATCH_STATE, "none"];
 
 export function isPreviousAttemptVariant(value: unknown): value is PreviousAttemptVariant {
   return typeof value === "string" && (PREVIOUS_ATTEMPT_VARIANTS as readonly string[]).includes(value);
@@ -351,29 +439,59 @@ export function previousAttemptFromBackfill(
 export type UnverifiedMatchSource = Pick<UnverifiedMatchRecord, "unit" | "symbol" | "analyzedRev" | "match" | "reasons" | "recordedAt">
   & Partial<Pick<UnverifiedMatchRecord, "baseRev" | "sourcePath" | "report">>;
 
+/** One review row stays one short line, so every pending review fits. */
+const OPEN_REVIEW_SUMMARY_LIMIT = 160;
+
+/**
+ * Every pending review, uncapped: a review left out of the packet is a lead
+ * the worker could resubmit unchanged. Rows are deduplicated per target and
+ * construct (migration 017), so the list stays short; each summary is clipped.
+ */
+function openReviewRows(value: readonly unknown[] | undefined): OpenEvidenceReview[] {
+  const seen = new Set<string>();
+  return asObjects(value ?? []).flatMap((row) => {
+    const id = str(row.id);
+    if (!id || seen.has(id)) return [];
+    seen.add(id);
+    const summary = str(row.summary) ?? str(row.note);
+    return [{ id, site_file: str(row.site_file), site_lines: str(row.site_lines), summary: summary ? clip(summary, OPEN_REVIEW_SUMMARY_LIMIT) : null, base_rev: str(row.base_rev) }];
+  });
+}
+
 /**
  * The packet block for a function recorded as `unverified_match`. The record's
  * own `match` and `reasons` come first; its report (a
  * `SteeringBackfillFunctionReport`) adds the edits the gate could not explain
  * and the probe's hypotheses, and fills a match or reasons the record lacks.
  */
-export function previousAttemptFromUnverified(record: UnverifiedMatchSource): UnverifiedMatchPreviousAttempt {
+export function previousAttemptFromUnverified(
+  record: UnverifiedMatchSource,
+  options: { openReviews?: readonly unknown[]; fullReportLocator?: string | null } = {},
+): UnverifiedMatchPreviousAttempt {
   const report = asObject(record.report);
   const reportMatch = asObject(report.match);
   const decision = str(report.decision) ?? "unresolved";
-  const unexplained = asObjects(report.unexplained_edit_groups).flatMap((row) => {
+  const all = asObjects(report.unexplained_edit_groups).flatMap((row) => {
     const edit = editRow(row);
     const status = str(row.status);
     return edit ? [{ ...edit, ...(status ? { status } : {}) }] : [];
-  }).slice(0, MAX_EDITS);
+  });
+  const unexplained = all.slice(0, MAX_EDITS);
+  const baseRev = record.baseRev ?? str(report.base_rev);
   return {
     variant: UNVERIFIED_MATCH_STATE,
-    label: UNVERIFIED_MATCH_LABEL,
+    label: UNVERIFIED_MATCH_PACKET_LABEL,
     unit: record.unit,
     symbol: record.symbol,
     analyzed_rev: record.analyzedRev,
-    base_rev: record.baseRev ?? str(report.base_rev),
-    source_path: record.sourcePath ?? null,
+    base_rev: baseRev,
+    trusted_base_rev: baseRev,
+    source_path: record.sourcePath ?? str(report.source_path),
+    total_edits: all.length,
+    omitted_edits: all.length - unexplained.length,
+    // Provisioning delivers the full report into the sandbox and records where (contract §3.2).
+    full_report_locator: options.fullReportLocator !== undefined ? options.fullReportLocator : str(report.full_report_locator),
+    open_reviews: openReviewRows(options.openReviews),
     recorded_at: record.recordedAt,
     decision,
     verdict_after: decision,
@@ -445,11 +563,36 @@ function readRulings(path: string | null | undefined): ReviewRuling[] {
  */
 export function steeringPreviousAttempt(
   store: StateStore,
-  params: { gameId: string; unit: string; symbol: string; currentScore?: number | null; rulingsPath?: string | null },
+  params: {
+    gameId: string;
+    unit: string;
+    symbol: string;
+    currentScore?: number | null;
+    rulingsPath?: string | null;
+    /** The open evidence-review lookup; omitted reads the review store (`storedOpenEvidenceReviews`). */
+    openReviews?: OpenEvidenceReviewsLookup;
+    /**
+     * The gate-report path provisioning delivered into this claim's sandbox
+     * (task file `unverified_report_locator`); null renders "unavailable".
+     * Never recomputed from the row, which can change after provisioning.
+     */
+    fullReportLocator?: string | null;
+  },
 ): PreviousAttempt | null {
+  // A pending review is a lead the worker must not resubmit: read it for either variant. Never throws.
+  let openReviews: OpenEvidenceReview[] = [];
+  try {
+    openReviews = openReviewRows((params.openReviews ?? storedOpenEvidenceReviews)(store, { gameId: params.gameId, unit: params.unit, symbol: params.symbol }));
+  } catch {
+    openReviews = [];
+  }
+  const withReviews = (attempt: RollbackPreviousAttempt | null): RollbackPreviousAttempt | null =>
+    attempt && openReviews.length > 0 ? { ...attempt, open_reviews: openReviews } : attempt;
   try {
     const unverified = activeUnverifiedMatch(store, params);
-    if (unverified) return previousAttemptFromUnverified(unverified);
+    if (unverified) {
+      return previousAttemptFromUnverified(unverified, { openReviews, fullReportLocator: params.fullReportLocator ?? null });
+    }
   } catch {
     // A store without the table (or a malformed row) falls through to the rollback lookup.
   }
@@ -465,9 +608,9 @@ export function steeringPreviousAttempt(
     const complete = fromRow !== null && fromRow.reasons.length > 0
       && (fromRow.removed_edits.length > 0 || fromRow.rules.some((rule) => rule.kind === "dead_unused_body" || rule.kind === "out_of_order"))
       && fromRow.rules.every((rule) => rule.kind !== "rule_violation");
-    if (complete) return fromRow;
+    if (complete) return withReviews(fromRow);
     const check = checkFunctionFacts(readCheckReport(str(record.report.check)), record.unit, record.symbol);
-    return check ? previousAttemptFromBackfill(record, { rulings, check }) : fromRow;
+    return withReviews(check ? previousAttemptFromBackfill(record, { rulings, check }) : fromRow);
   } catch {
     return null;
   }

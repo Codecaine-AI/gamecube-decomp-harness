@@ -4,8 +4,19 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { gameBuildLayout, type GameBuildValidation } from "@server/core/game-registry/build-layout.js";
 import type { RunGameMetadata } from "@server/core/shared/types";
 import type { WriteSetEntry } from "@server/core/harness-runtime/run-state/write-set-categories";
-import { runQaScanDiff, type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
+import { type QaScanFinding, type QaScanInvocation, type RunQaScanDiffOptions } from "@server/core/validation/qa";
 import { isAdvisoryFinding } from "@server/core/validation/qa/advisory-fingerprint.js";
+import {
+  generateSandboxQaDiff,
+  qaLintPlacement,
+  routeWorkerQaScan,
+  runSandboxQaScanDiff,
+  runWorkerQaScan,
+  sandboxQaWorkDir,
+  restoreSandboxQaSnapshotFromGit,
+  snapshotSandboxQaSources,
+} from "@server/core/validation/qa/sandbox-scan.js";
+import type { QaScanExecutionSurface } from "@server/core/validation/qa/scan-diff.js";
 import {
   runCommand,
   type CommandResult,
@@ -34,8 +45,25 @@ import { changedSourcePathsFromDiff, runClangFormatCheck } from "@server/core/va
 import { SYMBOL_BASELINE_DIR, SYMBOL_CHECK_SOURCE_RE, changedCppPathsFromDiff, runSymbolCheck, snapshotBaselineObjects } from "@server/core/validation/symbols/symbol-check.js";
 import type { WorkerRunnerValidation } from "./runner-validation.js";
 import { evaluateWorkerSteeringGate, type WorkerSteeringGateOptions } from "./steering-validation.js";
+import {
+  CERTIFICATION_LANE_REASON_PREFIX,
+  diffChangedPaths,
+  laneTargetDrivenRegression,
+  resolveCertificationLane,
+  type CertificationLaneOptions,
+} from "./certification-lane.js";
 import { evaluateWorkerEditScopeGate, evaluateWorkerEditScopeUnused, type WorkerEditScopeGateOptions } from "./edit-scope-validation.js";
 import { uploadThroughExec } from "@server/core/validation/steering/steering-check.js";
+import { configUnitsInSandbox, objdiffReportArgsInSandbox, objdiffUnitNamesInSandbox } from "./sandbox-source-queries.js";
+import { lintBannedIdiomsInSandbox } from "./banned-idioms-sandbox.js";
+import {
+  decodeSandboxRaw,
+  firstDiffInSandbox,
+  sandboxAttemptArtifactDir,
+  summarizeUnitReportInSandbox,
+  unitReportPlacement,
+  type SandboxFirstDiffData,
+} from "./unit-report-summary.js";
 import type { StackFramePolicy } from "@server/core/game-registry/resolver.js";
 import {
   STACK_HUNK_CHECK_MAX_HUNKS,
@@ -73,13 +101,21 @@ async function readWorkspaceText(
   return result.stdout;
 }
 
-async function objdiffReportConfigArgs(
+/** The objdiff `--config` arguments from build.ninja `objdiff_report_args` (sandbox by default; host only under the explicit opt-in). */
+export async function objdiffReportConfigArgs(
   repoRoot: string,
   workspaceExec: WorkspaceExec,
 ): Promise<string[]> {
-  const cacheKey = repoRoot;
+  const cacheKey = `${unitReportPlacement()}\0${repoRoot}`;
   const cached = objdiffReportConfigCache.get(cacheKey);
   if (cached) return cached;
+  if (unitReportPlacement() === "sandbox") {
+    // Parsed in the sandbox; only the arguments return. A query that does not
+    // answer is not cached, so the next call asks again.
+    const args = await objdiffReportArgsInSandbox(workspaceExec);
+    if (args) objdiffReportConfigCache.set(cacheKey, args);
+    return args ?? [];
+  }
   let args: string[] = [];
   try {
     const ninja = await readWorkspaceText(repoRoot, "build.ninja", workspaceExec);
@@ -150,6 +186,20 @@ export interface WorkerChangeBaseline {
   sourceSnapshotDir?: string;
   /** Repo-relative paths that were actually copied into sourceSnapshotDir. */
   sourceSnapshotPaths?: string[];
+  /**
+   * Worker-sandbox twin of sourceSnapshotDir (workspace-relative, raw bytes)
+   * the L1 QA diff runs against in the sandbox; absent when the placement is
+   * `build` or the sandbox copy failed.
+   */
+  sandboxQaSnapshotDir?: string;
+  /** Repo-relative paths copied into sandboxQaSnapshotDir. */
+  sandboxQaSnapshotPaths?: string[];
+  /**
+   * Path → commit whose blob equals the path's pre-attempt bytes (clean at
+   * capture, or added from HEAD later): the only paths a lost twin copy may be
+   * rebuilt for, with `git show <commit>:<path>` in the sandbox.
+   */
+  sandboxQaSnapshotRevs?: Record<string, string>;
   /** Undefined-symbol names of the pre-worker object; null when capture was disabled or failed. */
   undefinedSymbols?: string[] | null;
   /** Why undefined-symbol capture failed; informational, capture is fail-open. */
@@ -182,6 +232,8 @@ export interface WorkerQaLint {
   scanPath: string | null;
   /** Scanner/diff infrastructure failure detail; L1 fails open but records it. */
   toolError: string | null;
+  /** Where scan_diff.py ran; set when the placement router chose the surface (absent for injected runners). */
+  executionSurface?: QaScanExecutionSurface;
   /** Advisory partition; attached only when advisory adjudication is on (shadow, enforce), so `off` output is unchanged. */
   advisory?: WorkerQaLintAdvisory;
   /**
@@ -543,6 +595,34 @@ async function writeFirstDiffArtifact(outputDir: string, firstDiff: WorkerFirstD
   );
 }
 
+/**
+ * `firstDiffFromObjdiffReport` from the sandbox reduction: the raw values
+ * (score, addresses, sizes) are formatted here with the same rules.
+ */
+function firstDiffFromSandboxData(data: SandboxFirstDiffData, symbol: string): WorkerFirstDiff {
+  if (data.targets.length === 0) return unavailableFirstDiff(`pre-worker first diff did not contain target ${symbol}`);
+  let score: number | null = null;
+  for (const target of data.targets) {
+    const sideScore = numberValue(decodeSandboxRaw(target.match_percent), NaN);
+    if (score === null && Number.isFinite(sideScore)) score = sideScore;
+  }
+  const rows: WorkerFirstDiffRow[] = data.rows.map((row) => {
+    if (row.data) {
+      const size = "size" in row ? decodeSandboxRaw(row.size) : undefined;
+      return { side: row.side, address: "data", kind: row.kind, text: `size=${size ?? "?"}` };
+    }
+    const address = "address" in row ? decodeSandboxRaw(row.address) : undefined;
+    return { side: row.side, address: address === null || address === undefined ? "" : String(address), kind: row.kind, text: row.text ?? "" };
+  });
+  return {
+    status: "available",
+    score,
+    rows: rows.slice(0, FIRST_DIFF_ROW_LIMIT),
+    row_counts_by_kind: { ...data.counts },
+    truncated: data.total > FIRST_DIFF_ROW_LIMIT,
+  };
+}
+
 async function captureWorkerFirstDiff(params: {
   repoRoot: string;
   outputDir: string;
@@ -551,6 +631,28 @@ async function captureWorkerFirstDiff(params: {
   configArgs: string[];
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerFirstDiff> {
+  if (unitReportPlacement() === "sandbox") {
+    // The full symbol report stays in the sandbox; only the bounded reduction comes back.
+    const command = ["build/tools/objdiff-cli", "diff", "-p", ".", "-u", params.unit, ...params.configArgs, params.symbol, "--format", "json-pretty"];
+    const reportPath = `${sandboxAttemptArtifactDir(params.outputDir)}/pre_worker_first_diff.json`;
+    const job = await firstDiffInSandbox(params.workspaceExec, { command, reportPath, symbol: params.symbol });
+    const stdoutPath = resolve(params.outputDir, "pre_worker_first_diff.stdout.txt");
+    const stderrPath = resolve(params.outputDir, "pre_worker_first_diff.stderr.txt");
+    if ("failed" in job) {
+      await writeFile(stdoutPath, "");
+      await writeFile(stderrPath, job.error);
+      return unavailableFirstDiff(`pre-worker first diff exited ${job.exitCode}: ${job.error}`);
+    }
+    await writeFile(stdoutPath, job.stdout);
+    await writeFile(stderrPath, job.stderr);
+    if (job.exitCode !== 0) {
+      const stderr = job.stderr.trim();
+      return unavailableFirstDiff(`pre-worker first diff exited ${job.exitCode}${stderr ? `: ${stderr}` : ""}`);
+    }
+    if (job.reportError) return unavailableFirstDiff(`could not parse pre-worker first diff: ${job.reportError}`);
+    if (!job.isObject || !job.firstDiff) return unavailableFirstDiff("pre-worker first diff was not a JSON object");
+    return firstDiffFromSandboxData(job.firstDiff, params.symbol);
+  }
   const result = await runValidationCommand(
     params.repoRoot,
     [
@@ -632,8 +734,108 @@ async function runObjdiffReportCommand(params: {
   return result;
 }
 
+interface UnitReportRun {
+  unitDiff: WorkerValidationCommandResult;
+  /** Host artifact: the full report (`host` placement) or `<name>.summary.json` naming the sandbox report. */
+  reportPath: string;
+  /** Absolute sandbox path of the full report (sandbox placement). */
+  sandboxReportPath?: string;
+  /** objdiff succeeded and its report reached a usable artifact. */
+  ok: boolean;
+  /** The report object the snapshot/rows read; null when it is not a JSON object. */
+  report: Record<string, unknown> | null;
+  /** Why the report is not valid JSON. */
+  parseError: string | null;
+}
+
+/**
+ * One objdiff unit report for the worker path. Sandbox placement (default):
+ * the full report stays in the sandbox and only the rows summary comes back
+ * (unit-report-summary.ts); a job that does not answer is a failed unit diff.
+ * `ORCH_UNIT_REPORT_PLACEMENT=host` is the explicit opt-in to transferring and
+ * parsing the full report on the host.
+ */
+async function runUnitReport(params: {
+  repoRoot: string;
+  workspaceExec: WorkspaceExec;
+  outputDir: string;
+  unit: string;
+  /** Precomputed objdiff config args; read from build.ninja when absent. */
+  configArgs?: string[];
+  /** Host artifact stem under outputDir, e.g. `attempt-0.unit_diff`. */
+  hostReportName: string;
+}): Promise<UnitReportRun> {
+  const command = [
+    "build/tools/objdiff-cli",
+    "diff",
+    "-p",
+    ".",
+    "-u",
+    params.unit,
+    ...(params.configArgs ?? await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec)),
+    "--format",
+    "json-pretty",
+  ];
+  const stdoutPath = resolve(params.outputDir, `${params.hostReportName}.stdout.txt`);
+  const stderrPath = resolve(params.outputDir, `${params.hostReportName}.stderr.txt`);
+  if (unitReportPlacement() === "host") {
+    const reportPath = resolve(params.outputDir, `${params.hostReportName}.json`);
+    const unitDiff = await runObjdiffReportCommand({ repoRoot: params.repoRoot, command, reportPath, stdoutPath, stderrPath, workspaceExec: params.workspaceExec });
+    if (unitDiff.exitCode !== 0 || !existsSync(reportPath)) return { unitDiff, reportPath, ok: false, report: null, parseError: null };
+    try {
+      const report = JSON.parse(await readFile(reportPath, "utf8")) as unknown;
+      return { unitDiff, reportPath, ok: true, report: isRecord(report) ? report : null, parseError: null };
+    } catch (error) {
+      return { unitDiff, reportPath, ok: true, report: null, parseError: error instanceof Error ? error.message : String(error) };
+    }
+  }
+  const relativeReport = `${sandboxAttemptArtifactDir(params.outputDir)}/${params.hostReportName}.json`;
+  const sandboxReportPath = `${params.repoRoot.replace(/\/+$/, "")}/${relativeReport}`;
+  const reportPath = resolve(params.outputDir, `${params.hostReportName}.summary.json`);
+  const summarized = await summarizeUnitReportInSandbox(params.workspaceExec, { command, reportPath: relativeReport });
+  const sandboxCommand = [...command, "-o", relativeReport];
+  if ("failed" in summarized) {
+    await writeFile(stdoutPath, "");
+    await writeFile(stderrPath, summarized.error);
+    return {
+      unitDiff: { exitCode: summarized.exitCode, stdout: "", stderr: summarized.error, command: sandboxCommand, stdoutPath, stderrPath },
+      reportPath,
+      sandboxReportPath,
+      ok: false,
+      report: null,
+      parseError: null,
+    };
+  }
+  await writeFile(stdoutPath, summarized.stdout);
+  await writeFile(stderrPath, summarized.stderr);
+  const unitDiff = { exitCode: summarized.exitCode, stdout: summarized.stdout, stderr: summarized.stderr, command: sandboxCommand, stdoutPath, stderrPath };
+  if (summarized.exitCode !== 0) return { unitDiff, reportPath, sandboxReportPath, ok: false, report: null, parseError: null };
+  await writeFile(reportPath, JSON.stringify({ sandbox_report_path: sandboxReportPath, report: summarized.report }, null, 2));
+  return { unitDiff, reportPath, sandboxReportPath, ok: true, report: summarized.report, parseError: summarized.reportError };
+}
+
 function isSafeRepoRelativePath(path: string): boolean {
   return Boolean(path) && !isAbsolute(path) && !path.split(/[\\/]/).includes("..");
+}
+
+/**
+ * The sandbox copy of the pre-attempt sources the L1 QA diff runs against in
+ * the worker sandbox. Skipped for the explicit `build` placement. A failed copy
+ * is not fatal here: the scan rebuilds what git can reproduce, else reports
+ * the lint unavailable.
+ */
+async function snapshotSandboxQaBaseline(
+  outputDir: string,
+  paths: string[],
+  workspaceExec: WorkspaceExec,
+): Promise<Pick<WorkerChangeBaseline, "sandboxQaSnapshotDir" | "sandboxQaSnapshotPaths" | "sandboxQaSnapshotRevs">> {
+  // The banned-idiom context reads this twin too, so only skip when both opt into the host.
+  if (paths.length === 0 || (qaLintPlacement() === "build" && unitReportPlacement() === "host")) return {};
+  const dir = `${sandboxQaWorkDir(outputDir)}/pre_worker_source`;
+  const { copied, revs } = await snapshotSandboxQaSources(workspaceExec, { dir, paths });
+  return copied.length > 0 || Object.keys(revs).length > 0
+    ? { sandboxQaSnapshotDir: dir, sandboxQaSnapshotPaths: copied, sandboxQaSnapshotRevs: revs }
+    : {};
 }
 
 async function snapshotPreWorkerSources(params: {
@@ -702,6 +904,7 @@ export async function captureWorkerChangeBaseline(params: {
   });
   const sourceSnapshotDir = sourceSnapshot.dir;
   const sourceSnapshotPaths = sourceSnapshot.copied;
+  const sandboxQaSnapshot = await snapshotSandboxQaBaseline(params.outputDir, sourceSnapshotPaths, params.workspaceExec);
 
   if (!unit) reasons.push("target unit is missing");
   if (!symbol) reasons.push("target symbol is missing");
@@ -710,7 +913,7 @@ export async function captureWorkerChangeBaseline(params: {
   if (reasons.length > 0 || !objectTarget) {
     const firstDiff = unavailableFirstDiff(reasons.join("; "));
     await writeFirstDiffArtifact(params.outputDir, firstDiff);
-    return { status: "snapshot_unavailable", reasons, snapshot: null, firstDiff, objectTarget, sourceSnapshotDir, sourceSnapshotPaths };
+    return { status: "snapshot_unavailable", reasons, snapshot: null, firstDiff, objectTarget, sourceSnapshotDir, sourceSnapshotPaths, ...sandboxQaSnapshot };
   }
 
   const objectBuild = await runValidationCommand(
@@ -732,6 +935,7 @@ export async function captureWorkerChangeBaseline(params: {
       objectBuild,
       sourceSnapshotDir,
       sourceSnapshotPaths,
+      ...sandboxQaSnapshot,
     };
   }
 
@@ -781,26 +985,17 @@ export async function captureWorkerChangeBaseline(params: {
     undefinedSymbolsError = listed.error;
   }
 
-  const diffPath = resolve(params.outputDir, "pre_worker_unit_diff.json");
-  const unitDiff = await runObjdiffReportCommand({
+  const unitReport = await runUnitReport({
     repoRoot: params.repoRoot,
-    command: [
-      "build/tools/objdiff-cli",
-      "diff",
-      "-p",
-      ".",
-      "-u",
-      unit,
-      ...reportConfigArgs,
-      "--format",
-      "json-pretty",
-    ],
-    reportPath: diffPath,
-    stdoutPath: resolve(params.outputDir, "pre_worker_unit_diff.stdout.txt"),
-    stderrPath: resolve(params.outputDir, "pre_worker_unit_diff.stderr.txt"),
     workspaceExec: params.workspaceExec,
+    outputDir: params.outputDir,
+    unit,
+    configArgs: reportConfigArgs,
+    hostReportName: "pre_worker_unit_diff",
   });
-  if (unitDiff.exitCode !== 0 || !existsSync(diffPath)) {
+  const { unitDiff } = unitReport;
+  const diffPath = unitReport.reportPath;
+  if (!unitReport.ok) {
     return {
       status: "snapshot_unavailable",
       reasons: [`pre-worker unit diff exited ${unitDiff.exitCode}`],
@@ -812,6 +1007,7 @@ export async function captureWorkerChangeBaseline(params: {
       unitDiff,
       sourceSnapshotDir,
       sourceSnapshotPaths,
+      ...sandboxQaSnapshot,
       undefinedSymbols,
       undefinedSymbolsError,
       symbolBaselineDir,
@@ -819,13 +1015,8 @@ export async function captureWorkerChangeBaseline(params: {
     };
   }
 
-  let snapshot: WorkerUnitScoreSnapshot | null = null;
-  try {
-    const report = JSON.parse(await readFile(diffPath, "utf8")) as unknown;
-    snapshot = isRecord(report) ? snapshotFromObjdiffReport({ report, unit, symbol, sourcePath, objectTarget }) : null;
-  } catch (error) {
-    reasons.push(`could not parse pre-worker unit diff: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  if (unitReport.parseError) reasons.push(`could not parse pre-worker unit diff: ${unitReport.parseError}`);
+  const snapshot = unitReport.report ? snapshotFromObjdiffReport({ report: unitReport.report, unit, symbol, sourcePath, objectTarget }) : null;
   if (!snapshot) {
     return {
       status: "snapshot_unavailable",
@@ -838,6 +1029,7 @@ export async function captureWorkerChangeBaseline(params: {
       unitDiff,
       sourceSnapshotDir,
       sourceSnapshotPaths,
+      ...sandboxQaSnapshot,
       undefinedSymbols,
       undefinedSymbolsError,
       symbolBaselineDir,
@@ -859,6 +1051,7 @@ export async function captureWorkerChangeBaseline(params: {
     unitDiff,
     sourceSnapshotDir,
     sourceSnapshotPaths,
+    ...sandboxQaSnapshot,
     undefinedSymbols,
     undefinedSymbolsError,
     symbolBaselineDir,
@@ -904,6 +1097,15 @@ export async function extendWorkerChangeBaselineSourceSnapshot(params: {
       added.push(relPath);
     } catch {
       // Same fail-open contract as snapshotPreWorkerSources.
+      continue;
+    }
+    // Keep the sandbox twin in step (same HEAD content, raw bytes); a miss
+    // leaves the path unreproducible and the sandbox lint unavailable.
+    const sandboxDir = params.baseline.sandboxQaSnapshotDir;
+    const restored = sandboxDir ? await restoreSandboxQaSnapshotFromGit(params.workspaceExec, { dir: sandboxDir, entries: [{ path: relPath, rev: "HEAD" }] }) : {};
+    if (restored[relPath]) {
+      params.baseline.sandboxQaSnapshotPaths = [...(params.baseline.sandboxQaSnapshotPaths ?? []), relPath];
+      params.baseline.sandboxQaSnapshotRevs = { ...params.baseline.sandboxQaSnapshotRevs, [relPath]: restored[relPath] };
     }
   }
   if (added.length > 0) {
@@ -951,6 +1153,13 @@ export function compareWorkerUnitSnapshots(params: {
   summaryPath?: string;
   reportPath?: string;
   baselinePath?: string;
+  /**
+   * Enforce, target with open verification (certification-lane.ts): an
+   * attempt that does not raise the target score stays `passed` with a
+   * pending lane (when nothing but the target moved down), for the steering
+   * gate to certify or `resolveCertificationLane` to reject.
+   */
+  certificationLane?: CertificationLaneOptions["reason"] | null;
 }): WorkerRunnerValidation {
   const regressions: NonNullable<WorkerRunnerValidation["regressions"]> = [];
   const improvements: NonNullable<WorkerRunnerValidation["improvements"]> = [];
@@ -972,6 +1181,11 @@ export function compareWorkerUnitSnapshots(params: {
   // target as accepted too. This happens when the admission board is stale but
   // the harness worktree already contains the exact source.
   const targetAccepted = targetImproved || targetReachedExact || targetIsExact;
+  // The lane only applies to a non-section target with scores that the score rule would reject.
+  const lane = params.certificationLane && !sectionTarget && targetHasScores && (targetRegressed || !targetAccepted)
+    ? params.certificationLane
+    : null;
+  const laneIgnores = (kind: "unit" | "function" | "section") => (item: string) => lane !== null && laneTargetDrivenRegression(kind, item, params.before.symbol);
 
   compareRows({
     kind: "unit",
@@ -981,7 +1195,7 @@ export function compareWorkerUnitSnapshots(params: {
     regressions,
     improvements,
     reasons,
-    ignoreRegression: sectionTarget ? (item) => item === "matched_data_percent" : undefined,
+    ignoreRegression: sectionTarget ? (item) => item === "matched_data_percent" : lane ? laneIgnores("unit") : undefined,
   });
   compareRows({
     kind: "function",
@@ -991,12 +1205,33 @@ export function compareWorkerUnitSnapshots(params: {
     regressions,
     improvements,
     reasons,
-    ignoreRegression: sectionTarget ? (_item, beforeScore) => beforeScore < EXACT_SCORE : undefined,
+    ignoreRegression: sectionTarget ? (_item, beforeScore) => beforeScore < EXACT_SCORE : lane ? laneIgnores("function") : undefined,
   });
-  compareRows({ kind: "section", unit: params.before.unit, beforeRows: params.before.sections, afterRows: params.after.sections, regressions, improvements, reasons });
+  compareRows({
+    kind: "section",
+    unit: params.before.unit,
+    beforeRows: params.before.sections,
+    afterRows: params.after.sections,
+    regressions,
+    improvements,
+    reasons,
+    ignoreRegression: lane ? laneIgnores("section") : undefined,
+  });
 
   let status: WorkerRunnerValidation["status"] = "passed";
-  if (!targetHasScores) {
+  let certificationLane: WorkerRunnerValidation["certificationLane"];
+  if (lane && regressions.length === 0) {
+    const scoreStatus = targetRegressed ? "target_regressed" : "no_official_score_change";
+    const scoreReasons = [
+      targetRegressed
+        ? `target ${params.before.symbol} regressed from ${beforeTarget} to ${afterTarget}`
+        : `target ${params.before.symbol} did not improve in runner-owned same-unit validation`,
+    ];
+    certificationLane = { reason: lane, scoreStatus, scoreReasons, outcome: "pending" };
+    reasons.push(
+      `${CERTIFICATION_LANE_REASON_PREFIX} target ${params.before.symbol} ${beforeTarget} -> ${afterTarget} is checked by the steering gate instead of the score (${lane}); accepted only if certified`,
+    );
+  } else if (!targetHasScores) {
     status = "no_official_score_change";
     reasons.push(`target symbol score unavailable in ${beforeTarget === null ? "baseline" : "current"} same-unit snapshot`);
   } else if (targetRegressed) {
@@ -1031,6 +1266,7 @@ export function compareWorkerUnitSnapshots(params: {
     },
     regressions,
     improvements,
+    ...(certificationLane ? { certificationLane } : {}),
     summaryPath: params.summaryPath,
     reportPath: params.reportPath,
     baselinePath: params.baselinePath,
@@ -1221,6 +1457,11 @@ export function rewriteNoIndexDiffPaths(diffText: string, repoRelativePath: stri
 }
 
 export function qaLintFromInvocation(invocation: QaScanInvocation, scanPath: string | null): WorkerQaLint {
+  const lint = qaLintVerdictFromInvocation(invocation, scanPath);
+  return invocation.executionSurface ? { ...lint, executionSurface: invocation.executionSurface } : lint;
+}
+
+function qaLintVerdictFromInvocation(invocation: QaScanInvocation, scanPath: string | null): WorkerQaLint {
   const findings = invocation.result?.findings ?? [];
   if (invocation.toolError !== null) {
     // L1 fails open on scanner infrastructure failure (L2 fails closed): a
@@ -1258,7 +1499,7 @@ function withQaLintAdvisory(qaLint: WorkerQaLint): WorkerQaLint {
 }
 
 export const QA_LINT_REPAIR_INSTRUCTION =
-  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match inside your claimed write set (game assert/report macros, established inline helpers), including typing in-slice code to the foreign types already present on master. When that measurably fails because the canonical fix is a declaration in the owning header or a symbols.txt/splits.txt update, never substitute a source-local shim: if write-set widening is enabled, submit a structured widening_request with the mismatched declaration, objdiff evidence, expected owner, and why the lower rung failed. Until the runner authorizes it, an edit outside the write set is dropped at patch capture. If widening is disabled, denied, or routed at rung 4, state \"exact requires cross-file edit to <path>\" in your note's blockers and return the best gate-clean version confined to your write set. If the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
+  "QA gates win over match %: an attempt that keeps any QA finding will never be accepted, at any score. First try a compliant idiom that preserves the match inside your claimed write set (game assert/report macros, inline helpers with evidence at this site), including typing in-slice code to the foreign types already present on the base ref. When that measurably fails because the canonical fix is a declaration in the owning header or a symbols.txt/splits.txt update, never substitute a source-local shim: if write-set widening is enabled, submit a structured widening_request with the mismatched declaration, objdiff evidence, expected owner, and why the lower rung failed. Until the runner authorizes it, an edit outside the write set is dropped at patch capture. If widening is disabled, denied, or routed at rung 4, state \"exact requires cross-file edit to <path>\" in your note's blockers and return the best gate-clean version confined to your write set. If the match truly requires the banned pattern, remove the pattern and return the best gate-clean version — a lower match % is the successful outcome. Do not re-add maintainer-rejected patterns, and do not resubmit an unchanged diff: if no gate-clean improvement is possible, say so in your note's blockers with the reason.";
 
 /** Enforce only: replaces QA_LINT_REPAIR_INSTRUCTION when the remaining QA findings are `llm_review` advisories that adjudication did not accept. */
 export const QA_LINT_ADVISORY_REPAIR_INSTRUCTION_ENFORCE =
@@ -1468,20 +1709,27 @@ export function configHunkAddresses(diff: string): number[] {
   return [...addresses].filter(Number.isFinite).sort((left, right) => left - right);
 }
 
-async function resolveConfigUnitsFromHunks(options: {
+/** Units whose split ranges a config-metadata edit touches (sandbox by default; host only under the explicit opt-in). */
+export async function resolveConfigUnitsFromHunks(options: {
   repoRoot: string;
   baseRev: string;
   metadataPath: string;
   validation?: GameBuildValidation | null;
   workspaceExec: WorkspaceExec;
 }): Promise<string[]> {
+  const splitsPath = gameBuildLayout(options.validation).splitsTxtPath;
+  if (unitReportPlacement() === "sandbox") {
+    // Diff, hunk addresses and both splits.txt versions are read in the sandbox; only the unit list returns.
+    const units = await configUnitsInSandbox(options.workspaceExec, { baseRev: options.baseRev, metadataPath: options.metadataPath, splitsPath });
+    if (!units) throw new Error(`sandbox splits query for ${options.metadataPath} did not answer`);
+    return units;
+  }
   const runWorkspaceCommand = (command: string[]) => options.workspaceExec.exec(command);
   const diff = await runWorkspaceCommand(["git", "diff", "--unified=0", options.baseRev, "--", options.metadataPath]);
   if (diff.exitCode !== 0) return [];
   const addresses = configHunkAddresses(diff.stdout);
   if (addresses.length === 0) return [];
 
-  const splitsPath = gameBuildLayout(options.validation).splitsTxtPath;
   let currentSplits = "";
   try {
     currentSplits = await readWorkspaceText(options.repoRoot, splitsPath, options.workspaceExec);
@@ -1504,11 +1752,16 @@ async function resolveConfigUnitsFromHunks(options: {
   return [...units].sort();
 }
 
-async function objdiffUnitNameForSource(
+/** The objdiff unit built from `sourcePath` (sandbox by default; host only under the explicit opt-in). */
+export async function objdiffUnitNameForSource(
   repoRoot: string,
   sourcePath: string,
   workspaceExec: WorkspaceExec,
 ): Promise<string | null> {
+  if (unitReportPlacement() === "sandbox") {
+    // Resolved against the sandbox objdiff.json; only the mapping returns.
+    return (await objdiffUnitNamesInSandbox(workspaceExec, [sourcePath]))?.[sourcePath] ?? null;
+  }
   try {
     const config = JSON.parse(await readWorkspaceText(repoRoot, "objdiff.json", workspaceExec)) as unknown;
     const units = isRecord(config) && Array.isArray(config.units) ? config.units : [];
@@ -1571,26 +1824,15 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
       reasons: [`objdiff unit is unavailable for scoped source ${options.sourcePath}`],
     };
   }
-  const reportPath = resolve(options.outputDir, `${prefix}.objdiff.json`);
-  const unitDiff = await runObjdiffReportCommand({
+  const unitReport = await runUnitReport({
     repoRoot: options.repoRoot,
-    command: [
-      "build/tools/objdiff-cli",
-      "diff",
-      "-p",
-      ".",
-      "-u",
-      unit,
-      ...(await objdiffReportConfigArgs(options.repoRoot, options.workspaceExec)),
-      "--format",
-      "json-pretty",
-    ],
-    reportPath,
-    stdoutPath: resolve(options.outputDir, `${prefix}.objdiff.stdout.txt`),
-    stderrPath: resolve(options.outputDir, `${prefix}.objdiff.stderr.txt`),
     workspaceExec: options.workspaceExec,
+    outputDir: options.outputDir,
+    unit,
+    hostReportName: `${prefix}.objdiff`,
   });
-  if (unitDiff.exitCode !== 0 || !existsSync(reportPath)) {
+  const { unitDiff, reportPath } = unitReport;
+  if (!unitReport.ok) {
     return {
       sourcePath: options.sourcePath,
       mode: options.mode,
@@ -1601,13 +1843,7 @@ async function checkScopedUnit(options: ScopedUnitCheckRunnerOptions): Promise<S
     };
   }
 
-  let rows: ObjdiffSideRows | null = null;
-  try {
-    const report = JSON.parse(await readFile(reportPath, "utf8")) as unknown;
-    rows = isRecord(report) ? chooseObjdiffRows(report) : null;
-  } catch {
-    rows = null;
-  }
+  const rows: ObjdiffSideRows | null = unitReport.report ? chooseObjdiffRows(unitReport.report) : null;
   if (!rows) {
     return {
       sourcePath: options.sourcePath,
@@ -1848,6 +2084,67 @@ export async function validateWidenedChange(params: {
   return applyScopedChecksToValidation(params.validation, scopedChecks);
 }
 
+type WorkerQaLintScanParams = Parameters<typeof runWorkerQaLintScan>[0];
+
+/** Null only for the explicit `build` placement (host diff below); every other outcome stays in the sandbox. */
+async function runWorkerQaLintScanInSandbox(params: WorkerQaLintScanParams, snapshotPaths: string[]): Promise<WorkerQaLint | null> {
+  const options = workerQaScanOptions(params, resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_diff.patch`));
+  const route = await routeWorkerQaScan({ exec: params.workspaceExec, options, sandboxRepoRoot: params.repoRoot });
+  if (route.route === "failed") return qaLintFromInvocation(route.invocation, null);
+  if (route.route === "build") return null;
+  const unavailable = (toolError: string): WorkerQaLint => ({ status: "tool_unavailable", exitCode: null, findings: [], scanPath: null, toolError, executionSurface: "worker_sandbox" });
+  const workDir = sandboxQaWorkDir(params.outputDir);
+  const sandboxDir = params.baseline.sandboxQaSnapshotDir ?? `${workDir}/pre_worker_source`;
+  const sandboxPaths = new Set(params.baseline.sandboxQaSnapshotPaths ?? []);
+  const missing = snapshotPaths.filter((path) => !sandboxPaths.has(path));
+  if (missing.length > 0) {
+    // Rebuild lost twin copies from git, only for paths whose pre-attempt bytes
+    // were proven equal to a commit's blob; anything else cannot be reproduced.
+    const revs = params.baseline.sandboxQaSnapshotRevs ?? {};
+    const unprovable = missing.filter((path) => !revs[path]);
+    const restored = unprovable.length > 0 ? {} : await restoreSandboxQaSnapshotFromGit(params.workspaceExec, {
+      dir: sandboxDir,
+      entries: missing.map((path) => ({ path, rev: revs[path]! })),
+    });
+    const lost = missing.filter((path) => !restored[path]);
+    if (lost.length > 0) {
+      return unavailable(`pre-attempt sandbox snapshot is incomplete and cannot be rebuilt from git: ${lost.join(", ")}`);
+    }
+    params.baseline.sandboxQaSnapshotDir = sandboxDir;
+    params.baseline.sandboxQaSnapshotPaths = [...sandboxPaths, ...missing];
+  }
+  const sandboxDiffPath = `${params.repoRoot.replace(/\/+$/, "")}/${workDir}/attempt-${params.attemptIndex}.qa_diff.patch`;
+  const diff = await generateSandboxQaDiff(params.workspaceExec, {
+    snapshotDir: sandboxDir,
+    scratchDir: `${workDir}/attempt-${params.attemptIndex}.qa_scratch`,
+    patchPath: sandboxDiffPath,
+    paths: snapshotPaths,
+  });
+  if (diff.status === "error") return { status: "tool_unavailable", exitCode: null, findings: [], scanPath: null, toolError: diff.toolError };
+  if (diff.sections === 0) return { status: "clean", exitCode: null, findings: [], scanPath: null, toolError: null };
+  const scanPath = options.diffFile!;
+  await writeFile(scanPath, diff.patchText);
+  const invocation = await runSandboxQaScanDiff(params.workspaceExec, {
+    plan: route.plan,
+    options,
+    sandboxRepoRoot: params.repoRoot,
+    sandboxDiffPath,
+    diffInSandbox: true,
+  });
+  return qaLintFromInvocation(invocation, scanPath);
+}
+
+function workerQaScanOptions(params: WorkerQaLintScanParams, scanPath: string): RunQaScanDiffOptions {
+  return {
+    repoRoot: params.hostRepoRoot,
+    orchestratorRoot: params.orchestratorRoot,
+    game: params.game,
+    stateDir: params.stateDir,
+    diffFile: scanPath,
+    surface: "worker",
+  };
+}
+
 async function runWorkerQaLintScan(params: {
   repoRoot: string;
   hostRepoRoot: string;
@@ -1858,7 +2155,8 @@ async function runWorkerQaLintScan(params: {
   /** Game descriptor; the scan runner resolves the standards tree from it and fails closed without one. */
   game?: RunGameMetadata;
   stateDir?: string;
-  qaScanRunner: QaScanRunner;
+  /** Injected runner (tests) runs exactly as given; absent, ORCH_QA_LINT_PLACEMENT routes the scan (worker sandbox or build path). */
+  qaScanRunner?: QaScanRunner;
   workspaceExec: WorkspaceExec;
 }): Promise<WorkerQaLint> {
   const unavailable = (toolError: string): WorkerQaLint => ({ status: "tool_unavailable", exitCode: null, findings: [], scanPath: null, toolError });
@@ -1866,6 +2164,15 @@ async function runWorkerQaLintScan(params: {
   const snapshotPaths = params.baseline.sourceSnapshotPaths ?? [];
   if (!snapshotDir || snapshotPaths.length === 0) {
     return { status: "skipped", exitCode: null, findings: [], scanPath: null, toolError: "pre-worker source snapshot is unavailable" };
+  }
+
+  // Worker-sandbox placement: diff and scan both run in the sandbox, against
+  // the sandbox twin of the pre-attempt snapshot; the host only keeps a copy
+  // of the patch (advisory adjudication reads it). Only the explicit `build`
+  // placement (or an injected test runner) reaches the host diff below.
+  if (!params.qaScanRunner) {
+    const sandboxScan = await runWorkerQaLintScanInSandbox(params, snapshotPaths);
+    if (sandboxScan) return sandboxScan;
   }
 
   const sections: string[] = [];
@@ -1912,16 +2219,18 @@ async function runWorkerQaLintScan(params: {
 
   const scanPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.qa_diff.patch`);
   await writeFile(scanPath, `${sections.join("\n")}\n`);
-  // Lint policy files come from the host checkout, which may lag the claim
-  // revision; that is acceptable for worker lint policy resolution.
-  const invocation = await params.qaScanRunner({
-    repoRoot: params.hostRepoRoot,
-    orchestratorRoot: params.orchestratorRoot,
-    game: params.game,
-    stateDir: params.stateDir,
-    diffFile: scanPath,
-    surface: "worker",
-  });
+  // Build path: lint policy files come from the host checkout, which may lag
+  // the claim revision. Worker-sandbox path: they come from the sandbox
+  // checkout (claim base plus the worker's edits).
+  const scanOptions = workerQaScanOptions(params, scanPath);
+  const invocation = params.qaScanRunner
+    ? await params.qaScanRunner(scanOptions)
+    : await runWorkerQaScan({
+      exec: params.workspaceExec,
+      options: scanOptions,
+      sandboxRepoRoot: params.repoRoot,
+      sandboxDiffPath: `${params.repoRoot.replace(/\/+$/, "")}/${sandboxQaWorkDir(params.outputDir)}/attempt-${params.attemptIndex}.qa_diff.patch`,
+    });
   return qaLintFromInvocation(invocation, scanPath);
 }
 
@@ -1941,7 +2250,7 @@ export async function validateWorkerChange(params: {
   game?: RunGameMetadata;
   /** Game state dir for tool cache/worktree roots. */
   stateDir?: string;
-  /** Injectable scan_diff runner; defaults to runQaScanDiff. */
+  /** Injectable scan_diff runner; absent, ORCH_QA_LINT_PLACEMENT picks the worker sandbox or runQaScanDiff. */
   qaScanRunner?: QaScanRunner;
   /** Per-gate enable flags from the game descriptor; defaults to all-on. */
   microGateFlags?: WorkerMicroGateFlags;
@@ -1970,6 +2279,11 @@ export async function validateWorkerChange(params: {
    * or `off` never runs it. Runs after the micro-gates, before steering.
    */
   editScope?: WorkerEditScopeGateOptions | null;
+  /**
+   * Enforce, target with open verification (`unverified_match`, or the latest
+   * attempt `steering_located`): the certification lane. Absent never opens it.
+   */
+  certificationLane?: CertificationLaneOptions | null;
 }): Promise<WorkerChangeValidation> {
   await mkdir(params.outputDir, { recursive: true });
   const summaryPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.runner_validation.summary.json`);
@@ -1993,7 +2307,7 @@ export async function validateWorkerChange(params: {
     orchestratorRoot: params.orchestratorRoot ?? packageRoot(),
     game: params.game,
     stateDir: params.stateDir,
-    qaScanRunner: params.qaScanRunner ?? runQaScanDiff,
+    qaScanRunner: params.qaScanRunner,
     workspaceExec: params.workspaceExec,
   });
   // Shadow and enforce only, so `off` output stays byte-identical.
@@ -2032,7 +2346,8 @@ export async function validateWorkerChange(params: {
     workspaceExec: params.workspaceExec,
     symbolsTxtPath: layout.symbolsTxtPath,
   });
-  const bannedIdiomContext = flags.bannedIdioms
+  const bannedIdiomsInSandbox = flags.bannedIdioms && unitReportPlacement() === "sandbox";
+  const bannedIdiomContext = flags.bannedIdioms && !bannedIdiomsInSandbox
     ? await loadBannedIdiomContext(
         params.postAttemptDiffText ?? "",
         params.baseline,
@@ -2041,9 +2356,21 @@ export async function validateWorkerChange(params: {
         stringValue(params.target.symbol),
       )
     : {};
-  const bannedIdioms: WorkerMicroGateResult = flags.bannedIdioms
-    ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
-    : { gate: "banned_idioms", status: "skipped", reasons: ["banned idiom gate disabled by game validation config"] };
+  // Sandbox placement: the whole lint (context reads and rules) runs in the
+  // sandbox and only the verdict returns; host only under the explicit opt-in.
+  const bannedIdioms: WorkerMicroGateResult = !flags.bannedIdioms
+    ? { gate: "banned_idioms", status: "skipped", reasons: ["banned idiom gate disabled by game validation config"] }
+    : !bannedIdiomsInSandbox
+      ? lintBannedIdioms(params.postAttemptDiffText ?? "", bannedIdiomContext)
+      : !(params.postAttemptDiffText ?? "").trim()
+        ? { gate: "banned_idioms", status: "skipped", reasons: ["empty write_set diff"] }
+        : await lintBannedIdiomsInSandbox(params.workspaceExec, {
+          diff: params.postAttemptDiffText ?? "",
+          targetFunction: stringValue(params.target.symbol),
+          snapshotDir: params.baseline.sandboxQaSnapshotDir ?? null,
+          snapshotPaths: params.baseline.sandboxQaSnapshotPaths ?? [],
+          symbolsPath: layout.symbolsTxtPath,
+        }, `${sandboxAttemptArtifactDir(params.outputDir)}/attempt-${params.attemptIndex}.banned_idioms.json`);
   // Formatting runs in the same sandbox session as the object build above; its
   // image bakes the game's pinned clang-format, so no host tool is consulted.
   const formatting = await evaluateFormattingGate({
@@ -2108,12 +2435,19 @@ export async function validateWorkerChange(params: {
     stackFramePolicy: params.stackFramePolicy,
   });
   // UNUSED bodies the fence deferred are re-checked with this attempt's steering certificates.
-  const gated = await evaluateWorkerEditScopeUnused({
+  const unusedChecked = await evaluateWorkerEditScopeUnused({
     validation: steered,
     options: editScopeOptions,
     targetUnit: stringValue(params.target.unit),
     outputDir: params.outputDir,
     attemptIndex: params.attemptIndex,
+  });
+  // The certification lane is decided last: only a certified result (or a
+  // base-identity proof) keeps an attempt that did not raise the target score.
+  const gated = await resolveCertificationLane(unusedChecked, {
+    lane: params.certificationLane,
+    target: { unit: stringValue(params.target.unit), symbol: stringValue(params.target.symbol) },
+    changedPaths: diffChangedPaths(params.postAttemptDiffText ?? ""),
   });
   const validation: WorkerChangeValidation = params.retainPreQa
     ? { ...gated, preQa: { status: preQa.status, reasons: [...preQa.reasons] } }
@@ -2122,7 +2456,12 @@ export async function validateWorkerChange(params: {
   return validation;
 }
 
-async function loadBannedIdiomContext(
+/**
+ * Host banned-idiom context (explicit `ORCH_UNIT_REPORT_PLACEMENT=host` only).
+ * Its Python twin is `context_for` in banned-idioms-sandbox.ts BANNED_IDIOMS_PY;
+ * banned-idioms-parity.test.ts keeps the two in step.
+ */
+export async function loadBannedIdiomContext(
   diffText: string,
   baseline: WorkerChangeBaseline,
   workspaceExec: WorkspaceExec,
@@ -2177,6 +2516,7 @@ async function validateWorkerScoreChange(
     claimedExact: boolean;
     validation?: GameBuildValidation | null;
     workspaceExec: WorkspaceExec;
+    certificationLane?: CertificationLaneOptions | null;
   },
   summaryPath: string,
 ): Promise<{ validation: WorkerRunnerValidation; afterSnapshot: WorkerUnitScoreSnapshot | null }> {
@@ -2232,26 +2572,17 @@ async function validateWorkerScoreChange(
     };
   }
 
-  const diffPath = resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.json`);
-  const unitDiff = await runObjdiffReportCommand({
+  const unitReport = await runUnitReport({
     repoRoot: params.repoRoot,
-    command: [
-      "build/tools/objdiff-cli",
-      "diff",
-      "-p",
-      ".",
-      "-u",
-      unit,
-      ...(await objdiffReportConfigArgs(params.repoRoot, params.workspaceExec)),
-      "--format",
-      "json-pretty",
-    ],
-    reportPath: diffPath,
-    stdoutPath: resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stdout.txt`),
-    stderrPath: resolve(params.outputDir, `attempt-${params.attemptIndex}.unit_diff.stderr.txt`),
     workspaceExec: params.workspaceExec,
+    outputDir: params.outputDir,
+    unit,
+    hostReportName: `attempt-${params.attemptIndex}.unit_diff`,
   });
-  if (unitDiff.exitCode !== 0 || !existsSync(diffPath)) {
+  const { unitDiff } = unitReport;
+  const diffPath = unitReport.reportPath;
+  const sandboxReport = unitReport.sandboxReportPath ? { sandboxReportPath: unitReport.sandboxReportPath } : {};
+  if (!unitReport.ok) {
     return {
       validation: {
         status: "snapshot_unavailable",
@@ -2259,6 +2590,7 @@ async function validateWorkerScoreChange(
         summaryPath,
         baselinePath: params.baseline.snapshotPath,
         reportPath: diffPath,
+        ...sandboxReport,
         command: unitDiff.command.join(" "),
         exitCode: unitDiff.exitCode,
         stdoutPath: unitDiff.stdoutPath,
@@ -2268,13 +2600,7 @@ async function validateWorkerScoreChange(
     };
   }
 
-  let after: WorkerUnitScoreSnapshot | null = null;
-  try {
-    const report = JSON.parse(await readFile(diffPath, "utf8")) as unknown;
-    after = isRecord(report) ? snapshotFromObjdiffReport({ report, unit, symbol, sourcePath, objectTarget }) : null;
-  } catch {
-    after = null;
-  }
+  const after = unitReport.report ? snapshotFromObjdiffReport({ report: unitReport.report, unit, symbol, sourcePath, objectTarget }) : null;
   if (!after) {
     return {
       validation: {
@@ -2283,6 +2609,7 @@ async function validateWorkerScoreChange(
         summaryPath,
         baselinePath: params.baseline.snapshotPath,
         reportPath: diffPath,
+        ...sandboxReport,
       },
       afterSnapshot: null,
     };
@@ -2294,6 +2621,7 @@ async function validateWorkerScoreChange(
     before: params.baseline.snapshot,
     after,
     claimedExact: params.claimedExact,
+    certificationLane: params.certificationLane?.reason ?? null,
     summaryPath,
     reportPath: snapshotPath,
     baselinePath: params.baseline.snapshotPath,
@@ -2303,6 +2631,7 @@ async function validateWorkerScoreChange(
   validation.stdoutPath = objectBuild.stdoutPath;
   validation.stderrPath = unitDiff.stderrPath;
   validation.diffPath = diffPath;
+  if (unitReport.sandboxReportPath) validation.sandboxReportPath = unitReport.sandboxReportPath;
   validation.objectTarget = objectTarget;
   return { validation, afterSnapshot: after };
 }

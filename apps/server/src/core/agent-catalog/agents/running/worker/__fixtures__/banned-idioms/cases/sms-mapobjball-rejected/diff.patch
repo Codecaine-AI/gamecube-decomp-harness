@@ -1,0 +1,45 @@
+diff --git a/src/MoveBG/MapObjBall.cpp b/src/MoveBG/MapObjBall.cpp
+index 00629365..961382aa 100644
+--- a/src/MoveBG/MapObjBall.cpp
++++ b/src/MoveBG/MapObjBall.cpp
+@@ -314,25 +314,33 @@ void TMapObjBall::touchActor(THitActor* actor)
+ 	}
+ }
+ 
++// fabricated: TMapObjBall::getVelocity() with the TVec3 copy-constructor body
++// from before f836185e (assignment in the body). Only calcCurrentMtx uses it;
++// the other getVelocity() callers match better with the current header.
++static inline JGeometry::TVec3<f32> getBallVelocity(const TMapObjBall* ball)
++{
++	return JGeometry::TVec3<f32>(ball->mVelocity,
++	                             JGeometry::TVec3<f32>::ASSIGN_COPY);
++}
+ 
+ void TMapObjBall::calcCurrentMtx()
+ {
+ 	TRotation3f rot;
+ 	rot.identity();
+ 
+-	if (abs(getVelocity().x) < mMapObjData->mPhysical->mData->unkC
+-	    && abs(getVelocity().z) < mMapObjData->mPhysical->mData->unkC
++	if (abs(getBallVelocity(this).x) < mMapObjData->mPhysical->mData->unkC
++	    && abs(getBallVelocity(this).z) < mMapObjData->mPhysical->mData->unkC
+ 	    && mGroundPlane->getNormal().y == 1.0f) {
+ 		mVelocity.x = 0.0f;
+ 		mVelocity.z = 0.0f;
+ 	}
+ 
+-	if (abs(getVelocity().x) > mMapObjData->mPhysical->mData->unkC
+-	    || abs(getVelocity().z) > mMapObjData->mPhysical->mData->unkC) {
++	if (abs(getBallVelocity(this).x) > mMapObjData->mPhysical->mData->unkC
++	    || abs(getBallVelocity(this).z) > mMapObjData->mPhysical->mData->unkC) {
+ 		JGeometry::TVec3<f32> axis;
+-		getVerticalVecToTargetXZ(mPosition.x + getVelocity().x,
+-		                         mPosition.z + getVelocity().z, &axis);
+-		JGeometry::TVec3<f32> vel = getVelocity();
++		getVerticalVecToTargetXZ(mPosition.x + getBallVelocity(this).x,
++		                         mPosition.z + getBallVelocity(this).z, &axis);
++		JGeometry::TVec3<f32> vel = getBallVelocity(this);
+ 		f32 dist = JGeometry::TUtil<f32>::sqrt(vel.x * vel.x + vel.z * vel.z);
+ 		rot.setRotate(axis, dist / mBodyRadius * 2.0f);
+ 	}

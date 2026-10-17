@@ -15,7 +15,12 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   mwcc_alloc_snapshot: {
     provider: "mwcc_alloc",
     type: "compiler_analysis",
-    useWhen: "Use trace capture for PCode and emitted GPR/FPR graph evidence after classifying register allocation, stack, or scheduling residuals. trace_detail defaults to stages; full requests creation and stack/local tracing. Check identity and omission metadata. pair preserves two-stage GPR coloring comparison.",
+    useWhen: "See what MWCC decided for one function of your candidate: capture=decisions (native, seconds) gives vreg owners with declaration sites, coloring per class and pass, inlining, CSE temps and frame slots; coloring-native writes replayable coloring snapshots. Use the qemu trace capture only for PCode stages and mwcc_alloc_analyze modes (trace_detail defaults to stages; full adds creation and stack/local tracing). Unavailable trace points are listed, never empty.",
+  },
+  mwcc_alloc_compare_sources: {
+    provider: "mwcc_alloc",
+    type: "compiler_analysis",
+    useWhen: "Measure what an edit changes in MWCC's decisions for one function: compare two source variants (@base, @worktree, @revert:<file>:<lines>, or inline files) and read one line per changed decision (new/removed web, register, spill, coalescing, pop order, degree, inline verdict, CSE temp, frame slot). Matches webs by declaration site and temp origin, not vreg number.",
   },
   mwcc_alloc_analyze: {
     provider: "mwcc_alloc",
@@ -46,6 +51,11 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
     provider: "objdiff_score",
     type: "verification",
     useWhen: "Score an already-built candidate object for a known function.",
+  },
+  unused_stub_test: {
+    provider: "steering_check",
+    type: "verification",
+    useWhen: "Before keeping a body for a function the link map lists as UNUSED: dead means remove it, inlined lists the callers that justify it.",
   },
   mwcc_debug_dump_function: {
     provider: "mwcc_debug",
@@ -115,7 +125,7 @@ export const capabilityToolPromptMetadata: Record<string, AgentToolPromptMetadat
   real_code_evidence: {
     provider: "real_code_evidence",
     type: "exploration",
-    useWhen: "Find real evidence for a mismatch (link-map callees, emitted weak or stripped functions, header inlines, matched usage, JSystem sources) before keeping a source-shape edit.",
+    useWhen: "Find real evidence for a mismatch (link-map callees, emitted weak or stripped functions, header inlines, matched usage, JSystem sources) before keeping a source-shape edit; search the MWCC compiler source (compiler) to explain a codegen decision.",
   },
   include_fixer_preview: {
     provider: "include_fixer",

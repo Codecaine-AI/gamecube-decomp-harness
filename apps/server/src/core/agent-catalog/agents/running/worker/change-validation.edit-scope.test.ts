@@ -14,6 +14,10 @@ import { UNUSED_BODY_INSTRUCTION, type SteeringRunner } from "@server/core/valid
 import type { SteeringGateMode } from "@server/core/game-registry/resolver.js";
 import { headerOwnerCandidates, validateWorkerChange, type WorkerChangeBaseline, type WorkerUnitScoreSnapshot } from "./change-validation.js";
 import { UNUSED_UNVERIFIED_INSTRUCTION, editScopeUnusedRepairInstruction } from "./edit-scope-validation.js";
+import { useHostReportPlacement } from "./host-report-placement.test-support.js";
+
+// Fake workspaces here serve whole objdiff reports and symbols.txt: explicit host report placement.
+useHostReportPlacement();
 
 const UNIT = "mario/MarioUtil/Mario";
 const SYMBOL = "setLightData__6TMarioFv";

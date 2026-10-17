@@ -11,10 +11,11 @@ import type { RunGameMetadata } from "@server/core/shared/types";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
 import { runCommand } from "@server/infrastructure/shell";
 import { resolveStateToolArtifact, resolveToolPlatform, type ToolPlatform } from "./platform.js";
-import { runSandboxM2cFetchFirst } from "./wrappers/m2c-decompile.js";
-import { runSandboxTypeLayoutIndexFallback } from "./wrappers/type-layout-fetch.js";
-import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
-import { commandPayload, runWorkspaceToolApi } from "./wrappers/workspace-tool-exec.js";
+import { sandboxM2cArgs, sandboxM2cArgsError, sandboxM2cReady } from "./wrappers/m2c-decompile.js";
+import { runSandboxTypeLayoutLookup } from "./wrappers/type-layout-fetch.js";
+import { ASM_WINDOW_SEARCH_TOOL_ID, runSandboxAsmWindowSearch } from "./wrappers/asm-window-search.js";
+import { runSandboxMwccAllocAnalyze, runSandboxMwccAllocCompare, runSandboxMwccAllocCompareSources, runSandboxMwccAllocSnapshot } from "./wrappers/mwcc-alloc.js";
+import { commandPayload, realCodeEvidenceSandboxArgs, runWorkspaceToolApi, sandboxPrerequisiteMissing } from "./wrappers/workspace-tool-exec.js";
 import { toolTimeoutScale } from "./timeout-scale.js";
 import { gameStackFramePolicy, STACK_FRAME_POLICY_ENV } from "./stack-frame-policy.js";
 import { gameSteeringGate, STEERING_GATE_ENV, steeringGateActive } from "./steering-gate.js";
@@ -29,6 +30,8 @@ const WORKSPACE_SURFACED_SCRIPTS: Record<string, "*" | readonly string[]> = {
   type_oracle: "*",
   mwcc_debug: ["dump_function.py", "diagnose.py"],
   review_lint: ["sdata2_order_helper.py"],
+  // unused_stub_test: MWCC compiles of the claim's checkout; sandbox only (see runRegisteredToolApi).
+  steering_check: ["unused_test.py"],
 };
 
 /** Env var naming the host game checkout for host-executed tools (never a sandbox path). */
@@ -390,21 +393,38 @@ export async function runRegisteredToolApi(
   const scriptPath = resolve(resolved.apiRoot, scriptName);
   const cwd = packageRoot();
   const commandRunner = dependencies.runCommand ?? runCommand;
-  if (toolId === "m2c_decomp" && scriptName === "decompile.py" && context.sandboxHandle) {
-    const payload = await runSandboxM2cFetchFirst({
+  // Worker tools run in the claim's sandbox (sandbox-first, plan 3.6) and never fall back to
+  // the host: an image without a tool's prerequisite answers sandbox_prerequisite_missing.
+  if (toolId === "real_code_evidence" && scriptName === "real_code_evidence.py" && context.sandboxHandle) {
+    const routed = await realCodeEvidenceSandboxArgs(context.sandboxHandle, args);
+    if ("missing" in routed) return sandboxPrerequisiteMissing(toolId, routed.missing, resolvedTool);
+    return runWorkspaceToolApi({
       sandboxHandle: context.sandboxHandle,
-      workspaceRoot: resolved.gameRepoRoot,
-      args,
-      runHost: async (hostArgs) => {
-        const command = ["python3", scriptPath, ...hostArgs];
-        const result = await commandRunner(cwd, command, { env: resolved.env });
-        return commandPayload({ operation: `tool:${toolId}:${scriptName}`, command, cwd, ...result });
-      },
+      resolved,
+      resolvedTool,
+      scriptName,
+      args: routed.args,
+      timeoutScale: toolTimeoutScale(context),
     });
-    return { ...payload, resolved_tool: resolvedTool };
   }
-  if (toolId === "mwcc_alloc" && scriptName === "snapshot.py" && !context.sandboxHandle) {
+  if (toolId === "m2c_decomp" && scriptName === "decompile.py" && context.sandboxHandle) {
+    const argsError = sandboxM2cArgsError(args);
+    if (argsError) return { ...argsError, resolved_tool: resolvedTool };
+    if (!await sandboxM2cReady(context.sandboxHandle)) return sandboxPrerequisiteMissing(toolId, "pyelftools", resolvedTool);
+    return runWorkspaceToolApi({
+      sandboxHandle: context.sandboxHandle,
+      resolved,
+      resolvedTool,
+      scriptName,
+      args: sandboxM2cArgs(args, resolved.gameRepoRoot),
+      timeoutScale: toolTimeoutScale(context),
+    });
+  }
+  if (toolId === "mwcc_alloc" && (scriptName === "snapshot.py" || scriptName === "compare_sources.py") && !context.sandboxHandle) {
     return { status: "sandbox_required", guidance: "MWCC capture requires a worker sandbox.", resolved_tool: resolvedTool };
+  }
+  if (toolId === "steering_check" && !context.sandboxHandle) {
+    return { status: "sandbox_required", guidance: "The UNUSED stub test compiles in the worker sandbox only.", resolved_tool: resolvedTool };
   }
   if (toolId === "mwcc_alloc" && context.sandboxHandle) {
     if (scriptName === "analyze.py") {
@@ -413,6 +433,15 @@ export async function runRegisteredToolApi(
     }
     if (scriptName === "snapshot.py") {
       const payload = await runSandboxMwccAllocSnapshot({
+        sandboxHandle: context.sandboxHandle,
+        workspaceRoot: resolved.gameRepoRoot,
+        args,
+        timeoutScale: toolTimeoutScale(context),
+      });
+      return { ...payload, resolved_tool: resolvedTool };
+    }
+    if (scriptName === "compare_sources.py") {
+      const payload = await runSandboxMwccAllocCompareSources({
         sandboxHandle: context.sandboxHandle,
         workspaceRoot: resolved.gameRepoRoot,
         args,
@@ -431,27 +460,39 @@ export async function runRegisteredToolApi(
     }
   }
 
-  if (toolId === "type_layout_lookup" && scriptName === "layout_lookup.py" && context.sandboxHandle) {
-    const runnerPath = resolve(resolved.toolRoot, "runners/build_type_index.py");
-    const payload = await runSandboxTypeLayoutIndexFallback({
+  if (toolId === ASM_WINDOW_SEARCH_TOOL_ID && context.sandboxHandle) {
+    return runSandboxAsmWindowSearch({
       sandboxHandle: context.sandboxHandle,
-      workspaceRoot: resolved.gameRepoRoot,
-      gameId: resolved.gameId,
-      worktreeCacheRoot: resolved.worktreeCacheRoot,
+      resolved,
+      resolvedTool,
+      scriptName,
       args,
       timeoutScale: toolTimeoutScale(context),
-      runHostApi: async (hostArgs) => {
-        const command = ["python3", scriptPath, ...hostArgs];
-        const result = await commandRunner(cwd, command, { env: resolved.env });
-        return commandPayload({ operation: `tool:${toolId}:${scriptName}`, command, cwd, ...result });
-      },
-      runHostRunner: async (runnerArgs) => {
-        const command = ["python3", runnerPath, ...runnerArgs];
-        const result = await commandRunner(cwd, command, { env: resolved.env });
-        return commandPayload({ operation: `tool:${toolId}:build_type_index.py`, command, cwd, ...result });
-      },
     });
-    return { ...payload, resolved_tool: resolvedTool };
+  }
+  if (toolId === "review_lint" && scriptName === "scan.py" && context.sandboxHandle) {
+    // Loaded on demand: the QA scan plan module imports this resolver.
+    const { runSandboxReviewLintScan } = await import("./wrappers/review-lint-scan.js");
+    return runSandboxReviewLintScan({
+      sandboxHandle: context.sandboxHandle,
+      resolved,
+      resolvedTool,
+      args,
+      timeoutScale: toolTimeoutScale(context),
+    });
+  }
+  if (toolId === "type_layout_lookup" && scriptName === "layout_lookup.py" && context.sandboxHandle) {
+    const packetTarget = context.packet?.target;
+    return runSandboxTypeLayoutLookup({
+      sandboxHandle: context.sandboxHandle,
+      resolved,
+      resolvedTool,
+      args,
+      timeoutScale: toolTimeoutScale(context),
+      targetSourcePath: packetTarget && typeof packetTarget === "object" && !Array.isArray(packetTarget)
+        ? stringField((packetTarget as Record<string, unknown>).source_path) ?? null
+        : null,
+    });
   }
 
   const surfacedScripts = WORKSPACE_SURFACED_SCRIPTS[toolId];

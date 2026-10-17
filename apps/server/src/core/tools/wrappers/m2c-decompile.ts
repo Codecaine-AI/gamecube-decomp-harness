@@ -1,16 +1,10 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, posix, resolve } from "node:path";
+import { posix } from "node:path";
 import type { SandboxHandle } from "@server/core/job-queue/sandbox.js";
-import {
-  contextGenerationCommand,
-  resolveSandboxProjectLayout,
-  unitForObjectPath,
-  unitForTranslationUnit,
-} from "./sandbox-project-layout.js";
 
-const CONTEXT_PATH = "build/ctx.c";
-const CONTEXT_CHECK_TIMEOUT_MS = 10_000;
+/**
+ * m2c_decompile's sandbox argument contract and image probe. decompile.py
+ * runs in the claim's sandbox (tools/resolver.ts); nothing runs on the host.
+ */
 
 const SAFE_BOOLEAN_EXTRA_ARGS = new Set([
   "--no-cache",
@@ -66,84 +60,10 @@ const SAFE_VALUE_EXTRA_ARGS = new Map<string, (value: string) => boolean>([
   ["--void-field-type", (value) => TYPE_OVERRIDE_PATTERN.test(value)],
 ]);
 
-// This mirrors decomp.py's pyelftools lookup without requiring pyelftools in the sandbox:
-// inspect each ELF .symtab in Path.rglob order and select an exact STT_FUNC name match.
-const SYMBOL_DISCOVERY_SCRIPT = `
-import struct
-import sys
-from pathlib import Path
-
-root = Path(sys.argv[1])
-target = sys.argv[2]
-
-def unpack_sections(data):
-    if data[:4] != b"\\x7fELF":
-        raise ValueError("not an ELF file")
-    elf_class = data[4]
-    byte_order = data[5]
-    endian = "<" if byte_order == 1 else ">" if byte_order == 2 else None
-    if endian is None:
-        raise ValueError("unsupported ELF byte order")
-    if elf_class == 1:
-        header = struct.unpack_from(endian + "16sHHIIIIIHHHHHH", data)
-        section_format = endian + "IIIIIIIIII"
-        symbol_format = endian + "IIIBBH"
-        info_index = 3
-    elif elf_class == 2:
-        header = struct.unpack_from(endian + "16sHHIQQQIHHHHHH", data)
-        section_format = endian + "IIQQQQIIQQ"
-        symbol_format = endian + "IBBHQQ"
-        info_index = 1
-    else:
-        raise ValueError("unsupported ELF class")
-    section_offset = header[6]
-    section_entry_size = header[11]
-    section_count = header[12]
-    sections = [
-        struct.unpack_from(section_format, data, section_offset + index * section_entry_size)
-        for index in range(section_count)
-    ]
-    return sections, symbol_format, info_index
-
-def has_function(path):
-    data = path.read_bytes()
-    sections, symbol_format, info_index = unpack_sections(data)
-    for section in sections:
-        if section[1] != 2:
-            continue
-        symbol_offset, symbol_size, string_index, symbol_entry_size = section[4], section[5], section[6], section[9]
-        string_section = sections[string_index]
-        strings = data[string_section[4]:string_section[4] + string_section[5]]
-        for offset in range(symbol_offset, symbol_offset + symbol_size, symbol_entry_size):
-            symbol = struct.unpack_from(symbol_format, data, offset)
-            if symbol[info_index] & 0x0f != 2:
-                continue
-            name_offset = symbol[0]
-            name_end = strings.find(b"\\0", name_offset)
-            name = strings[name_offset:name_end if name_end >= 0 else None].decode("utf-8")
-            if name == target:
-                return True
-    return False
-
-if root.is_dir():
-    for object_path in root.rglob("*.o"):
-        if has_function(object_path):
-            print(object_path.relative_to(root).as_posix())
-            break
-`.trim();
-
 interface ParsedM2cApiArgs {
   input: string;
   extraArgs: string[];
   timeoutMs: number;
-}
-
-export interface SandboxM2cFetchFirstInput {
-  sandboxHandle: SandboxHandle;
-  workspaceRoot: string;
-  args: string[];
-  runHost(args: string[], mirrorRoot: string): Promise<Record<string, unknown>>;
-  tempParent?: string;
 }
 
 function toolError(
@@ -281,140 +201,46 @@ function validateInput(input: string): Record<string, unknown> | null {
   return null;
 }
 
-function assemblyForInput(input: string): string {
-  const extension = posix.extname(input);
-  return `${extension ? input.slice(0, -extension.length) : input}.s`;
+function validatedSandboxM2cArgs(args: string[]): ParsedM2cApiArgs | Record<string, unknown> {
+  const parsed = parseM2cApiArgs(args);
+  if (isToolError(parsed)) return parsed;
+  return validateInput(parsed.input) ?? validateExtraArgs(parsed.extraArgs) ?? parsed;
 }
 
-function normalizedObjectPath(stdout: string, objectRoot: string): string | Record<string, unknown> | null {
-  const matches = stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (matches.length === 0) return null;
-  if (matches.length !== 1) {
-    return toolError("symbol_discovery_failed", "sandbox_symbol_discovery_failed", "m2c_decompile symbol discovery returned more than one object");
-  }
-  const relative = matches[0].startsWith(`${objectRoot}/`) ? matches[0].slice(objectRoot.length + 1) : matches[0];
-  if (posix.isAbsolute(relative) || posix.normalize(relative) !== relative || relative.split("/").includes("..") || !relative.endsWith(".o")) {
-    return toolError(
-      "symbol_discovery_failed",
-      "sandbox_symbol_discovery_failed",
-      `m2c_decompile symbol discovery returned an unsafe object path: ${matches[0]}`,
-    );
-  }
-  return relative;
+/**
+ * The sandbox claim's argument contract (one symbol or workspace-relative unit,
+ * path-free allowlisted extras, no `--write`), checked before any sandbox
+ * access whichever surface then runs m2c; null when the arguments pass.
+ */
+export function sandboxM2cArgsError(args: string[]): Record<string, unknown> | null {
+  const validated = validatedSandboxM2cArgs(args);
+  return isToolError(validated) ? validated : null;
 }
 
-function preparedHostArgs(args: string[], mirrorRoot: string, inputOverride?: string): string[] {
+const M2C_DEPENDENCY_PROBE = ["python3", "-c", "import elftools"];
+const M2C_PROBE_TIMEOUT_MS = 30_000;
+const m2cReadySandboxes = new WeakMap<SandboxHandle, Promise<boolean>>();
+
+/**
+ * Whether the sandbox image can run m2c itself (the vendored m2c ships in the
+ * toolpack; newer images install pyelftools, graphviz and pcpp). Probed once
+ * per sandbox handle; an exec failure is not cached. Older images answer
+ * false and keep the fetch-first host path.
+ */
+export function sandboxM2cReady(handle: SandboxHandle): Promise<boolean> {
+  const cached = m2cReadySandboxes.get(handle);
+  if (cached) return cached;
+  const probe = handle.exec(M2C_DEPENDENCY_PROBE, { timeoutMs: M2C_PROBE_TIMEOUT_MS }).then((result) => result.exitCode === 0);
+  m2cReadySandboxes.set(handle, probe);
+  probe.catch(() => m2cReadySandboxes.delete(handle));
+  return probe;
+}
+
+/** decompile.py arguments for an in-sandbox run: `--repo-root` is always the sandbox workspace. */
+export function sandboxM2cArgs(args: string[], workspaceRoot: string): string[] {
   const prepared = [...args];
   const rootIndex = prepared.indexOf("--repo-root");
-  prepared[rootIndex + 1] = mirrorRoot;
-  if (inputOverride !== undefined) {
-    const inputIndex = prepared.indexOf("--input");
-    prepared[inputIndex + 1] = inputOverride;
-  }
-  const jsonIndex = prepared.lastIndexOf("--json");
-  prepared.splice(jsonIndex >= 0 ? jsonIndex : prepared.length, 0, "--prepared-context");
+  if (rootIndex >= 0 && rootIndex + 1 < prepared.length) prepared[rootIndex + 1] = workspaceRoot;
+  else prepared.unshift("--repo-root", workspaceRoot);
   return prepared;
-}
-
-async function downloadIntoMirror(
-  handle: SandboxHandle,
-  workspaceRoot: string,
-  mirrorRoot: string,
-  relativePath: string,
-): Promise<void> {
-  const localPath = resolve(mirrorRoot, relativePath);
-  await mkdir(dirname(localPath), { recursive: true });
-  await handle.downloadFile(posix.resolve(workspaceRoot, relativePath), localPath);
-}
-
-/** Fetch the statically bounded m2c workspace inputs and invoke the host API against their mirror. */
-export async function runSandboxM2cFetchFirst(input: SandboxM2cFetchFirstInput): Promise<Record<string, unknown>> {
-  const parsed = parseM2cApiArgs(input.args);
-  if (isToolError(parsed)) return parsed;
-  const inputError = validateInput(parsed.input);
-  if (inputError) return inputError;
-  const extraArgsError = validateExtraArgs(parsed.extraArgs);
-  if (extraArgsError) return extraArgsError;
-
-  let mirrorRoot: string | undefined;
-  try {
-    const layout = await resolveSandboxProjectLayout(input.sandboxHandle, input.workspaceRoot);
-    const discovery = await input.sandboxHandle.exec(
-      ["python3", "-c", SYMBOL_DISCOVERY_SCRIPT, layout.objectRoot, parsed.input],
-      { cwd: input.workspaceRoot, timeoutMs: parsed.timeoutMs },
-    );
-    if (discovery.exitCode !== 0) {
-      return toolError(
-        "symbol_discovery_failed",
-        "sandbox_symbol_discovery_failed",
-        discovery.stderr.trim() || `sandbox symbol discovery exited ${discovery.exitCode}`,
-      );
-    }
-    const objectPath = normalizedObjectPath(discovery.stdout, layout.objectRoot);
-    if (objectPath && typeof objectPath !== "string") return objectPath;
-    const unit = objectPath ? unitForObjectPath(layout, objectPath) : unitForTranslationUnit(layout, parsed.input);
-    const unitObjectPath = unit?.targetPath?.startsWith(`${layout.objectRoot}/`)
-      ? unit.targetPath.slice(layout.objectRoot.length + 1)
-      : null;
-    const assemblyObjectPath = objectPath ?? unitObjectPath;
-    const assemblyPath = `${layout.asmRoot}/${assemblyObjectPath
-      ? `${assemblyObjectPath.slice(0, -2)}.s`
-      : assemblyForInput(parsed.input)}`;
-
-    const contextCheck = await input.sandboxHandle.exec(
-      ["test", "-f", CONTEXT_PATH],
-      { cwd: input.workspaceRoot, timeoutMs: CONTEXT_CHECK_TIMEOUT_MS },
-    );
-    if (contextCheck.exitCode !== 0 && contextCheck.exitCode !== 1) {
-      return toolError(
-        "context_check_failed",
-        "sandbox_context_check_failed",
-        contextCheck.stderr.trim() || `sandbox context check exited ${contextCheck.exitCode}`,
-      );
-    }
-    if (contextCheck.exitCode === 1) {
-      let contextCommand: string[];
-      try {
-        contextCommand = contextGenerationCommand(layout, unit?.sourcePath ?? null);
-      } catch (error) {
-        return toolError(
-          "context_generation_failed",
-          "sandbox_context_generation_failed",
-          error instanceof Error ? error.message : String(error),
-        );
-      }
-      const generated = await input.sandboxHandle.exec(
-        contextCommand,
-        { cwd: input.workspaceRoot, timeoutMs: parsed.timeoutMs },
-      );
-      if (generated.exitCode !== 0) {
-        return toolError(
-          "context_generation_failed",
-          "sandbox_context_generation_failed",
-          generated.stderr.trim() || `sandbox context generator exited ${generated.exitCode}`,
-        );
-      }
-    }
-
-    mirrorRoot = await mkdtemp(join(input.tempParent ?? tmpdir(), "orch-m2c-"));
-    await mkdir(resolve(mirrorRoot, layout.objectRoot), { recursive: true });
-    if (objectPath) await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, `${layout.objectRoot}/${objectPath}`);
-    await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, assemblyPath);
-    await downloadIntoMirror(input.sandboxHandle, input.workspaceRoot, mirrorRoot, CONTEXT_PATH);
-    const hostInput = objectPath || !assemblyObjectPath
-      ? undefined
-      : assemblyObjectPath.slice(0, -2);
-    return await input.runHost(
-      preparedHostArgs(input.args, mirrorRoot, hostInput),
-      mirrorRoot,
-    );
-  } catch (error) {
-    return toolError(
-      "sandbox_fetch_failed",
-      "sandbox_fetch_failed",
-      error instanceof Error ? error.message : String(error),
-    );
-  } finally {
-    if (mirrorRoot) await rm(mirrorRoot, { recursive: true, force: true });
-  }
 }

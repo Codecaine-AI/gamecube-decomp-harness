@@ -165,7 +165,8 @@ function graphVerificationInputsForContext(context: AgentToolRuntimeContext): Fi
   try {
     const repoRoot = context.hostRepoRoot ?? context.game?.repoRoot ?? context.repoRoot;
     const holds = steeringCompletionHolds({ db, orm: createOrchestratorStateOrm(db), path: dbPath, stateDir }, { gameId, steeringGate }, repoRoot);
-    return { unverifiedMatches: completionHoldRefs(holds?.at(checkoutHeadRevision(repoRoot))) };
+    // `game`: the holds' short steering units name this card's module-prefixed units (SMS).
+    return { unverifiedMatches: completionHoldRefs(holds?.at(checkoutHeadRevision(repoRoot))), game: gameId };
   } finally {
     db.close();
   }

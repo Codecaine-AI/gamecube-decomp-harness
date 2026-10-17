@@ -3,9 +3,11 @@ import { resolve } from "node:path";
 import { Database } from "bun:sqlite";
 import { workerPrompt } from "@server/core/agent-catalog";
 import { workerSystemPromptDocument } from "@server/core/agent-catalog/agents/running/worker/prompt.js";
+import { workerPromptToolIds } from "@server/core/agent-catalog/agents/running/worker/context.js";
 import {
   previousAttemptFromBackfill,
   previousAttemptFromUnverified,
+  steeringReportLocator,
   type PreviousAttemptVariant,
 } from "@server/core/agent-catalog/agents/running/worker/previous-attempt.js";
 import type { ReviewRuling } from "@server/core/knowledge-v2/steering-lessons/seed.js";
@@ -21,6 +23,7 @@ import type { OrderingMode, StackFramePolicy, SteeringGateMode } from "@server/c
 import { gameOrdering, orderingActive } from "@server/core/tools/ordering.js";
 import {
   ADVISORY_ADJUDICATION_ENV,
+  DEFAULT_ADVISORY_ADJUDICATION_MODE,
   parseAdvisoryAdjudicationMode,
   type AdvisoryAdjudicationMode,
 } from "@server/core/game-registry/runtime-options.js";
@@ -50,6 +53,14 @@ const sampleSourceReading = {
   }],
 };
 
+/** Which `compiler_delta` the worker sample's `steering_probe` carries: a measured delta, one marked unavailable, or none yet. */
+export type CompilerDeltaPreviewVariant = "present" | "unavailable" | "absent";
+export const COMPILER_DELTA_PREVIEW_VARIANTS: readonly CompilerDeltaPreviewVariant[] = ["present", "unavailable", "absent"];
+
+export function isCompilerDeltaPreviewVariant(value: unknown): value is CompilerDeltaPreviewVariant {
+  return typeof value === "string" && (COMPILER_DELTA_PREVIEW_VARIANTS as readonly string[]).includes(value);
+}
+
 export interface KernelAgentCatalogContext {
   game: ResolvedGame | null;
   repoRoot: string;
@@ -70,6 +81,8 @@ export interface KernelAgentsPayload {
   ordering: OrderingMode;
   /** The `previous_attempt` variant the worker sample renders (shown only with an active steering gate). */
   previousAttempt: PreviousAttemptVariant;
+  /** The `compiler_delta` variant of the worker sample's `steering_probe` (shown only with an active steering gate). */
+  compilerDelta: CompilerDeltaPreviewVariant;
   agents: KernelAgentViewerDefinition[];
   warnings: string[];
 }
@@ -78,7 +91,7 @@ type BackfillPreviewContext = Pick<BackfillPassContext, "fillOut" | "supporting"
 
 export interface KernelPreviewDeps {
   target?: KernelPreviewTarget;
-  /** Worker prompt mode; defaults to `ORCH_ADVISORY_ADJUDICATION` when set, else `off`. */
+  /** Worker prompt mode; defaults to `ORCH_ADVISORY_ADJUDICATION` when set, else the runtime default (`shadow`). */
   advisoryAdjudication?: AdvisoryAdjudicationMode;
   /** Worker stack frame policy; defaults to the selected game's `matching.stackFramePolicy`, else `match_frame`. */
   stackFramePolicy?: StackFramePolicy;
@@ -88,6 +101,8 @@ export interface KernelPreviewDeps {
   ordering?: OrderingMode;
   /** Worker `previous_attempt` variant for an active steering gate; defaults to `rollback`. */
   previousAttempt?: PreviousAttemptVariant;
+  /** Worker `steering_probe` `compiler_delta` variant for an active steering gate; defaults to `present`. */
+  compilerDelta?: CompilerDeltaPreviewVariant;
   loadBackfillPassContext?: (paths: KernelAgentCatalogContext) => BackfillPreviewContext | null;
   loadTargetCard?: (target: KernelPreviewTarget, gameId?: string) => V2TargetCard | null;
   buildWorkerKnowledgeContext?: typeof buildWorkerKnowledgeContext;
@@ -99,7 +114,7 @@ export interface KernelPreviewTarget {
   symbol: string;
 }
 
-export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering" | "previousAttempt">;
+export type KernelPreviewOptions = Pick<KernelPreviewDeps, "target" | "advisoryAdjudication" | "stackFramePolicy" | "steeringGate" | "ordering" | "previousAttempt" | "compilerDelta">;
 
 /** Shared by the worker prompt bundle and the viewer's prompt document so both show one variant. */
 interface WorkerPreviewMode {
@@ -108,10 +123,11 @@ interface WorkerPreviewMode {
   steeringGate: SteeringGateMode;
   ordering: OrderingMode;
   previousAttempt: PreviousAttemptVariant;
+  compilerDelta: CompilerDeltaPreviewVariant;
 }
 
-/** The prompt builders' options; the `previous_attempt` variant only picks the sample packet. */
-function promptMode({ previousAttempt: _variant, ...mode }: WorkerPreviewMode): Omit<WorkerPreviewMode, "previousAttempt"> {
+/** The prompt builders' options; the `previous_attempt` and `compiler_delta` variants only pick the sample packet. */
+function promptMode({ previousAttempt: _variant, compilerDelta: _delta, ...mode }: WorkerPreviewMode): Omit<WorkerPreviewMode, "previousAttempt" | "compilerDelta"> {
   return mode;
 }
 
@@ -128,14 +144,41 @@ function previewOrdering(paths: KernelAgentCatalogContext, deps: KernelPreviewDe
 }
 
 /**
- * A steering probe in the shape `steering_check.py decide` returns (contract
- * 2.4), for the previewed target. Only an active steering gate shows it, the
- * way a claim only carries one when the gate is on.
+ * The `compiler_delta` the steering-explain job writes into a probe
+ * (`mwcc-decision-diff-v1` summary): measured decision changes, or the reason
+ * none could be computed; `absent` is a probe read before the job finished.
  */
-function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<string, unknown> {
+function sampleCompilerDelta(variant: CompilerDeltaPreviewVariant): Record<string, unknown> | null {
+  if (variant === "absent") return null;
+  if (variant === "unavailable") return { unavailable: "reconstruction: dependency hash mismatch for include/M3DUtil/MActor.hpp" };
+  return {
+    version: "GC/1.2.5",
+    observation_id: "obs-preview-0001",
+    summary_lines: [
+      "+1 node: single-use temp `light` (MActor.cpp:212), coalesced neighbour of `this`",
+      "`this` degree 28 -> 29; coloured first; r28 -> r31",
+      "no inline verdict, CSE temp or frame slot changed",
+    ],
+    changes: [
+      { kind: "node_added", summary: "temp light (MActor.cpp:212)", a: null, b: "light@MActor.cpp:212", match: "by_site" },
+      { kind: "degree", summary: "this 28 -> 29", a: 28, b: 29, match: "exact" },
+      { kind: "register", summary: "this r28 -> r31", a: "r28", b: "r31", match: "exact" },
+    ],
+  };
+}
+
+/**
+ * A steering probe in the shape `steering_check.py decide` returns (contract
+ * 2.4), for the previewed target, with the `compiler_delta` variant. Only an
+ * active steering gate shows it, the way a claim only carries one when the
+ * gate is on.
+ */
+function sampleSteeringProbe(target: { unit: string; symbol: string }, compilerDelta: CompilerDeltaPreviewVariant = "present"): Record<string, unknown> {
+  const delta = sampleCompilerDelta(compilerDelta);
   return {
     function: target.symbol,
     unit: target.unit,
+    revision: "fedcba987654",
     match: { base: 96.4, candidate: 100, real_only: 98.1 },
     steering_edits: [{
       file: "src/M3DUtil/MActor.cpp",
@@ -146,20 +189,36 @@ function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<s
       delta: 1.9,
     }],
     unresolved: [],
+    // A measured delta leads with candidate construct kinds; the shape hypotheses become the fallback (steering_diagnose.apply_compiler_delta).
+    ...(delta && !("unavailable" in delta) ? {
+      candidate_basis: "candidate construct kinds for the measured changes, not evidence of the original; facts: doldecomp/sms@4641b450 docs/AGENT_MATCHING_TIPS.md<see>; check: real_code_evidence compiler --query <kind> --path <mwcc>",
+      candidate_constructs: [
+        { change_kind: "node_added", change: "temp light (MActor.cpp:212)", kinds: ["web split", "CSE birth", "inline pass"] },
+        { change_kind: "degree", change: "this 28 -> 29", kinds: ["degree limit", "coalesced neighbour"] },
+      ],
+      construct_kinds: {
+        "degree limit": { why: "a node of degree 29 or more is coloured first (`this` in r31, not r28); one vreg more or less in the original moves it", see: "#the-degree-limit-this-in-r31-instead-of-r28", mwcc: "Coloring.c" },
+        "inline pass": { why: "pass 0 expands written calls with no limit; passes 1-3 take callees of at most 10/7/3 statements, and a call in an expanded call's argument is one pass deeper", see: "#the-inline-pass-ladder", mwcc: "CInline.c" },
+      },
+    } : {}),
     hypotheses: [{
       cause: "missing inline function",
       why: "A single-use temp only moved the load of mLightData; an inline accessor emits the same load order.",
       how_to_check: "real_code_evidence inlines --type MActor --member mLightData",
     }],
+    ...(delta && !("unavailable" in delta) ? { hypotheses_basis: "shape table (fallback: guesses from the edit shapes, not measured)" } : {}),
     evidence: {
       map_callees: ["set__11J3DLightObjFiRC8_GXColor"],
       emitted_inlines: [],
       unused: [],
       header_inlines: ["MActor::getLightData"],
-      sibling_uses: ["calcLight__6MActorFv"],
+      // evidence_search.usage siblings keep their certification (steering_diagnose.py).
+      sibling_uses: [{ function: "calcLight__6MActorFv", match_percent: 100, certification: "certified", revision: "fedcba987654" }],
+      sibling_hypotheses: [{ function: "setLightType__6MActorFi", match_percent: 100, certification: "unverified", revision: "0123456789ab" }],
       jsystem_hits: [],
     },
     lessons: [{ id: "steering-temp-accessor", steering: "single-use temp before a member call", real_cause: "header inline accessor" }],
+    ...(delta ? { compiler_delta: delta } : {}),
   };
 }
 
@@ -172,6 +231,7 @@ function sampleSteeringProbe(target: { unit: string; symbol: string }): Record<s
  * it unresolved. Only an active steering gate shows it.
  */
 function samplePreviousAttempt(target: { unit: string; symbol: string }, variant: PreviousAttemptVariant): Record<string, unknown> | null {
+  if (variant === "none") return null;
   if (variant === "unverified_match") return sampleUnverifiedMatch(target) as unknown as Record<string, unknown>;
   return previousAttemptFromBackfill({
     gameId: "preview",
@@ -210,6 +270,16 @@ function samplePreviousAttempt(target: { unit: string; symbol: string }, variant
 }
 
 function sampleUnverifiedMatch(target: { unit: string; symbol: string }) {
+  const unexplained = (line: number, text: string, restored: string) => ({
+    id: `src/M3DUtil/MActor.cpp@${line}`,
+    file: "src/M3DUtil/MActor.cpp",
+    line,
+    location: `src/M3DUtil/MActor.cpp:${line}`,
+    shapes: ["other"],
+    text,
+    restored,
+    status: "unresolved",
+  });
   return previousAttemptFromUnverified({
     unit: target.unit,
     symbol: target.symbol,
@@ -229,19 +299,24 @@ function sampleUnverifiedMatch(target: { unit: string; symbol: string }) {
       decision: "unresolved",
       applied: false,
       match: { base: 96.4, candidate: 100, real_only: 97.2 },
-      unexplained_edit_groups: [{
-        id: "src/M3DUtil/MActor.cpp@4.0",
-        file: "src/M3DUtil/MActor.cpp",
-        line: 212,
-        location: "src/M3DUtil/MActor.cpp:212",
-        shapes: ["other"],
-        text: "J3DLightObj* light = getLightData(); / light->set(mLightIdx, color);",
-        restored: "mLightData->set(mLightIdx, color);",
-        status: "unresolved",
-      }],
+      // Eight groups: the block lists the first six and counts the rest as omitted.
+      unexplained_edit_groups: [
+        unexplained(212, "J3DLightObj* light = getLightData(); / light->set(mLightIdx, color);", "mLightData->set(mLightIdx, color);"),
+        unexplained(218, "f32 scale = mScale.x;", "f32 scale = getScale().x;"),
+        unexplained(224, "if (!(mFlags & 1)) return;", "if ((mFlags & 1) == 0) return;"),
+        unexplained(231, "int i = 0; for (; i < mJointNum; i++) {", "for (int i = 0; i < mJointNum; i++) {"),
+        unexplained(240, "J3DModel* model = mModel; model->calc();", "mModel->calc();"),
+        unexplained(247, "u8 alpha = mAlpha;", "u8 alpha = getAlpha();"),
+        unexplained(255, "return (mFlags >> 2) & 1;", "return isHidden();"),
+        unexplained(262, "mModel->entry();", "getModel()->entry();"),
+      ],
       reasons: ["IR changes but no real shape found (other)"],
       probe: sampleSteeringProbe(target),
     },
+  }, {
+    fullReportLocator: steeringReportLocator("obs-preview-0001"),
+    // An open evidence-review request (migration 017) for a construct an earlier attempt cited.
+    openReviews: [SAMPLE_OPEN_REVIEW],
   });
 }
 
@@ -266,19 +341,33 @@ const SAMPLE_NOT_READY_CLASSES = [
   { class: "TKillerManager", owner_unit: "mario/Enemy/killer", kind: "vtable" },
 ];
 
+/** An open evidence-review request in the packet's row shape (`packetOpenReview`). */
+const SAMPLE_OPEN_REVIEW = {
+  id: "review-preview-1",
+  site_file: "src/M3DUtil/MActor.cpp",
+  site_lines: "212-213",
+  summary: "getLightData (getLightData__6MActorFv): map-backed weak inline, cited from the link map (map-unit)",
+  base_rev: "fedcba9876543210fedcba9876543210fedcba98",
+};
+
 function previewSteeringPacket(mode: WorkerPreviewMode, target: { unit: string; symbol: string }): Record<string, unknown> {
+  const previousAttempt = mode.steeringGate === "off" ? null : samplePreviousAttempt(target, mode.previousAttempt);
   return {
-    ...(mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target), previous_attempt: samplePreviousAttempt(target, mode.previousAttempt) }),
+    ...(mode.steeringGate === "off" ? {} : { steering_probe: sampleSteeringProbe(target, mode.compilerDelta) }),
+    ...(previousAttempt ? { previous_attempt: previousAttempt } : {}),
+    // No previous_attempt to carry them: the claim attaches pending reviews on their own.
+    ...(mode.steeringGate !== "off" && !previousAttempt ? { open_reviews: [SAMPLE_OPEN_REVIEW] } : {}),
     ...(orderingActive(mode.ordering) ? { not_ready_classes: SAMPLE_NOT_READY_CLASSES } : {}),
   };
 }
 
 // The server knows no run's `--advisory-adjudication` flag, only the env
-// override that wins over it; without one the preview shows today's `off` text.
+// override that wins over it; without one the preview shows what a run gets
+// by default (`DEFAULT_ADVISORY_ADJUDICATION_MODE`, shadow).
 function previewAdvisoryAdjudication(deps: KernelPreviewDeps): AdvisoryAdjudicationMode {
   if (deps.advisoryAdjudication) return deps.advisoryAdjudication;
   const configured = process.env[ADVISORY_ADJUDICATION_ENV];
-  return configured === undefined ? "off" : parseAdvisoryAdjudicationMode(configured, ADVISORY_ADJUDICATION_ENV);
+  return configured === undefined ? DEFAULT_ADVISORY_ADJUDICATION_MODE : parseAdvisoryAdjudicationMode(configured, ADVISORY_ADJUDICATION_ENV);
 }
 
 const DEFAULT_WORKER_PREVIEW_TARGET: KernelPreviewTarget = {
@@ -447,19 +536,32 @@ function gameMetadata(paths: KernelAgentCatalogContext): RunGameMetadata | undef
   };
 }
 
-function renderedTools(
-  entry: ReturnType<typeof meleeKernelAgent>,
-  paths: KernelAgentCatalogContext,
-): string | null {
-  if (entry.tools.length === 0) return null;
-  const context: AgentToolRuntimeContext = {
+function toolContext(entry: ReturnType<typeof meleeKernelAgent>, paths: KernelAgentCatalogContext): AgentToolRuntimeContext {
+  return {
     role: entry.toolProfile,
     cwd: paths.repoRoot,
     repoRoot: paths.repoRoot,
     stateDir: paths.stateDir,
     game: gameMetadata(paths),
   };
-  return availableToolsPromptXml(context, { replace: entry.tools });
+}
+
+/**
+ * The worker's tool ids for the previewed variant: the static list plus the
+ * steering-gate and code-graph tools, computed the way the worker prompt
+ * names them, so the viewer's tool list and the prompt agree.
+ */
+function workerPreviewToolIds(paths: KernelAgentCatalogContext, mode: WorkerPreviewMode): string[] {
+  return workerPromptToolIds({ game: gameMetadata(paths), steeringGate: mode.steeringGate });
+}
+
+function renderedTools(
+  entry: ReturnType<typeof meleeKernelAgent>,
+  paths: KernelAgentCatalogContext,
+  tools: readonly string[] = entry.tools,
+): string | null {
+  if (tools.length === 0) return null;
+  return availableToolsPromptXml(toolContext(entry, paths), { replace: [...tools] });
 }
 
 function samplePrompt(
@@ -821,11 +923,11 @@ export function loadKernelAgentsPayload(
 ): KernelAgentsPayload {
   const generatedAt = new Date().toISOString();
   const warnings: string[] = [];
-  let advisoryAdjudication: AdvisoryAdjudicationMode = "off";
+  let advisoryAdjudication: AdvisoryAdjudicationMode = DEFAULT_ADVISORY_ADJUDICATION_MODE;
   try {
     advisoryAdjudication = previewAdvisoryAdjudication(deps);
   } catch (error) {
-    warnings.push(`Rendering the worker sample as off: ${error instanceof Error ? error.message : String(error)}`);
+    warnings.push(`Rendering the worker sample as ${DEFAULT_ADVISORY_ADJUDICATION_MODE}: ${error instanceof Error ? error.message : String(error)}`);
   }
   const mode: WorkerPreviewMode = {
     advisoryAdjudication,
@@ -833,15 +935,20 @@ export function loadKernelAgentsPayload(
     steeringGate: previewSteeringGate(paths, deps),
     ordering: previewOrdering(paths, deps),
     previousAttempt: deps.previousAttempt ?? "rollback",
+    compilerDelta: deps.compilerDelta ?? "present",
   };
   const agents = KERNEL_AGENT_IDS.map((agentId) => {
     const entry = meleeKernelAgent(agentId);
     try {
+      const workerTools = agentId === "worker" ? workerPreviewToolIds(paths, mode) : undefined;
       return toKernelAgentViewerDefinition(entry, samplePrompt(agentId, paths, deps, mode), {
         generatedAt,
-        renderedTools: renderedTools(entry, paths),
-        ...(agentId === "worker"
-          ? { promptDocument: workerSystemPromptDocument({ packet: { target: { kind: "function" } }, ...promptMode(mode) }) }
+        renderedTools: renderedTools(entry, paths, workerTools),
+        ...(workerTools
+          ? {
+              tools: workerTools,
+              promptDocument: workerSystemPromptDocument({ packet: { target: { kind: "function" } }, game: gameMetadata(paths), ...promptMode(mode) }),
+            }
           : {}),
       });
     } catch (error) {
@@ -864,6 +971,7 @@ export function loadKernelAgentsPayload(
     steeringGate: mode.steeringGate,
     ordering: mode.ordering,
     previousAttempt: mode.previousAttempt,
+    compilerDelta: mode.compilerDelta,
     agents,
     warnings,
   };

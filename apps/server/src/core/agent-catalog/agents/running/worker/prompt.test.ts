@@ -7,7 +7,7 @@ import {
   openKnowledgeStore,
   writeFactWithEvidence,
 } from "../../../../knowledge-v2/index.js";
-import { renderSystemPrompt, workerPrompt } from "./prompt.js";
+import { renderSystemPrompt, workerPrompt, workerSystemPromptDocument } from "./prompt.js";
 import { targetPacketTarget } from "./packet.js";
 import {
   notReadyClassesXml,
@@ -300,7 +300,7 @@ describe("workerPrompt", () => {
     expect(bundle.systemPrompt).toContain("Order float and double constants to match the `.sdata2` pool order");
     expect(bundle.systemPrompt).toContain("`.bss` has no initializers");
     expect(bundle.systemPrompt).toContain("Changing `static` versus global declarations can change section placement");
-    expect(bundle.systemPrompt).toContain("Do not use m2c decompile, the permuter, or MWCC debug tools");
+    expect(bundle.systemPrompt).toContain("Do not use m2c decompile, the permuter, or the compiler allocator tools");
     expect(bundle.systemPrompt).toContain("build-and-compare evidence from checkdiff or the objdiff summary");
     expect(bundle.systemPrompt).not.toContain("holistic_file_understanding");
     expect(bundle.systemPrompt).not.toContain("hypothesis_generation");
@@ -535,58 +535,37 @@ describe("workerPrompt", () => {
     expect(renderedContext).not.toContain('content unavailable="true"');
   });
 
-  test("organizes the system prompt around goal, workflow context, and contracted rules", () => {
+  test("organizes the system prompt around goal, done, method, compiler and contracted rules", () => {
     const systemPrompt = renderSystemPrompt();
-    const goal = systemPrompt.indexOf("<goal>");
-    const definitionOfDone = systemPrompt.indexOf("<definition_of_done>");
-    const thinking = systemPrompt.indexOf("<thinking>");
-    const workflowContext = systemPrompt.indexOf("<workflow_context>");
-    const advancedTechniques = systemPrompt.indexOf("<advanced_techniques>");
-    const rules = systemPrompt.indexOf("<contracted_in_rules>");
-    const orient = systemPrompt.indexOf('<phase id="1" name="orient">');
-    const exactSymbolHistory = systemPrompt.indexOf('<phase id="2" name="exact_symbol_history">');
-    const nameTheMechanism = systemPrompt.indexOf('<phase id="3" name="name_the_mechanism">');
-    const oneEditThenDiff = systemPrompt.indexOf('<phase id="4" name="one_edit_then_diff">');
-    const escalate = systemPrompt.indexOf('<phase id="5" name="escalate">');
-    const originalProgrammerLens = systemPrompt.indexOf("Understand how the original programmers wrote this code");
-    const sudokuLens = systemPrompt.indexOf("Think like Sudoku:");
-
-    expect(goal).toBeGreaterThanOrEqual(0);
-    expect(definitionOfDone).toBeGreaterThan(goal);
-    expect(thinking).toBeGreaterThan(definitionOfDone);
-    expect(workflowContext).toBeGreaterThan(thinking);
-    expect(advancedTechniques).toBeGreaterThan(workflowContext);
-    expect(rules).toBeGreaterThan(advancedTechniques);
-    expect(originalProgrammerLens).toBeGreaterThan(thinking);
-    expect(sudokuLens).toBeGreaterThan(originalProgrammerLens);
-    expect(systemPrompt).toContain("<submission>");
-    expect(systemPrompt).toContain("Treat the target as code likely written by a small number of programmers.");
-    expect(systemPrompt).toContain("high-signal personal preference patterns and company-standard patterns");
-    expect(systemPrompt).toContain("Something elsewhere may have been written by the same person");
-    expect(systemPrompt).toContain("Finding one strong matching pattern can strongly constrain how this target was likely written.");
-    expect(systemPrompt).toContain("Assume a small original author pool left repeatable idioms");
-    expect(systemPrompt).toContain("Read the target, the `first_diff`, the `target_knowledge` prior runs, and the standards.");
-    expect(systemPrompt).toContain("Before any edit, read what already happened on this exact symbol.");
-    expect(systemPrompt).toContain("`knowledge_record` for the full record and ledger of the target");
-    expect(systemPrompt).toContain("`pr_search` for the accepted pull request on this symbol or its unit");
+    const order = [
+      "<goal>",
+      "<definition_of_done>",
+      "<stack_frame_policy>",
+      "<thinking>",
+      "<context_contract>",
+      "<method>",
+      "<compiler>",
+      "<tool_notes>",
+      "<submission>",
+      "<contracted_in_rules>",
+    ].map((tag) => systemPrompt.indexOf(tag));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(systemPrompt).toContain("Recover the source code the original developers wrote for the target function.");
+    expect(systemPrompt).toContain("Done: the runner confirms the target matches strictly (instructions, relocations and data)");
+    expect(systemPrompt).toContain("Treat the target as code written by a small number of programmers who left repeatable idioms");
+    expect(systemPrompt).toContain("Think like Sudoku:");
+    expect(systemPrompt).toContain("Before any edit, read what already happened on this exact symbol: `knowledge_record`");
     expect(systemPrompt).toContain("Resolve any locator you rely on with `resolve_locator`");
+    expect(systemPrompt).toContain("2. Form one hypothesis. A hypothesis names one source construct");
+    expect(systemPrompt).toContain("Diagnostic allowance. Per hypothesis: at most 6 build-or-capture runs");
+    expect(systemPrompt).toContain("at most one `source_permuter_run` per hypothesis, `max_iters` at most 200");
+    expect(systemPrompt).toContain("When you stop without done, record: the residual, what you measured");
+    expect(systemPrompt).toContain("The compiler is decompiled (rayanht/mwcc). The pinned source is at ../mwcc");
     expect(systemPrompt).not.toContain(["kv2", "_"].join(""));
-    expect(systemPrompt).not.toContain("graph_related_functions");
     expect(systemPrompt).not.toContain("past_prs_search");
     expect(systemPrompt).not.toContain("ledger_search");
-    expect(systemPrompt).toContain("name the compiler mechanism that produces it");
-    expect(systemPrompt).toContain("A hypothesis is ready to test only when it states:");
-    expect(systemPrompt).toContain("Stop rule for a variant family:");
-    expect(systemPrompt).toContain(
-      "When two or three variants in one family reproduce the same residual rows, that family is exhausted.",
-    );
-    expect(systemPrompt).toContain("Permuter as a probe, not a finder");
-    expect(systemPrompt).toContain("Run `source_permuter_run` only after you have named the function and the bounded region or helper that owns the residual.");
-    expect(systemPrompt).toContain("Treat the result as evidence about which source region controls the residual, then hand-write the final edit.");
-    expect(systemPrompt).not.toContain("Use opseq similarity leads");
-    expect(systemPrompt).not.toContain("last resort");
-    expect(systemPrompt).not.toContain("Develop a few concrete hypotheses");
-    expect(systemPrompt).not.toContain("Test the hypotheses with targeted deeper analysis.");
+    expect(systemPrompt).not.toContain("mwcc_debug_");
     expect(systemPrompt).toContain("are on PATH in your sandbox; call them by name");
     expect(systemPrompt).not.toContain("canonical_tool_paths");
     expect(systemPrompt).toContain("Do not run broad filesystem `find` sweeps");
@@ -594,15 +573,13 @@ describe("workerPrompt", () => {
     expect(systemPrompt).toContain(
       "`source_permuter_run` runs inside the claim sandbox, defaults to all sandbox cores, and has no cross-worker queue",
     );
-    expect(systemPrompt).toContain("Submit a verified improvement so it is validated and checkpointed, then continue toward exact.");
     expect(systemPrompt).toContain("Here is what I tried.");
     expect(systemPrompt).toContain("the target translation unit is your motivation and review scope");
     expect(systemPrompt).toContain("Edit only paths in your approved write set");
-    expect(systemPrompt).toContain("initially contains only the `&lt;target_file");
-    expect(systemPrompt).toContain("first try typing the in-slice code to the foreign types already present on master");
+    expect(systemPrompt).toContain("initially contains only the target_file block's `path`");
+    expect(systemPrompt).not.toContain("&lt;");
+    expect(systemPrompt).toContain("first try typing the in-slice code to the foreign types already present on `origin/master`");
     expect(systemPrompt).toContain("`request_write_set_widening`");
-    expect(systemPrompt).toContain("`paths`");
-    expect(systemPrompt).toContain("`reason`");
     expect(systemPrompt).toContain("immediate");
     expect(systemPrompt).toContain("`widening_request` object");
     expect(systemPrompt).toContain("`write_set_widening_request_v1`");
@@ -614,23 +591,28 @@ describe("workerPrompt", () => {
     expect(systemPrompt).toContain("only honored when write-set widening is enabled");
     expect(systemPrompt).toContain("Requested paths remain unauthorized unless the runner approves them");
     expect(systemPrompt).toContain("Never add local shims—aliases, local prototypes, or include-macro rewrites");
-    expect(systemPrompt).not.toContain("Edit only the path named by");
     expect(systemPrompt).toContain("A repair request only comes for validation/lint failures or for an exact match that failed hard gates");
+    expect(systemPrompt).toContain("`hypotheses`: array of `{ construct, evidence, prediction, measured, held }`");
+    expect(systemPrompt).not.toContain("tried_shapes");
     expect(systemPrompt).toContain('<context_usage context_id="worker-packet">');
     expect(systemPrompt).toContain('<context_usage context_id="target-knowledge">');
     expect(systemPrompt).not.toContain("knowledge-graph-file-card");
-    expect(systemPrompt).not.toContain("holistic_file_understanding");
-    expect(systemPrompt).not.toContain("hypothesis_generation");
     expect(systemPrompt).not.toContain("<checkpoint_note>");
     expect(systemPrompt).not.toContain("handoff");
     expect(systemPrompt).not.toContain("turn budget");
     expect(systemPrompt).not.toContain("later epoch");
     expect(systemPrompt).not.toContain("attempt budget");
-    expect(orient).toBeGreaterThanOrEqual(0);
-    expect(exactSymbolHistory).toBeGreaterThan(orient);
-    expect(nameTheMechanism).toBeGreaterThan(exactSymbolHistory);
-    expect(oneEditThenDiff).toBeGreaterThan(nameTheMechanism);
-    expect(escalate).toBeGreaterThan(oneEditThenDiff);
+  });
+
+  test("names the prompt per game", () => {
+    const melee = workerSystemPromptDocument({ packet: { target: { kind: "function" } }, game: { gameId: "melee" } });
+    const sms = workerSystemPromptDocument({ packet: { target: { kind: "function" } }, game: { gameId: "sms" } });
+    const smsSection = workerSystemPromptDocument({ packet: { target: { kind: "section" } }, game: { gameId: "sms" } });
+    expect(melee.id).toBe("melee.worker.system");
+    expect(melee.title).toBe("Super Smash Bros. Melee Worker System Prompt");
+    expect(sms.id).toBe("sms.worker.system");
+    expect(sms.title).toBe("Super Mario Sunshine Worker System Prompt");
+    expect(smsSection.id).toBe("sms.worker.section.system");
   });
 });
 
@@ -676,6 +658,8 @@ describe("kept_advisories prompt contract", () => {
       contextBudget,
       targetSourceText: "void advisory_symbol(void) {\n    int value = (int)gObject;\n}\n",
       sourceNames: [],
+      // Fixed so the snapshot does not move when native/CAPABILITIES.json is rebuilt.
+      compilerCapabilities: null,
       ...(advisoryAdjudication ? { advisoryAdjudication } : {}),
     });
   }
@@ -705,11 +689,9 @@ describe("kept_advisories prompt contract", () => {
     return renderedContext.match(/<decomp_standards[^>]*>\s*<instruction>[\s\S]*?<\/instruction>/)?.[0] ?? "";
   }
 
-  // The snapshots were recorded from the prompt before kept_advisories existed.
-  test("off prompt is byte-identical", () => {
+  test("off prompt matches its snapshot and is the default", () => {
     const full = advisoryPrompt("full");
     const [fullContext, compactContext, minimalContext] = contexts();
-    expect(full.systemPrompt).toBe(renderSystemPrompt());
     expect(full.systemPrompt).toMatchSnapshot("function system prompt");
     expect(sectionPrompt()).toMatchSnapshot("section system prompt");
     expect(standardsInstruction(fullContext!)).toMatchSnapshot("full standards instruction");
@@ -774,53 +756,47 @@ describe("kept_advisories prompt contract", () => {
       }).systemPrompt;
     }
 
-    test("match_frame (Melee) renders today's prompt byte for byte in every advisory mode", () => {
+    test("match_frame (Melee) renders the Melee stack technique in every advisory mode", () => {
       for (const mode of modes) {
-        const today = advisoryPrompt("full", mode).systemPrompt;
-        expect(policyPrompt({ advisoryAdjudication: mode, stackFramePolicy: "match_frame" })).toBe(today);
-        expect(policyPrompt({ advisoryAdjudication: mode, game: games.melee })).toBe(today);
-        expect(today).not.toContain("stack_frame_policy");
+        const melee = policyPrompt({ advisoryAdjudication: mode, game: games.melee });
+        expect(policyPrompt({ advisoryAdjudication: mode, stackFramePolicy: "match_frame", steeringGate: "off", game: games.melee })).toBe(melee);
+        const section = melee.match(/<stack_frame_policy>[\s\S]*?<\/stack_frame_policy>/)?.[0] ?? "";
+        expect(section).toContain("This game matches the stack frame too");
+        expect(section).toContain("`PAD_STACK` is the last resort");
+        expect(melee).toContain("Frame-only is not done: continue with the stack frame policy section.");
       }
       expect(policyPrompt({ game: games.melee })).toBe(renderSystemPrompt());
     });
 
     test("stop_at_frame (SMS) matches up to stack frame size and bans frame-only edits", () => {
       const sms = policyPrompt({ game: games.sms });
-      expect(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: gameSteeringGate(games.sms), ordering: gameOrdering(games.sms)?.mode })).toBe(sms);
+      expect(policyPrompt({ game: games.sms, stackFramePolicy: "stop_at_frame", steeringGate: gameSteeringGate(games.sms), ordering: gameOrdering(games.sms)?.mode })).toBe(sms);
       const section = sms.match(/<stack_frame_policy>[\s\S]*?<\/stack_frame_policy>/)?.[0] ?? "";
       expect(section).toContain("This game matches up to stack frame size.");
-      expect(section).toContain("only difference from the target is the stack frame is done. Stop and submit it.");
       expect(section).toContain("no `PAD_STACK` or pad arrays");
       expect(section).toContain("no locals whose only effect is stack space");
       expect(section).toContain("no operand swaps");
       expect(section).toContain("no declaration reorders or inline choices made to move the frame");
       expect(section).toContain("Never use stack alignment tricks");
       expect(section).toContain("no TODO, nonmatching, fakematch, frame or stack notes");
-      expect(section).toContain("an upstream header, the symbol map, or a sibling decomp");
-      expect(sms).toContain("to a 100% match, up to stack frame size.");
-      expect(sms).toContain("Stop only when the target is exact, its only remaining difference is the stack frame,");
-      for (const meleeOnly of [
-        "use `PAD_STACK` only when",
-        "before changing declaration order or aggregate ownership",
-        "Extract one semantic helper around the coupled work, then re-check frame size",
-        "`mwcc_debug_diagnose_stack` for a frame residual",
-      ]) {
+      expect(sms).toContain("Frame-only (the runner confirms every instruction matches and only the stack frame differs): stop and report frame-only; it is never an exact claim.");
+      for (const meleeOnly of ["`PAD_STACK` is the last resort", "Frame-only is not done", "Melee's standards"]) {
         expect(sms).not.toContain(meleeOnly);
       }
       expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
     });
 
-    test("steering gate off (Melee) renders today's prompt and context byte for byte", () => {
+    test("steering gate off (Melee) renders no SMS lines and no steering blocks in the context", () => {
       for (const mode of modes) {
-        const today = advisoryPrompt("full", mode);
-        expect(policyPrompt({ advisoryAdjudication: mode, steeringGate: "off" })).toBe(today.systemPrompt);
-        expect(today.systemPrompt).not.toContain("steering_policy");
+        const melee = policyPrompt({ advisoryAdjudication: mode, steeringGate: "off" });
+        expect(melee).not.toContain("steering gate certifies");
+        expect(melee).not.toContain("steering_probe");
       }
       expect(gameSteeringGate(games.melee)).toBe("off");
       expect(policyPrompt({ game: games.melee, steeringGate: "off" })).toBe(renderSystemPrompt());
       // A probe on the packet never renders while the gate is off.
-      const withProbe = workerPrompt({
-        packet: { ...advisoryPacket, steering_probe: { function: "advisory_symbol", unit: "GALE01:advisory" } },
+      const context = (packet: Record<string, unknown>) => workerPrompt({
+        packet,
         repoRoot: "/repo",
         stateDir: "/state",
         initialBoardPath: "/state/board.json",
@@ -829,42 +805,23 @@ describe("kept_advisories prompt contract", () => {
         targetSourceText: "void advisory_symbol(void) {\n    int value = (int)gObject;\n}\n",
         sourceNames: [],
         game: games.melee,
-      });
-      const withoutProbe = workerPrompt({
-        packet: advisoryPacket,
-        repoRoot: "/repo",
-        stateDir: "/state",
-        initialBoardPath: "/state/board.json",
-        workerLogDir: "/state/workers",
-        contextBudget: "full",
-        targetSourceText: "void advisory_symbol(void) {\n    int value = (int)gObject;\n}\n",
-        sourceNames: [],
-        game: games.melee,
-      });
-      expect(withProbe.kernelContext?.renderedContext).toBe(withoutProbe.kernelContext?.renderedContext);
-      expect(withProbe.kernelContext?.renderedContext).not.toContain("steering_probe");
+      }).kernelContext?.renderedContext;
+      const withProbe = context({ ...advisoryPacket, steering_probe: { function: "advisory_symbol", unit: "GALE01:advisory" } });
+      expect(withProbe).toBe(context(advisoryPacket));
+      expect(withProbe).not.toContain("steering_probe");
     });
 
-    test("an active steering gate (SMS) adds <steering_policy> and nothing else", () => {
+    test("an enforced steering gate (SMS) renders the SMS lines; a shadow gate renders neither game's", () => {
       const off = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "off" });
-      expect(off).not.toContain("<steering_policy>");
-      for (const steeringGate of ["shadow", "enforce"] as const) {
-        const sms = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate });
-        const section = sms.match(/<steering_policy>[\s\S]*?<\/steering_policy>/)?.[0] ?? "";
-        expect(section).toContain("Steering is a source rewrite that behaves exactly like the code it replaces");
-        expect(section).toContain("A steering match is never done.");
-        expect(section).toContain("Use steering as a probe");
-        expect(section).toContain("Read the `steering_probe` block when present");
-        expect(section).toContain("`real_code_evidence`: `map-calls`");
-        expect(section).toContain("a hunk mixing a real fix with steering is rejected as unresolved");
-        expect(section).toContain("A function the map marks UNUSED that upstream left as a stub gets a body only if the original inlined it into another function in the same TU");
-        // The XML renderer escapes the angle-bracket placeholders, as it does for `<target_file>` elsewhere.
-        expect(section).toContain("`steering_check.py unused-test --repo . --file &lt;file&gt; --function &lt;Name&gt;`");
-        expect(section).toContain("the body is dead code and is rejected");
-        expect(sms.replace(`${section}\n\n`, "")).toBe(off);
-        expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
-      }
-      expect(policyPrompt({ game: games.sms })).toContain("<steering_policy>");
+      const shadow = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "shadow" });
+      const enforce = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce" });
+      expect(off).toContain("Melee's standards");
+      expect(shadow).not.toContain("Melee's standards");
+      expect(shadow).not.toContain("A match counts only when the steering gate certifies it.");
+      expect(enforce).toContain("A match counts only when the steering gate certifies it.");
+      expect(enforce).toContain("Do not submit a probe. The steering gate reverts probes");
+      expect(enforce).not.toContain("<steering_policy>");
+      expect(enforce).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
       const sectionPacket = { target: { unit: "GALE01:advisory", symbol: ".sdata2", kind: "section" } };
       expect(policyPrompt({ packet: sectionPacket, steeringGate: "enforce" })).toBe(sectionPrompt());
     });
@@ -895,6 +852,7 @@ describe("kept_advisories prompt contract", () => {
       for (const steeringGate of ["shadow", "enforce"] as const) {
         const rendered = context(steeringGate, true);
         expect(rendered).toContain('<steering_probe function="advisory_symbol" unit="GALE01:advisory">');
+        expect(rendered).toContain('<compiler_delta status="absent" />');
         expect(rendered).toContain('"real_only": 98.25');
         expect(rendered).toContain("</steering_probe>");
         expect(rendered.indexOf("</first_diff>")).toBeLessThan(rendered.indexOf("<steering_probe"));
@@ -910,19 +868,18 @@ describe("kept_advisories prompt contract", () => {
       expect(off).not.toContain("<order_and_scope>");
       expect(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce" })).toBe(off);
       for (const ordering of ["shadow", "enforce"] as const) {
-        const sms = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering });
+        const sms = policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering, registries: ["MarNameRefGen"] });
         const section = sms.match(/<order_and_scope>[\s\S]*?<\/order_and_scope>/)?.[0] ?? "";
         expect(section).toContain(`Edits that break these rules ${ordering === "enforce" ? "are rejected" : "are flagged"}.`);
         expect(section).not.toContain(ordering === "enforce" ? "are flagged" : "are rejected");
         expect(section).toContain("Edit your target's file and, in headers of decompiled units, only the declarations your target needs.");
         expect(section).toContain("Never add a class, members or a header for a class whose unit is not decompiled. Forward declarations are fine.");
-        expect(section).toContain("Registries such as MarNameRefGen are filled after their classes exist: don't jump the fence.");
-        expect(section).toContain("(`steering_check.py unused-test`)");
+        expect(section).toContain("Registries (`MarNameRefGen`) are filled after their classes exist: don't jump the fence.");
         expect(section).toContain("Keep one unit per change.");
         expect(section).toContain("Read the `not_ready_classes` block when present");
-        // Placed right after <steering_policy>.
-        expect(sms.indexOf("</steering_policy>")).toBeLessThan(sms.indexOf("<order_and_scope>"));
-        expect(sms.replace(`${section}\n\n`, "")).toBe(off);
+        // Placed right after <stack_frame_policy>.
+        expect(sms.indexOf("</stack_frame_policy>")).toBeLessThan(sms.indexOf("<order_and_scope>"));
+        expect(sms.replace(`${section}\n\n`, "")).toBe(policyPrompt({ stackFramePolicy: "stop_at_frame", steeringGate: "enforce", ordering: "off", registries: ["MarNameRefGen"] }));
         expect(sms).not.toMatch(/\{\{[A-Z0-9_]+\}\}/);
       }
       // Melee: no ordering block resolves to off.

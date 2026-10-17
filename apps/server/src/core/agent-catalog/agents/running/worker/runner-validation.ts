@@ -25,6 +25,8 @@ export interface WorkerRunnerValidation {
   baselinePath?: string;
   reportPath?: string;
   diffPath?: string;
+  /** Sandbox path of the attempt's full objdiff unit report when only its summary came back to the host. */
+  sandboxReportPath?: string;
   objectTarget?: string;
   stdoutPath?: string;
   stderrPath?: string;
@@ -67,6 +69,30 @@ export interface WorkerRunnerValidation {
     trustedBaseRev: string | null;
     baseline: WorkerSteeringResult | null;
     skipped?: string;
+  };
+  /**
+   * Enforce, target with open verification (`unverified_match`, or the latest
+   * attempt `steering_located`): the attempt did not raise the target score,
+   * so the score verdict was set aside and the attempt went on to every other
+   * gate (certification-lane.ts). `pending` until the steering gate ran; only
+   * `certified` (the gate certified the target) or `restored` (a base-identity
+   * proof) stays `passed`; `rejected` restores the score verdict.
+   */
+  certificationLane?: {
+    reason: "unverified_match" | "steering_located";
+    scoreStatus: "target_regressed" | "no_official_score_change";
+    scoreReasons: string[];
+    outcome: "pending" | "certified" | "restored" | "rejected";
+    restoration?: {
+      trustedBaseRev: string;
+      claimBaseRev: string;
+      sourcePath: string;
+      inputs: Array<{ path: string; blob: string | null; generated?: boolean }>;
+      dependenciesKnown: boolean;
+      proofHash: string;
+    };
+    /** Why a base-identity proof was not established (informational). */
+    restorationRefused?: string;
   };
   /** Ordering shadow/enforce: the order-and-scope fence's result for this attempt (shadow never changes `status`). */
   editScope?: EditScopeResult;

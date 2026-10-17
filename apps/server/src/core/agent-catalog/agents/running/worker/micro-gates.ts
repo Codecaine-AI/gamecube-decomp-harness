@@ -1,5 +1,7 @@
 import type { WorkspaceExec, CommandResult } from "@server/infrastructure/shell";
 import { EXACT_SCORE } from "@server/core/validation/objdiff/constants.js";
+import { querySymbolsTxtInSandbox } from "./sandbox-source-queries.js";
+import { unitReportPlacement } from "./unit-report-summary.js";
 import type { WorkerUnitScoreSnapshot } from "./change-validation.js";
 import {
   clangFormatVersionMismatch,
@@ -153,22 +155,10 @@ export async function evaluateUndefinedSymbolGate(params: {
   }
 
   const symbolsTxtPath = params.symbolsTxtPath ?? "config/GALE01/symbols.txt";
-  let symbolsResult: CommandResult;
-  try {
-    symbolsResult = await params.workspaceExec.exec(["cat", symbolsTxtPath]);
-  } catch (error) {
-    return { gate, status: "tool_unavailable", reasons: [], toolError: error instanceof Error ? error.message : String(error) };
-  }
-  if (symbolsResult.exitCode !== 0) {
-    return {
-      gate,
-      status: "tool_unavailable",
-      reasons: [],
-      toolError: symbolsResult.stderr.trim() || `cat ${symbolsTxtPath} exited with code ${symbolsResult.exitCode}`,
-    };
-  }
+  const symbols = await symbolsTxtNames(params.workspaceExec, symbolsTxtPath, listed.symbols);
+  if (!symbols.all) return { gate, status: "tool_unavailable", reasons: [], toolError: symbols.error };
 
-  const known = new Set([...params.baselineUndefined ?? [], ...parseSymbolsTxt(symbolsResult.stdout).all]);
+  const known = new Set([...params.baselineUndefined ?? [], ...symbols.all]);
   const unknown = listed.symbols.filter((name) => !known.has(name));
   const reasons = unknown.slice(0, 20).map(
     (name) => `undefined symbol '${name}' in ${params.objectTarget} does not exist in the link universe (${symbolsTxtPath}); calls to nonexistent functions only fail at CI link time`,
@@ -275,6 +265,29 @@ export interface BannedIdiomContext {
   targetFunction?: string;
 }
 
+/**
+ * Which of `names` the link universe defines. Default: answered in the
+ * sandbox (only the queried names come back). `ORCH_UNIT_REPORT_PLACEMENT=host`
+ * is the explicit opt-in to transferring and parsing the whole file here.
+ */
+export async function symbolsTxtNames(
+  workspaceExec: WorkspaceExec,
+  symbolsTxtPath: string,
+  names: string[],
+): Promise<{ all: ReadonlySet<string>; globals: ReadonlySet<string>; error: null } | { all: null; globals: null; error: string }> {
+  if (unitReportPlacement() === "sandbox") return querySymbolsTxtInSandbox(workspaceExec, symbolsTxtPath, names);
+  let symbolsResult: CommandResult;
+  try {
+    symbolsResult = await workspaceExec.exec(["cat", symbolsTxtPath]);
+  } catch (error) {
+    return { all: null, globals: null, error: error instanceof Error ? error.message : String(error) };
+  }
+  if (symbolsResult.exitCode !== 0) {
+    return { all: null, globals: null, error: symbolsResult.stderr.trim() || `cat ${symbolsTxtPath} exited with code ${symbolsResult.exitCode}` };
+  }
+  return { ...parseSymbolsTxt(symbolsResult.stdout), error: null };
+}
+
 export function parseSymbolsTxt(contents: string): { all: Set<string>; globals: Set<string> } {
   const all = new Set<string>();
   const globals = new Set<string>();
@@ -307,27 +320,19 @@ const KR_FUNCTION_RE = /^\s*(?:static\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s+[A-Za-z_][
 const CONTROL_KEYWORDS = new Set(["if", "for", "while", "switch", "return", "else", "do", "goto", "case"]);
 const TYPE_KEYWORDS = new Set(["void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "struct", "union", "enum"]);
 
+/**
+ * Host banned-idiom lint (explicit `ORCH_UNIT_REPORT_PLACEMENT=host` only; the
+ * default runs the sandbox port). Twin implementation: `lint` in
+ * BANNED_IDIOMS_PY (banned-idioms-sandbox.ts); change both together.
+ * banned-idioms-parity.test.ts fails on any difference over the shared corpus
+ * in __fixtures__/banned-idioms/.
+ */
 export function lintBannedIdioms(diffText: string, context: BannedIdiomContext = {}): WorkerMicroGateResult {
   const gate = "banned_idioms" as const;
   if (!diffText.trim()) return { gate, status: "skipped", reasons: ["empty write_set diff"] };
   const isSectionTarget = context.targetFunction?.startsWith(".") ?? false;
 
-  const linesByPath = new Map<string, AddedCodeLine[]>();
-  const removedByPath = new Map<string, AddedCodeLine[]>();
-  let currentPath = "";
-  for (const line of diffText.split(/\r?\n/)) {
-    const fileMatch = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
-    if (fileMatch) {
-      currentPath = LINTED_SOURCE_PATH_RE.test(fileMatch[2]) ? fileMatch[2] : "";
-      continue;
-    }
-    if (!currentPath || (!line.startsWith("+") && !line.startsWith("-")) || line.startsWith("+++") || line.startsWith("---")) continue;
-    const body = line.slice(1);
-    const target = line.startsWith("+") ? linesByPath : removedByPath;
-    const entries = target.get(currentPath) ?? [];
-    entries.push({ body, stripped: stripLineCommentsAndStrings(body) });
-    target.set(currentPath, entries);
-  }
+  const { linesByPath, removedByPath } = bannedIdiomDiffLines(diffText);
 
   const reasons: string[] = [];
   const globalSymbols = parseSymbolsTxt(context.symbolsTxt ?? "").globals;
@@ -386,6 +391,26 @@ export function lintBannedIdioms(diffText: string, context: BannedIdiomContext =
     }
   }
   return { gate, status: reasons.length > 0 ? "failed" : "passed", reasons };
+}
+
+function bannedIdiomDiffLines(diffText: string): { linesByPath: Map<string, AddedCodeLine[]>; removedByPath: Map<string, AddedCodeLine[]> } {
+  const linesByPath = new Map<string, AddedCodeLine[]>();
+  const removedByPath = new Map<string, AddedCodeLine[]>();
+  let currentPath = "";
+  for (const line of diffText.split(/\r?\n/)) {
+    const fileMatch = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
+    if (fileMatch) {
+      currentPath = LINTED_SOURCE_PATH_RE.test(fileMatch[2]) ? fileMatch[2] : "";
+      continue;
+    }
+    if (!currentPath || (!line.startsWith("+") && !line.startsWith("-")) || line.startsWith("+++") || line.startsWith("---")) continue;
+    const body = line.slice(1);
+    const target = line.startsWith("+") ? linesByPath : removedByPath;
+    const entries = target.get(currentPath) ?? [];
+    entries.push({ body, stripped: stripLineCommentsAndStrings(body) });
+    target.set(currentPath, entries);
+  }
+  return { linesByPath, removedByPath };
 }
 
 interface GlobalDeclaration {

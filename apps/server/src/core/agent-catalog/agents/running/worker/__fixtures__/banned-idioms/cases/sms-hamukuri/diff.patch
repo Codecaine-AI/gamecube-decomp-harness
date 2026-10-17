@@ -1,0 +1,24 @@
+diff --git a/src/Enemy/hamukuri.cpp b/src/Enemy/hamukuri.cpp
+index 6c21f8d5..d96a15d9 100644
+--- a/src/Enemy/hamukuri.cpp
++++ b/src/Enemy/hamukuri.cpp
+@@ -1606,12 +1606,16 @@ void TDoroHaneKuri::reset()
+ 	onLiveFlag(LIVE_FLAG_FORCE_SHADOW);
+ }
+ 
++// TODO: the unused Dango attack singleton shifts later nerve statics in
++// .sbss; the rise singleton's relocations still differ.
+ void TDoroHaneKuri::attackToMario()
+ {
+ 	if (!gpMarioOriginal->isWearingCap()) {
+-		if (SMS_SendMessageToMario(this, HIT_MESSAGE_ATTACK))
+-			SMSGetMSound()->startSoundActor(MSD_SE_EN_HANEKURI_ATTACK,
+-			                                &mPosition, 0, nullptr, 0, 4);
++		if (SMS_SendMessageToMario(this, HIT_MESSAGE_ATTACK)) {
++			if (SMSGetMSound()->gateCheck(MSD_SE_EN_HANEKURI_ATTACK))
++				MSoundSESystem::MSoundSE::startSoundActor(
++				    MSD_SE_EN_HANEKURI_ATTACK, getPosition(), 0, nullptr, 0, 4);
++		}
+ 	} else {
+ 		if (SMS_SendMessageToMario(this, HIT_MESSAGE_ATTACK)) {
+ 			SMSGetMSound()->startSoundActor(MSD_SE_EN_HANEKURI_ATTACK,

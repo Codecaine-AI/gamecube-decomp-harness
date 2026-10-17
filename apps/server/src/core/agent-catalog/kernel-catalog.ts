@@ -410,9 +410,12 @@ export function toKernelAgentViewerDefinition(
     renderedTools?: string | null;
     /** The prompt document the bundle was rendered from, when it differs from the typed default (game policy, advisory mode). */
     promptDocument?: PromptDocument;
+    /** The tool ids the agent launches with for the selected game (static list plus game-gated tools); default the static list. */
+    tools?: readonly string[];
   } = {},
 ): KernelAgentViewerDefinition {
   const definition = typedAgentDefinition(entry.id);
+  const tools = options.tools ? [...options.tools] : entry.tools;
   return {
     name: entry.name,
     description: entry.description,
@@ -420,7 +423,7 @@ export function toKernelAgentViewerDefinition(
     source: "typed",
     prompt: options.promptDocument ?? (isPromptDocument(definition.prompt) ? definition.prompt : null),
     renderedTools: options.renderedTools ?? null,
-    tools: entry.tools,
+    tools,
     disallowedTools: entry.disallowedTools,
     extensions: entry.extensions,
     canSpawnSubagent: entry.canSpawnSubagent,
@@ -438,7 +441,7 @@ export function toKernelAgentViewerDefinition(
           content: renderedPromptContent(bundle),
           timestamp: options.generatedAt ?? null,
           resolvedVariables: {},
-          toolsAllowlist: entry.tools,
+          toolsAllowlist: tools,
           toolsDisallowlist: entry.disallowedTools,
         }
       : null,

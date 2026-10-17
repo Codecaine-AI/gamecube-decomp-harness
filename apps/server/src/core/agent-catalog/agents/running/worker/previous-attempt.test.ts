@@ -6,8 +6,8 @@ import { openState } from "@server/core/orchestrator-state";
 import { recordSteeringBackfill, recordSteeringRollback } from "@server/core/harness-runtime/run-state/steering.js";
 import { clearUnverifiedMatch, recordUnverifiedMatch } from "@server/core/harness-runtime/run-state/unverified-matches.js";
 import { packageRoot } from "@server/core/knowledge";
-import { previousAttemptXml } from "./context.js";
-import { steeringPreviousAttempt } from "./previous-attempt.js";
+import { compilerDeltaXml, previousAttemptXml, steeringProbeXml } from "./context.js";
+import { previousAttemptFromUnverified, steeringPreviousAttempt } from "./previous-attempt.js";
 import { workerPrompt } from "./prompt.js";
 
 const dirs: string[] = [];
@@ -219,7 +219,7 @@ describe("previous_attempt from the steering backfill", () => {
   });
 });
 
-describe("previous_attempt for a 100% unverified match", () => {
+describe("previous_attempt for a 100% but unverified match", () => {
   const UNVERIFIED = {
     ...target,
     analyzedRev: "feedface0123456789",
@@ -254,9 +254,15 @@ describe("previous_attempt for a 100% unverified match", () => {
       const attempt = steeringPreviousAttempt(store, { ...target, currentScore: 100, rulingsPath: RULINGS });
       expect(attempt).toMatchObject({
         variant: "unverified_match",
-        label: "100% unverified",
+        label: "100% but unverified",
         decision: "unresolved",
         applied: false,
+        trusted_base_rev: "81248bda",
+        source_path: "src/M3DUtil/MActor.cpp",
+        total_edits: 1,
+        omitted_edits: 0,
+        full_report_locator: null,
+        open_reviews: [],
         match: { base: 96.4, candidate: 100, real_only: 97.2 },
         reasons: ["incomplete groups: src/M3DUtil/MActor.cpp@4.0"],
         removed_edits: [],
@@ -264,11 +270,11 @@ describe("previous_attempt for a 100% unverified match", () => {
       });
 
       expect(previousAttemptXml({ previous_attempt: attempt }, "enforce")).toBe([
-        `    <previous_attempt variant="unverified_match" function="${SYMBOL}" unit="${UNIT}" decision="unresolved" analyzed_rev="feedface0123">`,
-        `        <what_happened>This function's code reaches 100%, but the steering gate could not verify that it is real code: it could neither prove the match real nor attribute it to steering. It is marked "100% unverified": not done and not counted as matched. The reduced candidate reaches 97.2%.</what_happened>`,
-        "        <instruction>Keep the parts that are real code. Find what each unexplained edit below stands for: the real inline, type, call or construct the original had, or evidence (`real_code_evidence`) that it is the original's code. Produce a version the steering gate certifies: separate real fixes from steering in their own statements and remove every steering edit. Resubmitting the same code leaves it unverified.</instruction>",
-        '        <match base="96.4%" candidate="100%" real_only="97.2%" />',
-        "        <unexplained_edits>",
+        `    <previous_attempt variant="unverified_match" label="100% but unverified" function="${SYMBOL}" unit="${UNIT}" decision="unresolved" analyzed_rev="feedface0123" trusted_base_rev="81248bda" source_path="src/M3DUtil/MActor.cpp" total_edits="1" omitted_edits="0" full_report_locator="unavailable">`,
+        `        <what_happened>This function's code reaches 100%, but the steering gate could not certify it: it could neither prove the match real nor attribute it to probe edits. It is "100% but unverified": not done and not counted as matched. Nothing in the current source is certified, including edits this block does not list.</what_happened>`,
+        "        <instruction>Read full_report_locator and the source at trusted_base_rev, then follow the unverified_match steps in the system prompt's method. Resubmitting the same code leaves it unverified.</instruction>",
+        '        <match base="96.4%" candidate="100%" />',
+        '        <unexplained_edits shown="1" total="1">',
         '            <edit at="src/M3DUtil/MActor.cpp:212" status="unresolved" shapes="other">',
         "                <base>mLightData-&gt;set(i, c);</base>",
         "                <unexplained>J3DLightObj* l = getLightData(); / l-&gt;set(i, c);</unexplained>",
@@ -280,6 +286,40 @@ describe("previous_attempt for a 100% unverified match", () => {
       ].join("\n"));
       expect(renderContext({ previous_attempt: attempt }, "shadow")).not.toContain("{{");
     });
+  });
+
+  test("the block counts omitted edits, carries the report locator and shows open evidence reviews from the review store's hook", () => {
+    const groups = Array.from({ length: 8 }, (_, index) => ({ id: `g${index}`, file: "src/M3DUtil/MActor.cpp", line: 200 + index, text: `edit ${index};`, status: "unresolved" }));
+    withStore((store) => {
+      recordUnverifiedMatch(store, { ...UNVERIFIED, report: { ...UNVERIFIED.report, unexplained_edit_groups: groups, full_report_locator: "build/steering/reports/obs-7.json" } });
+      const lookups: unknown[] = [];
+      const attempt = steeringPreviousAttempt(store, {
+        ...target,
+        // The path provisioning delivered for this claim (worker task file).
+        fullReportLocator: "build/steering/reports/obs-7.json",
+        openReviews: (_store, lookupTarget) => {
+          lookups.push(lookupTarget);
+          return [{ id: "rev-1", site_file: "src/M3DUtil/MActor.cpp", site_lines: "212-213", summary: "map-backed weak inline getLightData", base_rev: "81248bda" }];
+        },
+      });
+      expect(lookups).toEqual([{ gameId: "sms", unit: UNIT, symbol: SYMBOL }]);
+      expect(attempt).toMatchObject({ total_edits: 8, omitted_edits: 2, full_report_locator: "build/steering/reports/obs-7.json" });
+      const xml = previousAttemptXml({ previous_attempt: attempt }, "enforce");
+      expect(xml).toContain('total_edits="8" omitted_edits="2" full_report_locator="build/steering/reports/obs-7.json"');
+      expect(xml).toContain('<unexplained_edits shown="6" total="8">');
+      expect(xml.match(/<edit at=/g)?.length).toBe(6);
+      expect(xml).toContain([
+        '        <open_reviews total="1">',
+        '            <review id="rev-1" site="src/M3DUtil/MActor.cpp:212-213" status="pending">map-backed weak inline getLightData</review>',
+        "        </open_reviews>",
+      ].join("\n"));
+
+      // A failing lookup never hides the block.
+      const failing = steeringPreviousAttempt(store, { ...target, openReviews: () => { throw new Error("store down"); } });
+      expect(failing).toMatchObject({ variant: "unverified_match", open_reviews: [] });
+    });
+    // An explicit locator wins; the samples' builder takes the same options.
+    expect(previousAttemptFromUnverified({ ...UNVERIFIED, recordedAt: "2026-10-17T00:00:00.000Z" }, { fullReportLocator: "build/steering/reports/x.json" }).full_report_locator).toBe("build/steering/reports/x.json");
   });
 
   test("the unverified row wins over a rollback; once cleared the rollback lookup and its done guard apply", () => {
@@ -315,5 +355,31 @@ describe("previous_attempt for a 100% unverified match", () => {
       expect(previousAttemptXml({ previous_attempt: attempt }, "off")).toBe("");
       expect(renderContext({ previous_attempt: attempt }, "off")).toBe(renderContext({}, "off"));
     });
+  });
+});
+
+describe("steering_probe compiler_delta", () => {
+  test("renders a measured delta, an unavailable one, or none yet", () => {
+    const present = compilerDeltaXml({ version: "GC/1.2.5", observation_id: "obs-7", summary_lines: ["+1 node: temp l, coalesced neighbour of `this`", "`this` r28 -> r31"], changes: [{ kind: "node_added" }, { kind: "register" }] });
+    expect(present).toBe([
+      '        <compiler_delta status="present" version="GC/1.2.5" observation_id="obs-7" changes="2">',
+      "            +1 node: temp l, coalesced neighbour of `this`",
+      "            `this` r28 -&gt; r31",
+      "        </compiler_delta>",
+    ].join("\n"));
+    expect(compilerDeltaXml({ unavailable: "traced-object-mismatch" })).toBe('        <compiler_delta status="unavailable" reason="traced-object-mismatch" />');
+    expect(compilerDeltaXml(undefined)).toBe('        <compiler_delta status="absent" />');
+    const many = compilerDeltaXml({ summary_lines: Array.from({ length: 15 }, (_, index) => `change ${index}`) });
+    expect(many).toContain('omitted_lines="3"');
+    expect(many).not.toContain("change 12");
+  });
+
+  test("the probe block shows the delta once, outside probe_json", () => {
+    const xml = steeringProbeXml({ steering_probe: { ...PROBE, revision: "81248bda", compiler_delta: { unavailable: "no traced build for GC/1.1p1" } } }, "enforce");
+    expect(xml).toContain('revision="81248bda"');
+    expect(xml).toContain('<compiler_delta status="unavailable" reason="no traced build for GC/1.1p1" />');
+    expect(xml.match(/no traced build/g)?.length).toBe(1);
+    expect(steeringProbeXml({ steering_probe: PROBE }, "enforce")).toContain('<compiler_delta status="absent" />');
+    expect(steeringProbeXml({ steering_probe: PROBE }, "off")).toBe("");
   });
 });
